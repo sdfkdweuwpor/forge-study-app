@@ -77,8 +77,8 @@
   --scrim: rgba(15, 15, 15, 0.35);
 
   /* Loading placeholders: the bone, and the lighter band that sweeps across it */
-  --skeleton: rgba(55, 53, 47, 0.07);
-  --skeleton-shine: rgba(255, 255, 255, 0.65);
+  --skeleton: rgba(55, 53, 47, 0.08);
+  --skeleton-shine: rgba(255, 255, 255, 0.5);
 }
 
 [data-theme='dark'] {
@@ -87,7 +87,7 @@
   --bg: #191919;
   --bg-sidebar: #202020;
   --bg-elevated: #252525;
-  --bg-raised: #2f2f2f;
+  --bg-raised: #383838;
   --bg-hover: rgba(255, 255, 255, 0.055);
   --bg-active: rgba(255, 255, 255, 0.09);
   --bg-inverse: #3a3a3a;
@@ -136,7 +136,7 @@
     --bg: #191919;
     --bg-sidebar: #202020;
     --bg-elevated: #252525;
-    --bg-raised: #2f2f2f;
+    --bg-raised: #383838;
     --bg-hover: rgba(255, 255, 255, 0.055);
     --bg-active: rgba(255, 255, 255, 0.09);
     --bg-inverse: #3a3a3a;

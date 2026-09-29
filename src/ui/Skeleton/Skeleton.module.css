@@ -7,9 +7,9 @@
   background-color: var(--skeleton);
   background-image: linear-gradient(
     100deg,
-    transparent 30%,
+    transparent 38%,
     var(--skeleton-shine) 50%,
-    transparent 70%
+    transparent 62%
   );
   background-repeat: no-repeat;
   background-size: 300% 100%;

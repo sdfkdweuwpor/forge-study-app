@@ -548,7 +548,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - 9 tag colors × bg/text × 2 themes; 6 accent presets (`data-accent`); spacing, radius, type scale, motion (`--dur-1/2/3`, `--ease`); focus ring; reduced-motion overrides.
   - Self-hosted Inter with `cv11`/`ss01`: the official `inter-ui` Latin subset, because Fontsource's Google build strips those features (DECISIONS).
   - `contrast.test.ts` parses the token files and asserts WCAG AA for every text/background pair, compositing rgba over its background.
-- [ ] **2B [D] Primitives** (after 2A): Button, IconButton, Input, Textarea (auto-grow), Checkbox (round/square), Tag, Kbd, Tooltip (with Kbd hints), Toggle, SegmentedControl, Tabs, ProgressBar, ProgressRing, Skeleton, EmptyState.
+- [x] **2B [D] Primitives** (after 2A): Button, IconButton, Input, Textarea (auto-grow), Checkbox (round/square), Tag, Kbd, Tooltip (with Kbd hints), Toggle, SegmentedControl, Tabs, ProgressBar, ProgressRing, Skeleton, EmptyState.
   - Each covers hover, active, focus-visible, disabled and `[data-force=hover|active|focus]` for demos.
   - Each has a demo file `src/features/design/sections/<X>.demo.tsx`.
 - [x] **2C [B] Overlays** (∥ 2B, after 2A): Popover, Dropdown, Modal, and Toast plus ToastProvider with Undo and `aria-live`. Each owns its `src/ui/<X>/` folder and demo file.

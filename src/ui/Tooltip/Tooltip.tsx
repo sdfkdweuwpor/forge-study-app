@@ -45,8 +45,12 @@ const GAP = 6
 const MARGIN = 8
 const SKIP_DELAY_MS = 400
 const HIDE_GRACE_MS = 100
-/** Shared by all tooltips: moving from one trigger to the next skips the delay (like macOS). */
+/**
+ * Shared by all tooltips, like macOS: while one is open (or just closed), the next opens without
+ * the delay, and opening one closes the other at once.
+ */
 let lastHiddenAt = Number.NEGATIVE_INFINITY
+let hideOpenTooltip: (() => void) | null = null
 
 const INHERITED_ATTRS = ['data-theme', 'data-accent', 'data-reduced-motion'] as const
 
@@ -94,7 +98,7 @@ export function Tooltip({
     let pressed = false
     const show = (immediate: boolean) => {
       clearTimers()
-      const warm = performance.now() - lastHiddenAt < SKIP_DELAY_MS
+      const warm = hideOpenTooltip !== null || performance.now() - lastHiddenAt < SKIP_DELAY_MS
       if (immediate || warm || delay <= 0) setOpen(true)
       else openTimer.current = window.setTimeout(() => setOpen(true), delay)
     }
@@ -137,6 +141,8 @@ export function Tooltip({
     if (!isOpen || !trigger) return
     const tip = tipRef.current
     if (!tip) return
+    if (hideOpenTooltip !== hide) hideOpenTooltip?.()
+    hideOpenTooltip = hide
 
     for (const attr of INHERITED_ATTRS) {
       const value = trigger.closest(`[${attr}]`)?.getAttribute(attr)
@@ -168,6 +174,7 @@ export function Tooltip({
     document.addEventListener('keydown', onKey)
     return () => {
       lastHiddenAt = performance.now()
+      if (hideOpenTooltip === hide) hideOpenTooltip = null
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', hide, true)
       document.removeEventListener('keydown', onKey)

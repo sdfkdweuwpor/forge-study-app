@@ -1,0 +1,131 @@
+/*
+ * The nav is a size container: below 480px the middle crumbs collapse into "…". Middle crumbs are
+ * clipped, not removed, so screen readers still hear the whole trail.
+ */
+.nav {
+  container-type: inline-size;
+  min-width: 0;
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+}
+
+.list {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.item[data-last] {
+  flex-shrink: 1;
+}
+
+.sep {
+  flex: none;
+  padding-inline: var(--space-1);
+  color: var(--text-faint); /* decorative, aria-hidden */
+  user-select: none;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.label {
+  min-width: 0;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item[data-last] .label {
+  max-width: 34ch;
+}
+
+.icon {
+  flex: none;
+  font-size: var(--fs-16);
+  line-height: 1;
+}
+
+.current {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.link {
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.link:hover,
+.link[data-force~='hover'] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.link:active,
+.link[data-force~='active'] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+@media (pointer: coarse) {
+  .link,
+  .current {
+    min-height: var(--tap-min);
+  }
+}
+
+/* The collapsed marker only exists for the narrow layout. */
+.collapsed {
+  display: none;
+  align-items: center;
+}
+
+.ellipsis {
+  padding: 2px var(--space-2);
+  color: var(--text-muted);
+}
+
+@container (max-width: 480px) {
+  .nav[data-collapsible] .item[data-middle] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .nav[data-collapsible] .collapsed {
+    display: inline-flex;
+  }
+
+  .label {
+    max-width: 14ch;
+  }
+
+  .item[data-last] .label {
+    max-width: 22ch;
+  }
+}

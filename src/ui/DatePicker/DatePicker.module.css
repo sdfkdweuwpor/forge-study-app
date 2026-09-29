@@ -1,0 +1,208 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* One bordered control for date | time | clear, styled like Input. */
+.field {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  max-width: 100%;
+  padding-inline: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color var(--dur-1) var(--ease);
+}
+
+.field[data-size='sm'] {
+  height: var(--control-h-sm);
+}
+
+.field:hover:not([data-disabled]),
+.field[data-force~='hover'] {
+  border-color: var(--text-faint);
+}
+
+/* Keyboard focus on either input rings the whole control (text inputs always match :focus-visible). */
+.field:has(.input:focus-visible),
+.field[data-force~='focus'] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--accent);
+}
+
+.field[data-invalid] {
+  border-color: var(--danger);
+}
+
+.field[data-disabled] {
+  background: var(--bg-sidebar);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.input {
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input[data-part='date'] {
+  flex: 1 1 auto;
+  min-width: 8.75rem;
+}
+
+.input[data-part='time'] {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+}
+
+/* An empty field reads as a placeholder (muted, 4.5:1). */
+.input[data-empty] {
+  color: var(--text-muted);
+}
+
+.input:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.input::-webkit-calendar-picker-indicator {
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
+  cursor: pointer;
+  transition:
+    opacity var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.input::-webkit-calendar-picker-indicator:hover {
+  background: var(--bg-hover);
+  opacity: 1;
+}
+
+.divider {
+  align-self: stretch;
+  width: 1px;
+  margin-block: var(--space-2);
+  background: var(--border-strong);
+}
+
+.clear {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.clear:hover,
+.clear[data-force~='hover'] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.clear:active,
+.clear[data-force~='active'] {
+  background: var(--bg-active);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.chip {
+  height: 24px;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.chip:hover:not(:disabled),
+.chip[data-force~='hover'] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.chip:active:not(:disabled),
+.chip[data-force~='active'] {
+  transform: scale(var(--scale-press));
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.chip:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--fs-12);
+}
+
+@media (pointer: coarse) {
+  .field,
+  .field[data-size='sm'] {
+    height: var(--tap-min);
+  }
+
+  .input {
+    font-size: var(--fs-16); /* stops iOS zooming into the field */
+  }
+
+  .clear {
+    width: var(--tap-min);
+    height: 100%;
+    margin-inline: 0;
+  }
+
+  .chip {
+    position: relative;
+    height: 32px;
+    padding-inline: var(--space-3);
+  }
+
+  /* Extends the tap target to 44px without growing the chip. */
+  .chip::after {
+    content: '';
+    position: absolute;
+    inset: -6px -2px;
+  }
+}

@@ -524,9 +524,9 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - ESLint flat config with the §1.1 layer rules, `no-explicit-any` and `no-console` as errors, react-hooks and jsx-a11y.
   - Vite plugin that writes `dist/_headers` from `security-headers.mjs`; `preview.headers` uses the same object.
   - Accept: `npm run typecheck && npm run lint && npm test -- --run && npm run build` pass; `npm run shoot` writes 4 PNGs of a hello page.
-- [ ] **1B [A] Data layer** (after 1A; ∥ 1C). Owns `src/db/{types,schema,db,defaults,events}.ts`, `src/db/repos/settings.ts`, `src/db/hooks/useSettings.ts`, `src/db/migrations/README.md`, `src/lib/ids.ts`, `src/logic/dates.ts` and their tests.
+- [x] **1B [A] Data layer** (after 1A; ∥ 1C). Owns `src/db/{types,schema,db,defaults,events}.ts`, `src/db/repos/settings.ts`, `src/db/hooks/useSettings.ts`, `src/db/migrations/README.md`, `src/lib/ids.ts`, `src/logic/dates.ts` and their tests.
   - Accept (fake-indexeddb): all 26 tables open at v1; stamping hooks set and preserve timestamps; `ensureSettings` is idempotent; the event bus emits after commit; DST-safe `dates.ts` tests pass.
-- [ ] **1C [B] App shell** (∥ 1B; codes against the §3.2 Settings type and `useSettings()`). Owns `src/app/**`, `src/lib/{keys,localPrefs,platform}.ts`, `src/styles/{tokens,reset,global}.css` (brief tokens verbatim, extended by D in P2), `src/features/*/feature.ts` stubs (Placeholder routes), and `scripts/shots/shell.ts`.
+- [x] **1C [B] App shell** (∥ 1B; codes against the §3.2 Settings type and `useSettings()`). Owns `src/app/**`, `src/lib/{keys,localPrefs,platform}.ts`, `src/styles/{tokens,reset,global}.css` (brief tokens verbatim, extended by D in P2), `src/features/*/feature.ts` stubs (Placeholder routes), and `scripts/shots/shell.ts`.
   - Router with tests for matching and params.
   - Registry with `registry.test.ts`.
   - ShortcutProvider (`mod+\`, `g *`, `esc`).

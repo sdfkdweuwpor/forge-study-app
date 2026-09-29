@@ -1,0 +1,174 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.shell[data-resizing] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* ── Skip link ───────────────────────────────────────────────────────────── */
+.skip {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: calc(var(--z-overlay) + 1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  transform: translateY(calc(-100% - 48px));
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+/* ── Desktop sidebar ─────────────────────────────────────────────────────── */
+.sidebarWrap {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sidebar);
+  flex: none;
+  width: var(--sidebar-w);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  transition:
+    width var(--dur-3) var(--ease),
+    visibility 0s linear 0s;
+}
+
+.shell[data-resizing] .sidebarWrap {
+  transition: none;
+}
+
+.sidebarWrap[data-collapsed] {
+  width: 0;
+  visibility: hidden;
+  transition:
+    width var(--dur-3) var(--ease),
+    visibility 0s linear var(--dur-3);
+}
+
+.sidebarInner {
+  width: var(--sidebar-w);
+  height: 100%;
+  transition: transform var(--dur-3) var(--ease);
+}
+
+.sidebarWrap[data-collapsed] .sidebarInner {
+  transform: translateX(-100%);
+}
+
+.shell[data-resizing] .sidebarInner {
+  transition: none;
+}
+
+.resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* A 1px hairline that becomes the accent while hovered, focused or dragged. */
+.resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transition:
+    background var(--dur-1) var(--ease),
+    width var(--dur-1) var(--ease);
+}
+
+.resizer:hover::after,
+.resizer[data-active]::after {
+  width: 2px;
+  background: var(--accent);
+}
+
+.resizer:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.openButton {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: var(--z-sidebar);
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--text-faint);
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.openButton:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.openButton:active {
+  background: var(--bg-active);
+}
+
+.main {
+  min-height: 100%;
+}
+
+.main:focus {
+  outline: none;
+}
+
+/* Generous top padding, like a Notion page. */
+.pageOuter {
+  padding: 96px 48px 128px;
+}
+
+.page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  animation: pageIn var(--dur-3) var(--ease);
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shell[data-mode='tablet'] .pageOuter {
+  padding: 80px 32px 96px;
+}
+
+/* 16px side padding, no horizontal scroll, room for the tab bar and the + button. */
+.shell[data-mode='mobile'] .pageOuter {
+  padding: var(--space-8) var(--space-4) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px);
+}

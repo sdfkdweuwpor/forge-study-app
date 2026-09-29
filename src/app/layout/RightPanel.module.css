@@ -1,0 +1,10 @@
+.panel {
+  position: sticky;
+  top: 0;
+  flex: none;
+  width: 320px;
+  height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+}

@@ -1,0 +1,193 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2);
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+  --row-h: 30px;
+}
+
+.sidebar[data-touch] {
+  --row-h: 40px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-1) 0 var(--space-2);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  border-radius: var(--radius-md);
+  color: var(--text);
+}
+
+.brandName {
+  font-size: var(--fs-14);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--text-faint);
+  opacity: 0;
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    opacity var(--dur-1) var(--ease);
+}
+
+/* Quiet by default, alive on interaction: the collapse button appears with the sidebar hovered or focused. */
+.sidebar:hover .iconButton,
+.sidebar:focus-within .iconButton {
+  opacity: 1;
+}
+
+.iconButton:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.iconButton:active {
+  background: var(--bg-active);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  margin: var(--space-2) 0 var(--space-3);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.sidebar[data-touch] .search {
+  height: 40px;
+}
+
+.search:hover {
+  background: var(--bg-active);
+}
+
+.searchLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.hint {
+  font-size: var(--fs-12);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.row:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.row:active {
+  background: var(--bg-active);
+}
+
+.row[data-active] {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.icon {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.row:hover .icon,
+.row[data-active] .icon {
+  color: var(--text);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 1px 0 var(--space-1);
+  padding-left: var(--space-4);
+}
+
+.sub:empty {
+  display: none;
+}
+
+.row[data-sub] {
+  min-height: calc(var(--row-h) - 2px);
+  font-size: 13px;
+}
+
+.divider {
+  height: 1px;
+  margin: var(--space-2) var(--space-2);
+  border: 0;
+  background: var(--border);
+}
+
+.bottom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.bottom:empty {
+  display: none;
+}

@@ -1,0 +1,139 @@
+/*
+ * Design tokens (BRIEF §3.2–3.5). Plain custom properties only; Phase 2 (designer) extends this file.
+ * Theme is chosen by <html data-theme="light|dark"> (set before first paint by public/theme-init.js and
+ * kept in sync by ThemeProvider). Without the attribute, the OS preference applies.
+ */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --bg-sidebar: #f7f7f5;
+  --bg-hover: rgba(55, 53, 47, 0.06);
+  --bg-active: rgba(55, 53, 47, 0.09);
+  --bg-elevated: #ffffff;
+  --text: #37352f;
+  --text-muted: rgba(55, 53, 47, 0.65);
+  --text-faint: rgba(55, 53, 47, 0.45);
+  --border: rgba(55, 53, 47, 0.09);
+  --border-strong: rgba(55, 53, 47, 0.16);
+  --accent: #2383e2;
+  --accent-soft: rgba(35, 131, 226, 0.1);
+  --success: #0f7b6c;
+  --warning: #d9730d;
+  --danger: #e03e3e;
+  --xp: #cb912f; /* gold: XP and rewards only */
+  --shadow-pop:
+    0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
+    0 9px 24px rgba(15, 15, 15, 0.2);
+  --scrim: rgba(15, 15, 15, 0.35);
+  --on-accent: #ffffff;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #191919;
+  --bg-sidebar: #202020;
+  --bg-hover: rgba(255, 255, 255, 0.055);
+  --bg-active: rgba(255, 255, 255, 0.09);
+  --bg-elevated: #252525;
+  --text: rgba(255, 255, 255, 0.87);
+  --text-muted: rgba(255, 255, 255, 0.55);
+  --text-faint: rgba(255, 255, 255, 0.35);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --accent: #2383e2;
+  --accent-soft: rgba(35, 131, 226, 0.2);
+  --success: #4dab9a;
+  --warning: #ffa344;
+  --danger: #ff7369;
+  --xp: #e0a93b;
+  --shadow-pop:
+    0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4), 0 9px 24px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --on-accent: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+
+    --bg: #191919;
+    --bg-sidebar: #202020;
+    --bg-hover: rgba(255, 255, 255, 0.055);
+    --bg-active: rgba(255, 255, 255, 0.09);
+    --bg-elevated: #252525;
+    --text: rgba(255, 255, 255, 0.87);
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --text-faint: rgba(255, 255, 255, 0.35);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --accent: #2383e2;
+    --accent-soft: rgba(35, 131, 226, 0.2);
+    --success: #4dab9a;
+    --warning: #ffa344;
+    --danger: #ff7369;
+    --xp: #e0a93b;
+    --shadow-pop:
+      0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4),
+      0 9px 24px rgba(0, 0, 0, 0.5);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --on-accent: #ffffff;
+  }
+}
+
+/* Theme-independent scales */
+:root {
+  /* Type (BRIEF §3.3) */
+  --font-ui:
+    'Inter Variable', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-32: 2rem;
+  --fs-40: 2.5rem;
+  --lh-body: 1.5;
+  --lh-heading: 1.2;
+
+  /* Spacing (4px scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* Motion (BRIEF §3.5) */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 280ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout */
+  --sidebar-w: 240px;
+  --page-max: 900px;
+  --tabbar-h: 56px;
+  --tap-min: 44px;
+
+  /* Focus ring (BRIEF §3.9): 2px accent, 2px offset */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* Stacking */
+  --z-sidebar: 20;
+  --z-tabbar: 30;
+  --z-drawer: 40;
+  --z-overlay: 50;
+}

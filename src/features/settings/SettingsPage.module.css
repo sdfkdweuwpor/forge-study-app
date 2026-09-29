@@ -1,0 +1,90 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.title {
+  font-size: var(--fs-32);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: var(--lh-heading);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: 500;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--tap-min);
+  padding: var(--space-2) 0;
+}
+
+.fieldText {
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--fs-14);
+  font-weight: 500;
+}
+
+.help {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.select,
+.button {
+  flex: none;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+  font-size: var(--fs-14);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.select:hover,
+.button:hover {
+  background: var(--bg-hover);
+}
+
+.button:active {
+  background: var(--bg-active);
+}
+
+.skeleton {
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+
+.status {
+  min-height: 1.5em;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+@media (max-width: 639px) {
+  .select,
+  .button {
+    min-height: var(--tap-min);
+  }
+}

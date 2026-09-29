@@ -1,10 +1,12 @@
 import { PanelLeftClose, Search } from 'lucide-react'
+import { IconButton } from '@/ui/IconButton'
+import { Kbd } from '@/ui/Kbd'
 import { useOverlays } from '../providers/OverlayProvider'
 import { Slot, useSlotCount } from '../registry'
 import { Link, useRoute } from '../router'
 import type { RouteName } from '../router'
 import { Logo } from './Logo'
-import { PRIMARY_NAV, SECONDARY_NAV, TASK_SUBNAV, isNavActive, keyHint, type NavItem } from './nav'
+import { PRIMARY_NAV, SECONDARY_NAV, TASK_SUBNAV, isNavActive, type NavItem } from './nav'
 import styles from './Sidebar.module.css'
 
 interface SidebarProps {
@@ -67,16 +69,15 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
           <span className={styles.brandName}>Forge</span>
         </Link>
         {onCollapse ? (
-          <button
-            type="button"
-            className={styles.iconButton}
+          <IconButton
+            className={styles.collapse}
             data-sidebar-collapse=""
+            label="Collapse sidebar"
+            shortcut={'mod+\\'}
+            icon={<PanelLeftClose />}
+            tooltipSide="bottom"
             onClick={onCollapse}
-            aria-label="Collapse sidebar"
-            title={`Collapse sidebar  ${keyHint('mod+\\')}`}
-          >
-            <PanelLeftClose size={18} strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          />
         ) : null}
       </div>
 
@@ -93,7 +94,7 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
         <Search size={16} strokeWidth={1.75} aria-hidden="true" />
         <span className={styles.searchLabel}>Search</span>
         <span className={styles.hint} aria-hidden="true">
-          {keyHint('mod+k')}
+          <Kbd keys="mod+k" variant="plain" size="sm" />
         </span>
       </button>
 

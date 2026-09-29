@@ -1,4 +1,5 @@
 import { useEffect, type ComponentType, type ReactNode } from 'react'
+import { ToastProvider } from '@/ui/Toast'
 import { ErrorBoundary } from './ErrorBoundary'
 import { RootErrorScreen } from './ErrorScreens'
 import { runAppStart } from './boot'
@@ -46,8 +47,9 @@ function FeatureProviders({ registry, children }: { registry: Registry; children
 
 /**
  * Provider order (outer → inner): error boundary, theme, registry, router, overlays, shortcuts,
- * feature providers, then the shell. Nothing here imports a feature: pages, commands, shortcuts and
- * slots all arrive through the registry.
+ * toasts (so `useToast()` works in every feature provider and page), feature providers, then the
+ * shell. Nothing here imports a feature: pages, commands, shortcuts and slots all arrive through
+ * the registry.
  */
 export function App({ registry }: { registry: Registry }) {
   return (
@@ -57,11 +59,13 @@ export function App({ registry }: { registry: Registry }) {
           <RouterProvider>
             <OverlayProvider>
               <ShortcutProvider>
-                <FeatureProviders registry={registry}>
-                  <OverlayEscape />
-                  <AppStart registry={registry} />
-                  <Shell />
-                </FeatureProviders>
+                <ToastProvider>
+                  <FeatureProviders registry={registry}>
+                    <OverlayEscape />
+                    <AppStart registry={registry} />
+                    <Shell />
+                  </FeatureProviders>
+                </ToastProvider>
               </ShortcutProvider>
             </OverlayProvider>
           </RouterProvider>

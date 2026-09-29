@@ -1,6 +1,7 @@
 import { PanelLeft } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { PREF_KEYS, readBoolPref, readNumberPref, writeBoolPref, writePref } from '@/lib/localPrefs'
+import { IconButton } from '@/ui/IconButton'
 import { BREAKPOINTS, useMediaQuery } from '../hooks/useMediaQuery'
 import { Slot } from '../registry'
 import { RouteView } from '../RouteView'
@@ -14,7 +15,6 @@ import { RouteAnnouncer } from './RouteAnnouncer'
 import styles from './Shell.module.css'
 import { Sidebar } from './Sidebar'
 import { TabBar } from './TabBar'
-import { keyHint } from './nav'
 
 type Overlay = 'drawer' | 'more'
 
@@ -132,20 +132,20 @@ export function Shell() {
 
       <div className={styles.content} inert={overlayOpen}>
         {showOpenButton ? (
-          <button
+          <IconButton
             ref={openButtonRef}
-            type="button"
             className={styles.openButton}
+            label="Open sidebar"
+            shortcut={'mod+\\'}
+            icon={<PanelLeft />}
+            size="md"
+            tooltipSide="right"
             onClick={toggleSidebarFromButton}
-            aria-label="Open sidebar"
             aria-expanded={mode === 'tablet' ? drawerOpen : !collapsed}
-            title={`Open sidebar  ${keyHint('mod+\\')}`}
-          >
-            <PanelLeft size={18} strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          />
         ) : null}
         <main id="main" tabIndex={-1} className={styles.main}>
-          <div className={styles.pageOuter}>
+          <div className={styles.pageOuter} data-route={route.name}>
             <div className={styles.page} key={pageKey}>
               <RouteView />
             </div>

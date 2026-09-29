@@ -1,0 +1,462 @@
+/*
+ * /design. Two surfaces per component, one per theme: each column sets data-theme (and data-accent)
+ * itself, so its own tokens resolve inside it and it paints its own background.
+ *
+ * Layout by viewport width (the sidebar takes 240px of it):
+ *   < 1120px   columns stack; the “Jump to” bar is sticky (static on tablets, where the shell's
+ *              open-sidebar button sits in the top-left corner)
+ *   ≥ 1120px   light and dark side by side
+ *   ≥ 1440px   the toolbar is sticky and the table of contents becomes a sticky rail
+ */
+
+.root {
+  --bar-h: 56px;
+  --page-pad: var(--space-4);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .root {
+    --page-pad: var(--space-8);
+  }
+}
+
+@media (min-width: 1024px) {
+  .root {
+    --page-pad: var(--space-12);
+  }
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.lede {
+  max-width: 68ch;
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-8);
+  min-height: var(--bar-h);
+  padding: var(--space-3) 0;
+  border-block: 1px solid var(--border);
+}
+
+@media (min-width: 1440px) {
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    border-top: 0;
+    background: var(--bg);
+  }
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.controlLabel {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.controlNote {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.accents {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.swatch {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .swatch {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+}
+
+.swatchInput {
+  /* Visually hidden by .sr-only; the ring and dot are the visible state. */
+  margin: 0;
+}
+
+.swatchRing {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 0 var(--text);
+  transition: box-shadow var(--dur-1) var(--ease);
+}
+
+.swatch:hover .swatchRing {
+  box-shadow: inset 0 0 0 2px var(--border-strong);
+}
+
+.swatchInput:checked + .swatchRing {
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+.swatchInput:focus-visible + .swatchRing {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.swatchDot {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+/* ── Skipped demos ───────────────────────────────────────────────────────── */
+
+.problems {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-size: var(--fs-14);
+}
+
+.problemsTitle {
+  font-weight: var(--fw-medium);
+}
+
+/* ── Table of contents ───────────────────────────────────────────────────── */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.toc {
+  /* Below 1440px: a full-bleed bar that sticks to the top of the page. */
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  margin: calc(var(--space-8) * -1 + var(--space-2)) calc(var(--page-pad) * -1) 0;
+  padding: 0 var(--page-pad);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .toc {
+    position: relative;
+  }
+}
+
+.tocToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-min);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-align: left;
+}
+
+.tocToggleLabel {
+  font-weight: var(--fw-medium);
+}
+
+.tocCurrent {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tocChevron {
+  flex: none;
+  transition: rotate var(--dur-2) var(--ease);
+}
+
+.toc[data-open] .tocChevron {
+  rotate: 180deg;
+}
+
+.tocList {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  max-height: min(60vh, 440px);
+  padding: var(--space-3) var(--page-pad) var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+}
+
+.toc[data-open] .tocList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tocGroupName {
+  display: block;
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+}
+
+.tocLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-1);
+}
+
+.tocLink {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+@media (pointer: coarse) {
+  .tocLink {
+    padding-block: var(--space-3);
+  }
+}
+
+.tocLink:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tocLink:active {
+  background: var(--bg-active);
+}
+
+.tocLink[aria-current='location'] {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+@media (min-width: 1440px) {
+  .layout {
+    display: grid;
+    grid-template-columns: 152px minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-6);
+  }
+
+  .toc {
+    top: calc(var(--bar-h) + var(--space-4));
+    z-index: auto;
+    max-height: calc(100vh - var(--bar-h) - var(--space-8));
+    max-height: calc(100dvh - var(--bar-h) - var(--space-8));
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-bottom: 0;
+    background: none;
+  }
+
+  .tocToggle {
+    display: none;
+  }
+
+  .tocList {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-height: none;
+    padding: 0;
+    overflow: visible;
+    border-bottom: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .tocLinks {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 1px;
+  }
+
+  .tocLink {
+    font-size: 13px;
+  }
+}
+
+/* ── Groups and sections ─────────────────────────────────────────────────── */
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.sectionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.groupTitle {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-24);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  scroll-margin-top: calc(var(--bar-h) + var(--space-4));
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sectionTitle {
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+  line-height: var(--lh-heading);
+}
+
+.sectionDesc {
+  max-width: 78ch;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 1120px) {
+  .pair[data-view='both'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/*
+ * One themed surface; --bg and --text come from the column's own data-theme. Its own stacking
+ * context, so a specimen's z-index (a popover panel, a toast stack) cannot paint over the sticky bars.
+ */
+.column {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.columnLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+/* ── A demo that threw ───────────────────────────────────────────────────── */
+
+.failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-size: var(--fs-14);
+}
+
+.failureTitle {
+  font-weight: var(--fw-medium);
+}
+
+.failureDetail {
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+}

@@ -54,40 +54,21 @@
   letter-spacing: -0.01em;
 }
 
-.iconButton {
-  display: inline-grid;
-  place-items: center;
-  width: var(--icon-btn);
-  height: var(--icon-btn);
-  border-radius: var(--radius-md);
-  color: var(--text-faint);
+/* Quiet by default, alive on interaction: the collapse button appears with the sidebar hovered or focused. */
+.collapse {
   opacity: 0;
-  transition:
-    background var(--dur-1) var(--ease),
-    color var(--dur-1) var(--ease),
-    opacity var(--dur-1) var(--ease);
 }
 
-/* Quiet by default, alive on interaction: the collapse button appears with the sidebar hovered or focused. */
-.sidebar:hover .iconButton,
-.sidebar:focus-within .iconButton {
+.sidebar:hover .collapse,
+.sidebar:focus-within .collapse {
   opacity: 1;
 }
 
 /* No hover on touch screens: the button would never appear. */
 @media (hover: none) {
-  .iconButton {
+  .collapse {
     opacity: 1;
   }
-}
-
-.iconButton:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.iconButton:active {
-  background: var(--bg-active);
 }
 
 .search {
@@ -113,9 +94,8 @@
 }
 
 .hint {
-  font-size: var(--fs-12);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
 }
 
 .scroll {

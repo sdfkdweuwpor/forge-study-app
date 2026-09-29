@@ -109,42 +109,27 @@
   min-width: 0;
 }
 
-.openButton {
+/*
+ * A fixed corner button. IconButton brings its own size and position, so these rules are one class
+ * more specific than its. Touch targets are at least 44px: the tablet layout, and any coarse pointer.
+ */
+.content .openButton {
   position: fixed;
   top: var(--space-3);
   left: var(--space-3);
   z-index: var(--z-sidebar);
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  color: var(--text-faint);
-  transition:
-    background var(--dur-1) var(--ease),
-    color var(--dur-1) var(--ease);
 }
 
-/* Touch targets are at least 44px: the tablet layout, and any coarse pointer. */
-.shell[data-mode='tablet'] .openButton {
+.shell[data-mode='tablet'] .content .openButton {
   width: var(--tap-min);
   height: var(--tap-min);
 }
 
 @media (pointer: coarse) {
-  .openButton {
+  .content .openButton {
     width: var(--tap-min);
     height: var(--tap-min);
   }
-}
-
-.openButton:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.openButton:active {
-  background: var(--bg-active);
 }
 
 .main {
@@ -169,6 +154,11 @@
   max-width: var(--page-max);
   margin: 0 auto;
   animation: pageIn var(--dur-3) var(--ease);
+}
+
+/* /design shows two themed columns side by side, so it opts out of the reading width. */
+.pageOuter[data-route='design'] .page {
+  max-width: 1760px;
 }
 
 @keyframes pageIn {

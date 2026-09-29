@@ -143,6 +143,18 @@ async function horizontalOverflow(page: Page): Promise<{
       if (box.width === 0 || box.height === 0) continue
       const style = getComputedStyle(el)
       if (style.position === 'fixed' || style.visibility === 'hidden') continue
+      // Content inside its own horizontal scroller (the Tabs list on /design) is not page overflow,
+      // as long as the scroller itself ends inside the viewport.
+      let scrolled = false
+      for (let up = el.parentElement; up && up.id !== 'root'; up = up.parentElement) {
+        const overflowX = getComputedStyle(up).overflowX
+        if (overflowX === 'visible') continue
+        if (up.getBoundingClientRect().right <= innerWidth + 1) {
+          scrolled = true
+          break
+        }
+      }
+      if (scrolled) continue
       // Text or boxes that end past the viewport are clipped by `body { overflow-x: hidden }`,
       // so scrollWidth alone can miss them.
       if (box.right > innerWidth + 1) {

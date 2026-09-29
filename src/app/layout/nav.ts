@@ -15,8 +15,6 @@ import {
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
-import { formatKeys } from '@/lib/keys'
-import { isMac } from '@/lib/platform'
 import type { RouteName } from '../router/routes'
 
 /** Routes whose params are all optional, so a nav link needs none. */
@@ -135,10 +133,4 @@ export const MoreIcon = Ellipsis
 
 export function isNavActive(item: NavItem, route: RouteName): boolean {
   return item.match.includes(route)
-}
-
-/** Keys as short display text: '⌘K' on Mac, 'Ctrl K' elsewhere. */
-export function keyHint(spec: string): string {
-  const mac = isMac()
-  return formatKeys(spec, mac).join(mac ? '' : ' ')
 }

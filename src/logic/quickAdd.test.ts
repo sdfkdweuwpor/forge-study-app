@@ -706,6 +706,35 @@ describe('bare daily / weekly / weekdays', () => {
   })
 })
 
+describe('repeated recurrence words stay fast', () => {
+  /** Best of a few runs, so one slow scheduler tick cannot fail the test. */
+  function fastest(input: string): number {
+    let best = Infinity
+    for (let run = 0; run < 3; run++) {
+      const start = performance.now()
+      parse(input)
+      best = Math.min(best, performance.now() - start)
+    }
+    return best
+  }
+
+  it('30 repeated daily words parse in under 20 ms', () => {
+    expect(fastest(`Water plants ${'daily '.repeat(30)}`.trim())).toBeLessThan(20)
+  })
+
+  it('30 mixed daily and weekly words parse in under 20 ms', () => {
+    const words = Array.from({ length: 30 }, (_, i) => (i % 2 === 0 ? 'daily' : 'weekly'))
+    expect(fastest(`Review notes ${words.join(' ')} #C779`)).toBeLessThan(20)
+  })
+
+  it('a run of repeated words still yields one recurrence and keeps the rest as title', () => {
+    const r = parse('Water plants daily daily daily')
+    expect(r.recurrence).toEqual({ freq: 'daily', interval: 1, byWeekday: [] })
+    expect(r.tokens.filter((t) => t.kind === 'recurrence')).toHaveLength(1)
+    expect(r.title).toBe('Water plants daily daily')
+  })
+})
+
 describe('quoted literals', () => {
   it('keeps quoted text verbatim without the quotes', () => {
     const input = 'Buy "tomorrow" milk'

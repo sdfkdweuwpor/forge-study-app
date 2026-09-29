@@ -162,6 +162,28 @@ describe('completeTask', () => {
     expect(eventTypes()).toContain('task.uncompleted')
   })
 
+  it('undo puts a doing task back to doing, with the time it started', async () => {
+    const task = await createTask({ title: 'Read chapter 4', status: 'doing' }, { now: NOW })
+    expect(task.startedAt).toBe(NOW)
+    const result = await completeTask(task.id, { now: NOW + 60_000 })
+    expect(await db.tasks.get(task.id)).toMatchObject({ status: 'done', startedAt: NOW })
+    await result.undo()
+    expect(await db.tasks.get(task.id)).toMatchObject({
+      status: 'doing',
+      startedAt: NOW,
+      completedAt: null,
+      completedDay: null,
+    })
+    expect(await netXp()).toBe(0)
+  })
+
+  it('undo puts a todo task back to todo with no start time', async () => {
+    const task = await createTask({ title: 'Renew library card' }, { now: NOW })
+    const result = await completeTask(task.id, { now: NOW })
+    await result.undo()
+    expect(await db.tasks.get(task.id)).toMatchObject({ status: 'todo', startedAt: null })
+  })
+
   it('awards again when a reopened task is completed a second time', async () => {
     const task = await createTask({ title: 'Renew library card' }, { now: NOW })
     const first = await completeTask(task.id, { now: NOW })
@@ -249,6 +271,40 @@ describe('recurring tasks', () => {
     await db.tasks.update(generated?.id ?? '', { updatedAt: NOW + 1_000 })
     await uncompleteTask(a.id, { now: NOW + 30 })
     expect(await db.tasks.count()).toBe(2)
+  })
+
+  it('completing again does not stack a duplicate on an edited generated instance', async () => {
+    const a = await weekly()
+    const first = await completeTask(a.id, { now: NOW })
+    const generated = first.next
+    expect(generated?.dueDate).toBe('2026-10-04')
+    // Edit the generated instance so reopening keeps it, then reopen and finish the first one again.
+    await updateTask(generated?.id ?? '', { priority: 4 }, { now: NOW + 20 })
+    await db.tasks.update(generated?.id ?? '', { updatedAt: NOW + 1_000 })
+    await uncompleteTask(a.id, { now: NOW + 30 })
+    const again = await completeTask(a.id, { now: NOW + 40 })
+    expect(again.next).toBeNull()
+    const open = (await db.tasks.toArray()).filter((t) => t.status !== 'done')
+    expect(open.filter((t) => t.dueDate === '2026-10-04')).toHaveLength(1)
+    // Undoing that second completion has nothing generated to remove: the edited one is still there.
+    await again.undo()
+    expect(await db.tasks.get(generated?.id ?? '')).toMatchObject({ priority: 4 })
+  })
+
+  it('undo moves an edited generated instance to the trash instead of deleting it', async () => {
+    const a = await weekly()
+    const result = await completeTask(a.id, { now: NOW })
+    const generatedId = result.next?.id ?? ''
+    await updateTask(generatedId, { priority: 4 }, { now: NOW + 20 })
+    await db.tasks.update(generatedId, { updatedAt: NOW + 1_000 })
+    await result.undo()
+    expect(await db.tasks.get(generatedId)).toBeUndefined()
+    const trashed = await db.trash.toArray()
+    expect(trashed).toHaveLength(1)
+    expect(trashed[0]).toMatchObject({ entityTable: 'tasks', entityId: generatedId })
+    // It comes back with its edit.
+    await restoreFromTrash(trashed[0]?.id ?? '')
+    expect(await db.tasks.get(generatedId)).toMatchObject({ priority: 4 })
   })
 
   it('a task finished days late is next due after today, not in the past', async () => {
@@ -342,6 +398,30 @@ describe('setTaskStatus', () => {
     expect(await netXp()).toBe(0)
     expect(await setTaskStatus('nope', 'done')).toBeNull()
   })
+
+  it('reopens a done task straight to doing in one step, with its XP taken back', async () => {
+    const task = await createTask({ title: 'Renew library card' }, { now: NOW })
+    await completeTask(task.id, { now: NOW })
+    const result = await setTaskStatus(task.id, 'doing', { now: NOW + 5 })
+    expect(await db.tasks.get(task.id)).toMatchObject({
+      status: 'doing',
+      startedAt: NOW + 5,
+      completedAt: null,
+      completedDay: null,
+    })
+    expect(await netXp()).toBe(0)
+    await result?.undo()
+    expect(await db.tasks.get(task.id)).toMatchObject({ status: 'done' })
+    expect(await netXp()).toBe(10)
+  })
+
+  it('uncompleteTask can reopen to doing', async () => {
+    const task = await createTask({ title: 'Renew library card' }, { now: NOW })
+    await completeTask(task.id, { now: NOW })
+    const result = await uncompleteTask(task.id, { now: NOW + 5, to: 'doing' })
+    expect(result.xp).toBe(-10)
+    expect(await db.tasks.get(task.id)).toMatchObject({ status: 'doing', startedAt: NOW + 5 })
+  })
 })
 
 describe('skipTask', () => {
@@ -409,6 +489,41 @@ describe('moveTask', () => {
     expect(await titles()).toEqual(['A', 'C', 'B'])
     const orders = (await db.tasks.toArray()).map((t) => t.order)
     expect(new Set(orders).size).toBe(3)
+  })
+
+  it('a renumber writes only the rows whose order changes', async () => {
+    const a = await createTask({ title: 'A', order: 0 }, { now: NOW })
+    const b = await createTask({ title: 'B', order: 0.0000001 }, { now: NOW })
+    const c = await createTask({ title: 'C', order: 5000 }, { now: NOW })
+    const d = await createTask({ title: 'D', order: 6000 }, { now: NOW })
+    await moveTask(d.id, { reorder: { above: a.id, below: b.id } })
+    // A already sits where the renumber puts it, so it is not rewritten and still looks untouched.
+    const untouched = await db.tasks.get(a.id)
+    expect(untouched?.updatedAt).toBe(untouched?.createdAt)
+    expect(untouched?.order).toBe(0)
+    expect(await titles()).toEqual(['A', 'D', 'B', 'C'])
+    const changed = await db.tasks.get(c.id)
+    expect(changed?.order).toBe(3072)
+  })
+
+  it('undo after a renumber puts the task back between its old neighbours', async () => {
+    const a = await createTask({ title: 'A', order: 0 }, { now: NOW })
+    const b = await createTask({ title: 'B', order: 0.0000001 }, { now: NOW })
+    await createTask({ title: 'C', order: 10 }, { now: NOW })
+    const d = await createTask({ title: 'D', order: 20 }, { now: NOW })
+    const result = await moveTask(d.id, { reorder: { above: a.id, below: b.id } })
+    expect(await titles()).toEqual(['A', 'D', 'B', 'C'])
+    // D's old number (20) means nothing after the renumber; its place is "after C".
+    await result?.undo()
+    expect(await titles()).toEqual(['A', 'B', 'C', 'D'])
+  })
+
+  it('undo falls back to the old number when a neighbour has been deleted', async () => {
+    const { a, b, c } = await three()
+    const result = await moveTask(c.id, { reorder: { above: a.id, below: b.id } })
+    await db.tasks.delete(b.id)
+    await result?.undo()
+    expect((await db.tasks.get(c.id))?.order).toBe(3000)
   })
 
   it('changes the date and pins a scheduled task', async () => {

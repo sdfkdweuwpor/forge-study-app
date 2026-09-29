@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { isEditableTarget, isMac } from '@/lib/platform'
-import { ModalPresenceContext } from '@/ui/Modal'
+import { ModalPresenceContext, type PresenceKind } from '@/ui/Modal'
 import { useOverlays } from '../providers/OverlayProvider'
 import { useRegistry } from '../registry/RegistryContext'
 import type { CommandCtx, ScopeId, ShortcutDef } from '../registry/types'
@@ -65,8 +65,12 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
     [controller, shortcuts, scopes],
   )
 
-  // `ui/Modal` cannot import the app, so it reports itself through this hook-in point.
-  const announceModal = useCallback(() => controller.pushScope('modal'), [controller])
+  // `ui/Modal`, `Dropdown` and `Popover` cannot import the app, so they report themselves through
+  // this hook-in point: a dialog is the `modal` scope, a menu or popover the lighter `menu` scope.
+  const announceModal = useCallback(
+    (kind: PresenceKind = 'modal') => controller.pushScope(kind),
+    [controller],
+  )
 
   return (
     <ShortcutContext.Provider value={value}>

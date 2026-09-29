@@ -1,6 +1,6 @@
 import { CalendarDays, Columns3, List } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { PREF_KEYS, readPref, writePref } from '@/lib/localPrefs'
+import { useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { PREF_KEYS, readPref, subscribePrefs, writePref } from '@/lib/localPrefs'
 import type { TaskListId } from '@/logic/taskLists'
 import {
   parseLayoutPrefs,
@@ -21,6 +21,19 @@ const LABELS: Record<TaskLayout, string> = { list: 'List', board: 'Board', calen
 /** The remembered layout of every list on this device (a preference, so it never syncs). */
 export function readLayoutPrefs(): LayoutPrefs {
   return parseLayoutPrefs(readPref(PREF_KEYS.tasksLayout))
+}
+
+/**
+ * The remembered layouts, live: choosing a layout anywhere (the switch, a palette command, another tab)
+ * writes the preference and every screen showing it re-renders.
+ */
+export function useLayoutPrefs(): LayoutPrefs {
+  const raw = useSyncExternalStore(
+    subscribePrefs,
+    () => readPref(PREF_KEYS.tasksLayout),
+    () => null,
+  )
+  return useMemo(() => parseLayoutPrefs(raw), [raw])
 }
 
 /** Remembers `layout` as the one `list` opens with, and returns all the remembered layouts. */

@@ -38,6 +38,7 @@ import type { HHmm, ID, ISODate, Priority, TagColor, Task } from '@/db/types'
 import { addDays } from '@/logic/dates'
 import { formatXp, relativeDay } from '@/logic/taskDisplay'
 import { useToast } from '@/ui/Toast'
+import { flushNotes } from './notesSave'
 import { useProjectIndex, type ProjectIndex } from './queries'
 
 /** How long the struck-through row stays before it leaves (BRIEF §3.5). */
@@ -89,7 +90,8 @@ export function useTaskEnv(): TaskEnv {
 
 export interface TaskActions {
   complete(task: Task): void
-  uncomplete(task: Task): void
+  /** Reopens a done task (to To do, or to Doing) with a toast that takes the XP back and offers Undo. */
+  uncomplete(task: Task, to?: 'todo' | 'doing'): void
   /** The checkbox: done → not done, not done → done, and undoes a completion still in motion. */
   toggleComplete(task: Task): void
   /** The checkbox's fill has finished: the strike-through and XP float can start. */
@@ -97,6 +99,8 @@ export interface TaskActions {
   rename(id: ID, title: string): Promise<void>
   setPriority(id: ID, priority: Priority): Promise<void>
   setDue(id: ID, dueDate: ISODate | null, dueTime?: HHmm | null): Promise<void>
+  /** Sets or clears only the time of day, leaving the date alone. */
+  setDueTime(id: ID, dueTime: HHmm | null): Promise<void>
   dueToday(id: ID): Promise<void>
   dueTomorrow(id: ID): Promise<void>
   skip(task: Task): void
@@ -247,17 +251,22 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   )
 
   const uncomplete = useCallback(
-    (task: Task) => {
+    (task: Task, to: 'todo' | 'doing' = 'todo') => {
+      // A completion still in its motion is over the moment the task is reopened.
+      if (phases.current.has(task.id)) drop(task.id)
       void guard('reopen the task', async () => {
-        const result = await uncompleteTask(task.id)
+        const result = await uncompleteTask(task.id, { to })
         toast.show({
-          title: `Reopened “${shorten(task.title)}”`,
+          title:
+            to === 'doing'
+              ? `Moved “${shorten(task.title)}” to Doing`
+              : `Reopened “${shorten(task.title)}”`,
           ...(result.xp < 0 ? { description: formatXp(result.xp) } : {}),
           undo: result.undo,
         })
       })
     },
-    [guard, toast],
+    [drop, guard, toast],
   )
 
   const toggleComplete = useCallback(
@@ -298,6 +307,11 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
     [guard],
   )
 
+  const setDueTime = useCallback(
+    (id: ID, dueTime: HHmm | null) => guard('change the time', () => updateTask(id, { dueTime })),
+    [guard],
+  )
+
   const dueToday = useCallback((id: ID) => setDue(id, today), [setDue, today])
   const dueTomorrow = useCallback((id: ID) => setDue(id, addDays(today, 1)), [setDue, today])
 
@@ -320,6 +334,8 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   const trash = useCallback(
     (task: Task) => {
       void guard('move the task to the trash', async () => {
+        // Words typed a moment ago are still in the notes field's timer; they go to the trash too.
+        await flushNotes(task.id)
         const result = await trashTask(task.id)
         if (!result) return
         toast.show({
@@ -354,6 +370,7 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
       rename,
       setPriority,
       setDue,
+      setDueTime,
       dueToday,
       dueTomorrow,
       skip,
@@ -372,6 +389,7 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
       registerRow,
       requestRow,
       setDue,
+      setDueTime,
       setPriority,
       skip,
       toggleComplete,

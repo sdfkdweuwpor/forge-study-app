@@ -52,6 +52,17 @@ export const MAX_INTERVAL = 99
 const clampInterval = (n: number): number =>
   Number.isFinite(n) ? Math.min(MAX_INTERVAL, Math.max(1, Math.floor(n))) : 1
 
+/**
+ * The interval a typed string means, once it is committed (blur or Enter): a whole number from 1 to 99.
+ * Text that is empty or not a number keeps `current`, so a half-typed field never changes the rule.
+ */
+export function parseInterval(text: string, current: number): number {
+  const trimmed = text.trim()
+  if (trimmed === '') return current
+  const n = Number(trimmed)
+  return Number.isFinite(n) ? clampInterval(Math.round(n)) : current
+}
+
 /** The form for an existing rule (or the default, "every 1 week", for none). */
 export function formFromRule(rule: RecurrenceRule | null): RecurrenceForm {
   if (!rule) return { every: 1, unit: 'week', days: [] }

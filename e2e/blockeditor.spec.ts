@@ -454,7 +454,9 @@ test.describe('moving around', () => {
     expect(await texts(ed)).toEqual(['one', 'three!', 'two'])
   })
 
-  test('Tab stays in the editor; Esc leaves it; there is a single tab stop', async ({ page }) => {
+  test('Tab moves focus out (no keyboard trap); Esc leaves too; a single tab stop', async ({
+    page,
+  }) => {
     await openEditor(page)
     const ed = notes(page)
     await expect(ed.locator('[role="textbox"][tabindex="0"]')).toHaveCount(1)
@@ -462,17 +464,19 @@ test.describe('moving around', () => {
     await field.click()
     await expect(ed.locator('[role="textbox"][tabindex="0"]')).toHaveCount(1)
     await expect(field).toHaveAttribute('tabindex', '0')
+    const focusIsOutside = () => ed.evaluate((el) => !el.contains(document.activeElement))
     await page.keyboard.press('Tab')
-    await expect(field).toBeFocused()
+    await expect(field).not.toBeFocused()
+    expect(await focusIsOutside()).toBe(true)
+    // The editor's one tab stop is where Shift+Tab brings you back to.
     await page.keyboard.press('Shift+Tab')
     await expect(field).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(field).not.toBeFocused()
+    expect(await focusIsOutside()).toBe(true)
+    await field.click()
     await page.keyboard.press('Escape')
     await expect(field).not.toBeFocused()
-    await page.keyboard.press('Tab')
-    const outside = await page.evaluate(
-      () => !document.querySelector('[aria-label="C182 notes"]')?.contains(document.activeElement),
-    )
-    expect(outside).toBe(true)
   })
 })
 

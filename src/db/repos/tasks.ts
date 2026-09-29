@@ -18,7 +18,7 @@ import { db } from '../db'
 import { emit } from '../events'
 import type { Block, HHmm, ID, ISODate, Millis, Subtask, Task, TaskStatus } from '../types'
 import { awardXp, reverseXp } from './xp'
-import { moveToTrash, type TrashResult } from './trash'
+import { moveToTrash, trashTables, type TrashResult } from './trash'
 
 export interface RepoOptions {
   /** Injected clock for tests; defaults to `Date.now()`. */
@@ -209,8 +209,10 @@ export async function updateTask(
 }
 
 /**
- * Sets todo, doing or done. Done and back go through `completeTask` / `uncompleteTask`, so XP and
- * recurrence stay consistent; todo ⇄ doing only stamps `startedAt`. Returns `null` for a missing task.
+ * Sets todo, doing or done. Done goes through `completeTask`, and leaving done through `reopen`, so
+ * XP and recurrence stay consistent; todo ⇄ doing only stamps `startedAt`. Reopening straight to doing
+ * is one transaction (the XP reversal and the new status land together). Returns `null` for a
+ * missing task.
  */
 export async function setTaskStatus(
   id: ID,
@@ -227,17 +229,15 @@ export async function setTaskStatus(
     return { undo: result.undo }
   }
 
+  if (before.status === 'done') {
+    await reopen(id, undefined, opts, { status, startedAt: status === 'doing' ? now : null })
+    return { undo: async () => void (await completeTask(id)) }
+  }
+
   const write = (changes: Partial<Task>) =>
     db.transaction('rw', db.tasks, async () => {
       if (await db.tasks.get(id)) await writeChanges(id, changes)
     })
-
-  if (before.status === 'done') {
-    await uncompleteTask(id, opts)
-    if (status === 'doing') await write({ status: 'doing', startedAt: now })
-    return { undo: async () => void (await completeTask(id)) }
-  }
-
   await write({ status, startedAt: status === 'doing' ? now : null })
   return { undo: () => write({ status: before.status, startedAt: before.startedAt }) }
 }
@@ -253,10 +253,31 @@ export interface CompleteResult extends Undoable {
   next: Task | null
 }
 
+/** What a task looks like when it is open again: the status it goes back to and its `startedAt`. */
+interface ReopenState {
+  status: 'todo' | 'doing'
+  startedAt: Millis | null
+}
+
+const REOPEN_TODO: ReopenState = { status: 'todo', startedAt: null }
+
+/**
+ * Whether an open instance of the series already has `dueDate`. Completing a recurring task again
+ * (complete, edit the generated instance, reopen, complete) must not stack a duplicate on top of it.
+ */
+async function openSiblingDueOn(task: Task, dueDate: ISODate): Promise<boolean> {
+  const siblings = await db.tasks
+    .where('seriesId')
+    .equals(task.seriesId ?? task.id)
+    .toArray()
+  return siblings.some((t) => t.id !== task.id && t.status !== 'done' && t.dueDate === dueDate)
+}
+
 /**
  * Marks a task done, awards `xpForTask` (idempotent per task), and, if it recurs, creates the next
- * instance, all in one transaction. Emits `task.completed`. `undo()` reopens the task, removes the
- * instance it created and appends the negative XP event, so the net XP is zero.
+ * instance, all in one transaction. Emits `task.completed`. `undo()` puts the task back the way it was
+ * (todo or doing, with its `startedAt`), removes the instance it created and appends the negative XP
+ * event, so the net XP is zero.
  */
 export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<CompleteResult> {
   const now = opts.now ?? Date.now()
@@ -264,14 +285,21 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
   const result = await db.transaction('rw', db.tasks, db.xpEvents, async () => {
     const task = await db.tasks.get(id)
     if (!task || task.status === 'done')
-      return { task: task ?? null, xp: 0, next: null, changed: false }
+      return { task: task ?? null, xp: 0, next: null, changed: false, restore: REOPEN_TODO }
 
+    // What undo puts back, taken before anything changes.
+    const restore: ReopenState = {
+      status: task.status === 'doing' ? 'doing' : 'todo',
+      startedAt: task.startedAt,
+    }
     let next: Task | null = null
     const changes: Partial<Task> = { status: 'done', completedAt: now, completedDay: day }
     if (task.recurrence) {
       const due = nextDueAfterCompletion(task.recurrence, task.dueDate, day)
-      next = buildNextInstance(task, { id: newId(), dueDate: due, now, newId })
-      changes.seriesId = next.seriesId
+      changes.seriesId = task.seriesId ?? task.id
+      if (!(await openSiblingDueOn(task, due))) {
+        next = buildNextInstance(task, { id: newId(), dueDate: due, now, newId })
+      }
     }
     await db.tasks.update(id, changes)
     if (next) await db.tasks.add(next)
@@ -288,14 +316,20 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
 
     emit({ type: 'task.completed', taskId: id, day, at: now })
     if (next) emit({ type: 'task.created', taskId: next.id })
-    return { task: (await db.tasks.get(id)) ?? null, xp: award?.amount ?? 0, next, changed: true }
+    return {
+      task: (await db.tasks.get(id)) ?? null,
+      xp: award?.amount ?? 0,
+      next,
+      changed: true,
+      restore,
+    }
   })
 
-  const { changed, ...rest } = result
+  const { changed, restore, ...rest } = result
   if (!changed) return { ...rest, undo: noop }
   const generatedId = rest.next?.id ?? null
   // An undo happens later, so it is stamped with the time it runs, not the time of the action.
-  return { ...rest, undo: async () => void (await reopen(id, generatedId, {})) }
+  return { ...rest, undo: async () => void (await reopen(id, generatedId, {}, restore)) }
 }
 
 /**
@@ -320,20 +354,29 @@ async function generatedInstance(task: Task, completedDay: ISODate): Promise<Tas
 
 /**
  * Reopens a done task and reverses its XP. `generated` is the instance completion created (known for an
- * undo, `null` when there was none); `undefined` looks for one.
+ * undo, `null` when there was none); `undefined` looks for one. The generated instance is deleted when
+ * nobody has touched it and moved to the trash when they have, so an edit is never lost to an undo.
+ * `to` is what the task becomes (todo, unless an undo knows it was doing).
  */
 async function reopen(
   id: ID,
   generated: ID | null | undefined,
   opts: RepoOptions,
+  to: ReopenState = REOPEN_TODO,
 ): Promise<number> {
   const now = opts.now ?? Date.now()
-  return db.transaction('rw', db.tasks, db.xpEvents, async () => {
+  // The trash writes several tables, and a nested transaction may only use tables its parent has.
+  return db.transaction('rw', [...trashTables(), db.xpEvents], async () => {
     const task = await db.tasks.get(id)
     if (!task || task.status !== 'done') return 0
     const day = task.completedDay ?? dayOf(task.completedAt ?? now)
 
-    await db.tasks.update(id, { status: 'todo', completedAt: null, completedDay: null })
+    await db.tasks.update(id, {
+      status: to.status,
+      startedAt: to.startedAt,
+      completedAt: null,
+      completedDay: null,
+    })
 
     const created =
       generated === undefined
@@ -342,8 +385,12 @@ async function reopen(
           ? null
           : ((await db.tasks.get(generated)) ?? null)
     if (created && created.status !== 'done') {
-      await db.tasks.delete(created.id)
-      emit({ type: 'task.deleted', taskId: created.id })
+      if (created.updatedAt === created.createdAt) {
+        await db.tasks.delete(created.id)
+        emit({ type: 'task.deleted', taskId: created.id })
+      } else {
+        await moveToTrash('tasks', created.id, { now })
+      }
     }
 
     const reversal = await reverseXp(`task:${id}`, { at: now })
@@ -358,12 +405,20 @@ export interface UncompleteResult extends Undoable {
 }
 
 /**
- * Reopens a finished task and appends the negative XP event (the log is append-only). If completing it
- * had created the next instance of a recurring series and nobody has touched that instance, it is
- * removed. `undo()` completes the task again.
+ * Reopens a finished task (to todo, or to doing with `to: 'doing'`) and appends the negative XP event
+ * (the log is append-only). If completing it had created the next instance of a recurring series and
+ * nobody has touched that instance, it is removed. `undo()` completes the task again.
  */
-export async function uncompleteTask(id: ID, opts: RepoOptions = {}): Promise<UncompleteResult> {
-  const xp = await reopen(id, undefined, opts)
+export async function uncompleteTask(
+  id: ID,
+  opts: RepoOptions & { to?: 'todo' | 'doing' } = {},
+): Promise<UncompleteResult> {
+  const to = opts.to ?? 'todo'
+  const now = opts.now ?? Date.now()
+  const xp = await reopen(id, undefined, opts, {
+    status: to,
+    startedAt: to === 'doing' ? now : null,
+  })
   return { xp, undo: async () => void (await completeTask(id)) }
 }
 
@@ -408,25 +463,80 @@ async function orderOf(id: ID | null, key: OrderKey): Promise<number | null> {
   return row ? row[key] : null
 }
 
-/** Rewrites one order key across every task with even spacing, keeping the current sequence. */
+/** Rows in the order `key` gives them, ties broken by age and id so the sequence is always the same. */
+function inOrder(rows: readonly Task[], key: OrderKey): Task[] {
+  return [...rows].sort(
+    (a, b) => a[key] - b[key] || a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1),
+  )
+}
+
+interface Neighbours {
+  above: ID | null
+  below: ID | null
+}
+
+/** The rows on either side of `id` in the whole list ordered by `key`. */
+async function neighboursOf(id: ID, key: OrderKey): Promise<Neighbours> {
+  const sorted = inOrder(await db.tasks.toArray(), key)
+  const at = sorted.findIndex((t) => t.id === id)
+  return { above: sorted[at - 1]?.id ?? null, below: sorted[at + 1]?.id ?? null }
+}
+
+/**
+ * Rewrites one order key across every task with even spacing, keeping the current sequence and leaving
+ * a slot for the moved row. Only rows whose number actually changes are written (the moved row is
+ * placed by the caller), so a renumber does not make untouched tasks look edited.
+ */
 async function renumber(key: OrderKey, movedId: ID, above: ID | null): Promise<void> {
   const all = await db.tasks.toArray()
-  const sorted = all
-    .filter((t) => t.id !== movedId)
-    .sort((a, b) => a[key] - b[key] || a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1))
+  const sorted = inOrder(
+    all.filter((t) => t.id !== movedId),
+    key,
+  )
   const at = above === null ? 0 : sorted.findIndex((t) => t.id === above) + 1
   const moved = all.find((t) => t.id === movedId)
   if (moved) sorted.splice(at, 0, moved)
   const orders = evenOrders(sorted.length)
-  await db.tasks.bulkUpdate(
-    sorted.map((t, i) => ({ key: t.id, changes: { [key]: orders[i] ?? 0 } as Partial<Task> })),
-  )
+  const updates: Array<{ key: ID; changes: Partial<Task> }> = []
+  sorted.forEach((t, i) => {
+    const order = orders[i] ?? 0
+    if (t.id !== movedId && t[key] !== order) {
+      updates.push({ key: t.id, changes: { [key]: order } as Partial<Task> })
+    }
+  })
+  if (updates.length > 0) await db.tasks.bulkUpdate(updates)
+}
+
+/**
+ * The order value that puts `id` back between the neighbours it had before it moved, renumbering first
+ * if they have since been squeezed together. `null` when that position no longer exists (a neighbour
+ * was deleted, or they have been reordered past each other).
+ */
+async function positionBetween(
+  id: ID,
+  key: OrderKey,
+  original: Neighbours,
+): Promise<number | null> {
+  let above = await orderOf(original.above, key)
+  let below = await orderOf(original.below, key)
+  if ((original.above !== null && above === null) || (original.below !== null && below === null)) {
+    return null
+  }
+  if (above !== null && below !== null && above >= below) return null
+  if (isCrowded(above, below)) {
+    await renumber(key, id, original.above)
+    above = await orderOf(original.above, key)
+    below = await orderOf(original.below, key)
+  }
+  return orderBetween(above, below)
 }
 
 /**
  * Moves a task: reorder it between two neighbours, and/or change its date or time. Reordering only
  * rewrites the moved row (fractional ordering); when neighbours have grown too close the whole list is
- * renumbered once. A date change on a scheduled task pins it. `undo()` restores the earlier values.
+ * renumbered once. A date change on a scheduled task pins it. `undo()` puts the date and time back and
+ * puts the task back between the neighbours it had (not at its old number, which a renumber may have
+ * made meaningless).
  */
 export async function moveTask(
   id: ID,
@@ -442,8 +552,10 @@ export async function moveTask(
     if ('dueTime' in target) patch.dueTime = target.dueTime ?? null
 
     const reorder = target.reorder
+    const key: OrderKey = reorder?.key ?? 'order'
+    let original: Neighbours | null = null
     if (reorder) {
-      const key = reorder.key ?? 'order'
+      original = await neighboursOf(id, key)
       let above = await orderOf(reorder.above, key)
       let below = await orderOf(reorder.below, key)
       if (isCrowded(above, below)) {
@@ -457,8 +569,8 @@ export async function moveTask(
     const fresh = (await db.tasks.get(id)) ?? before
     const { changes, previous } = diff(fresh, settle(fresh, patch, now))
     // Earlier values come from before any renumbering, so undo returns to the old position.
-    for (const key of Object.keys(previous) as (keyof Task)[]) {
-      Object.assign(previous, { [key]: before[key] })
+    for (const field of Object.keys(previous) as (keyof Task)[]) {
+      Object.assign(previous, { [field]: before[field] })
     }
     if (Object.keys(changes).length === 0) return { task: fresh, undo: noop }
     if (before.source === 'schedule' && ('dueDate' in changes || 'dueTime' in changes)) {
@@ -466,7 +578,22 @@ export async function moveTask(
       previous.schedulePinned = before.schedulePinned
     }
     const task = await writeChanges(id, changes)
-    return { task, undo: restoreFields(id, previous) }
+    if (!original || !(key in changes)) return { task, undo: restoreFields(id, previous) }
+
+    const neighbours = original
+    return {
+      task,
+      undo: async () => {
+        await db.transaction('rw', db.tasks, async () => {
+          if (!(await db.tasks.get(id))) return
+          const restore: Partial<Task> = { ...previous }
+          // The old number is only a fallback: relative to its neighbours is what "back" means.
+          const placed = await positionBetween(id, key, neighbours)
+          if (placed !== null) restore[key] = placed
+          await writeChanges(id, restore)
+        })
+      },
+    }
   })
 }
 

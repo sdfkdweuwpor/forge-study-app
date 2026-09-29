@@ -171,6 +171,26 @@ export function viewToSave(list: TaskListId, view: TaskListView): TaskListView {
   return { ...view, filter }
 }
 
+/** Completed is a history, not a set of open tasks, so it cannot be saved as a view. */
+export function canSaveView(list: TaskListId): boolean {
+  return list !== 'completed'
+}
+
+/**
+ * What the save form says about scope: a saved view always runs over all open tasks, and the rule of
+ * the list it was saved from is kept only where a filter can say it (Upcoming becomes "due later").
+ */
+export function saveViewNote(list: TaskListId): string {
+  const base = 'Keeps this layout, sort and filters, and shows them over all your open tasks.'
+  if (list === 'inbox') {
+    return `${base} The Inbox’s own rule (tasks not tied to a goal) is not kept, so the view can show more than the Inbox does.`
+  }
+  if (list === 'upcoming') {
+    return `${base} Upcoming is kept as a “due later than today” filter.`
+  }
+  return base
+}
+
 // ─── Naming ─────────────────────────────────────────────────────────────────
 
 const DUE_NAMES: Record<string, string> = {

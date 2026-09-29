@@ -60,6 +60,7 @@ export function BoardCard({ task, selected, reveal, onSelect }: BoardCardProps) 
             ref={setActivatorNodeRef}
             type="button"
             className={styles.grip}
+            data-drag-through=""
             aria-label={`Move ${task.title}`}
             {...attributes}
           >

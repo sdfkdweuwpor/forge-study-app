@@ -10,7 +10,7 @@ import { SavedViewsNav } from './SavedViewsNav'
 import { taskShortcuts } from './shortcuts'
 import { rememberLayout } from './views/LayoutSwitch'
 import { viewShortcuts } from './views/viewShortcuts'
-import type { TaskLayout } from '@/logic/taskViews'
+import { canSaveView, type TaskLayout } from '@/logic/taskViews'
 
 /** Palette search over task titles, notes, checklists and tags. Choosing a result opens the task's page. */
 const taskSearch: SearchProvider = {
@@ -39,6 +39,13 @@ const taskSearch: SearchProvider = {
 const TasksPage = lazy(() => import('./TasksPage'))
 
 const onTasksPage = (): boolean => window.location.pathname.startsWith('/tasks')
+
+/** Saved views cover open tasks, so Completed has nothing to save. */
+const canSaveHere = (): boolean => {
+  if (!onTasksPage()) return false
+  const [, second] = window.location.pathname.split('/').filter(Boolean)
+  return second === 'views' || canSaveView(listFromParam(second))
+}
 
 /**
  * "Show tasks as a board": on a Tasks page it changes the layout in place (and remembers it for that
@@ -97,7 +104,7 @@ const layoutCommands: CommandDef[] = [
     icon: BookmarkPlus,
     keywords: ['saved view', 'filter', 'bookmark'],
     shortcutId: 'tasks.saveView',
-    when: onTasksPage,
+    when: canSaveHere,
     run: (c) => c.invoke('tasks.saveView'),
   },
 ]

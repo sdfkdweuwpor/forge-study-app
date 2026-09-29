@@ -46,6 +46,7 @@ import {
 import { filterTasks, queryTasks, sortTasks } from '@/logic/taskQuery'
 import {
   SAVED_VIEW_LIST,
+  canSaveView,
   layoutsFor,
   resolveLayout,
   savedViewQuery,
@@ -73,7 +74,7 @@ import { useReschedule } from './views/CalendarReschedule'
 import { refocusEvent } from './views/CalendarEvent'
 import { CalendarSkeleton } from './views/CalendarStates'
 import { CalendarView } from './views/CalendarView'
-import { LayoutSwitch, readLayoutPrefs, rememberLayout } from './views/LayoutSwitch'
+import { LayoutSwitch, rememberLayout, useLayoutPrefs } from './views/LayoutSwitch'
 import { useViewShortcuts } from './views/useViewShortcuts'
 import styles from './TasksPage.module.css'
 
@@ -117,8 +118,8 @@ function TasksBody({ list, saved }: TasksBodyProps) {
     [savedState, list, query],
   )
   const layouts = layoutsFor(list)
-  // The remembered layouts are state, so choosing one re-renders even when the address does not change.
-  const [layoutPrefs, setLayoutPrefs] = useState(readLayoutPrefs)
+  // Live, so a layout chosen from the palette (which only writes the preference) applies at once.
+  const layoutPrefs = useLayoutPrefs()
   const layout: TaskLayout = savedState
     ? savedState.layout
     : resolveLayout(list, query.layout, layoutPrefs)
@@ -218,7 +219,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         return
       }
       // The choice is remembered per list, on this device; the address bar carries it for links.
-      setLayoutPrefs(rememberLayout(list, next))
+      rememberLayout(list, next)
       setQuery({ layout: next === 'list' ? undefined : next })
     },
     [saved, list, view],
@@ -252,6 +253,13 @@ function TasksBody({ list, saved }: TasksBodyProps) {
   )
 
   const requestSave = () => {
+    if (!saved && !canSaveView(list)) {
+      toast.show({
+        title: 'Completed can’t be saved as a view',
+        description: 'Saved views cover your open tasks. Open All tasks to save one.',
+      })
+      return
+    }
     if (!saved && !isDefaultView(list, view)) {
       setSaveOpen(true)
       return
@@ -417,14 +425,12 @@ function TasksBody({ list, saved }: TasksBodyProps) {
   const boardHidden =
     board !== null && board.total > 0 && boardOrderIds(board).length === 0 && board.olderDone === 0
 
-  const layoutSwitch = (
-    <LayoutSwitch value={layout} layouts={layouts} onChange={setLayout} />
-  )
+  const layoutSwitch = <LayoutSwitch value={layout} layouts={layouts} onChange={setLayout} />
   const trailing = saved ? (
     savedState?.modified ? (
       <SavedViewActions saved={saved} view={view} layout={layout} />
     ) : null
-  ) : !isDefaultView(list, view) ? (
+  ) : canSaveView(list) && !isDefaultView(list, view) ? (
     <SaveViewButton
       list={list}
       view={view}

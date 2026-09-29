@@ -25,7 +25,7 @@ function shorten(text: string, max = 48): string {
 
 /**
  * Applies a board move through the repos, so XP, Undo and recurrence work exactly as elsewhere:
- * Done is `completeTask` (XP toast with Undo), leaving Done is `uncompleteTask`, To do ⇄ Doing is
+ * Done is `completeTask` (XP toast with Undo), leaving Done is `uncompleteTask` (to To do or Doing), To do ⇄ Doing is
  * `setTaskStatus`, and the position is `moveTask` on `boardOrder`. One toast Undo reverses all of it.
  * Resolves `false` when a write failed (an error toast is already shown).
  */
@@ -52,8 +52,9 @@ export function useBoardMove(): (task: Task, move: BoardMove) => Promise<boolean
               result.next?.dueDate ? `Next: ${relativeDay(result.next.dueDate, today)}` : null,
             ].filter((part): part is string => part !== null)
             if (parts.length > 0) description = parts.join(' · ')
-          } else if (move.from === 'done' && move.to === 'todo') {
-            const result = await uncompleteTask(task.id)
+          } else if (move.from === 'done') {
+            // Out of Done to To do or Doing: one write that takes the XP back and sets the status.
+            const result = await uncompleteTask(task.id, { to: move.to })
             undos.push(result.undo)
             if (result.xp < 0) description = formatXp(result.xp)
           } else {

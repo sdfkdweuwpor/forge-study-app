@@ -7,6 +7,7 @@ import { weekdayOf } from '@/logic/dates'
 import { describeRecurrence, nextOccurrences, WEEKDAY_SHORT_NAMES } from '@/logic/recurrence'
 import {
   formFromRule,
+  parseInterval,
   presetOf,
   recurrencePresets,
   ruleFromForm,
@@ -34,6 +35,9 @@ function save(id: string, recurrence: RecurrenceRule | null) {
 function CustomEditor({ task, close }: RecurrenceFieldProps & { close: () => void }) {
   const { today } = useTaskEnv()
   const [form, setForm] = useState<RecurrenceForm>(() => formFromRule(task.recurrence))
+  // The interval is typed as text and committed on blur or Enter, so "1" on the way to "14" is
+  // never saved (and a cleared field is not read as 1).
+  const [everyText, setEveryText] = useState(() => String(form.every))
   const anchor = task.dueDate ?? today
   const rule = ruleFromForm(form)
   const preview = nextOccurrences(rule, anchor, 3)
@@ -41,6 +45,12 @@ function CustomEditor({ task, close }: RecurrenceFieldProps & { close: () => voi
   function update(next: RecurrenceForm) {
     setForm(next)
     save(task.id, ruleFromForm(next))
+  }
+
+  function commitEvery() {
+    const every = parseInterval(everyText, form.every)
+    setEveryText(String(every))
+    if (every !== form.every) update({ ...form, every })
   }
 
   return (
@@ -56,8 +66,14 @@ function CustomEditor({ task, close }: RecurrenceFieldProps & { close: () => voi
             className={styles.number}
             aria-label="Repeat interval"
             data-autofocus=""
-            value={form.every}
-            onChange={(e) => update({ ...form, every: Number(e.target.value) || 1 })}
+            value={everyText}
+            onChange={(e) => setEveryText(e.target.value)}
+            onBlur={commitEvery}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return
+              e.preventDefault()
+              commitEvery()
+            }}
           />
           <SegmentedControl<'day' | 'week'>
             label="Repeat unit"

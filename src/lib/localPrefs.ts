@@ -29,12 +29,34 @@ export function readPref(key: PrefKey): string | null {
   }
 }
 
+const listeners = new Set<() => void>()
+
+function notify(): void {
+  for (const listener of [...listeners]) listener()
+}
+
+/**
+ * Calls `listener` after any preference is written or removed, in this tab or another (the `storage`
+ * event), so a screen showing one can stay in step. Made for `useSyncExternalStore`. Returns the
+ * unsubscribe function.
+ */
+export function subscribePrefs(listener: () => void): () => void {
+  listeners.add(listener)
+  if (listeners.size === 1) window.addEventListener('storage', notify)
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0) window.removeEventListener('storage', notify)
+  }
+}
+
 export function writePref(key: PrefKey, value: string): void {
   try {
     window.localStorage.setItem(key, value)
   } catch {
     /* storage unavailable: the preference just does not persist */
+    return
   }
+  notify()
 }
 
 export function removePref(key: PrefKey): void {
@@ -42,7 +64,9 @@ export function removePref(key: PrefKey): void {
     window.localStorage.removeItem(key)
   } catch {
     /* storage unavailable */
+    return
   }
+  notify()
 }
 
 export function readNumberPref(key: PrefKey, fallback: number, min: number, max: number): number {

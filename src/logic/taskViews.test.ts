@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SavedView } from '@/db/types'
 import { viewFromQuery, type TaskListView } from './taskListView'
 import {
+  canSaveView,
   layoutFromQuery,
   layoutsFor,
   normalizeFilter,
@@ -12,6 +13,7 @@ import {
   savedViewQuery,
   savedViewState,
   savedViewToView,
+  saveViewNote,
   serializeLayoutPrefs,
   suggestViewName,
   viewToSave,
@@ -167,6 +169,20 @@ describe('viewToSave', () => {
       due: 'week',
     })
     expect(viewToSave('all', view).filter).toEqual({ priority: [3] })
+  })
+})
+
+describe('canSaveView / saveViewNote', () => {
+  it('Completed cannot be saved, every open-task list can', () => {
+    expect(canSaveView('completed')).toBe(false)
+    for (const list of ['inbox', 'upcoming', 'all'] as const) expect(canSaveView(list)).toBe(true)
+  })
+
+  it('says that a saved view covers all open tasks, and what happens to Inbox and Upcoming', () => {
+    expect(saveViewNote('all')).toContain('all your open tasks')
+    expect(saveViewNote('inbox')).toContain('not tied to a goal')
+    expect(saveViewNote('inbox')).toContain('not kept')
+    expect(saveViewNote('upcoming')).toContain('due later than today')
   })
 })
 

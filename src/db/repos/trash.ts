@@ -79,7 +79,7 @@ async function gather(name: TableName, id: ID): Promise<Gathered | null> {
 }
 
 /** Every table a trash operation can touch, so one transaction covers a whole cascade. */
-function trashTables(): Table[] {
+export function trashTables(): Table[] {
   return [
     db.tasks,
     db.goals,

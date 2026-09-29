@@ -7,9 +7,9 @@ import type { ReactNode } from 'react'
 import type { ID, Task } from '@/db/types'
 import { updateTask } from '@/db/repos/tasks'
 import { recordError } from '@/app/reportError'
-import { DatePicker } from '@/ui/DatePicker'
 import { Kbd } from '@/ui/Kbd'
 import { PopoverBody } from '@/ui/Popover'
+import { DueEditor } from './DueEditor'
 import { PriorityFlag } from './PriorityFlag'
 import { PRIORITIES, priorityKey, priorityLabel } from './priority'
 import { useTaskActions, useTaskEnv } from './TaskActions'
@@ -21,21 +21,9 @@ interface PanelProps {
 }
 
 export function DuePanel({ task }: PanelProps) {
-  const actions = useTaskActions()
-  const { today, weekStartsOn } = useTaskEnv()
   return (
     <PopoverBody>
-      <DatePicker
-        label="Due date"
-        value={task.dueDate}
-        onChange={(date) => void actions.setDue(task.id, date)}
-        withTime
-        time={task.dueTime}
-        onTimeChange={(time) => void actions.setDue(task.id, task.dueDate ?? today, time)}
-        quickPicks
-        today={today}
-        weekStartsOn={weekStartsOn}
-      />
+      <DueEditor task={task} />
     </PopoverBody>
   )
 }

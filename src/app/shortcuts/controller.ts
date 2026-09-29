@@ -7,13 +7,15 @@ import { navigate } from '../router/router'
 export const SEQUENCE_TIMEOUT_MS = 1000
 
 /**
- * Scopes that belong to an overlay. They are **blocking** by default: while one is on top of the
- * stack, only its own shortcuts (and any scope pushed above it) plus `global` shortcuts marked
- * `allowInOverlays` may fire, so the page underneath (`tasks`, `today`, ...) and the plain global
- * keys (`q`, `g t`, `?`) go quiet. Pass `{ blocking }` to `pushScope` to override this per push.
+ * Scopes that belong to an overlay (`menu` is an open dropdown or popover, the lightest of them).
+ * They are **blocking** by default: while one is on top of the stack, only its own shortcuts (and any
+ * scope pushed above it) plus `global` shortcuts marked `allowInOverlays` may fire, so the page
+ * underneath (`tasks`, `today`, ...) and the plain global keys (`q`, `g t`, `?`) go quiet. Pass
+ * `{ blocking }` to `pushScope` to override this per push.
  */
 export const BLOCKING_SCOPES: ReadonlySet<ScopeId> = new Set<ScopeId>([
   'modal',
+  'menu',
   'palette',
   'fullscreen',
   'drawer',

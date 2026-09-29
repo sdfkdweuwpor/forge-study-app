@@ -334,11 +334,9 @@ export function useBlockEditor({ value, onChange, readOnly }: Options): BlockEdi
         }
       }
 
-      // Tab stays in the editor; Esc is the way out (it hands focus back to the page).
-      if (key === 'Tab') {
-        e.preventDefault()
-        return
-      }
+      // Tab is left alone so it moves focus on to the next control (an editor that swallowed it
+      // would be a keyboard trap, WCAG 2.1.2). Esc also leaves and hands focus back to the page.
+      if (key === 'Tab') return
       if (key === 'Escape') {
         e.currentTarget.blur()
         return

@@ -2,8 +2,6 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
   closestCenter,
   getFirstCollision,
   pointerWithin,
@@ -40,6 +38,7 @@ import {
 import { useToast } from '@/ui/Toast'
 import { TaskRow } from '../TaskRow'
 import { BoardColumn } from './BoardColumn'
+import { CardMouseSensor, CardTouchSensor } from './cardSensors'
 import type { BoardMove } from './BoardMove'
 import styles from './Board.module.css'
 
@@ -137,8 +136,8 @@ export function BoardView({
   }, [draft])
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+    useSensor(CardMouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(CardTouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: boardCoordinates }),
   )
 

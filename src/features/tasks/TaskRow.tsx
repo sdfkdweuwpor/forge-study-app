@@ -121,6 +121,7 @@ export const TaskRow = memo(function TaskRow({
           <button
             type="button"
             className={styles.open}
+            data-drag-through=""
             tabIndex={-1}
             aria-label={`Open ${task.title}`}
             onClick={() => openTask(task.id)}
@@ -129,7 +130,7 @@ export const TaskRow = memo(function TaskRow({
           <Checkbox
             variant="round"
             className={styles.check}
-            aria-label={`${task.status === 'done' || phase ? 'Mark not done' : 'Mark done'}: ${task.title}`}
+            aria-label={`Done: ${task.title}`}
             checked={checked}
             onCheckedChange={() => actions.toggleComplete(task)}
             onCheckAnimationEnd={() => actions.checkAnimationEnd(task.id)}

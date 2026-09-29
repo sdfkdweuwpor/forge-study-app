@@ -18,8 +18,12 @@ export interface EditorModel {
   epoch: number
 }
 
+/**
+ * `recent` starts with the first document's own fingerprint: a parent that re-renders before its
+ * debounced save lands hands that same initial `value` back, and it must not read as news.
+ */
 export function initialModel(value: readonly Block[]): EditorModel {
-  return { doc: value, seen: value, recent: [], epoch: 0 }
+  return { doc: value, seen: value, recent: [docHash(value)], epoch: 0 }
 }
 
 /**
@@ -34,7 +38,9 @@ export function reconcile(model: EditorModel, value: readonly Block[]): EditorMo
   if (incoming === docHash(model.doc) || model.recent.includes(incoming)) {
     return { ...model, seen: value }
   }
-  return { doc: value, seen: value, recent: [], epoch: model.epoch + 1 }
+  // The adopted value is the new starting point, so a parent that hands it back again after an edit
+  // is not mistaken for a second outside change (which would replace the doc and wipe undo).
+  return { doc: value, seen: value, recent: [incoming], epoch: model.epoch + 1 }
 }
 
 /** The model after an edit produced `doc`. Passing it straight back as `value` is then free. */

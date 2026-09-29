@@ -3,6 +3,7 @@ import type { RecurrenceRule } from '@/db/types'
 import { describeRecurrence } from './recurrence'
 import {
   formFromRule,
+  parseInterval,
   presetOf,
   recurrencePresets,
   ruleFromForm,
@@ -90,6 +91,24 @@ describe('formFromRule / ruleFromForm', () => {
       byWeekday: [1, 3],
     })
     expect(ruleFromForm({ every: Number.NaN, unit: 'day', days: [] }).interval).toBe(1)
+  })
+})
+
+describe('parseInterval', () => {
+  it('reads a typed whole number, clamped to 1 through 99', () => {
+    expect(parseInterval('14', 1)).toBe(14)
+    expect(parseInterval(' 3 ', 1)).toBe(3)
+    expect(parseInterval('0', 2)).toBe(1)
+    expect(parseInterval('-5', 2)).toBe(1)
+    expect(parseInterval('250', 2)).toBe(99)
+    expect(parseInterval('2.6', 1)).toBe(3)
+  })
+
+  it('keeps the current interval for text that is not a number', () => {
+    expect(parseInterval('', 4)).toBe(4)
+    expect(parseInterval('   ', 4)).toBe(4)
+    expect(parseInterval('abc', 4)).toBe(4)
+    expect(parseInterval('1e999', 4)).toBe(4)
   })
 })
 

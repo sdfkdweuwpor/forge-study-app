@@ -11,7 +11,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Plus } from 'lucide-react'
-import { sourceOffset, type Block } from '@/logic/blocks'
+import { sourceOffset, stripInline, type Block } from '@/logic/blocks'
 import { Checkbox } from '../Checkbox'
 import { IconButton } from '../IconButton'
 import { Popover } from '../Popover'
@@ -314,7 +314,7 @@ export const BlockRow = memo(function BlockRow({
             <span className={styles.marker}>
               <Checkbox
                 variant="round"
-                aria-label={`Completed: ${label}`}
+                aria-label={`Done: ${stripInline(block.text).trim() || 'empty to-do'}`}
                 checked={block.checked ?? false}
                 disabled={readOnly}
                 tabIndex={-1}

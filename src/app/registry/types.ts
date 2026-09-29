@@ -27,6 +27,7 @@ export type ScopeId =
   | 'review'
   | 'cards'
   | 'modal'
+  | 'menu'
   | 'palette'
   | 'drawer'
 

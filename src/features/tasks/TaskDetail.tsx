@@ -7,9 +7,9 @@ import type { Priority, Task, TaskStatus } from '@/db/types'
 import { formatXp } from '@/logic/taskDisplay'
 import { Button } from '@/ui/Button'
 import { Checkbox } from '@/ui/Checkbox'
-import { DatePicker } from '@/ui/DatePicker'
 import { Input } from '@/ui/Input'
 import { SegmentedControl } from '@/ui/SegmentedControl'
+import { DueEditor } from './DueEditor'
 import { InlineTitle } from './InlineTitle'
 import { NotesField } from './NotesField'
 import { priorityLabel } from './priority'
@@ -17,7 +17,7 @@ import { ProjectField } from './ProjectField'
 import { RecurrenceField } from './RecurrenceField'
 import { SubtasksField } from './SubtasksField'
 import { TagsField } from './TagsField'
-import { useTaskActions, useTaskEnv } from './TaskActions'
+import { useTaskActions } from './TaskActions'
 import { useTaskXp } from './queries'
 import styles from './TaskDetail.module.css'
 
@@ -96,9 +96,14 @@ function EstimateField({
  */
 export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: TaskDetailProps) {
   const actions = useTaskActions()
-  const { today, weekStartsOn } = useTaskEnv()
   const xp = useTaskXp(task.id)
   const [editingTitle, setEditingTitle] = useState(false)
+  // The peek keeps one TaskDetail while `j`/`k` move between tasks; editing does not follow along.
+  const [titleTask, setTitleTask] = useState(task.id)
+  if (titleTask !== task.id) {
+    setTitleTask(task.id)
+    setEditingTitle(false)
+  }
   const tagsInput = useRef<HTMLInputElement | null>(null)
   const priorityGroup = useRef<HTMLDivElement | null>(null)
   const dueId = `${task.id}-due`
@@ -130,6 +135,8 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
   function setStatus(status: TaskStatus) {
     if (status === task.status) return
     if (status === 'done') actions.complete(task)
+    // Leaving Done takes XP back, so it goes through the action that says so and offers Undo.
+    else if (task.status === 'done') actions.uncomplete(task, status)
     else setTaskStatus(task.id, status).catch((error: unknown) => recordError(error, 'setStatus'))
   }
 
@@ -139,12 +146,13 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
         <Checkbox
           variant="round"
           className={styles.check}
-          aria-label={done ? `Mark not done: ${task.title}` : `Mark done: ${task.title}`}
+          aria-label={`Done: ${task.title}`}
           checked={done}
           onCheckedChange={() => actions.toggleComplete(task)}
         />
         <Heading className={styles.title}>
           <InlineTitle
+            key={task.id}
             value={task.title}
             label="Task title"
             done={done}
@@ -171,19 +179,7 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
         </Property>
 
         <Property label="Due">
-          <DatePicker
-            id={dueId}
-            label="Due date"
-            size="sm"
-            value={task.dueDate}
-            onChange={(date) => void actions.setDue(task.id, date)}
-            withTime
-            time={task.dueTime}
-            onTimeChange={(time) => void actions.setDue(task.id, task.dueDate ?? today, time)}
-            quickPicks
-            today={today}
-            weekStartsOn={weekStartsOn}
-          />
+          <DueEditor id={dueId} size="sm" task={task} />
         </Property>
 
         <Property label="Priority">

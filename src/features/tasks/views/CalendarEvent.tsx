@@ -115,7 +115,7 @@ export function CalendarEventFace({
       <Checkbox
         variant="round"
         className={styles.check}
-        aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${task.title}`}
+        aria-label={`Done: ${task.title}`}
         checked={done}
         tabIndex={preview ? -1 : undefined}
         onCheckedChange={() => actions.toggleComplete(task)}

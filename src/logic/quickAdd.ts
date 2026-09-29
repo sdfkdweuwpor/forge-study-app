@@ -596,10 +596,13 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     }
     if (!titleWordBefore) return false
 
-    // Walk the tail as the scan would, pretending each single-use token is taken as it goes.
+    // Walk the tail as the scan would, pretending each single-use token is taken as it goes. That
+    // includes a recurrence: a second `daily` after one that fits is not a token, and marking it
+    // taken keeps a run of repeated words linear (each nested check would otherwise try every
+    // later word again, doubling the work per repeated word).
     const saved = { ...taken }
     let onlyTokens = true
-    for (let j = k + 1; j < words.length; ) {
+    for (let j = k + 1; j < words.length;) {
       if (words[j]?.quoted) {
         j++
         continue
@@ -610,7 +613,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
         break
       }
       const kind = m.payload.kind
-      if (kind !== 'tag' && kind !== 'literal' && kind !== 'recurrence') taken[kind] = true
+      if (kind !== 'tag' && kind !== 'literal') taken[kind] = true
       j += m.count
     }
     Object.assign(taken, saved)

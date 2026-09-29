@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Block } from '@/logic/blocks'
+import { docHash } from './docHash'
 import { RECENT, edited, initialModel, reconcile } from './model'
 
 const doc = (text: string): Block[] => [{ id: 'a', type: 'p', text }]
@@ -48,7 +49,33 @@ describe('reconcile', () => {
     const next = reconcile(model, other)
     expect(next.doc).toBe(other)
     expect(next.epoch).toBe(1)
-    expect(next.recent).toEqual([])
+    // History starts over from the document that arrived.
+    expect(next.recent).toEqual([docHash(other)])
+  })
+
+  it('the parent re-handing the initial value after one edit is not news', () => {
+    // A re-render before the first debounced save lands passes the pre-edit `value` back.
+    const initial = doc('C182 notes')
+    let model = initialModel(initial)
+    const typed = doc('C182 notes, edited')
+    model = edited(model, typed)
+    const next = reconcile(model, initial)
+    expect(next.doc).toBe(typed)
+    expect(next.epoch).toBe(0)
+    // Nor with a copy of it, which is what a query result looks like.
+    expect(reconcile(model, [...initial]).doc).toBe(typed)
+  })
+
+  it('an adopted outside value handed back after an edit is not news either', () => {
+    let model = initialModel(doc('one'))
+    const outside = doc('two')
+    model = reconcile(model, outside)
+    expect(model.epoch).toBe(1)
+    const typed = doc('two, and more')
+    model = edited(model, typed)
+    const next = reconcile(model, [...outside])
+    expect(next.doc).toBe(typed)
+    expect(next.epoch).toBe(1)
   })
 
   it('after an outside change the old states no longer count as echoes', () => {
@@ -74,7 +101,8 @@ describe('edited', () => {
     const next = edited(model, doc('ab'))
     expect(next.doc).toEqual(doc('ab'))
     expect(next.seen).toBe(next.doc)
-    expect(next.recent).toHaveLength(1)
+    // The starting document stays remembered, so the parent handing it back is still not news.
+    expect(next.recent).toEqual([docHash(doc('a')), docHash(doc('ab'))])
   })
 
   it('remembers a bounded number of states', () => {

@@ -81,7 +81,7 @@ test.describe('Today', () => {
     await expect(group(page, 'Completed today')).toHaveCount(0)
     await expect(xpToday(page)).toContainText('0 XP')
 
-    await yours.getByRole('checkbox', { name: `Mark done: ${MENTOR}` }).click()
+    await yours.getByRole('checkbox', { name: `Done: ${MENTOR}` }).click()
 
     // The row plays its motion and leaves, and the toast reports the XP.
     await expect(toasts(page)).toContainText(`Completed “${MENTOR}”`)

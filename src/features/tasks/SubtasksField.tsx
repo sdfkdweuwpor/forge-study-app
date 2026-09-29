@@ -50,7 +50,7 @@ export function SubtasksField({ task }: { task: Pick<Task, 'id' | 'subtasks'> })
             <li key={item.id} className={styles.item}>
               <Checkbox
                 variant="round"
-                aria-label={`${item.done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
+                aria-label={`Done: ${item.title}`}
                 checked={item.done}
                 onCheckedChange={() =>
                   void toggleSubtask(task.id, item.id).catch(report('toggleSubtask'))

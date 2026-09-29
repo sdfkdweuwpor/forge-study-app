@@ -35,7 +35,15 @@ export function useTasksDueBetween(from: ISODate, to: ISODate): Task[] | undefin
   )
 }
 
-/** One task: `undefined` while loading, `null` when it does not exist (deleted, or a bad link). */
+/**
+ * One task: `undefined` while loading, `null` when it does not exist (deleted, or a bad link).
+ * When `id` changes, the live query keeps returning the previous task until the new one arrives; the
+ * result carries the id it was read for, so that stale row counts as loading, never as the new task.
+ */
 export function useTask(id: ID | undefined): Task | null | undefined {
-  return useLiveQuery(async () => (id ? ((await db.tasks.get(id)) ?? null) : null), [id])
+  const found = useLiveQuery(
+    async () => ({ id, task: id ? ((await db.tasks.get(id)) ?? null) : null }),
+    [id],
+  )
+  return found === undefined || found.id !== id ? undefined : found.task
 }

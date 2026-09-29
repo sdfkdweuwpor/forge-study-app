@@ -281,7 +281,7 @@ describe('blocking scopes', () => {
     }
   }
 
-  it.each(['modal', 'palette', 'fullscreen', 'drawer'] as const)(
+  it.each(['modal', 'menu', 'palette', 'fullscreen', 'drawer'] as const)(
     'a %s scope hides the page scopes beneath it, and they come back when it closes',
     (overlay) => {
       const t = tasksDefs()

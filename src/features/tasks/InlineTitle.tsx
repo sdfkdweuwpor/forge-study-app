@@ -39,6 +39,13 @@ export function InlineTitle({
   style,
 }: InlineTitleProps) {
   const [draft, setDraft] = useState(value)
+  // Editing can start from outside (the `e` shortcut, the row menu), not only from a click on the
+  // button, so the draft is refreshed whenever editing turns on, whoever turned it on.
+  const [wasEditing, setWasEditing] = useState(editing)
+  if (editing !== wasEditing) {
+    setWasEditing(editing)
+    if (editing) setDraft(value)
+  }
   const input = useRef<HTMLTextAreaElement | null>(null)
   // Enter and Esc end editing themselves; the blur that follows must not commit a second time.
   const finished = useRef(false)
@@ -57,7 +64,6 @@ export function InlineTitle({
       onActivate?.()
       return
     }
-    setDraft(value)
     onEditingChange(true)
   }
 
@@ -105,6 +111,7 @@ export function InlineTitle({
       <button
         type="button"
         className={styles.display}
+        data-drag-through=""
         data-done={done || undefined}
         aria-label={`${value}. Edit ${label.toLowerCase()}`}
         onClick={begin}

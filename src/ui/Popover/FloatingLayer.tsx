@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type RefCallback,
 } from 'react'
+import { useOverlayPresence } from '../Modal/ModalPresence'
 import { getFocusable } from './focus'
 import { OverlayPortal } from './OverlayPortal'
 import { PopoverPanel } from './PopoverPanel'
@@ -68,6 +69,9 @@ export function FloatingLayer({
   })
 
   useLayer(open, () => onDismiss('escape'))
+  // While a menu or popover is open the page's own keys (`x` completes, `j` moves) stay quiet; the
+  // app turns this announcement into a blocking shortcut scope.
+  useOverlayPresence(open, 'menu')
 
   // Outside press. Nested overlays are portaled elsewhere in the DOM but sit inside this panel in
   // the React tree, so React's capture phase marks presses that belong to this layer.

@@ -33,6 +33,7 @@ export const SCOPE_LABELS: Record<ScopeId, string> = {
   review: 'Review',
   cards: 'Flashcards',
   modal: 'Dialogs',
+  menu: 'Menus',
   palette: 'Command palette',
   drawer: 'Navigation drawer',
 }

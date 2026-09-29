@@ -130,7 +130,7 @@ test.describe('completing', () => {
     const row = rowOf(page, MENTOR)
     await expect(row).toBeVisible()
 
-    await row.getByRole('checkbox', { name: `Mark done: ${MENTOR}` }).click()
+    await row.getByRole('checkbox', { name: `Done: ${MENTOR}` }).click()
     await expect(toasts(page)).toContainText(`Completed “${MENTOR}”`)
     await expect(toasts(page)).toContainText('+20 XP')
     await expect.poll(() => xpNet(page)).toBe(before + 20)
@@ -480,5 +480,241 @@ test.describe('shortcut scopes: a ui Modal blocks the keys beneath it', () => {
     await page.keyboard.press('g')
     await page.keyboard.press('t')
     await expect(page).toHaveURL(/\/$/)
+  })
+})
+
+// ── Regressions: the Phase 3 review ─────────────────────────────────────────────────────────────
+
+const peekPanel = (page: Page) => page.getByRole('complementary', { name: 'Task details' })
+const peekHeading = (page: Page) => peekPanel(page).getByRole('heading', { level: 2 })
+
+test.describe('the peek panel keeps one task per title editor', () => {
+  test('j to the next task, then e and Enter, leaves that task’s title alone', async ({ page }) => {
+    await gotoApp(page, '/tasks/inbox', 'wgu')
+    const rows = page.getByRole('main').getByRole('listitem')
+    await expect(rows.first()).toBeVisible()
+    const first = await titleOf(rows.nth(0))
+    const second = await titleOf(rows.nth(1))
+    expect(second).not.toBe(first)
+    const before = await storedTasks(page)
+
+    await rows
+      .nth(0)
+      .getByRole('button', { name: `Open ${first}`, exact: true })
+      .click()
+    await expect(peekHeading(page)).toContainText(first)
+    // The same panel now shows the next task; its title editor must start from that task's title.
+    await page.keyboard.press('j')
+    await expect(peekHeading(page)).toContainText(second)
+    await page.keyboard.press('e')
+    const field = page.getByRole('textbox', { name: 'Task title' })
+    await expect(field).toBeFocused()
+    await expect(field).toHaveValue(second)
+    await page.keyboard.press('Enter')
+    await expect(field).toHaveCount(0)
+    await page.waitForTimeout(200)
+
+    const after = await storedTasks(page)
+    expect(after.map((t) => t.title).sort()).toEqual(before.map((t) => t.title).sort())
+  })
+})
+
+test.describe('the peek title editor starts from the current title', () => {
+  test('after renaming in the list, e in the peek edits the new title, and Enter keeps it', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/inbox', 'wgu')
+    const row = rowOf(page, LIBRARY)
+    await row.getByRole('button', { name: `Open ${LIBRARY}`, exact: true }).click()
+    await expect(peekHeading(page)).toContainText(LIBRARY)
+
+    // Rename in the list while the peek shows the same task.
+    await titleButton(row).click()
+    const inRow = page.getByRole('textbox', { name: 'Task title' })
+    await expect(inRow).toBeFocused()
+    await page.keyboard.press('ControlOrMeta+a')
+    await page.keyboard.type('Renew library card online')
+    await page.keyboard.press('Enter')
+    await expect(peekHeading(page)).toContainText('Renew library card online')
+
+    // `e` opens the peek's editor; it must hold the title as it is now, not as it was when the peek opened.
+    await page.keyboard.press('e')
+    const field = peekPanel(page).getByRole('textbox', { name: 'Task title' })
+    await expect(field).toBeFocused()
+    await expect(field).toHaveValue('Renew library card online')
+    await page.keyboard.press('Enter')
+    await expect(field).toHaveCount(0)
+    await page.waitForTimeout(200)
+    expect((await storedTask(page, 'task-library-card'))?.title).toBe('Renew library card online')
+  })
+})
+
+test.describe('a row menu keeps the page keys quiet', () => {
+  test('with the … menu open, x and Mod+Backspace do nothing to the task; Esc closes it and x works again', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/inbox', 'wgu')
+    const row = rowOf(page, MENTOR)
+    await expect(row).toBeVisible()
+    await row.hover()
+    await row.getByRole('button', { name: 'More actions' }).click()
+    const menu = page.getByRole('menu', { name: `Actions for ${MENTOR}` })
+    await expect(menu).toBeVisible()
+
+    // `x` is typeahead in a menu. Mod+Backspace is a key the menu does not use, so it used to reach
+    // the page's "move to trash" behind the menu.
+    await page.keyboard.press('x')
+    await page.keyboard.press('ControlOrMeta+Backspace')
+    await page.keyboard.press('Alt+ArrowDown')
+    await page.waitForTimeout(300)
+    await expect(toasts(page)).not.toContainText('Completed')
+    await expect(toasts(page)).not.toContainText('trash')
+    expect((await storedTask(page, 'task-email-mentor'))?.status).toBe('todo')
+    expect(await readTable(page, 'trash')).toHaveLength(0)
+    await expect(menu).toBeVisible()
+
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText('Completed')
+  })
+
+  test('with the due date popover open, page keys stay quiet too', async ({ page }) => {
+    await gotoApp(page, '/tasks/inbox', 'wgu')
+    const row = rowOf(page, MENTOR)
+    await expect(row).toBeVisible()
+    await row.hover()
+    await row.getByRole('button', { name: 'More actions' }).click()
+    await page.getByRole('menuitem', { name: /^Due date/ }).click()
+    const popover = page.getByRole('dialog', { name: 'Due date' })
+    await expect(popover).toBeVisible()
+    await popover.getByRole('button', { name: 'Tomorrow' }).focus()
+
+    await page.keyboard.press('x')
+    await page.keyboard.press('ControlOrMeta+Backspace')
+    await page.waitForTimeout(300)
+    await expect(toasts(page)).not.toContainText('Completed')
+    await expect(toasts(page)).not.toContainText('trash')
+    expect((await storedTask(page, 'task-email-mentor'))?.status).toBe('todo')
+    expect(await readTable(page, 'trash')).toHaveLength(0)
+  })
+})
+
+test.describe('layout from the palette', () => {
+  test('“Show tasks as a board” is remembered for the list, so the list opens as a board again', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/all', 'wgu')
+    await expect(page.getByRole('heading', { name: 'All', level: 1 })).toBeVisible()
+    await expect(column(page, 'todo')).toHaveCount(0)
+
+    await page.keyboard.press('ControlOrMeta+k')
+    await paletteInput(page).fill('Show tasks as a board')
+    await page.keyboard.press('Enter')
+    await expect(column(page, 'todo')).toBeVisible()
+
+    // The sidebar's own link to this list carries no layout, so only the preference can say "board".
+    await page.locator('a[data-sub]').filter({ hasText: /^All$/ }).click()
+    await expect(page).not.toHaveURL(/layout=/)
+    await expect(column(page, 'todo')).toBeVisible()
+  })
+})
+
+test.describe('board cards', () => {
+  test('pressing in the title editor or on the … button does not start a drag', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/all?layout=board', 'wgu')
+    const card = column(page, 'todo').getByRole('listitem').filter({ hasText: LIBRARY })
+    await expect(card).toBeVisible()
+
+    // Selecting text in the inline editor.
+    await titleButton(card).click()
+    const field = card.getByRole('textbox', { name: 'Task title' })
+    await expect(field).toBeFocused()
+    const editor = await field.boundingBox()
+    if (!editor) throw new Error('the editor has no box')
+    await page.mouse.move(editor.x + 6, editor.y + editor.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(editor.x + 80, editor.y + editor.height / 2, { steps: 6 })
+    await expect(page.locator('[data-dragging]')).toHaveCount(0)
+    await page.mouse.up()
+    await expect(field).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(field).toHaveCount(0)
+
+    // Pressing on the … button and moving.
+    const more = card.getByRole('button', { name: 'More actions' })
+    await card.hover()
+    const button = await more.boundingBox()
+    if (!button) throw new Error('the … button has no box')
+    await page.mouse.move(button.x + button.width / 2, button.y + button.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(button.x + button.width / 2 - 40, button.y + button.height + 30, {
+      steps: 6,
+    })
+    await expect(page.locator('[data-dragging]')).toHaveCount(0)
+    await page.mouse.up()
+    await expect(column(page, 'todo').getByText(LIBRARY)).toBeVisible()
+  })
+})
+
+test.describe('the task page', () => {
+  test('a repeating task keeps its date: no clear button, and the page says why', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/task/task-weekly-review-next', 'wgu')
+    await expect(page.getByRole('heading', { name: /Weekly review/, level: 1 })).toBeVisible()
+    await expect(page.getByLabel('Due date', { exact: true })).not.toHaveValue('')
+    await expect(page.getByText('Repeating tasks need a date.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Clear Due date' })).toHaveCount(0)
+  })
+
+  test('clearing the date of a plain task really clears it', async ({ page }) => {
+    await gotoApp(page, '/task/task-tuition', 'wgu')
+    await expect(page.getByRole('heading', { name: /Pay tuition/, level: 1 })).toBeVisible()
+    expect((await storedTask(page, 'task-tuition'))?.dueDate).not.toBeNull()
+    await page.getByRole('button', { name: 'Clear Due date' }).click()
+    await expect.poll(async () => (await storedTask(page, 'task-tuition'))?.dueDate).toBeNull()
+    await expect(page.getByLabel('Due date', { exact: true })).toHaveValue('')
+  })
+
+  test('Status: Done to Doing takes the XP back with a toast and Undo', async ({ page }) => {
+    await gotoApp(page, '/tasks/completed', 'wgu')
+    const finished = (await readTable<StoredTask & { recurrence: unknown }>(page, 'tasks')).find(
+      (t) => t.status === 'done' && t.recurrence === null,
+    )
+    if (!finished) throw new Error('the sample data has no finished one-off task')
+    const key = `task:${finished.id}`
+    const earned = await xpNet(page, key)
+    expect(earned).toBeGreaterThan(0)
+
+    await page.goto(`/task/${finished.id}`)
+    await page.getByRole('radio', { name: 'Doing' }).click()
+    await expect(toasts(page)).toContainText('to Doing')
+    await expect(toasts(page)).toContainText(`−${earned} XP`)
+    await expect.poll(async () => (await storedTask(page, finished.id))?.status).toBe('doing')
+    expect(await xpNet(page, key)).toBe(0)
+
+    await undo(page).click()
+    await expect.poll(async () => (await storedTask(page, finished.id))?.status).toBe('done')
+    await expect.poll(() => xpNet(page, key)).toBe(earned)
+  })
+
+  test('notes typed a moment ago go to the trash with the task', async ({ page }) => {
+    await gotoApp(page, '/task/task-library-card', 'wgu')
+    const notes = page.getByRole('group', { name: 'Notes' })
+    await notes.getByRole('textbox').first().click()
+    await page.keyboard.type('Bring proof of address')
+    await page.getByRole('button', { name: 'Move to trash' }).click()
+    await expect(toasts(page)).toContainText('to the trash')
+    const trash = await readTable<{ payload: { tasks?: { notes: { text: string }[] }[] } }>(
+      page,
+      'trash',
+    )
+    expect(trash).toHaveLength(1)
+    expect(trash[0]?.payload.tasks?.[0]?.notes.map((b) => b.text).join(' ')).toContain(
+      'Bring proof of address',
+    )
   })
 })

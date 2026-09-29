@@ -227,7 +227,8 @@ function Editor({
  * - Enter splits, Shift+Enter adds a line, Backspace at the start turns a block into a
  *   paragraph and then merges it up, Delete at the end merges the next block in. Up/Down and
  *   Left/Right cross block edges; Alt+Up/Down move the block; Mod+Shift+Enter ticks a to-do;
- *   Mod+Z / Mod+Shift+Z undo and redo. Tab stays inside the editor, Esc leaves it.
+ *   Mod+Z / Mod+Shift+Z undo and redo. Tab and Esc leave it (Tab moves on to
+ *   the next control; the editor is a single tab stop).
  * - Pasting inserts plain text, one block per line. Blocks can be dragged by their handle.
  *
  * Controlled by `value` / `onChange`. The editor keeps its own copy while you type, so a parent

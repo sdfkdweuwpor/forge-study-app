@@ -11,7 +11,7 @@ export function useShortcuts(): ShortcutContextValue {
 
 /**
  * Push a shortcut scope while the calling component is mounted (and `active`). The top scope wins.
- * Overlay scopes (`modal`, `palette`, `fullscreen`, `drawer`) are blocking: while one is open, only
+ * Overlay scopes (`modal`, `menu`, `palette`, `fullscreen`, `drawer`) are blocking: while one is open, only
  * its own shortcuts and global ones marked `allowInOverlays` fire. `options.blocking` overrides that.
  */
 export function useShortcutScope(scope: ScopeId, active = true, options?: ScopeOptions): void {

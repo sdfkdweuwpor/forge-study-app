@@ -8,6 +8,7 @@ import type { TaskListView } from '@/logic/taskListView'
 import type { TaskListId } from '@/logic/taskLists'
 import {
   resetViewQuery,
+  saveViewNote,
   suggestViewName,
   viewToSave,
   type TaskLayout,
@@ -92,9 +93,7 @@ function SaveForm({ list, view, layout, courseLabels, close }: SaveFormProps) {
           </button>
         ))}
       </div>
-      <p className={styles.summary}>
-        Keeps this layout, sort and filters, and shows them over all your open tasks.
-      </p>
+      <p className={styles.summary}>{saveViewNote(list)}</p>
       <div className={styles.footer}>
         <Button variant="ghost" size="sm" onClick={close}>
           Cancel

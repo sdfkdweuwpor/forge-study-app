@@ -12,6 +12,7 @@ import { useLayer } from '../Popover/layers'
 import { OverlayPortal } from '../Popover/OverlayPortal'
 import { usePresence } from '../Popover/usePresence'
 import { ModalPanel, type ModalSize } from './ModalPanel'
+import { useModalPresence } from './ModalPresence'
 import { lockBodyScroll } from './scrollLock'
 import styles from './Modal.module.css'
 
@@ -70,6 +71,8 @@ export function Modal({
   const isTop = useLayer(open, () => {
     if (closeOnEsc) onClose()
   })
+  // The app blocks page shortcuts for as long as a dialog is open.
+  useModalPresence(open)
 
   // Remember what had focus, and give it back on close (unless focus has since moved elsewhere on purpose).
   useEffect(() => {

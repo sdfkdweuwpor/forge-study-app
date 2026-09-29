@@ -8,7 +8,6 @@ import { format } from 'date-fns'
 import { useCallback, useMemo, useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useNow } from '@/app/hooks/useNow'
-import { useOpenOverlays } from '@/app/providers/OverlayProvider'
 import { recordError } from '@/app/reportError'
 import { Slot, useSlotCount } from '@/app/registry'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
@@ -68,8 +67,6 @@ function TodayScreen() {
   const courses = useCourseLabels()
   const hasGoals = useHasGoals()
   const xpByTask = useTaskXpToday(today)
-  // A palette, quick add or the shortcut sheet on top owns the keyboard.
-  const free = useOpenOverlays().length === 0
   const headerCount = useSlotCount('today.header')
   const asideCount = useSlotCount('today.aside')
   const mainCount = useSlotCount('today.main')
@@ -148,13 +145,14 @@ function TodayScreen() {
     if (nowTask) actions.skip(nowTask)
   }, [actions, nowTask])
 
+  // Overlays (palette, dialogs, drawer) block the `today` scope through the shortcut controller.
   useShortcutScope('today')
-  useShortcutHandler('today.nowDone', completeNow, free && nowTask !== null)
-  useShortcutHandler('today.nowSkip', skipNow, free && nowTask !== null)
+  useShortcutHandler('today.nowDone', completeNow, nowTask !== null)
+  useShortcutHandler('today.nowSkip', skipNow, nowTask !== null)
   useShortcutHandler(
     'today.moveRolledOver',
     () => void moveAllToToday(),
-    free && (rolledOver?.length ?? 0) > 0,
+    (rolledOver?.length ?? 0) > 0,
   )
 
   useTodayActionRequests((action: TodayAction) => {
@@ -172,8 +170,6 @@ function TodayScreen() {
 
   useTaskShortcuts({
     task: selectedTask,
-    // Esc only clears a selection; with none, it stays free to close the drawer and the More sheet.
-    escapeActive: selected !== null,
     editTags: () => {
       if (selectedTask) openTask(selectedTask.id)
     },

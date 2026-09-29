@@ -9,7 +9,6 @@ import { Modal } from '@/ui/Modal'
 import { buildShortcutGroups, countRows } from '../palette/shortcutList'
 import { useOpenOverlays, useOverlays } from '../providers/OverlayProvider'
 import { useRegistry } from '../registry/RegistryContext'
-import { useShortcutScope } from './useShortcut'
 import styles from './ShortcutSheet.module.css'
 
 /**
@@ -22,8 +21,7 @@ export function ShortcutSheet() {
   const open = useOpenOverlays().includes('shortcuts')
   const { shortcuts } = useRegistry()
   const searchId = useId()
-  // While open, this is a dialog: single-key shortcuts must not fire behind it.
-  useShortcutScope('modal', open)
+  // While open, `Modal` pushes the blocking `modal` scope, so single keys do not fire behind it.
 
   const [query, setQuery] = useState('')
   const [wasOpen, setWasOpen] = useState(open)

@@ -66,6 +66,8 @@ export const builtins: FeatureManifest = {
       group: 'General',
       scope: 'global',
       allowInInputs: true,
+      // Only the drawer needs it: on a tablet it is how the drawer is closed again.
+      allowInOverlays: ['drawer'],
     },
     {
       id: 'app.escape',
@@ -74,6 +76,7 @@ export const builtins: FeatureManifest = {
       group: 'General',
       scope: 'global',
       allowInInputs: true,
+      allowInOverlays: true,
     },
     ...goShortcuts,
   ],

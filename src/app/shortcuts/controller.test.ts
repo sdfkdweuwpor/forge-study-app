@@ -127,20 +127,24 @@ describe('ShortcutController', () => {
     expect([global.mock.calls.length, tasks.mock.calls.length]).toEqual([2, 1])
   })
 
-  it('suppresses global shortcuts under an overlay scope, except allowInInputs ones', () => {
+  it('suppresses global shortcuts under an overlay scope, except allowInOverlays ones', () => {
     const q = vi.fn()
     const esc = vi.fn()
+    const typing = vi.fn()
     const c = make([
       def('q', 'q', { run: q }),
-      def('esc', 'esc', { run: esc, allowInInputs: true }),
+      def('esc', 'esc', { run: esc, allowInOverlays: true }),
+      // Being allowed in inputs is not the same as being allowed under an overlay.
+      def('typing', 'mod+j', { run: typing, allowInInputs: true }),
     ])
     c.pushScope('modal')
     press(c, 'q')
     press(c, 'Escape')
+    press(c, 'j', { ctrlKey: true })
     expect(q).not.toHaveBeenCalled()
+    expect(typing).not.toHaveBeenCalled()
     expect(esc).toHaveBeenCalledTimes(1)
   })
-
   it('leaves a def inert (and the key untouched) until a handler is bound; latest handler wins', () => {
     const c = make([def('app.toggle', 'mod+\\', { allowInInputs: true })])
     expect(press(c, '\\', { ctrlKey: true }).prevented).toBe(false)
@@ -252,5 +256,191 @@ describe('ShortcutController', () => {
     const c = make([def('alt-k', 'alt+k', { run })], true)
     press(c, '˚', { altKey: true, code: 'KeyK' })
     expect(run).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('blocking scopes', () => {
+  const tasksDefs = (): {
+    defs: ShortcutDef[]
+    complete: () => number
+    escape: () => number
+    appEsc: () => number
+  } => {
+    const complete = vi.fn()
+    const escape = vi.fn()
+    const appEsc = vi.fn()
+    return {
+      defs: [
+        def('tasks.complete', 'x', { scope: 'tasks', run: complete }),
+        def('tasks.escape', 'esc', { scope: 'tasks', run: escape }),
+        def('app.escape', 'esc', { run: appEsc, allowInInputs: true, allowInOverlays: true }),
+      ],
+      complete: () => complete.mock.calls.length,
+      escape: () => escape.mock.calls.length,
+      appEsc: () => appEsc.mock.calls.length,
+    }
+  }
+
+  it.each(['modal', 'palette', 'fullscreen', 'drawer'] as const)(
+    'a %s scope hides the page scopes beneath it, and they come back when it closes',
+    (overlay) => {
+      const t = tasksDefs()
+      const c = make(t.defs)
+      c.pushScope('tasks')
+      press(c, 'x')
+      expect(t.complete()).toBe(1)
+
+      const close = c.pushScope(overlay)
+      press(c, 'x')
+      expect(t.complete()).toBe(1)
+
+      close()
+      press(c, 'x')
+      expect(t.complete()).toBe(2)
+    },
+  )
+
+  it('keeps the browser default for a page key that an overlay has hidden', () => {
+    const t = tasksDefs()
+    const c = make(t.defs)
+    c.pushScope('tasks')
+    c.pushScope('palette')
+    expect(press(c, 'x').prevented).toBe(false)
+  })
+
+  it('lets the overlay own shortcuts, and scopes pushed above it, fire', () => {
+    const own = vi.fn()
+    const inner = vi.fn()
+    const c = make([
+      def('modal.next', 'mod+enter', { scope: 'modal', run: own }),
+      def('goal.rebalance', 'shift+r', { scope: 'goal', run: inner }),
+    ])
+    c.pushScope('tasks')
+    c.pushScope('modal')
+    press(c, 'Enter', { ctrlKey: true })
+    expect(own).toHaveBeenCalledTimes(1)
+
+    // A scope opened inside the dialog belongs to the dialog.
+    c.pushScope('goal')
+    press(c, 'R', { shiftKey: true })
+    expect(inner).toHaveBeenCalledTimes(1)
+  })
+
+  it('only the top overlay counts: a scope under a second overlay stays hidden', () => {
+    const a = vi.fn()
+    const b = vi.fn()
+    const c = make([
+      def('drawer.k', 'k', { scope: 'drawer', run: a }),
+      def('palette.k', 'k', { scope: 'palette', run: b }),
+    ])
+    c.pushScope('drawer')
+    c.pushScope('palette')
+    press(c, 'k')
+    expect([a.mock.calls.length, b.mock.calls.length]).toEqual([0, 1])
+  })
+
+  it('Esc closes the overlay first: a page esc does not swallow the global one', () => {
+    const t = tasksDefs()
+    const c = make(t.defs)
+    c.pushScope('tasks')
+
+    // No overlay: the page owns Esc (clear the selection, close the peek).
+    press(c, 'Escape')
+    expect([t.escape(), t.appEsc()]).toEqual([1, 0])
+
+    // The drawer is open: the global Esc closes it, the page's does not run.
+    const closeDrawer = c.pushScope('drawer')
+    expect(press(c, 'Escape').prevented).toBe(true)
+    expect([t.escape(), t.appEsc()]).toEqual([1, 1])
+
+    // Closed again: back to the page.
+    closeDrawer()
+    press(c, 'Escape')
+    expect([t.escape(), t.appEsc()]).toEqual([2, 1])
+  })
+
+  it('Esc reaches the global handler even while typing in an overlay input', () => {
+    const t = tasksDefs()
+    const c = make(t.defs)
+    c.pushScope('tasks')
+    c.pushScope('palette')
+    press(c, 'Escape', { editable: true })
+    expect([t.escape(), t.appEsc()]).toEqual([0, 1])
+  })
+
+  it('a stacked overlay resolves Esc to its own shortcut before the global one', () => {
+    const drawerEsc = vi.fn()
+    const paletteEsc = vi.fn()
+    const c = make([
+      def('drawer.esc', 'esc', { scope: 'drawer', run: drawerEsc }),
+      def('palette.esc', 'esc', { scope: 'palette', run: paletteEsc }),
+    ])
+    c.pushScope('drawer')
+    const closePalette = c.pushScope('palette')
+    press(c, 'Escape')
+    expect([drawerEsc.mock.calls.length, paletteEsc.mock.calls.length]).toEqual([0, 1])
+    closePalette()
+    press(c, 'Escape')
+    expect([drawerEsc.mock.calls.length, paletteEsc.mock.calls.length]).toEqual([1, 1])
+  })
+
+  it('allowInOverlays can name the overlays it stays live under', () => {
+    const toggle = vi.fn()
+    const c = make([def('toggle', 'mod+\\', { run: toggle, allowInOverlays: ['drawer'] })])
+    c.pushScope('modal')
+    press(c, '\\', { ctrlKey: true })
+    expect(toggle).not.toHaveBeenCalled()
+
+    const c2 = make([def('toggle', 'mod+\\', { run: toggle, allowInOverlays: ['drawer'] })])
+    c2.pushScope('drawer')
+    press(c2, '\\', { ctrlKey: true })
+    expect(toggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('a non-overlay scope does not block, and `blocking` overrides the default either way', () => {
+    const page = vi.fn()
+    const c = make([
+      def('t.x', 'x', { scope: 'tasks', run: page }),
+      def('g', 'q', { run: () => {} }),
+    ])
+    c.pushScope('tasks')
+    c.pushScope('calendar')
+    press(c, 'x')
+    expect(page).toHaveBeenCalledTimes(1)
+
+    // A custom panel can opt in to blocking...
+    const off = c.pushScope('review', { blocking: true })
+    press(c, 'x')
+    expect(page).toHaveBeenCalledTimes(1)
+    off()
+
+    // ...and a `modal` that is really a passive toast can opt out.
+    c.pushScope('modal', { blocking: false })
+    press(c, 'x')
+    expect(page).toHaveBeenCalledTimes(2)
+  })
+
+  it('removes the scope it pushed, even when the same scope is on the stack twice', () => {
+    const c = make([])
+    const first = c.pushScope('modal')
+    const second = c.pushScope('modal')
+    const seen: number[] = []
+    c.subscribe(() => seen.push(c.getScopes().length))
+
+    first()
+    expect(c.getScopes()).toEqual(['modal'])
+    first() // A second call is a no-op and does not notify.
+    second()
+    expect(c.getScopes()).toEqual([])
+    expect(seen).toEqual([1, 0])
+  })
+
+  it('a sequence is not started under an overlay that hides it', () => {
+    const go = vi.fn()
+    const c = make([def('go', 'g t', { run: go })])
+    c.pushScope('drawer')
+    press(c, 'g')
+    press(c, 't')
+    expect(go).not.toHaveBeenCalled()
   })
 })

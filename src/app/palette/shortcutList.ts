@@ -34,6 +34,7 @@ export const SCOPE_LABELS: Record<ScopeId, string> = {
   cards: 'Flashcards',
   modal: 'Dialogs',
   palette: 'Command palette',
+  drawer: 'Navigation drawer',
 }
 
 /** Headings that lead the sheet, in this order; the rest follow A to Z. */

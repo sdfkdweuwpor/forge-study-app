@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef } from 'react'
 import type { CommandCtx, ScopeId } from '../registry/types'
+import type { ScopeOptions } from './controller'
 import { ShortcutContext, type ShortcutContextValue } from './ShortcutProvider'
 
 export function useShortcuts(): ShortcutContextValue {
@@ -8,10 +9,18 @@ export function useShortcuts(): ShortcutContextValue {
   return ctx
 }
 
-/** Push a shortcut scope while the calling component is mounted (and `active`). The top scope wins. */
-export function useShortcutScope(scope: ScopeId, active = true): void {
+/**
+ * Push a shortcut scope while the calling component is mounted (and `active`). The top scope wins.
+ * Overlay scopes (`modal`, `palette`, `fullscreen`, `drawer`) are blocking: while one is open, only
+ * its own shortcuts and global ones marked `allowInOverlays` fire. `options.blocking` overrides that.
+ */
+export function useShortcutScope(scope: ScopeId, active = true, options?: ScopeOptions): void {
   const { pushScope } = useShortcuts()
-  useEffect(() => (active ? pushScope(scope) : undefined), [pushScope, scope, active])
+  const blocking = options?.blocking
+  useEffect(
+    () => (active ? pushScope(scope, blocking === undefined ? {} : { blocking }) : undefined),
+    [pushScope, scope, active, blocking],
+  )
 }
 
 /**

@@ -38,6 +38,8 @@ const manifest: FeatureManifest = {
       group: 'Tasks',
       scope: 'global',
       allowInInputs: true,
+      // Opens quick add over the palette or the sheet, which it closes first.
+      allowInOverlays: true,
       run: openQuickAdd,
     },
   ],

@@ -1,15 +1,24 @@
-import { createContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import { isEditableTarget, isMac } from '@/lib/platform'
+import { ModalPresenceContext } from '@/ui/Modal'
 import { useOverlays } from '../providers/OverlayProvider'
 import { useRegistry } from '../registry/RegistryContext'
 import type { CommandCtx, ScopeId, ShortcutDef } from '../registry/types'
-import { ShortcutController } from './controller'
+import { ShortcutController, type ScopeOptions } from './controller'
 
 export interface ShortcutContextValue {
   shortcuts: readonly ShortcutDef[]
   /** Active scopes, bottom to top (`global` is implicit and always active). */
   scopes: readonly ScopeId[]
-  pushScope(scope: ScopeId): () => void
+  /** Pushes a scope and returns the function that removes it. Overlay scopes block what is beneath them. */
+  pushScope(scope: ScopeId, options?: ScopeOptions): () => void
   bindHandler(id: string, fn: (c: CommandCtx) => void): () => void
   invoke(id: string): void
 }
@@ -56,5 +65,14 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
     [controller, shortcuts, scopes],
   )
 
-  return <ShortcutContext.Provider value={value}>{children}</ShortcutContext.Provider>
+  // `ui/Modal` cannot import the app, so it reports itself through this hook-in point.
+  const announceModal = useCallback(() => controller.pushScope('modal'), [controller])
+
+  return (
+    <ShortcutContext.Provider value={value}>
+      <ModalPresenceContext.Provider value={announceModal}>
+        {children}
+      </ModalPresenceContext.Provider>
+    </ShortcutContext.Provider>
+  )
 }

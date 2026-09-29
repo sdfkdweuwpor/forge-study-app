@@ -6,8 +6,28 @@ import { navigate } from '../router/router'
 /** Sequences like `g t` must finish within this window (PLAN §5.2). */
 export const SEQUENCE_TIMEOUT_MS = 1000
 
-/** Overlay scopes suppress global shortcuts (except those allowed in inputs, like `esc` and `mod+\`). */
-const OVERLAY_SCOPES: readonly ScopeId[] = ['modal', 'palette']
+/**
+ * Scopes that belong to an overlay. They are **blocking** by default: while one is on top of the
+ * stack, only its own shortcuts (and any scope pushed above it) plus `global` shortcuts marked
+ * `allowInOverlays` may fire, so the page underneath (`tasks`, `today`, ...) and the plain global
+ * keys (`q`, `g t`, `?`) go quiet. Pass `{ blocking }` to `pushScope` to override this per push.
+ */
+export const BLOCKING_SCOPES: ReadonlySet<ScopeId> = new Set<ScopeId>([
+  'modal',
+  'palette',
+  'fullscreen',
+  'drawer',
+])
+
+export interface ScopeOptions {
+  /** Overrides whether this scope blocks what is beneath it (default: it does for `BLOCKING_SCOPES`). */
+  blocking?: boolean
+}
+
+interface ScopeEntry {
+  id: ScopeId
+  blocking: boolean
+}
 
 export interface KeyEventLike extends KeyLike {
   defaultPrevented: boolean
@@ -40,13 +60,27 @@ interface Candidate extends Compiled {
   depth: number
 }
 
+/** Can a global shortcut still fire while `top` (the id of the topmost blocking scope) is open? */
+function allowedUnder(def: ShortcutDef, top: ScopeId): boolean {
+  const allow = def.allowInOverlays
+  return Array.isArray(allow) ? allow.includes(top) : allow === true
+}
+
 /**
  * The shortcut engine: scope stack (top wins), `g`-style sequences, input suppression and
  * component-bound handlers. Plain TypeScript (no React) so it can be tested with fake events;
  * ShortcutProvider owns one instance and forwards window keydown events to it.
+ *
+ * Which shortcuts are live is decided in one place (`candidates`):
+ * - A shortcut in a page scope (`tasks`, `today`...) needs that scope on the stack; the deepest wins.
+ * - The topmost **blocking** scope (an overlay: modal, palette, drawer, full-screen) hides everything
+ *   beneath it. Only shortcuts of that scope, of scopes pushed above it, and `global` shortcuts with
+ *   `allowInOverlays` stay live. This is also how Esc resolves: the overlay's own `esc` (or the
+ *   global `app.escape`) runs, and a page's `esc` (`tasks.escape`) only gets it once no overlay is open.
  */
 export class ShortcutController {
   private compiled: Compiled[] = []
+  private entries: readonly ScopeEntry[] = []
   private scopes: readonly ScopeId[] = []
   private readonly handlers = new Map<string, Handler[]>()
   private readonly listeners = new Set<() => void>()
@@ -74,15 +108,21 @@ export class ShortcutController {
 
   getScopes = (): readonly ScopeId[] => this.scopes
 
-  pushScope = (scope: ScopeId): (() => void) => {
-    this.scopes = [...this.scopes, scope]
-    this.notify()
-    return () => {
-      const i = this.scopes.lastIndexOf(scope)
-      if (i === -1) return
-      this.scopes = this.scopes.filter((_, idx) => idx !== i)
-      this.notify()
+  pushScope = (scope: ScopeId, options: ScopeOptions = {}): (() => void) => {
+    const entry: ScopeEntry = {
+      id: scope,
+      blocking: options.blocking ?? BLOCKING_SCOPES.has(scope),
     }
+    this.setEntries([...this.entries, entry])
+    return () => {
+      if (this.entries.includes(entry)) this.setEntries(this.entries.filter((e) => e !== entry))
+    }
+  }
+
+  private setEntries(entries: readonly ScopeEntry[]): void {
+    this.entries = entries
+    this.scopes = entries.map((e) => e.id)
+    this.notify()
   }
 
   private notify(): void {
@@ -116,18 +156,25 @@ export class ShortcutController {
     return def.run !== undefined || this.handlers.has(def.id)
   }
 
+  /** Index of the topmost blocking scope (the overlay in front), or -1 when the page has the keyboard. */
+  private topBlocking(): number {
+    return this.entries.findLastIndex((e) => e.blocking)
+  }
+
   private candidates(editable: boolean): Candidate[] {
-    const top = this.scopes.at(-1)
-    const overlayOpen = top !== undefined && OVERLAY_SCOPES.includes(top)
+    const overlay = this.topBlocking()
+    const overlayId = this.entries[overlay]?.id
     const out: Candidate[] = []
     for (const c of this.compiled) {
       const { def } = c
       if (editable && !def.allowInInputs) continue
       let depth = 0
       if (def.scope !== 'global') {
-        depth = this.scopes.lastIndexOf(def.scope) + 1
-        if (depth === 0) continue
-      } else if (overlayOpen && !def.allowInInputs) {
+        const at = this.entries.findLastIndex((e) => e.id === def.scope)
+        // Not on the stack, or hidden beneath the overlay that is in front.
+        if (at === -1 || at < overlay) continue
+        depth = at + 1
+      } else if (overlayId !== undefined && !allowedUnder(def, overlayId)) {
         continue
       }
       if (this.actionable(def)) out.push({ ...c, depth })

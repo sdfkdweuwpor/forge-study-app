@@ -28,6 +28,7 @@ export type ScopeId =
   | 'cards'
   | 'modal'
   | 'palette'
+  | 'drawer'
 
 export type CommandGroup =
   'Go to' | 'Create' | 'Focus' | 'Goals' | 'View' | 'Review' | 'Data' | 'Help'
@@ -63,6 +64,12 @@ export interface ShortcutDef {
   group: string
   scope: 'global' | ScopeId
   allowInInputs?: boolean
+  /**
+   * `global` shortcuts only. Overlay scopes (`modal`, `palette`, `fullscreen`, `drawer`) are blocking:
+   * while one is open, global keys go quiet. `true` keeps this one live under any overlay (`esc`,
+   * `mod+k`); a list keeps it live only while the top overlay is one of those scopes.
+   */
+  allowInOverlays?: boolean | readonly ScopeId[]
   /** Direct action. Omit when a component binds the behaviour with `useShortcutHandler(id, fn)`. */
   run?: (c: CommandCtx) => void
 }

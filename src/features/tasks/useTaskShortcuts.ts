@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useOpenOverlays, useOverlays } from '@/app/providers/OverlayProvider'
+import { useOverlays } from '@/app/providers/OverlayProvider'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import type { Priority, Task } from '@/db/types'
 import { useTaskActions } from './TaskActions'
@@ -24,12 +24,6 @@ export interface TaskShortcutOptions {
   editTags(): void
   /** Called just before a task leaves the list (completed or trashed), so selection can move on. */
   beforeLeave?(task: Task): void
-  /**
-   * Whether `esc` belongs to this list right now (default true). A deeper scope wins over the
-   * shell's global `esc`, so a screen with nothing to dismiss passes false; otherwise it would
-   * swallow the Escape that closes the sidebar drawer or the More sheet.
-   */
-  escapeActive?: boolean
 }
 
 /**
@@ -57,39 +51,25 @@ function useKeyboardIdle(): boolean {
 }
 
 /** Turns on the `tasks` scope and binds the tasks shortcuts (see `shortcuts.ts`) to the target task. */
-export function useTaskShortcuts({
-  task,
-  list,
-  editTags,
-  beforeLeave,
-  escapeActive = true,
-}: TaskShortcutOptions): void {
+export function useTaskShortcuts({ task, list, editTags, beforeLeave }: TaskShortcutOptions): void {
+  // While a palette, dialog, drawer or sheet is open its scope blocks this one (see the shortcut
+  // controller), so nothing here has to check for overlays, and `esc` reaches the overlay first.
   useShortcutScope('tasks')
   const actions = useTaskActions()
   const overlays = useOverlays()
-  // A palette, quick add or sheet on top owns the keyboard.
-  const free = useOpenOverlays().length === 0
   const idle = useKeyboardIdle()
-  const active = free && task !== null
+  const active = task !== null
 
-  useShortcutHandler('tasks.new', () => overlays.open('quickAdd'), free)
+  useShortcutHandler('tasks.new', () => overlays.open('quickAdd'))
 
-  useShortcutHandler('tasks.next', () => list?.moveSelection(1), free && list !== undefined)
-  useShortcutHandler('tasks.nextArrow', () => list?.moveSelection(1), free && list !== undefined)
-  useShortcutHandler('tasks.prev', () => list?.moveSelection(-1), free && list !== undefined)
-  useShortcutHandler('tasks.prevArrow', () => list?.moveSelection(-1), free && list !== undefined)
-  useShortcutHandler(
-    'tasks.open',
-    () => list?.open(),
-    free && idle && list !== undefined && task !== null,
-  )
+  useShortcutHandler('tasks.next', () => list?.moveSelection(1), list !== undefined)
+  useShortcutHandler('tasks.nextArrow', () => list?.moveSelection(1), list !== undefined)
+  useShortcutHandler('tasks.prev', () => list?.moveSelection(-1), list !== undefined)
+  useShortcutHandler('tasks.prevArrow', () => list?.moveSelection(-1), list !== undefined)
+  useShortcutHandler('tasks.open', () => list?.open(), idle && list !== undefined && task !== null)
   useShortcutHandler('tasks.moveUp', () => list?.reorder(-1), active && list !== undefined)
   useShortcutHandler('tasks.moveDown', () => list?.reorder(1), active && list !== undefined)
-  useShortcutHandler(
-    'tasks.escape',
-    () => void list?.escape(),
-    free && list !== undefined && escapeActive,
-  )
+  useShortcutHandler('tasks.escape', () => void list?.escape(), list !== undefined)
 
   useShortcutHandler(
     'tasks.complete',

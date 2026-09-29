@@ -15,12 +15,13 @@ interface DrawerProps {
 /**
  * Overlay panel for the tablet sidebar (side="left") and the mobile "More" sheet (side="bottom").
  * Always mounted so it can animate out; `inert` while closed. Escape, the scrim and route changes close it.
- * While open it is a `modal` shortcut scope, so global sequences (`g t`…) do not fire underneath it.
+ * While open it is a blocking `drawer` shortcut scope, so neither the page's keys (`x`, `j`…) nor global
+ * sequences (`g t`…) fire underneath it, and Esc closes it.
  */
 export function Drawer({ open, onClose, label, side = 'left', children }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   useModalFocus(open, panelRef)
-  useShortcutScope('modal', open)
+  useShortcutScope('drawer', open)
   useShortcutHandler('app.escape', onClose, open)
 
   return (

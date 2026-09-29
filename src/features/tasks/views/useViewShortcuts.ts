@@ -1,4 +1,3 @@
-import { useOpenOverlays } from '@/app/providers/OverlayProvider'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import type { TaskLayout } from '@/logic/taskViews'
 
@@ -30,28 +29,26 @@ export function useViewShortcuts({
   calendar,
 }: ViewShortcutOptions): void {
   const onCalendar = layout === 'calendar'
+  // Overlays (palette, dialogs, drawer) block these through the shortcut controller's scope stack.
   useShortcutScope('calendar', onCalendar)
-  // A palette, quick add or sheet on top owns the keyboard.
-  const free = useOpenOverlays().length === 0
 
-  useShortcutHandler('tasks.layoutList', () => setLayout('list'), free && layouts.includes('list'))
-  useShortcutHandler('tasks.layoutBoard', () => setLayout('board'), free && layouts.includes('board'))
+  useShortcutHandler('tasks.layoutList', () => setLayout('list'), layouts.includes('list'))
+  useShortcutHandler('tasks.layoutBoard', () => setLayout('board'), layouts.includes('board'))
   useShortcutHandler(
     'tasks.layoutCalendar',
     () => setLayout('calendar'),
-    free && layouts.includes('calendar'),
+    layouts.includes('calendar'),
   )
-  useShortcutHandler('tasks.saveView', saveView, free)
+  useShortcutHandler('tasks.saveView', saveView)
 
-  const onBoard = layout === 'board' && free && hasSelection
+  const onBoard = layout === 'board' && hasSelection
   useShortcutHandler('board.moveLeft', () => board.move(-1), onBoard)
   useShortcutHandler('board.moveRight', () => board.move(1), onBoard)
 
-  const calendarFree = onCalendar && free
-  useShortcutHandler('calendar.prev', () => calendar.shift(-1), calendarFree)
-  useShortcutHandler('calendar.next', () => calendar.shift(1), calendarFree)
-  useShortcutHandler('calendar.today', calendar.today, calendarFree)
-  const nudging = calendarFree && hasSelection
+  useShortcutHandler('calendar.prev', () => calendar.shift(-1), onCalendar)
+  useShortcutHandler('calendar.next', () => calendar.shift(1), onCalendar)
+  useShortcutHandler('calendar.today', calendar.today, onCalendar)
+  const nudging = onCalendar && hasSelection
   useShortcutHandler('calendar.dayBack', () => calendar.nudge({ days: -1 }), nudging)
   useShortcutHandler('calendar.dayForward', () => calendar.nudge({ days: 1 }), nudging)
   useShortcutHandler('calendar.timeEarlier', () => calendar.nudge({ minutes: -15 }), nudging)

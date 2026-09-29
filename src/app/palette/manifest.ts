@@ -26,6 +26,7 @@ export const paletteManifest: FeatureManifest = {
       group: 'General',
       scope: 'global',
       allowInInputs: true,
+      allowInOverlays: true,
       run: (c) => {
         if (c.overlays.isOpen('palette')) c.overlays.close('palette')
         else openPalette(c, 'all')

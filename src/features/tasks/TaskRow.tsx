@@ -23,11 +23,17 @@ export interface TaskRowProps {
   motion?: TaskMotion
   /** The `⋮⋮` drag handle, supplied by a sortable list. */
   handle?: ReactNode
+  /** `card`: a compact card for the board (title over its chips, a border instead of a hover fill). */
+  variant?: 'row' | 'card'
+  /** A drag preview: a look-alike that does not register itself as the row for keyboard requests. */
+  preview?: boolean
   dragging?: boolean
   /** Hide the course chip where the surrounding list already says which course it is. */
   showCourse?: boolean
   /** XP this finished task earned, shown in gold (the Completed list). */
   xp?: number
+  /** Replaces the words of the due chip, e.g. Today's "3 days overdue". The tone and icon stay. */
+  dueText?: string
   /**
    * Scroll the row into view when it becomes selected. Only for keyboard selection: scrolling on a
    * click would move the row between pointer-down and pointer-up and swallow the click.
@@ -46,9 +52,12 @@ export const TaskRow = memo(function TaskRow({
   onSelect,
   motion,
   handle,
+  variant = 'row',
+  preview = false,
   dragging = false,
   showCourse = true,
   xp,
+  dueText,
   reveal = false,
 }: TaskRowProps) {
   const actions = useTaskActions()
@@ -60,11 +69,13 @@ export const TaskRow = memo(function TaskRow({
   const { registerRow } = actions
   useEffect(
     () =>
-      registerRow(task.id, {
-        edit: () => setEditing(true),
-        openPanel: (kind) => setPanel(kind),
-      }),
-    [registerRow, task.id],
+      preview
+        ? undefined
+        : registerRow(task.id, {
+            edit: () => setEditing(true),
+            openPanel: (kind) => setPanel(kind),
+          }),
+    [registerRow, task.id, preview],
   )
 
   useEffect(() => {
@@ -101,6 +112,7 @@ export const TaskRow = memo(function TaskRow({
           data-done={task.status === 'done' || undefined}
           data-doing={task.status === 'doing' || undefined}
           data-dragging={dragging || undefined}
+          data-variant={variant}
           data-menu-open={panel !== null || undefined}
           data-priority={task.priority}
           onPointerDownCapture={() => onSelect?.(task.id)}
@@ -189,7 +201,7 @@ export const TaskRow = memo(function TaskRow({
               ) : due ? (
                 <span className={styles.due} data-tone={due.tone}>
                   <CalendarDays size={13} aria-hidden="true" />
-                  <span>{due.text}</span>
+                  <span>{dueText ?? due.text}</span>
                   {due.tone === 'overdue' ? <span className="sr-only"> (overdue)</span> : null}
                 </span>
               ) : null}

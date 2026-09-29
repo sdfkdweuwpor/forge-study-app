@@ -1,0 +1,37 @@
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 35px;
+  padding: 0 var(--space-2);
+}
+
+.hint {
+  display: inline-flex;
+  flex-basis: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+/* Touch screens and phones have no keyboard to press Q on. */
+@media (hover: none), (max-width: 639px) {
+  .hint {
+    display: none;
+  }
+}

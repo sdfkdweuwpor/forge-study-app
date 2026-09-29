@@ -92,10 +92,28 @@ export interface FilterBarProps {
   onChange: (view: TaskListView) => void
   courses: readonly CourseInfo[]
   tags: readonly string[]
+  /** Controls placed first in the bar (the layout switch). */
+  leading?: ReactNode
+  /** Controls placed last in the bar (Save view, Update and Reset). */
+  trailing?: ReactNode
+  /** Grouping means nothing to a board or a calendar. Default true. */
+  showGroup?: boolean
+  /** A calendar orders by time, so it has no sort. Default true. */
+  showSort?: boolean
 }
 
 /** Grouping, sort and the five filters (status, priority, tag, course, due). Everything lives in the URL. */
-export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProps) {
+export function FilterBar({
+  list,
+  view,
+  onChange,
+  courses,
+  tags,
+  leading,
+  trailing,
+  showGroup = true,
+  showSort = true,
+}: FilterBarProps) {
   const { filter } = view
   const count = activeFilterCount(filter)
   const completed = list === 'completed'
@@ -128,8 +146,9 @@ export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProp
   ]
 
   return (
-    <div className={styles.bar} role="group" aria-label="Group, sort and filter">
-      {!completed ? (
+    <div className={styles.bar} role="group" aria-label="Layout, group, sort and filter">
+      {leading}
+      {!completed && showGroup ? (
         <SegmentedControl<TaskGroupBy>
           label="Group by"
           size="sm"
@@ -143,7 +162,7 @@ export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProp
         />
       ) : null}
 
-      {!completed ? (
+      {!completed && showSort ? (
         <>
           <Dropdown
             label="Sort"
@@ -242,6 +261,7 @@ export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProp
           Clear
         </Button>
       ) : null}
+      {trailing}
     </div>
   )
 }

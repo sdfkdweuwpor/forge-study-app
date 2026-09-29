@@ -287,3 +287,65 @@
     left: 30px;
   }
 }
+
+/* ── Board cards (variant="card"): the title over its chips, a hairline border instead of a hover fill ── */
+.row[data-variant='card'] {
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .row[data-variant='card']:hover {
+    background: var(--bg-elevated);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+}
+
+.row[data-variant='card'][data-selected] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.row[data-variant='card'][data-dragging] {
+  box-shadow:
+    inset 0 0 0 1px var(--border-strong),
+    var(--shadow-pop);
+}
+
+.row[data-variant='card'] .body {
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: var(--space-2);
+}
+
+.row[data-variant='card'] .title {
+  flex: 0 0 auto;
+  line-height: 20px;
+}
+
+.row[data-variant='card'] .meta {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  margin-left: 0;
+  min-height: 0;
+}
+
+.row[data-variant='card'] .meta:empty {
+  display: none;
+}
+
+/* The grip sits inside the card, beside the … menu: there is no gutter around a card to hang it in. */
+.row[data-variant='card'] .handle {
+  top: 8px;
+  right: 34px;
+  left: auto;
+}
+
+.row[data-variant='card'] .xp {
+  left: 32px;
+}

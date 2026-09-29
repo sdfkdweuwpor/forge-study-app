@@ -579,7 +579,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Board: dnd-kit todo/doing/done columns with keyboard sensor and announcements.
   - Calendar: week view, drag to reschedule (pins scheduled tasks), `← → t`.
   - Saved views CRUD in the sidebar Tasks sub-nav slot.
-- [ ] **3E [B] Today** (wave 2, after 3A). Owns `src/features/today/**` and `src/logic/today.ts` (groupToday, pickNow; tests).
+- [x] **3E [B] Today** (wave 2, after 3A). Owns `src/features/today/**` and `src/logic/today.ts` (groupToday, pickNow; tests).
   - Greeting and date.
   - Now card with a Start focus button (wired in P4).
   - Groups: From your goals / Your tasks / Rolled over (amber + days overdue); completed today collapsed.

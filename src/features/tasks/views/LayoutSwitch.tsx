@@ -5,6 +5,7 @@ import type { TaskListId } from '@/logic/taskLists'
 import {
   parseLayoutPrefs,
   serializeLayoutPrefs,
+  type LayoutPrefs,
   type TaskLayout,
 } from '@/logic/taskViews'
 import { SegmentedControl } from '@/ui/SegmentedControl'
@@ -18,13 +19,15 @@ const ICONS: Record<TaskLayout, ReactNode> = {
 const LABELS: Record<TaskLayout, string> = { list: 'List', board: 'Board', calendar: 'Calendar' }
 
 /** The remembered layout of every list on this device (a preference, so it never syncs). */
-export function readLayoutPrefs() {
+export function readLayoutPrefs(): LayoutPrefs {
   return parseLayoutPrefs(readPref(PREF_KEYS.tasksLayout))
 }
 
-/** Remembers `layout` as the one `list` opens with. */
-export function rememberLayout(list: TaskListId, layout: TaskLayout): void {
-  writePref(PREF_KEYS.tasksLayout, serializeLayoutPrefs({ ...readLayoutPrefs(), [list]: layout }))
+/** Remembers `layout` as the one `list` opens with, and returns all the remembered layouts. */
+export function rememberLayout(list: TaskListId, layout: TaskLayout): LayoutPrefs {
+  const prefs = { ...readLayoutPrefs(), [list]: layout }
+  writePref(PREF_KEYS.tasksLayout, serializeLayoutPrefs(prefs))
+  return prefs
 }
 
 interface LayoutSwitchProps {

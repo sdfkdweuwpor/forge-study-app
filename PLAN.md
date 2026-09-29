@@ -575,7 +575,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Block types p/h1–h3/bullet/todo/callout/divider.
   - Slash menu (`/todo /heading /divider /callout /bullet`).
   - Keys: enter splits, backspace merges, arrows move between blocks.
-- [ ] **3D [B] Board + Calendar + saved views** (wave 2, after 3A). Owns `src/features/tasks/views/{Board*,Calendar*}`, `src/features/tasks/SavedViews*` and `src/db/repos/views.ts`.
+- [x] **3D [B] Board + Calendar + saved views** (wave 2, after 3A). Owns `src/features/tasks/views/{Board*,Calendar*}`, `src/features/tasks/SavedViews*` and `src/db/repos/views.ts`.
   - Board: dnd-kit todo/doing/done columns with keyboard sensor and announcements.
   - Calendar: week view, drag to reschedule (pins scheduled tasks), `← → t`.
   - Saved views CRUD in the sidebar Tasks sub-nav slot.

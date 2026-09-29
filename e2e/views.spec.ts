@@ -227,7 +227,7 @@ test.describe('calendar', () => {
     expect((await task(page, stamp))?.dueTime).toBeNull()
   })
 
-  test('shows three days and a working checkbox on a phone', async ({ page }) => {
+  test('shows three days on a phone and pages by them', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await gotoApp(page, '/tasks/all?layout=calendar', 'wgu')
     await expect(page.locator('h2[aria-live="polite"]')).toHaveText('Sep 29 – Oct 1, 2026')

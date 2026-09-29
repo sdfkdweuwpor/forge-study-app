@@ -117,9 +117,11 @@ function TasksBody({ list, saved }: TasksBodyProps) {
     [savedState, list, query],
   )
   const layouts = layoutsFor(list)
+  // The remembered layouts are state, so choosing one re-renders even when the address does not change.
+  const [layoutPrefs, setLayoutPrefs] = useState(readLayoutPrefs)
   const layout: TaskLayout = savedState
     ? savedState.layout
-    : resolveLayout(list, query.layout, readLayoutPrefs())
+    : resolveLayout(list, query.layout, layoutPrefs)
   const peekId = query.peek ?? null
   const [selectedId, setSelectedId] = useState<ID | null>(null)
   const [tagsNonce, setTagsNonce] = useState(0)
@@ -216,7 +218,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         return
       }
       // The choice is remembered per list, on this device; the address bar carries it for links.
-      rememberLayout(list, next)
+      setLayoutPrefs(rememberLayout(list, next))
       setQuery({ layout: next === 'list' ? undefined : next })
     },
     [saved, list, view],

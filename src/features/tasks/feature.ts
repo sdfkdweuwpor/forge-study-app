@@ -54,10 +54,11 @@ function showAs(layout: TaskLayout): (c: { navigate: typeof navigate }) => void 
     if (onTasksPage()) {
       const list: TaskListId = listFromParam(segments[1])
       rememberLayout(list, layout)
-      setQuery({ layout: layout === 'list' ? undefined : layout })
+      // Written into the address even for the list, so the page re-renders whatever it showed before.
+      setQuery({ layout })
       return
     }
-    c.navigate('tasks', { list: 'all' }, { query: layout === 'list' ? {} : { layout } })
+    c.navigate('tasks', { list: 'all' }, { query: { layout } })
   }
 }
 

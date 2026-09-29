@@ -339,13 +339,29 @@
   display: none;
 }
 
-/* The grip sits inside the card, beside the … menu: there is no gutter around a card to hang it in. */
+/*
+ * The grip sits inside the card, beside the … menu: there is no gutter around a card to hang it in. It
+ * stays on small and touch screens too (a long press also picks a card up), because it is the keyboard
+ * and screen-reader way to move a card.
+ */
 .row[data-variant='card'] .handle {
   top: 8px;
   right: 34px;
   left: auto;
+  display: flex;
+}
+
+@media (hover: none) {
+  .row[data-variant='card'] .handle {
+    opacity: 1;
+  }
 }
 
 .row[data-variant='card'] .xp {
   left: 32px;
+}
+
+/* A card in the Doing column does not need to say it is doing. */
+.row[data-variant='card'] .doing {
+  display: none;
 }

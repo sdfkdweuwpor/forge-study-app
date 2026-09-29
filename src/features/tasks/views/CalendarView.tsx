@@ -170,6 +170,7 @@ function DayColumn({
       ref={setNodeRef}
       className={styles.col}
       aria-label={`${formatDayLong(day, today)}, scheduled`}
+      data-timed-day={day}
       data-today={day === today || undefined}
     >
       {ghost ? (
@@ -243,6 +244,7 @@ export function CalendarView({
   const settle = useRef(0)
   const dragging = useRef(false)
   const swipe = useRef<{ x: number; y: number } | null>(null)
+  const gridRef = useRef<HTMLDivElement | null>(null)
 
   const shown = useMemo(
     () =>
@@ -272,7 +274,7 @@ export function CalendarView({
   )
 
   /** What a drag currently points at: a day's all-day strip, or a day and a snapped time. */
-  function targetOf(event: Pick<DragMoveEvent, 'active' | 'over'>): Target | null {
+  function targetOf(event: Pick<DragMoveEvent, 'active' | 'over' | 'delta'>): Target | null {
     const over = event.over
     if (!over) return null
     const kind: unknown = over.data.current?.kind
@@ -280,10 +282,14 @@ export function CalendarView({
     if (typeof dayValue !== 'string') return null
     const day: ISODate = dayValue
     if (kind === 'allday') return { day, time: null }
-    const top = event.active.rect.current.translated?.top
-    if (kind !== 'day' || top === undefined) return null
-    const pxPerMinute = over.rect.height / Math.max(1, range.end - range.start)
-    return { day, time: dropTime(top - over.rect.top, pxPerMinute, range) }
+    // The block follows the pointer in the window, so its top is where the drag started plus the drag's
+    // distance. The column is measured now, so a page that scrolled during the drag still reads true.
+    const initialTop = event.active.rect.current.initial?.top
+    const column = gridRef.current?.querySelector<HTMLElement>(`[data-timed-day="${day}"]`)
+    if (kind !== 'day' || initialTop === undefined || !column) return null
+    const rect = column.getBoundingClientRect()
+    const pxPerMinute = rect.height / Math.max(1, range.end - range.start)
+    return { day, time: dropTime(initialTop + event.delta.y - rect.top, pxPerMinute, range) }
   }
 
   function describeTarget(t: Target): string {
@@ -398,7 +404,8 @@ export function CalendarView({
         </h2>
         <span className={styles.hint}>
           <Kbd keys="alt+left" size="sm" variant="plain" />
-          <Kbd keys="alt+right" size="sm" variant="plain" /> moves the selected task a day
+          <Kbd keys="alt+right" size="sm" variant="plain" />
+          <span>move the selected task a day</span>
         </span>
       </div>
 
@@ -420,6 +427,7 @@ export function CalendarView({
       >
         {/* Swipe is a touch shortcut for the arrows; the buttons and keys above do the same. */}
         <div
+          ref={gridRef}
           className={styles.grid}
           role="group"
           aria-label={`Tasks for ${windowLabel(days)}`}

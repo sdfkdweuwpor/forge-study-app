@@ -8,7 +8,9 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(268px, 1fr);
-  align-items: start;
+  /* Every column is as tall as the tallest, so a short one can be dropped on anywhere below its cards. */
+  align-items: stretch;
+  min-height: 320px;
   gap: var(--space-4);
   /* Room for focus rings and card borders that would otherwise be clipped by the scroller. */
   margin: 0 calc(-1 * var(--space-1));
@@ -53,6 +55,7 @@
 
 .cards {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-2);
   min-height: 112px;
@@ -116,6 +119,7 @@
 }
 
 .footer {
+  list-style: none;
   padding: var(--space-1) var(--space-2) 0;
   color: var(--text-muted);
   font-size: var(--fs-12);

@@ -156,6 +156,11 @@
   animation: pageIn var(--dur-3) var(--ease);
 }
 
+/* A page that needs room (the tasks board and calendar) marks itself, and opens up past the reading width. */
+.page:has([data-page-width='wide']) {
+  max-width: 1440px;
+}
+
 /* /design shows two themed columns side by side, so it opts out of the reading width. */
 .pageOuter[data-route='design'] .page {
   max-width: 1760px;

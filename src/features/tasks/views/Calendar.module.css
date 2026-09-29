@@ -35,6 +35,9 @@
 }
 
 .hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   margin-left: auto;
   color: var(--text-muted);
   font-size: var(--fs-12);
@@ -347,7 +350,7 @@
 .face .check {
   --cb-line: var(--_fg);
   --cb-color: var(--_fg);
-  --cb-check: var(--_bg);
+  --cb-check: var(--bg);
   position: relative;
   z-index: 1;
   flex: none;

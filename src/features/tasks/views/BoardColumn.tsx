@@ -58,9 +58,9 @@ export function BoardColumn({
             />
           ))}
           {tasks.length === 0 ? <li className={styles.empty}>{EMPTY_COPY[id]}</li> : null}
+          {footer ? <li className={styles.footer}>{footer}</li> : null}
         </ul>
       </SortableContext>
-      {footer}
     </section>
   )
 }

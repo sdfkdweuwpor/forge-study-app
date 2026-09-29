@@ -106,7 +106,7 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
                 item={item}
                 route={route.name}
                 onNavigate={onNavigate}
-                subActive={item.id === 'tasks' && activeList !== null}
+                subActive={item.id === 'tasks' && (activeList !== null || route.name === 'taskView')}
               />
               {item.id === 'tasks' && inTasks ? (
                 <ul className={styles.sub}>

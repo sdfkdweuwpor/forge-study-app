@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SavedView } from '@/db/types'
-import { viewFromQuery } from './taskListView'
+import { viewFromQuery, type TaskListView } from './taskListView'
 import {
   layoutFromQuery,
   layoutsFor,
@@ -157,11 +157,11 @@ describe('saved views in the address bar', () => {
 
 describe('viewToSave', () => {
   it('folds Upcoming into the filter, unless a date filter is already on', () => {
-    const view = {
+    const view: TaskListView = {
       groupBy: 'date',
       sort: { key: 'due', dir: 'asc' },
       filter: { priority: [3] },
-    } as const
+    }
     expect(viewToSave('upcoming', view).filter).toEqual({ priority: [3], due: 'upcoming' })
     expect(viewToSave('upcoming', { ...view, filter: { due: 'week' } }).filter).toEqual({
       due: 'week',

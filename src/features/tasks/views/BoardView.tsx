@@ -302,12 +302,12 @@ export function BoardView({
             onSelect={onSelect}
             footer={
               column === 'done' && model.olderDone > 0 ? (
-                <p className={styles.footer}>
+                <>
                   {model.olderDone} older ·{' '}
                   <Link to="tasks" params={{ list: 'completed' }}>
                     See Completed
                   </Link>
-                </p>
+                </>
               ) : null
             }
           />

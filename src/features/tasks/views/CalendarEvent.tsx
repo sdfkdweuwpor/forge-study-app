@@ -9,10 +9,21 @@ import { useTaskActions, useTaskEnv } from '../TaskActions'
 import { openTask } from '../taskUrls'
 import styles from './Calendar.module.css'
 
-/** A block this many minutes or longer has room for a second line with its time. */
-const TIME_LINE_MIN_MINUTES = 40
+/** A block this many minutes or longer has room for a two-line title, and for its time under that. */
+const TWO_LINES_MIN_MINUTES = 40
+const TIME_LINE_MIN_MINUTES = 58
 
 export type EventVariant = 'block' | 'chip'
+
+/**
+ * Moving a task to another day remounts its block, which drops keyboard focus. The nudge that caused it
+ * asks for focus back here, and the block that mounts for that task takes it.
+ */
+let refocusId: ID | null = null
+export function refocusEvent(id: ID): void {
+  const active = document.activeElement
+  if (active === document.body || active?.closest('[data-calendar-face]')) refocusId = id
+}
 
 interface EventFaceProps {
   task: Task
@@ -53,6 +64,13 @@ export function CalendarEventFace({
   const actions = useTaskActions()
   const { today, tagColors, projects } = useTaskEnv()
   const root = useRef<HTMLDivElement | null>(null)
+  const open = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (preview || refocusId !== task.id) return
+    refocusId = null
+    open.current?.focus({ preventScroll: true })
+  }, [preview, task.id])
 
   useEffect(() => {
     if (selected && reveal) root.current?.scrollIntoView({ block: 'nearest' })
@@ -63,7 +81,9 @@ export function CalendarEventFace({
   const colorKey = course?.code ?? task.tags[0]
   const color = colorKey ? tagColor(colorKey, tagColors) : 'gray'
   const showTime = variant === 'block' && span !== undefined
-  const long = span !== undefined && span.end - span.start >= TIME_LINE_MIN_MINUTES
+  const minutes = span ? span.end - span.start : 0
+  const long = minutes >= TWO_LINES_MIN_MINUTES
+  const roomForTime = minutes >= TIME_LINE_MIN_MINUTES
   const overdue = !done && day < today
   const when = span ? timeText(span) : 'all day'
 
@@ -71,6 +91,7 @@ export function CalendarEventFace({
     <div
       ref={root}
       className={styles.face}
+      data-calendar-face=""
       data-variant={variant}
       data-color={color}
       data-long={long || undefined}
@@ -84,6 +105,7 @@ export function CalendarEventFace({
       onFocusCapture={preview ? undefined : () => onSelect?.(task.id)}
     >
       <button
+        ref={open}
         type="button"
         className={styles.open}
         tabIndex={preview ? -1 : 0}
@@ -100,14 +122,16 @@ export function CalendarEventFace({
       />
       <span className={styles.text}>
         <span className={styles.title}>{task.title}</span>
-        {showTime && long && span ? <span className={styles.time}>{timeText(span)}</span> : null}
+        {showTime && roomForTime && span ? (
+          <span className={styles.time}>{timeText(span)}</span>
+        ) : null}
       </span>
     </div>
   )
 }
 
 interface DraggableEventProps extends Omit<EventFaceProps, 'preview'> {
-  className: string
+  className?: string | undefined
   style?: CSSProperties
 }
 

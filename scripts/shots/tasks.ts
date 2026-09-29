@@ -14,6 +14,8 @@ async function settle(page: Page): Promise<void> {
 }
 
 const ROWS = 'main ul li'
+const BOARD_CARDS = '[data-column="todo"] li'
+const CALENDAR_EVENTS = 'section[aria-label="Calendar"] [aria-label$="scheduled"] li'
 
 // Tasks (Phase 3A). Sample data comes from `?seed=wgu` (dated around the fixed clock, Tue 2026-09-29).
 const list: ShotList = {
@@ -87,6 +89,84 @@ const list: ShotList = {
       },
     },
     { name: 'empty-inbox', path: '/tasks/inbox?seed=empty', waitFor: 'main h1', prepare: settle },
+
+    // Board, calendar and saved views (Phase 3D).
+    { name: 'board', path: '/tasks/all?seed=wgu&layout=board', waitFor: BOARD_CARDS, prepare: settle },
+    {
+      // A card picked up with the keyboard and moved into Doing: the target column lights up.
+      name: 'board-picked-up',
+      path: '/tasks/all?seed=wgu&layout=board',
+      waitFor: BOARD_CARDS,
+      prepare: async (page) => {
+        await page.locator('[data-column="todo"] li').first().getByRole('button', { name: /^Move / }).focus()
+        await page.keyboard.press('Space')
+        // The sensor starts listening for arrow keys a tick after Space.
+        await page.waitForTimeout(200)
+        await page.keyboard.press('ArrowRight')
+        await page.waitForTimeout(300)
+        await settle(page)
+      },
+    },
+    {
+      name: 'board-filtered',
+      path: '/tasks/all?seed=wgu&layout=board&priority=3,4&sort=priority',
+      waitFor: BOARD_CARDS,
+      prepare: settle,
+    },
+    {
+      name: 'board-empty',
+      path: '/tasks/inbox?seed=empty&layout=board',
+      waitFor: 'main h1',
+      prepare: settle,
+    },
+    {
+      name: 'calendar',
+      path: '/tasks/all?seed=wgu&layout=calendar',
+      waitFor: CALENDAR_EVENTS,
+      prepare: settle,
+    },
+    {
+      // Scrolled to the afternoon, where the time grid has most of the day's blocks.
+      name: 'calendar-afternoon',
+      path: '/tasks/all?seed=wgu&layout=calendar',
+      waitFor: CALENDAR_EVENTS,
+      prepare: async (page) => {
+        await page.evaluate(() => window.scrollTo(0, 420))
+        await settle(page)
+      },
+    },
+    {
+      name: 'calendar-empty',
+      path: '/tasks/inbox?seed=empty&layout=calendar',
+      waitFor: 'main h1',
+      prepare: settle,
+    },
+    {
+      name: 'save-view-popover',
+      path: '/tasks/all?seed=wgu&priority=3,4',
+      waitFor: ROWS,
+      prepare: async (page) => {
+        await page.getByRole('button', { name: 'Save view' }).click()
+        await page.getByRole('dialog', { name: 'Save view' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      // A saved view in the sidebar (wide screens) and as a page, edited but not yet updated.
+      name: 'saved-view',
+      path: '/tasks/all?seed=wgu&priority=3,4',
+      waitFor: ROWS,
+      prepare: async (page) => {
+        await page.getByRole('button', { name: 'Save view' }).click()
+        await page.getByLabel('Name').fill('Urgent this term')
+        await page.getByRole('button', { name: 'Fire' }).click()
+        await page.getByRole('button', { name: 'Save view' }).last().click()
+        await page.waitForURL(/\/tasks\/views\//)
+        await page.getByRole('radio', { name: 'Board' }).click()
+        await page.getByRole('button', { name: 'Update view' }).waitFor()
+        await settle(page)
+      },
+    },
   ],
 }
 

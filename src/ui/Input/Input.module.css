@@ -114,8 +114,16 @@
   color: var(--text-muted);
 }
 
-/* iOS zooms into inputs under 16px on focus; phones get 16px text instead. */
+/*
+ * Touch: text fields grow to the 44px tap target (same as DatePicker), and get 16px text because
+ * iOS zooms into inputs under 16px on focus. Buttons keep their visual size with an invisible hit area.
+ */
 @media (pointer: coarse) {
+  .control,
+  .control[data-size='sm'] {
+    --_h: var(--tap-min);
+  }
+
   .input {
     font-size: var(--fs-16);
   }

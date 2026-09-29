@@ -139,6 +139,12 @@
 }
 
 @media (pointer: coarse) {
+  /* Square icon segments are too narrow to tap; widening the hit area would overlap neighbours. */
+  .item[data-icon-only] {
+    aspect-ratio: auto;
+    width: var(--tap-min);
+  }
+
   .item::after {
     content: '';
     position: absolute;

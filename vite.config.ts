@@ -43,7 +43,7 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         background_color: '#FFFFFF',
-        theme_color: '#2383E2',
+        theme_color: '#111111',
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],

@@ -9,6 +9,7 @@
 /* One bordered control for date | time | clear, drawn like Input (inset hairline, 4px radius). */
 .field {
   --_h: var(--control-h-md);
+  --_px: 10px; /* same text inset as Input */
   --_line: var(--border-strong);
 
   display: inline-flex;
@@ -26,6 +27,7 @@
 
 .field[data-size='sm'] {
   --_h: var(--control-h-sm);
+  --_px: var(--space-2);
 }
 
 @media (hover: hover) {
@@ -59,7 +61,7 @@
 .input {
   min-width: 0;
   height: 100%;
-  padding: 0 var(--space-2);
+  padding: 0 var(--_px);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -103,9 +105,11 @@
     background-color var(--dur-1) var(--ease);
 }
 
-.input::-webkit-calendar-picker-indicator:hover {
-  background: var(--bg-hover);
-  opacity: 1;
+@media (hover: hover) {
+  .input::-webkit-calendar-picker-indicator:hover {
+    background: var(--bg-hover);
+    opacity: 1;
+  }
 }
 
 .divider {
@@ -139,7 +143,13 @@
     transform var(--dur-1) var(--ease);
 }
 
-.chip:hover:not(:disabled),
+@media (hover: hover) {
+  .chip:hover:not(:disabled) {
+    background: var(--bg-active);
+    color: var(--text);
+  }
+}
+
 .chip[data-force~='hover'] {
   background: var(--bg-active);
   color: var(--text);

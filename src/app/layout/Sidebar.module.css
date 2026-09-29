@@ -50,8 +50,8 @@
 
 .brandName {
   font-size: var(--fs-14);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
 }
 
 /* Quiet by default, alive on interaction: the collapse button appears with the sidebar hovered or focused. */
@@ -84,8 +84,10 @@
   transition: background var(--dur-1) var(--ease);
 }
 
-.search:hover {
-  background: var(--bg-active);
+@media (hover: hover) {
+  .search:hover {
+    background: var(--bg-active);
+  }
 }
 
 .searchLabel {
@@ -125,9 +127,15 @@
     color var(--dur-1) var(--ease);
 }
 
-.row:hover {
-  background: var(--bg-hover);
-  color: var(--text);
+@media (hover: hover) {
+  .row:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  .row:hover .icon {
+    color: var(--text);
+  }
 }
 
 .row:active {
@@ -137,7 +145,7 @@
 .row[data-active] {
   background: var(--bg-active);
   color: var(--text);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 
 .icon {
@@ -145,7 +153,6 @@
   color: var(--text-faint);
 }
 
-.row:hover .icon,
 .row[data-active] .icon {
   color: var(--text);
 }

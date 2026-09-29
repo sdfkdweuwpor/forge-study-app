@@ -179,7 +179,12 @@ span.iconGlyph {
     transform var(--dur-1) var(--ease);
 }
 
-.iconButton:hover,
+@media (hover: hover) {
+  .iconButton:hover {
+    background: var(--bg-hover);
+  }
+}
+
 .iconButton[data-force~='hover'],
 .iconButton[aria-expanded='true'] {
   background: var(--bg-hover);
@@ -232,6 +237,7 @@ span.iconGlyph {
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
+  caret-color: var(--accent);
   font: inherit;
   letter-spacing: inherit;
   line-height: inherit;
@@ -240,11 +246,17 @@ span.iconGlyph {
   transition: background-color var(--dur-1) var(--ease);
 }
 
-.titleInput:hover {
-  background: var(--bg-hover);
+@media (hover: hover) {
+  .titleInput:hover {
+    background: var(--bg-hover);
+  }
 }
 
-.titleInput:focus {
+/* Inline editing, like Notion: the blinking accent caret is the focus indicator. A 2px ring
+   around a 40px title for as long as someone types in it is too loud (DECISIONS, Design review 2F). */
+.titleInput:focus,
+.titleInput:focus-visible {
+  outline: none;
   background: transparent;
 }
 
@@ -309,8 +321,10 @@ span.iconGlyph {
   transition: background-color var(--dur-1) var(--ease);
 }
 
-.emojiCell:hover {
-  background: var(--bg-hover);
+@media (hover: hover) {
+  .emojiCell:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .emojiCell:active {
@@ -342,8 +356,10 @@ span.iconGlyph {
     transform var(--dur-1) var(--ease);
 }
 
-.swatch:hover {
-  box-shadow: inset 0 0 0 1px var(--text-faint);
+@media (hover: hover) {
+  .swatch:hover {
+    box-shadow: inset 0 0 0 1px var(--text-faint);
+  }
 }
 
 .swatch:active {
@@ -370,41 +386,21 @@ span.iconGlyph {
   width: 100%;
 }
 
-.skeletonTitle,
-.skeletonLine {
-  border-radius: var(--radius-md);
-  background: linear-gradient(
-    90deg,
-    var(--bg-hover) 25%,
-    var(--bg-active) 50%,
-    var(--bg-hover) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.4s var(--ease) infinite;
-}
-
-.skeletonTitle {
+.skeleton > .skeletonTitle {
   width: min(420px, 70%);
   height: var(--fs-40);
+  border-radius: var(--radius-md);
 }
 
-.skeletonLine {
+.skeleton > .skeletonLine {
   width: min(280px, 50%);
   height: var(--fs-16);
-}
-
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
+  border-radius: var(--radius-sm);
 }
 
 /* ── Small screens and touch ──────────────────────────────────────────────────────────────── */
 
-@media (max-width: 639px) {
+@media (max-width: 639.98px) {
   .cover {
     height: 120px;
   }
@@ -414,12 +410,11 @@ span.iconGlyph {
     bottom: var(--space-2);
   }
 
-  .titleHeading,
-  .skeletonTitle {
+  .titleHeading {
     font-size: var(--fs-32);
   }
 
-  .skeletonTitle {
+  .skeleton > .skeletonTitle {
     height: var(--fs-32);
   }
 }

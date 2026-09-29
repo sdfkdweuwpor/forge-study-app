@@ -68,6 +68,9 @@ function TagDemo() {
             </Tag>
           ))}
         </Row>
+      </Block>
+
+      <Block caption="Pill shape, size sm">
         <Row align="center">
           {TAG_COLORS.map((c) => (
             <Tag key={c} color={c} shape="pill" size="sm">

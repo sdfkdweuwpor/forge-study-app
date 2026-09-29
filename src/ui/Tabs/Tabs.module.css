@@ -133,8 +133,9 @@
   border-radius: var(--radius-sm);
 }
 
+/* Touch: the full 44px tap target. The list scrolls sideways, which clips an invisible hit area. */
 @media (pointer: coarse) {
   .tab {
-    height: max(var(--_h), 36px);
+    height: max(var(--_h), var(--tap-min));
   }
 }

@@ -45,7 +45,7 @@
   gap: var(--space-1);
   min-width: 0;
   padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md); /* a ghost control, like menu items and tabs */
   color: var(--text-muted);
   text-decoration: none;
 }
@@ -80,7 +80,13 @@
     color var(--dur-1) var(--ease);
 }
 
-.link:hover,
+@media (hover: hover) {
+  .link:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
 .link[data-force~='hover'] {
   background: var(--bg-hover);
   color: var(--text);

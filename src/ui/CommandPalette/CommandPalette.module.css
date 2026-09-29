@@ -51,7 +51,7 @@ body:has(.dialog[open]) {
 }
 
 /* Phones: full screen, no radius, the list takes the remaining height. */
-@media (max-width: 639px) {
+@media (max-width: 639.98px) {
   .dialog .overlayPanel {
     width: 100%;
     height: 100%;
@@ -121,7 +121,7 @@ body:has(.dialog[open]) {
   flex: none;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 639.98px) {
   .escHint {
     display: none;
   }
@@ -278,43 +278,26 @@ body:has(.dialog[open]) {
   padding: var(--space-1) var(--space-2);
 }
 
-.skeletonIcon,
-.skeletonTitle,
-.skeletonHint {
+.skeletonRow > .skeletonIcon,
+.skeletonRow > .skeletonTitle,
+.skeletonRow > .skeletonHint {
+  flex: none;
   border-radius: var(--radius-sm);
-  background: linear-gradient(
-    90deg,
-    var(--bg-hover) 25%,
-    var(--bg-active) 50%,
-    var(--bg-hover) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.4s var(--ease) infinite;
 }
 
-.skeletonIcon {
-  flex: none;
+.skeletonRow > .skeletonIcon {
   width: 20px;
   height: 20px;
 }
 
-.skeletonTitle {
+.skeletonRow > .skeletonTitle {
   height: 12px;
 }
 
-.skeletonHint {
+.skeletonRow > .skeletonHint {
   width: 36px;
   height: 18px;
   margin-left: auto;
-}
-
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
 }
 
 /* ── Footer hints ──────────────────────────────────────────────────────────────────────────── */

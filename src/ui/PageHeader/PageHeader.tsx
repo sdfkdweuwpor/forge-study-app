@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Image as ImageIcon, Smile, X } from 'lucide-react'
 import { Button } from '../Button'
 import { Popover } from '../Popover'
+import { Skeleton } from '../Skeleton'
 import { cx } from '../internal/cx'
 import type { ForceProps } from '../internal/force'
 import { CoverPicker } from './CoverPicker'
@@ -315,8 +316,8 @@ function HeaderSkeleton({ className }: { className?: string }) {
           Loading page
         </span>
         <div className={styles.skeleton} aria-hidden="true">
-          <span className={styles.skeletonTitle} />
-          <span className={styles.skeletonLine} />
+          <Skeleton variant="block" className={styles.skeletonTitle} />
+          <Skeleton variant="block" className={styles.skeletonLine} />
         </div>
       </div>
     </header>

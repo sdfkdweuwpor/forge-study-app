@@ -14,22 +14,23 @@
   box-shadow: var(--shadow-pop);
   font-size: var(--fs-14);
   line-height: var(--lh-body);
-  /* Enter from the anchor's side. Both come from motion tokens, so reduced motion is opacity-only. */
+  /* Enter 4px from the anchor's side: a nudge, not a slide. Both come from motion tokens, so
+     reduced motion is opacity-only. */
   --_x: 0px;
-  --_y: calc(-1 * var(--shift-2));
+  --_y: calc(-1 * var(--shift-1));
 }
 
 .panel[data-side='top'] {
-  --_y: var(--shift-2);
+  --_y: var(--shift-1);
 }
 
 .panel[data-side='left'] {
-  --_x: var(--shift-2);
+  --_x: var(--shift-1);
   --_y: 0px;
 }
 
 .panel[data-side='right'] {
-  --_x: calc(-1 * var(--shift-2));
+  --_x: calc(-1 * var(--shift-1));
   --_y: 0px;
 }
 

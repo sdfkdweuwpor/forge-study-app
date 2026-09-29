@@ -188,7 +188,7 @@
 }
 
 .root[data-animate] .control {
-  animation: cb-pop 280ms var(--ease) calc(var(--cb-fill-dur) * 0.5);
+  animation: cb-pop var(--dur-3) var(--ease) calc(var(--cb-fill-dur) * 0.5);
 }
 
 .root[data-animate] .check {

@@ -11,6 +11,7 @@ import {
 import { Search } from 'lucide-react'
 import { Button } from '../Button'
 import { Kbd } from '../Kbd'
+import { Skeleton } from '../Skeleton'
 import { cx } from '../internal/cx'
 import { highlightSegments } from './highlight'
 import { INITIAL_NAV_STATE, paletteNavReducer, resolveActive } from './paletteNav'
@@ -141,7 +142,12 @@ export function CommandPalettePanel({
   }
 
   return (
-    <div className={cx(styles.panel, className)} data-has-items={hasItems || undefined}>
+    // data-motion: the overlay entrance is built from motion tokens, so reduced motion keeps a fade.
+    <div
+      className={cx(styles.panel, className)}
+      data-has-items={hasItems || undefined}
+      data-motion="opacity"
+    >
       <div className={styles.searchRow}>
         <Search size={18} className={styles.searchIcon} aria-hidden="true" />
         <input
@@ -222,9 +228,11 @@ export function CommandPalettePanel({
           <div className={styles.skeletons} aria-hidden="true">
             {SKELETON_TITLE_WIDTHS.slice(0, hasItems ? 1 : 3).map((width, i) => (
               <div key={width} className={styles.skeletonRow}>
-                <span className={styles.skeletonIcon} />
-                <span className={styles.skeletonTitle} style={{ width }} />
-                {i === 0 && !hasItems ? <span className={styles.skeletonHint} /> : null}
+                <Skeleton variant="block" className={styles.skeletonIcon} />
+                <Skeleton variant="block" className={styles.skeletonTitle} width={width} />
+                {i === 0 && !hasItems ? (
+                  <Skeleton variant="block" className={styles.skeletonHint} />
+                ) : null}
               </div>
             ))}
           </div>
@@ -379,7 +387,7 @@ export function CommandPalette({ open, onOpenChange, children, ...panel }: Comma
         if (open) close()
       }}
     >
-      <div className={styles.scrim} role="presentation" onClick={close} />
+      <div className={styles.scrim} role="presentation" data-motion="opacity" onClick={close} />
       {open ? (
         <CommandPalettePanel {...panel} onEscape={close} className={styles.overlayPanel} />
       ) : null}

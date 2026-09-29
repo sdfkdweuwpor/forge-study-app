@@ -144,9 +144,10 @@
     padding: var(--space-3) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
   }
 
-  /* Full-width actions are easier to hit; the primary one stays last. */
+  /* Full-width actions at the 44px tap height, like a native sheet; the primary one stays last. */
   .footer > * {
     flex: 1 1 0;
+    min-height: var(--tap-min);
   }
 }
 

@@ -79,6 +79,11 @@
   /* Loading placeholders: the bone, and the lighter band that sweeps across it */
   --skeleton: rgba(55, 53, 47, 0.08);
   --skeleton-shine: rgba(255, 255, 255, 0.5);
+
+  /* Brand mark: white on a black tile in both themes (never the accent). No ring on light. */
+  --logo-tile: #111111;
+  --logo-mark: #ffffff;
+  --logo-ring: var(--logo-tile);
 }
 
 [data-theme='dark'] {
@@ -122,10 +127,15 @@
 
   --shadow-pop:
     0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4), 0 9px 24px rgba(0, 0, 0, 0.5);
-  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim: rgba(0, 0, 0, 0.62);
 
   --skeleton: rgba(255, 255, 255, 0.06);
   --skeleton-shine: rgba(255, 255, 255, 0.06);
+
+  /* The black tile would sink into #191919/#202020: a 1px --border-strong ring outlines it. */
+  --logo-tile: #111111;
+  --logo-mark: #ffffff;
+  --logo-ring: var(--border-strong);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -172,10 +182,14 @@
     --shadow-pop:
       0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4),
       0 9px 24px rgba(0, 0, 0, 0.5);
-    --scrim: rgba(0, 0, 0, 0.55);
+    --scrim: rgba(0, 0, 0, 0.62);
 
     --skeleton: rgba(255, 255, 255, 0.06);
     --skeleton-shine: rgba(255, 255, 255, 0.06);
+
+    --logo-tile: #111111;
+    --logo-mark: #ffffff;
+    --logo-ring: var(--border-strong);
   }
 }
 

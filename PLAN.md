@@ -554,7 +554,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [x] **2C [B] Overlays** (∥ 2B, after 2A): Popover, Dropdown, Modal, and Toast plus ToastProvider with Undo and `aria-live`. Each owns its `src/ui/<X>/` folder and demo file.
 - [x] **2D [B] Composites** (∥ 2B/2C): DatePicker (styled native date/time), CommandPalette (presentational), Breadcrumbs, PageHeader (emoji icon + gradient/image cover + editable title; cover presets without purple-blue gradients). Owns `src/ui/<X>/` and the demos.
 - [x] **2E [B] `/design` page.** Owns `src/features/design/{feature.ts,DesignPage.tsx}`. It glob-loads the sections and renders each in light and dark columns, plus a theme and reduced-motion toggle.
-- [ ] **2F [D] Review.** Screenshot `/design` (both themes, 1440 and 375), compare with brief §3 honestly and fix. Accept: contrast test green, all 21 §3.6 components present, the designer signs off.
+- [x] **2F [D] Review.** Screenshot `/design` (both themes, 1440 and 375), compare with brief §3 honestly and fix. Accept: contrast test green, all 21 §3.6 components present, the designer signs off.
 
 ### Phase 3 — Tasks, Today, quick add, command palette
 - [ ] **3A [B] Tasks core** (wave 1). Owns `src/db/repos/{tasks,xp,trash}.ts`, `src/db/hooks/useTasks.ts`, `src/logic/{xp(task/session fns only),recurrence,taskQuery,tagColor}.ts` and their tests, and `src/features/tasks/**` except `views/Board*`, `views/Calendar*`, `SavedViews*`.

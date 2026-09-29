@@ -159,7 +159,7 @@
   width: calc(var(--_h) - 4px);
   height: calc(var(--_h) - 4px);
   margin-right: 2px;
-  border-radius: 3px;
+  border-radius: calc(var(--radius-sm) - 1px); /* concentric with the tag */
   color: inherit;
   opacity: 0.7;
   transition:
@@ -189,6 +189,21 @@
 }
 
 @media (pointer: coarse) {
+  /* Filter chips: a 44px-tall hit area; the remove button's own area sits on top of it. */
+  .tag[data-interactive] .main {
+    position: relative;
+  }
+
+  .tag[data-interactive] .main::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: var(--tap-min);
+    translate: 0 -50%;
+  }
+
   .remove {
     position: relative;
   }

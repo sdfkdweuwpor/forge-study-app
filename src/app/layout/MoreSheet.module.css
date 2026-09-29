@@ -7,7 +7,7 @@
 
 .title {
   font-size: var(--fs-16);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 /* One class more specific than IconButton's own size, so the sheet's close button keeps its 44px target. */
@@ -42,5 +42,5 @@
 }
 
 .row[data-active] {
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }

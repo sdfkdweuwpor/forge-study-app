@@ -84,7 +84,7 @@ export interface SlotContribution<S extends SlotId = SlotId> { slot: S; id: stri
 
 **Slot ids (fixed in Phase 1; props in parentheses):** `sidebar.footer`, `sidebar.timer`, `sidebar.nav.tasks`, `sidebar.nav.goals`, `shell.rightPanel`, `global.overlays`, `today.header`, `today.now`, `today.main`, `today.aside`, `focus.aside`, `focus.afterSession ({sessionId})`, `goal.header ({goalId})`, `goal.panels ({goalId})`, `course.panels ({goalId, courseId})`, `progress.sections`, `rewards.tabs`, `blocker.sections`, `settings.sections`.
 
-**ScopeIds:** `today`, `tasks`, `calendar`, `focus`, `fullscreen`, `goal`, `course`, `review`, `cards`, `modal`, `palette`. When an overlay opens it pushes a scope, and the top scope wins. Shortcuts are ignored in inputs, textareas and contentEditable unless `allowInInputs` is set.
+**ScopeIds:** `today`, `tasks`, `calendar`, `focus`, `fullscreen`, `goal`, `course`, `review`, `cards`, `modal`, `palette`, `drawer`. When an overlay opens it pushes a scope, and the top scope wins. The overlay scopes (`modal`, `palette`, `fullscreen`, `drawer`) are **blocking**: while one is on top, only its own shortcuts, scopes pushed above it and `global` shortcuts with `allowInOverlays` (`esc`, `mod+k`) fire, so page keys never leak through and Esc closes the overlay before the page. Shortcuts are ignored in inputs, textareas and contentEditable unless `allowInInputs` is set.
 
 ---
 
@@ -585,12 +585,13 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Groups: From your goals / Your tasks / Rolled over (amber + days overdue); completed today collapsed.
   - Slots `today.header/now/main/aside` rendered.
   - Empty, loading and error states.
-- [ ] **3F [B] e2e**: `e2e/{tasks,today}.spec.ts`.
+- [x] **3F [B] e2e**: `e2e/{tasks,today}.spec.ts`.
   - Quick-add the brief example and assert the chips and task.
   - Complete, then undo (XP net 0).
   - Palette finds the task.
   - Keyboard drag on the board.
   - Calendar reschedule.
+  - Also: inline title edit, `j/k/x`, trash with undo, and the shortcut-scope fix (blocking overlay scopes; regressions for the palette, dialogs, drawer and More sheet).
 
 ### Phase 4 — Focus timer
 - [ ] **4A [B] Timer & sessions** (∥ 4B). Owns `src/logic/timer.ts` and test, `src/db/repos/sessions.ts`, `src/db/hooks/useActiveSession.ts` and `src/features/focus/**`.

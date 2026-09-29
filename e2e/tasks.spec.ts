@@ -457,3 +457,28 @@ test.describe('shortcut scopes: Esc closes the overlay in front of the page', ()
     await expect(selectedRow(page)).toHaveCount(1)
   })
 })
+
+test.describe('shortcut scopes: a ui Modal blocks the keys beneath it', () => {
+  test('g t and q do nothing while a dialog is open; they work again once it closes', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/design#modal')
+    await page.getByRole('button', { name: 'Small: confirm' }).first().click()
+    const dialog = page.getByRole('dialog', { name: /Move “C779 Web Development Foundations”/ })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Move to trash' })).toBeFocused()
+
+    await page.keyboard.press('g')
+    await page.keyboard.press('t')
+    await page.keyboard.press('q')
+    await page.waitForTimeout(200)
+    await expect(page).toHaveURL(/\/design/)
+    await expect(quickAdd(page)).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await page.keyboard.press('g')
+    await page.keyboard.press('t')
+    await expect(page).toHaveURL(/\/$/)
+  })
+})

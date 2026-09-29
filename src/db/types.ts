@@ -1,0 +1,520 @@
+/**
+ * Row types for every Dexie table (PLAN §3.2). Type-only: `src/logic` may `import type` from here.
+ * Conventions: ids are strings, instants are epoch ms, calendar days are local `'YYYY-MM-DD'`.
+ */
+import type { TableName } from './schema'
+
+export type { TableName } from './schema'
+
+export type ID = string
+/** Local calendar day, `'YYYY-MM-DD'`. Never parse with `new Date(str)` (UTC); use `@/logic/dates`. */
+export type ISODate = string
+/** Local wall-clock time, `'HH:mm'` (24h). */
+export type HHmm = string
+/** Epoch milliseconds. */
+export type Millis = number
+
+export interface Base {
+  id: ID
+  createdAt: Millis
+  updatedAt: Millis
+}
+
+/** What repos pass to `add`/`put`: the Dexie `creating` hook stamps missing timestamps. */
+export type NewRow<T extends Base> = Omit<T, 'createdAt' | 'updatedAt'> &
+  Partial<Pick<T, 'createdAt' | 'updatedAt'>>
+
+/** 0 none, 1 low, 2 med, 3 high, 4 urgent. */
+export type Priority = 0 | 1 | 2 | 3 | 4
+export type TagColor =
+  'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'red'
+export type AccentId = 'blue' | 'teal' | 'green' | 'orange' | 'pink' | 'graphite'
+
+/** Inclusive on both ends. */
+export interface DateRange {
+  start: ISODate
+  end: ISODate
+  label?: string
+}
+
+export type BlockType = 'p' | 'h1' | 'h2' | 'h3' | 'bullet' | 'todo' | 'callout' | 'divider'
+export interface Block {
+  id: ID
+  type: BlockType
+  text: string
+  checked?: boolean
+  emoji?: string
+}
+
+export type Cover =
+  { kind: 'gradient'; preset: string } | { kind: 'image'; fileId: ID; posY: number }
+
+export interface Subtask {
+  id: ID
+  title: string
+  done: boolean
+}
+
+/** `byWeekday`: 0 = Sunday … 6 = Saturday. */
+export interface RecurrenceRule {
+  freq: 'daily' | 'weekdays' | 'weekly' | 'custom'
+  interval: number
+  byWeekday: number[]
+}
+
+// ─── Tasks ──────────────────────────────────────────────────────────────────
+
+export type TaskStatus = 'todo' | 'doing' | 'done'
+export type TaskSource = 'user' | 'schedule' | 'flashcards' | 'ritual' | 'template' | 'onboarding'
+
+export interface Task extends Base {
+  title: string
+  notes: Block[]
+  status: TaskStatus
+  priority: Priority
+  dueDate: ISODate | null
+  dueTime: HHmm | null
+  /** Scheduler chunks set both estimates. */
+  estimatePomodoros: number | null
+  estimateMinutes: number | null
+  tags: string[]
+  goalId: ID | null
+  milestoneId: ID | null
+  unitId: ID | null
+  source: TaskSource
+  /** `${unitId}:${seq}` for scheduler chunks. */
+  scheduleKey: string | null
+  schedulePinned: boolean
+  skippedOn: ISODate | null
+  orderInDay: number
+  subtasks: Subtask[]
+  recurrence: RecurrenceRule | null
+  seriesId: ID | null
+  /** Fractional indexing. */
+  order: number
+  boardOrder: number
+  startedAt: Millis | null
+  completedAt: Millis | null
+  completedDay: ISODate | null
+}
+
+/**
+ * Saved-view query model. Defined here (not in `logic/taskQuery`) so `db` never depends on `logic`
+ * for types; `logic/taskQuery` imports these.
+ */
+export type TaskDueFilter = 'any' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'upcoming' | 'none'
+export interface TaskFilter {
+  status?: TaskStatus[]
+  priority?: Priority[]
+  tags?: string[]
+  /** `true` = every listed tag must be present; default any-of. */
+  tagsMatchAll?: boolean
+  goalIds?: ID[]
+  milestoneIds?: ID[]
+  source?: TaskSource[]
+  due?: TaskDueFilter
+  text?: string
+}
+export type TaskSortKey =
+  'manual' | 'due' | 'priority' | 'created' | 'updated' | 'title' | 'estimate'
+export interface TaskSort {
+  key: TaskSortKey
+  dir: 'asc' | 'desc'
+}
+
+// ─── Goals, courses, units ──────────────────────────────────────────────────
+
+/** Minutes available per weekday, index 0 = Sunday. */
+export type WeekMinutes = [number, number, number, number, number, number, number]
+export interface Availability {
+  minutesByWeekday: WeekMinutes
+  daysOff: DateRange[]
+}
+export interface WguTerm {
+  id: ID
+  label: string
+  start: ISODate
+  end: ISODate
+}
+export interface GoalProjection {
+  end: ISODate | null
+  slipDays: number | null
+  feasible: boolean
+  catchUpMinutes: number | null
+  requiredMinutesPerStudyDay: number | null
+  issues: string[]
+  computedAt: Millis
+}
+export interface Goal extends Base {
+  title: string
+  icon: string
+  cover: Cover | null
+  kind: 'degree' | 'certification' | 'skill' | 'custom'
+  status: 'active' | 'paused' | 'done' | 'archived'
+  startDate: ISODate
+  targetDate: ISODate | null
+  availability: Availability
+  terms: WguTerm[]
+  notes: Block[]
+  order: number
+  /** Cache written by `rebalanceGoal`. */
+  baselineEnd: ISODate | null
+  projection: GoalProjection | null
+  lastRebalancedOn: ISODate | null
+  completedAt: Millis | null
+}
+
+/** A course (WGU) or generic milestone. */
+export interface Milestone extends Base {
+  goalId: ID
+  kind: 'course' | 'milestone'
+  code: string | null
+  title: string
+  icon: string | null
+  cover: Cover | null
+  status: 'todo' | 'active' | 'done'
+  order: number
+  prerequisiteIds: ID[]
+  estimateHours: number
+  dueDate: ISODate | null
+  cus: number | null
+  courseType: 'OA' | 'PA' | 'OA+PA' | null
+  termId: ID | null
+  notes: Block[]
+  projectedStart: ISODate | null
+  projectedEnd: ISODate | null
+  completedAt: Millis | null
+}
+
+export interface Unit extends Base {
+  goalId: ID
+  milestoneId: ID
+  title: string
+  order: number
+  estimateMinutes: number | null
+  difficulty: 1 | 2 | 3
+  status: 'todo' | 'done'
+  completedAt: Millis | null
+}
+
+// ─── Focus ──────────────────────────────────────────────────────────────────
+
+export type SessionKind = 'focus' | 'break'
+export type SessionMode = 'pomodoro' | 'custom' | 'stopwatch'
+export type SessionStatus = 'running' | 'paused' | 'completed' | 'abandoned'
+export interface Session extends Base {
+  kind: SessionKind
+  mode: SessionMode
+  status: SessionStatus
+  /** Denormalised at start. */
+  taskId: ID | null
+  goalId: ID | null
+  milestoneId: ID | null
+  day: ISODate
+  startedAt: Millis
+  endedAt: Millis | null
+  /** `null` = stopwatch. */
+  plannedMinutes: number | null
+  pausedMs: number
+  pausedAt: Millis | null
+  actualMinutes: number | null
+  round: number
+  interrupted: boolean
+  counted: boolean
+  note: string | null
+}
+
+// ─── Progress & gamification ────────────────────────────────────────────────
+
+/** id = day. Rebuildable aggregate cache. */
+export interface StreakDay extends Base {
+  day: ISODate
+  focusMinutes: number
+  focusSessions: number
+  pomodoros: number
+  tasksDone: number
+  dailyGoalTarget: number
+  dailyGoalHit: boolean
+  qualified: boolean
+  xp: number
+}
+
+export type XpSource =
+  'task' | 'session' | 'course' | 'dailyGoal' | 'streak' | 'ritual' | 'adjustment'
+/** Append-only. A negative amount is a reversal of the same `key`. */
+export interface XpEvent extends Base {
+  at: Millis
+  day: ISODate
+  source: XpSource
+  amount: number
+  /** e.g. `'task:<id>'`, `'dailyGoal:<day>'`. */
+  key: string
+  refId: ID | null
+  note: string | null
+}
+
+export type BadgeId =
+  | 'first-focus'
+  | 'early-bird'
+  | 'night-owl'
+  | 'streak-7'
+  | 'streak-30'
+  | 'streak-100'
+  | 'deep-work'
+  | 'first-course'
+  | 'term-complete'
+  | 'hours-100'
+  | 'comeback'
+/** id = BadgeId. */
+export interface Badge extends Base {
+  unlockedAt: Millis
+  context: string | null
+}
+
+export interface Reward extends Base {
+  title: string
+  icon: string
+  price: number
+  description: string
+  archived: boolean
+  order: number
+}
+export interface Redemption extends Base {
+  rewardId: ID
+  rewardTitle: string
+  price: number
+  at: Millis
+  day: ISODate
+  refundedAt: Millis | null
+}
+
+// ─── Blocker ────────────────────────────────────────────────────────────────
+
+export interface BlocklistEntry extends Base {
+  kind: 'block' | 'allow'
+  domain: string
+  /** allow: `'youtube.com/watch?v=…'` or a path prefix. */
+  pattern: string | null
+  enabled: boolean
+  isDefault: boolean
+  note: string | null
+}
+/** id = the extension's uuid (idempotent pulls). */
+export interface BlockEvent extends Base {
+  at: Millis
+  day: ISODate
+  kind: 'attempt' | 'unlock'
+  domain: string
+  minutes: number | null
+}
+
+// ─── Extras ─────────────────────────────────────────────────────────────────
+
+export interface ParkingItem extends Base {
+  text: string
+  sessionId: ID | null
+  status: 'open' | 'done' | 'converted'
+  taskId: ID | null
+}
+export interface CheckIn extends Base {
+  sessionId: ID | null
+  at: Millis
+  day: ISODate
+  hour: number
+  weekday: number
+  focus: 1 | 2 | 3 | 4 | 5
+  mood: string | null
+}
+export interface Assessment extends Base {
+  goalId: ID
+  milestoneId: ID
+  kind: 'preassessment' | 'oa' | 'pa'
+  date: ISODate
+  scorePct: number | null
+  passed: boolean | null
+  areas: { name: string; scorePct: number }[]
+  notes: string
+}
+export interface Flashcard extends Base {
+  goalId: ID
+  milestoneId: ID
+  front: string
+  back: string
+  tags: string[]
+  ease: number
+  intervalDays: number
+  repetitions: number
+  lapses: number
+  dueDate: ISODate
+  lastReviewedAt: Millis | null
+  suspended: boolean
+}
+export interface Resource extends Base {
+  goalId: ID
+  milestoneId: ID
+  kind: 'link' | 'pdf' | 'note'
+  title: string
+  url: string | null
+  fileId: ID | null
+  status: 'toRead' | 'done'
+  notes: string
+  order: number
+}
+export interface StoredFile extends Base {
+  name: string
+  mime: string
+  size: number
+  blob: Blob
+}
+export type SnapshotReason = 'daily' | 'manual' | 'pre-import' | 'pre-restore' | 'pre-reset'
+export interface Snapshot extends Base {
+  day: ISODate
+  reason: SnapshotReason
+  schemaVersion: number
+  sizeBytes: number
+  /** JSON of a BackupFile (file blobs excluded). */
+  data: string
+}
+export interface TrashItem extends Base {
+  entityTable: TableName
+  entityId: ID
+  title: string
+  expiresAt: Millis
+  /** The entity plus its cascaded children, by table. */
+  payload: Partial<Record<TableName, unknown[]>>
+}
+/** Optional cache; the world is rebuildable from history. */
+export interface WorldTile extends Base {
+  x: number
+  y: number
+  kind: string
+  variant: number
+  sourceKind: string
+  sourceId: ID
+  earnedAt: Millis
+}
+export interface SavedView extends Base {
+  name: string
+  icon: string
+  layout: 'list' | 'board' | 'calendar'
+  filter: TaskFilter
+  sort: TaskSort
+  groupBy: 'date' | 'project' | 'none'
+  order: number
+}
+/** id = `${kind}:${day}`. */
+export interface Ritual extends Base {
+  day: ISODate
+  kind: 'morning' | 'evening'
+  top3: ID[]
+  reflection: string
+  completedAt: Millis | null
+}
+/** id = weekStart. */
+export interface WeeklyReview extends Base {
+  weekStart: ISODate
+  wins: string
+  blockers: string
+  completedAt: Millis | null
+}
+export interface Template extends Base {
+  kind: 'task' | 'goal'
+  name: string
+  icon: string
+  /** Validated by zod on use. */
+  payload: unknown
+}
+
+// ─── Settings (singleton, id = 'app') ───────────────────────────────────────
+
+export interface BlockWindow {
+  /** 0 = Sunday. */
+  days: number[]
+  start: HHmm
+  end: HHmm
+}
+export type ThemePref = 'light' | 'dark' | 'system'
+export type ReducedMotionPref = 'system' | 'on' | 'off'
+export type AmbientSound = 'none' | 'brown' | 'rain' | 'cafe'
+export type BlockerMode = 'focus' | 'schedule' | 'always' | 'off'
+
+export interface Settings extends Base {
+  profile: { name: string }
+  onboardedAt: Millis | null
+  appearance: { theme: ThemePref; accent: AccentId; reducedMotion: ReducedMotionPref }
+  weekStartsOn: 0 | 1
+  timer: {
+    pomodoroMin: number
+    shortBreakMin: number
+    longBreakMin: number
+    longBreakEvery: number
+    customMin: number
+    autoStartBreaks: boolean
+    autoStartFocus: boolean
+  }
+  dailyGoalPomodoros: number
+  sound: {
+    enabled: boolean
+    volume: number
+    chime: boolean
+    ambient: AmbientSound
+    ambientVolume: number
+  }
+  notifications: { enabled: boolean; promptedAt: Millis | null }
+  blocker: {
+    mode: BlockerMode
+    schedule: BlockWindow[]
+    motivation: string[]
+    extensionIdOverride: string | null
+    lastSyncedAt: Millis | null
+    eventsCursor: Millis
+  }
+  scheduling: {
+    globalDaysOff: DateRange[]
+    defaultStudyStart: HHmm
+    bestHour: number | null
+    lastDailyRunDay: ISODate | null
+  }
+  backup: { lastExportAt: Millis | null; remindWeekly: boolean }
+  tagColors: Record<string, TagColor>
+  lastCelebratedLevel: number
+  sync: { enabled: boolean; url: string | null; anonKey: string | null; lastSyncAt: Millis | null }
+}
+/** Settings without the row bookkeeping (`id`, timestamps). */
+export type SettingsData = Omit<Settings, keyof Base>
+
+// ─── Table → row map ────────────────────────────────────────────────────────
+
+export interface TableRows {
+  settings: Settings
+  tasks: Task
+  goals: Goal
+  milestones: Milestone
+  units: Unit
+  sessions: Session
+  streakDays: StreakDay
+  xpEvents: XpEvent
+  badges: Badge
+  rewards: Reward
+  redemptions: Redemption
+  blocklist: BlocklistEntry
+  blockEvents: BlockEvent
+  parkingLot: ParkingItem
+  checkIns: CheckIn
+  assessments: Assessment
+  flashcards: Flashcard
+  resources: Resource
+  files: StoredFile
+  snapshots: Snapshot
+  trash: TrashItem
+  worldTiles: WorldTile
+  savedViews: SavedView
+  rituals: Ritual
+  weeklyReviews: WeeklyReview
+  templates: Template
+}
+
+// Compile-time guard (type-only): TableRows and the schema's table list must stay in sync.
+type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+type AssertTrue<T extends true> = T
+export type TableRowsMatchSchema = AssertTrue<Exact<keyof TableRows, TableName>>

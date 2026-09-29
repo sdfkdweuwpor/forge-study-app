@@ -98,6 +98,14 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 - **2026-09-29 — Notes (task, goal, course) are a small `Block[]` model with a hand-made block editor and slash menu.** The brief asks for `/todo /heading /divider /callout` only, which doesn't justify a rich-text dependency.
 - **2026-09-29 — Device-specific UI prefs (sidebar width/collapsed, last tasks layout, a theme mirror for no-flash boot) live in `localStorage` behind try/catch. Everything else lives in the `settings` row.** Those prefs shouldn't sync between laptop and phone.
 - **2026-09-29 — Sample data comes from `?seed=wgu|empty`, which lazy-imports `src/dev/seed.ts`.** It is used for screenshots and e2e (realistic WGU data: C182, C172, C779, D278, C959, C867, C949), costs nothing in the main bundle, and is harmless in production (single user, local data).
+- **2026-09-29 — `TaskFilter`/`TaskSort` live in `src/db/types.ts`, not `logic/taskQuery`.** `SavedView` needs them, and `db` must not depend on `logic` for types; `logic/taskQuery` imports them from `@/db/types` instead.
+- **2026-09-29 — Tables are typed `Table<T, ID, NewRow<T>>`.** `add`/`put` accept rows without `createdAt`/`updatedAt` because the hooks stamp them; reads always return full rows.
+- **2026-09-29 — Stamping edge cases.** An explicit `updatedAt` in a change is kept (sync/import); a `put()` that omits `createdAt` keeps the stored one; an empty diff is not stamped. `ForgeDB(name, clock)` takes an injectable clock for tests.
+- **2026-09-29 — New settings fields need no Dexie migration.** `ensureSettings()` (boot) backfills keys missing from `defaultSettingsData()` into the stored row; `getSettings()`/`useSettings()` apply the same backfill in memory and never write.
+- **2026-09-29 — `useSettings()` is `undefined` only while loading; with no row it returns factory defaults.** "No row" means a fresh install, where defaults are the truth, and the shell can distinguish loading from loaded.
+- **2026-09-29 — `updateSettings(patch)` merge rules:** plain objects merge key by key (including `tagColors`), arrays replace, `undefined` is ignored, `null` sets null, and `id`/timestamps can't be patched. Removing a tag color will need a dedicated repo function (Phase 3).
+- **2026-09-29 — Event bus mechanics.** `emit()` inside a transaction queues on the *root* Dexie transaction's `complete` event and is dropped on abort; outside a transaction it dispatches on a microtask. Handlers run under `Dexie.ignoreTransaction` so they can open their own transactions. `settleDomainEvents()` awaits everything in flight (tests, boot). `DomainHandler` is a union over event types, built with `defineHandler()`.
+- **2026-09-29 — `newId()` falls back to `crypto.getRandomValues` when `randomUUID` is missing.** `randomUUID` needs a secure context, and the dev server is sometimes opened over a LAN IP from a phone.
 
 ## Scheduler
 

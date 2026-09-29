@@ -21,6 +21,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useMediaQuery } from '@/app/hooks/useMediaQuery'
 import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { useSettings } from '@/db/hooks/useSettings'
@@ -72,6 +73,8 @@ export interface TaskEnv {
   tagColors: Readonly<Record<string, TagColor>>
   /** `undefined` while goals and courses load. */
   projects: ProjectIndex | undefined
+  /** A mouse is in use, so clicking a title edits it in place. Touch opens the task instead. */
+  canEditInPlace: boolean
 }
 
 const TaskEnvContext = createContext<TaskEnv | null>(null)
@@ -128,6 +131,7 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   const today = useToday()
   const settings = useSettings()
   const projects = useProjectIndex()
+  const canEditInPlace = useMediaQuery('(hover: hover) and (pointer: fine)')
 
   const [motion, setMotionState] = useState<ReadonlyMap<ID, TaskMotion>>(() => new Map())
 
@@ -379,8 +383,8 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   const tagColors = settings?.tagColors
   const weekStartsOn = settings?.weekStartsOn ?? 1
   const env = useMemo<TaskEnv>(
-    () => ({ today, weekStartsOn, tagColors: tagColors ?? {}, projects }),
-    [today, weekStartsOn, tagColors, projects],
+    () => ({ today, weekStartsOn, tagColors: tagColors ?? {}, projects, canEditInPlace }),
+    [today, weekStartsOn, tagColors, projects, canEditInPlace],
   )
 
   return (

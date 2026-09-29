@@ -1,7 +1,6 @@
 import { format } from 'date-fns'
 import { CalendarDays, Clock, FileText, ListChecks, Repeat, Timer } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useMediaQuery } from '@/app/hooks/useMediaQuery'
 import type { Task } from '@/db/types'
 import { describeRecurrence } from '@/logic/recurrence'
 import { normalizeTag, tagColor } from '@/logic/tagColor'
@@ -53,12 +52,10 @@ export const TaskRow = memo(function TaskRow({
   reveal = false,
 }: TaskRowProps) {
   const actions = useTaskActions()
-  const { today, tagColors, projects } = useTaskEnv()
+  const { today, tagColors, projects, canEditInPlace } = useTaskEnv()
   const [editing, setEditing] = useState(false)
   const [panel, setPanel] = useState<RowPanel | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
-  // A tap should open the task, not raise the keyboard; editing there happens in the task itself.
-  const canEditInPlace = useMediaQuery('(hover: hover) and (pointer: fine)')
 
   const { registerRow } = actions
   useEffect(

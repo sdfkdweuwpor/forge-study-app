@@ -538,9 +538,9 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Minimal root ErrorBoundary with "Export my data" (raw dump of all tables).
   - Hello Today page and a minimal Settings page with the theme select (replaced in P10).
   - Accept: every route renders its Placeholder with no console errors; the tab bar shows at 375; the sidebar toggles.
-- [ ] **1D [B] e2e smoke** (after 1B+1C). `e2e/smoke.spec.ts` visits every route, fails on console errors, checks theme switching and the mobile tab bar.
+- [x] **1D [B] e2e smoke** (after 1B+1C). `e2e/smoke.spec.ts` visits every route, fails on console errors, checks theme switching and the mobile tab bar.
 - [x] **1E [H] README** skeleton: what it is, dev commands, deploy notes.
-- [ ] **1F Deploy (coordinator).** Netlify site `forge-study-app`. A deep-link reload (`/goals/x`) serves the SPA, security headers are present, and the user is told about the optional `NETLIFY_AUTH_TOKEN`/`NETLIFY_SITE_ID` secrets.
+- [ ] **1F Deploy (coordinator)** — ⏸ site created (`forge-study-app`, id `ae292093-4753-4fcf-886c-48bf406e202b`), but this cloud environment's egress policy blocks `api.netlify.com`/`*.netlify.app`; waiting on the user to allow those hosts or link the repo in Netlify's UI. Netlify site `forge-study-app`. A deep-link reload (`/goals/x`) serves the SPA, security headers are present, and the user is told about the optional `NETLIFY_AUTH_TOKEN`/`NETLIFY_SITE_ID` secrets.
 
 ### Phase 2 — Design system
 - [ ] **2A [D] Tokens & type** (first). Owns `src/styles/**` and the font import in `main.tsx`.

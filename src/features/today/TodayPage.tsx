@@ -22,9 +22,15 @@ export default function TodayPage() {
       <Slot id="today.header" />
       <header className={styles.header}>
         <h1 className={styles.title}>
-          {greetingFor(date.getHours())}
-          {name ? `, ${name}` : ''}
-          <span className={styles.date}>{` — ${format(date, 'EEEE, MMM d')}`}</span>
+          <span className={styles.greeting}>
+            {greetingFor(date.getHours())}
+            {name ? `, ${name}` : ''}
+          </span>
+          {/* Non-breaking space keeps the dash on the greeting's line; it is hidden once the date has its own line. */}
+          <span className={styles.dash}>{'\u00a0— '}</span>
+          <time className={styles.date} dateTime={format(date, 'yyyy-MM-dd')}>
+            {format(date, 'EEEE, MMM d')}
+          </time>
         </h1>
       </header>
       <Slot id="today.now" />

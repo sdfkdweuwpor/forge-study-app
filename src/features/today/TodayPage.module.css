@@ -12,8 +12,18 @@
   text-wrap: balance;
 }
 
+/* A very long name wraps instead of pushing the page sideways. */
+.greeting {
+  overflow-wrap: anywhere;
+}
+
+.dash,
 .date {
   color: var(--text-faint);
+}
+
+.date {
+  /* If the date does not fit after the greeting it moves down whole, never splits mid-date. */
   white-space: nowrap;
 }
 
@@ -35,8 +45,21 @@
   font-size: var(--fs-16);
 }
 
+/* Phones: greeting at 32, the date on its own line at 20 (BRIEF §3.3 scale) instead of clipping. */
 @media (max-width: 639px) {
   .title {
     font-size: var(--fs-32);
+  }
+
+  .dash {
+    display: none;
+  }
+
+  .date {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--fs-20);
+    font-weight: 600;
+    letter-spacing: 0;
   }
 }

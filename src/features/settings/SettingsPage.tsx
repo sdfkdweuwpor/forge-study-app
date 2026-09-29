@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Slot } from '@/app/registry'
-import { setTheme } from '@/app/providers/themeActions'
+import { useTheme } from '@/app/providers/ThemeProvider'
 import { exportAllData } from '@/app/exportData'
 import { useSettings } from '@/db/hooks/useSettings'
 import type { Settings } from '@/db/types'
@@ -17,7 +17,16 @@ const THEMES: readonly { value: Theme; label: string }[] = [
 /** Phase 1: theme select and a raw data export. Phase 10 replaces this with the full settings page. */
 export default function SettingsPage() {
   const settings = useSettings()
+  const theme = useTheme()
   const [message, setMessage] = useState('')
+  const [themeMessage, setThemeMessage] = useState('')
+
+  async function changeTheme(value: Theme) {
+    const saved = await theme.setTheme(value)
+    setThemeMessage(
+      saved ? '' : 'Could not save this to the database, so the theme applies on this device only.',
+    )
+  }
 
   async function exportData() {
     setMessage('Exporting…')
@@ -50,8 +59,8 @@ export default function SettingsPage() {
             <select
               id="theme-select"
               className={styles.select}
-              value={settings.appearance.theme}
-              onChange={(e) => void setTheme(e.target.value as Theme)}
+              value={theme.theme}
+              onChange={(e) => void changeTheme(e.target.value as Theme)}
             >
               {THEMES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -61,6 +70,9 @@ export default function SettingsPage() {
             </select>
           </div>
         )}
+        <p className={styles.status} role="status">
+          {themeMessage}
+        </p>
       </section>
 
       <section className={styles.section} aria-labelledby="data-heading">

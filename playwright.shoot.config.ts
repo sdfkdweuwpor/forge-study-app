@@ -16,7 +16,8 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run build && npm run preview',
+    // VITE_ENABLE_SEED compiles in `?seed=` support; a deployed build never has it.
+    command: 'VITE_ENABLE_SEED=1 npm run build && npm run preview',
     url: 'http://localhost:4173',
     reuseExistingServer: true,
     timeout: 180_000,

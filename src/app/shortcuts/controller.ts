@@ -12,8 +12,21 @@ const OVERLAY_SCOPES: readonly ScopeId[] = ['modal', 'palette']
 export interface KeyEventLike extends KeyLike {
   defaultPrevented: boolean
   isComposing: boolean
+  /** Auto-repeat of a held key. Never fires a handler or advances a sequence. */
+  repeat?: boolean
+  /** 229 marks a key that belongs to an IME (some browsers do not set `isComposing` on the first key). */
+  keyCode?: number
   preventDefault(): void
 }
+
+const MODIFIER_KEYS: ReadonlySet<string> = new Set([
+  'Shift',
+  'Control',
+  'Alt',
+  'Meta',
+  'CapsLock',
+  'AltGraph',
+])
 
 type Handler = (c: CommandCtx) => void
 
@@ -146,24 +159,42 @@ export class ShortcutController {
     fn(this.makeCtx())
   }
 
+  /** Does this key continue the pending sequence, or start/complete a binding? Used to keep repeats from leaking to the browser. */
+  private consumes(list: Candidate[], e: KeyEventLike): boolean {
+    if (this.pending.length > 0 && this.matchSequence(list, e)) return true
+    return list.some((c) => c.chords[0] !== undefined && matchChord(c.chords[0], e, this.mac))
+  }
+
+  private matchSequence(list: Candidate[], e: KeyLike): Candidate | undefined {
+    const seq = [...this.pending, e]
+    return ShortcutController.best(
+      list.filter(
+        (c) =>
+          c.chords.length === seq.length &&
+          c.chords.every((chord, i) => {
+            const step = seq[i]
+            return step !== undefined && matchChord(chord, step, this.mac)
+          }),
+      ),
+    )
+  }
+
   /** Feed one keydown. `editable` = focus is in a text field, so single keys must not fire. */
   handleKeyDown(e: KeyEventLike, editable: boolean): void {
-    if (e.defaultPrevented || e.isComposing) return
-    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'AltGraph'].includes(e.key)) return
+    if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return
+    // Synthetic or autofill events can arrive without a string key.
+    if (typeof e.key !== 'string' || MODIFIER_KEYS.has(e.key)) return
     const list = this.candidates(editable)
 
+    if (e.repeat) {
+      // Holding `g` must not become `g g`, and holding a shortcut must not run it again. Keep the
+      // browser default suppressed for keys we own, and leave the sequence state alone.
+      if (this.consumes(list, e)) e.preventDefault()
+      return
+    }
+
     if (this.pending.length > 0) {
-      const seq = [...this.pending, e]
-      const hit = ShortcutController.best(
-        list.filter(
-          (c) =>
-            c.chords.length === seq.length &&
-            c.chords.every((chord, i) => {
-              const step = seq[i]
-              return step !== undefined && matchChord(chord, step, this.mac)
-            }),
-        ),
-      )
+      const hit = this.matchSequence(list, e)
       this.clearPending()
       if (hit) {
         this.fire(hit.def, e)
@@ -190,6 +221,7 @@ export class ShortcutController {
       this.pending = [
         {
           key: e.key,
+          ...(e.code !== undefined ? { code: e.code } : {}),
           ctrlKey: e.ctrlKey,
           metaKey: e.metaKey,
           shiftKey: e.shiftKey,

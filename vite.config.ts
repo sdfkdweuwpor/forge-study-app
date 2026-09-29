@@ -47,6 +47,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        // The static 404 page is only for missing /assets/* files (see netlify.toml); never serve it from the precache.
+        globIgnores: ['404.html'],
         navigateFallback: '/index.html',
       },
     }),

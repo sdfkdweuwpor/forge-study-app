@@ -3,6 +3,8 @@
  * without SPA rewrites, only this file changes.
  */
 
+import { isAppPath } from './match'
+
 const NAV_EVENT = 'forge:navigate'
 
 let scrollOnNext = false
@@ -29,12 +31,15 @@ export function serverUrl(): string {
   return '/'
 }
 
-export function pushUrl(url: string, replace = false): void {
-  if (url === getUrl()) return
+/** Navigates to an app path. Returns false, and does nothing, for anything that is not one (see `isAppPath`). */
+export function pushUrl(url: string, replace = false): boolean {
+  if (!isAppPath(url)) return false
+  if (url === getUrl()) return true
   scrollOnNext = !replace
   if (replace) window.history.replaceState(null, '', url)
   else window.history.pushState(null, '', url)
   window.dispatchEvent(new Event(NAV_EVENT))
+  return true
 }
 
 /** True once after a push navigation, so the router scrolls to the top exactly once. */

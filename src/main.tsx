@@ -1,22 +1,11 @@
-import '@fontsource-variable/inter'
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './styles/tokens.css'
-import './styles/reset.css'
-import './styles/global.css'
-import { App } from '@/app/App'
-import { bootApp } from '@/app/boot'
+// Tokens, self-hosted Inter (official Latin subset from inter-ui) and global styles.
+import './styles/index.css'
 import { registry } from '@/app/registry/discover'
+import { start } from '@/app/start'
 
 const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('Missing #root element')
-const root = createRoot(rootEl)
 
-// Startup (seed, settings row, domain handlers) finishes before first render so the first paint is final.
-void bootApp(registry).then(() => {
-  root.render(
-    <StrictMode>
-      <App registry={registry} />
-    </StrictMode>,
-  )
-})
+// Startup (seed, settings row, domain handlers) finishes before first render so the first paint is final;
+// a failed or stuck startup renders the recovery screen instead (see app/start.tsx).
+start(rootEl, registry)

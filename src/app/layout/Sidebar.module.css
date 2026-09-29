@@ -7,10 +7,26 @@
   background: var(--bg-sidebar);
   color: var(--text-muted);
   --row-h: 30px;
+  --sub-row-h: 28px;
+  --control-h: 32px;
+  --icon-btn: 28px;
 }
 
+/* Touch targets are at least 44px: the drawer, and any coarse pointer (an iPad in landscape gets this sidebar). */
 .sidebar[data-touch] {
-  --row-h: 40px;
+  --row-h: var(--tap-min);
+  --sub-row-h: var(--tap-min);
+  --control-h: var(--tap-min);
+  --icon-btn: var(--tap-min);
+}
+
+@media (pointer: coarse) {
+  .sidebar {
+    --row-h: var(--tap-min);
+    --sub-row-h: var(--tap-min);
+    --control-h: var(--tap-min);
+    --icon-btn: var(--tap-min);
+  }
 }
 
 .top {
@@ -18,7 +34,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: max(36px, var(--icon-btn));
   padding: 0 var(--space-1) 0 var(--space-2);
 }
 
@@ -27,6 +43,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  min-height: var(--icon-btn);
   border-radius: var(--radius-md);
   color: var(--text);
 }
@@ -40,8 +57,8 @@
 .iconButton {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
   border-radius: var(--radius-md);
   color: var(--text-faint);
   opacity: 0;
@@ -57,6 +74,13 @@
   opacity: 1;
 }
 
+/* No hover on touch screens: the button would never appear. */
+@media (hover: none) {
+  .iconButton {
+    opacity: 1;
+  }
+}
+
 .iconButton:hover {
   background: var(--bg-hover);
   color: var(--text);
@@ -70,17 +94,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 32px;
+  height: var(--control-h);
   margin: var(--space-2) 0 var(--space-3);
   padding: 0 var(--space-2);
   border-radius: var(--radius-md);
   background: var(--bg-hover);
   color: var(--text-muted);
   transition: background var(--dur-1) var(--ease);
-}
-
-.sidebar[data-touch] .search {
-  height: 40px;
 }
 
 .search:hover {
@@ -94,7 +114,7 @@
 
 .hint {
   font-size: var(--fs-12);
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -170,7 +190,7 @@
 }
 
 .row[data-sub] {
-  min-height: calc(var(--row-h) - 2px);
+  min-height: var(--sub-row-h);
   font-size: 13px;
 }
 

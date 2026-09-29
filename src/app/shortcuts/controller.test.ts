@@ -176,4 +176,81 @@ describe('ShortcutController', () => {
     press(c, 'q', { isComposing: true })
     expect(run).not.toHaveBeenCalled()
   })
+
+  it('ignores IME keys (keyCode 229) and events without a string key', () => {
+    const run = vi.fn()
+    const c = make([def('q', 'q', { run })])
+    press(c, 'q', { keyCode: 229 })
+    // A synthetic event (browser autofill) can lack `key`.
+    const broken = { ...({} as KeyEventLike), key: undefined as unknown as string }
+    expect(() =>
+      c.handleKeyDown(
+        {
+          ...broken,
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          defaultPrevented: false,
+          isComposing: false,
+          preventDefault: () => {},
+        },
+        false,
+      ),
+    ).not.toThrow()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('does not re-run a shortcut on key auto-repeat, but keeps the browser default suppressed', () => {
+    const run = vi.fn()
+    const c = make([def('a', 'q', { run })])
+    expect(press(c, 'q').prevented).toBe(true)
+    expect(press(c, 'q', { repeat: true }).prevented).toBe(true)
+    expect(press(c, 'q', { repeat: true }).prevented).toBe(true)
+    expect(run).toHaveBeenCalledTimes(1)
+    // Keys nobody owns are left alone.
+    expect(press(c, 'z', { repeat: true }).prevented).toBe(false)
+  })
+
+  it('holding `g` does not become `g g`', () => {
+    const goGoals = vi.fn()
+    const goToday = vi.fn()
+    const c = make([def('goals', 'g g', { run: goGoals }), def('today', 'g t', { run: goToday })])
+    press(c, 'g')
+    press(c, 'g', { repeat: true })
+    press(c, 'g', { repeat: true })
+    expect(goGoals).not.toHaveBeenCalled()
+    // The sequence is still pending, so the real second key completes it.
+    press(c, 't')
+    expect(goToday).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not complete a sequence with a repeated second key', () => {
+    const go = vi.fn()
+    const c = make([def('go', 'g t', { run: go })])
+    press(c, 'g')
+    press(c, 't', { repeat: true })
+    expect(go).not.toHaveBeenCalled()
+  })
+
+  it('matches by physical key on a non-Latin layout, including in sequences', () => {
+    const palette = vi.fn()
+    const go = vi.fn()
+    const c = make([
+      def('palette', 'mod+k', { run: palette, allowInInputs: true }),
+      def('go', 'g t', { run: go }),
+    ])
+    press(c, 'л', { ctrlKey: true, code: 'KeyK' })
+    expect(palette).toHaveBeenCalledTimes(1)
+    press(c, 'п', { code: 'KeyG' })
+    press(c, 'е', { code: 'KeyT' })
+    expect(go).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats ⌥-modified letters on a Mac by their physical key', () => {
+    const run = vi.fn()
+    const c = make([def('alt-k', 'alt+k', { run })], true)
+    press(c, '˚', { altKey: true, code: 'KeyK' })
+    expect(run).toHaveBeenCalledTimes(1)
+  })
 })

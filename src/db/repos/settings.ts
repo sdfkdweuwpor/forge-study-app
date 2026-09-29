@@ -2,6 +2,7 @@
  * The settings singleton (`id = 'app'`). Reads never write; `ensureSettings()` (called once at
  * boot) creates the row and backfills keys added by later releases.
  */
+import { deepEqual } from '@/logic/deepEqual'
 import { db } from '../db'
 import { SETTINGS_ID, defaultSettings, defaultSettingsData } from '../defaults'
 import { emit, type SettingsSection } from '../events'
@@ -99,7 +100,8 @@ export async function ensureSettings(): Promise<Settings> {
 
 /**
  * Deep-merges `patch` into the settings row (creating it if needed) and emits
- * `settings.changed` after commit. Returns the saved settings.
+ * `settings.changed` after commit. Returns the saved settings. A patch that changes nothing (a toggle
+ * set to the value it already has) writes nothing, leaves `updatedAt` alone and emits no event.
  */
 export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
   const sections = (Object.keys(patch) as SettingsSection[]).filter(
@@ -110,6 +112,7 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
     const now = Date.now()
     const base = row ? withDefaults(row) : defaultSettings(now)
     const next = mergeSettings(base, patch)
+    if (row && deepEqual(next, base)) return base
     next.updatedAt = now
     await db.settings.put(next)
     if (sections.length > 0) emit({ type: 'settings.changed', sections })

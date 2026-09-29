@@ -12,9 +12,24 @@ export interface RecordedError {
 const MAX = 50
 const errors: RecordedError[] = []
 
+/** Anything can be thrown (`throw null`, a string, a rejected object); this always yields a real Error. */
+export function toError(value: unknown): Error {
+  if (value instanceof Error) return value
+  if (typeof value === 'string' && value !== '') return new Error(value)
+  if (typeof value === 'object' && value !== null) {
+    const message = (value as { message?: unknown }).message
+    if (typeof message === 'string' && message !== '') return new Error(message)
+    try {
+      return new Error(JSON.stringify(value))
+    } catch {
+      /* circular or otherwise unserialisable: fall through */
+    }
+  }
+  return new Error(value === undefined || value === null ? 'Unknown error' : String(value))
+}
+
 export function recordError(error: unknown, detail?: string): void {
-  const message = error instanceof Error ? error.message : String(error)
-  errors.push({ at: Date.now(), message, ...(detail ? { detail } : {}) })
+  errors.push({ at: Date.now(), message: toError(error).message, ...(detail ? { detail } : {}) })
   if (errors.length > MAX) errors.shift()
 }
 

@@ -58,6 +58,7 @@
   .date {
     display: block;
     margin-top: var(--space-1);
+    color: var(--text-muted); /* 20px/600 is not large text: faint would be under 4.5:1 */
     font-size: var(--fs-20);
     font-weight: 600;
     letter-spacing: 0;

@@ -58,7 +58,7 @@
 
 .primary {
   background: var(--accent);
-  color: var(--on-accent);
+  color: var(--accent-contrast);
 }
 
 .primary:hover {

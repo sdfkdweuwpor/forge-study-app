@@ -39,6 +39,11 @@ function titleFor(fragment: string): string {
   return fragment ? `${fragment} · ${APP_NAME}` : APP_NAME
 }
 
+/** Document title of a route with no page override: "Goals · Forge", or plain "Forge" for Today. */
+function routeDocumentTitle(name: RouteName): string {
+  return titleFor(name === 'today' ? '' : ROUTES[name].title)
+}
+
 // ── Imperative API ──────────────────────────────────────────────────────────────────────────────
 
 type LooseParams = Record<string, string | undefined>
@@ -61,9 +66,12 @@ export function navigate<N extends RouteName>(
   pushUrl(`${buildPath(ROUTES[name].path, params)}${buildQuery(opts?.query)}`, opts?.replace)
 }
 
-/** Navigate to an already-built app URL (e.g. one stored in a saved view). */
-export function navigateToUrl(url: string, replace = false): void {
-  pushUrl(url, replace)
+/**
+ * Navigate to an already-built app URL (e.g. one stored in a saved view). Only same-origin paths with a
+ * single leading `/` are accepted; `//host`, absolute URLs and control characters return false.
+ */
+export function navigateToUrl(url: string, replace = false): boolean {
+  return pushUrl(url, replace)
 }
 
 /** Merge `patch` into the current query string (undefined/'' removes a key), keeping the path. */
@@ -98,8 +106,7 @@ export function RouterProvider({ children }: { children: ReactNode }) {
 
   const routeName = state.route.name
   useEffect(() => {
-    if (titleOverride === null)
-      document.title = titleFor(routeName === 'today' ? '' : ROUTES[routeName].title)
+    if (titleOverride === null) document.title = routeDocumentTitle(routeName)
   }, [routeName, state.pathname])
 
   return <RouterContext.Provider value={state}>{children}</RouterContext.Provider>
@@ -129,16 +136,21 @@ export function usePathname(): string {
   return useRouterState().pathname
 }
 
-/** Overrides the document title while the calling page is mounted ("Goal · Forge"). */
+/**
+ * Overrides the document title while the calling page is mounted ("Goal · Forge"). While `title` is
+ * undefined (data still loading, item deleted) or once the page unmounts, the route's own title returns.
+ */
 export function usePageTitle(title: string | undefined): void {
+  const routeName = useRoute().name
   useEffect(() => {
-    if (!title) return
+    if (!title) return undefined
     titleOverride = title
     document.title = titleFor(title)
     return () => {
       titleOverride = null
+      document.title = routeDocumentTitle(routeName)
     }
-  }, [title])
+  }, [title, routeName])
 }
 
 // ── Link ────────────────────────────────────────────────────────────────────────────────────────

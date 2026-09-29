@@ -135,6 +135,42 @@ describe('updateSettings', () => {
     expect(await db.settings.count()).toBe(1)
   })
 
+  it('skips the write, the timestamp bump and the event when nothing changes', async () => {
+    const events: string[][] = []
+    onDomainEvent('settings.changed', (e) => {
+      events.push(e.sections)
+    })
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+    await ensureSettings()
+    await updateSettings({
+      timer: { pomodoroMin: 30 },
+      blocker: { motivation: ['Only this line'] },
+    })
+    await settleDomainEvents()
+    events.length = 0
+
+    now.mockReturnValue(9_000)
+    const before = await db.settings.get(SETTINGS_ID)
+    const saved = await updateSettings({
+      timer: { pomodoroMin: 30 },
+      blocker: { motivation: ['Only this line'] },
+      profile: undefined,
+    })
+    await settleDomainEvents()
+
+    expect(saved).toEqual(before)
+    expect(saved.updatedAt).toBe(before?.updatedAt)
+    expect(saved.updatedAt).not.toBe(9_000)
+    expect(await db.settings.get(SETTINGS_ID)).toEqual(before)
+    expect(events).toEqual([])
+
+    // A real change afterwards still writes and emits.
+    await updateSettings({ timer: { pomodoroMin: 45 } })
+    await settleDomainEvents()
+    expect((await db.settings.get(SETTINGS_ID))?.updatedAt).toBe(9_000)
+    expect(events).toEqual([['timer']])
+  })
+
   it('never lets a patch overwrite id or timestamps', () => {
     const base = defaultSettings(10)
     const merged = mergeSettings(base, { id: 'evil', createdAt: 0 } as unknown as Parameters<

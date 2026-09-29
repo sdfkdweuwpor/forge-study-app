@@ -77,9 +77,11 @@ const featureBans = [
       '@/app/palette',
       '@/app/palette/*',
       '@/app/boot',
+      '@/app/start',
       '@/app/App',
+      '@/app/registry/discover',
     ],
-    'Features may use only the registry, router, shortcuts, hooks and providers of the app shell.',
+    'Features may use only the registry API (@/app/registry), router, shortcuts, hooks and providers of the app shell; the discovery module is internal.',
   ),
 ]
 

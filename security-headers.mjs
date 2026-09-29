@@ -5,12 +5,16 @@
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
-  // Inline styles: libraries (dnd-kit, floating UI) set style attributes at runtime.
+  // 'unsafe-inline' is a deliberate, low-risk concession: some libraries (dnd-kit's accessibility
+  // helpers, popovers) inject <style> elements or style attributes. React `style` props alone would not
+  // need it (they go through the CSSOM). It cannot run script: script-src stays 'self'.
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://icons.duckduckgo.com",
-  "font-src 'self'",
+  // data: because Vite inlines fonts under 4 KB (small unicode-range subsets) as data URIs.
+  "font-src 'self' data:",
   "media-src 'self' blob: data:",
-  "worker-src 'self' blob:",
+  // Workers are built as separate files (new Worker(new URL(...))); nothing uses blob: workers.
+  "worker-src 'self'",
   "connect-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

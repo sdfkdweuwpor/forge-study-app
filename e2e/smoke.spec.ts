@@ -4,8 +4,10 @@ import { expect, gotoApp, test } from './fixtures'
 
 /**
  * Phase 1D smoke suite: every route renders, nothing logs errors (fixtures fail the test on any
- * console.error / pageerror), theme switching persists, the shell adapts at 375 and 1440, the
- * `g` sequences navigate, and no route scrolls horizontally on a phone.
+ * console.error / pageerror), theme switching persists, the shell adapts at 375, 768 and 1440, the
+ * `g` sequences navigate, and no route scrolls horizontally on a phone. Phase 1 review additions:
+ * the tablet drawer, back/forward, focus and announcements after navigation, sidebar focus hand-off,
+ * accent / reduced-motion boot mirrors and the lazy-chunk recovery screen.
  */
 
 /**
@@ -40,6 +42,7 @@ const ROUTE_URLS: Record<RouteName, readonly string[]> = {
 const ALL_URLS: readonly string[] = Object.values(ROUTE_URLS).flat()
 
 const DESKTOP = { width: 1440, height: 900 }
+const TABLET = { width: 768, height: 1024 }
 const PHONE = { width: 375, height: 812 }
 
 // The Main nav exists twice in the codebase (desktop sidebar, mobile tab bar); these tell them apart.
@@ -47,6 +50,13 @@ const sidebarSearch = (page: Page) => page.getByRole('button', { name: 'Search a
 const sidebarBrand = (page: Page) => page.getByRole('link', { name: 'Forge, go to Today' })
 const quickAddFab = (page: Page) => page.getByRole('button', { name: 'Quick add task' })
 const openSidebarButton = (page: Page) => page.getByRole('button', { name: 'Open sidebar' })
+const collapseSidebarButton = (page: Page) => page.getByRole('button', { name: 'Collapse sidebar' })
+const drawer = (page: Page) => page.getByRole('dialog', { name: 'Navigation' })
+const moreSheet = (page: Page) => page.getByRole('dialog', { name: 'More' })
+/** The visually hidden live region that announces each new page. */
+const announcer = (page: Page) => page.locator('[data-route-announcer]')
+/** The page heading that receives focus after navigation. */
+const pageHeading = (page: Page) => page.locator('main h1').first()
 const themeSelect = (page: Page) => page.getByLabel('Theme')
 const html = (page: Page) => page.locator('html')
 
@@ -85,6 +95,37 @@ async function setProfileName(page: Page, name: string): Promise<void> {
         }
       }),
     name,
+  )
+}
+
+/** Writes `appearance` fields straight into the settings row; call `page.reload()` afterwards to pick them up. */
+async function setAppearance(
+  page: Page,
+  patch: { accent?: string; reducedMotion?: 'system' | 'on' | 'off' },
+): Promise<void> {
+  await page.evaluate(
+    (fields) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('forge')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const idb = open.result
+          const tx = idb.transaction('settings', 'readwrite')
+          const store = tx.objectStore('settings')
+          const get = store.get('app')
+          get.onsuccess = () => {
+            const row = get.result as { appearance: Record<string, unknown> }
+            Object.assign(row.appearance, fields)
+            store.put(row)
+          }
+          tx.oncomplete = () => {
+            idb.close()
+            resolve()
+          }
+          tx.onerror = () => reject(tx.error)
+        }
+      }),
+    patch,
   )
 }
 
@@ -332,12 +373,53 @@ test.describe('desktop shell (1440x900)', () => {
     await expect(sidebarBrand(page)).toBeHidden()
   })
 
-  test('the collapse and open buttons toggle the sidebar too', async ({ page }) => {
+  test('the collapse and open buttons toggle the sidebar too, and hand focus to each other', async ({
+    page,
+  }) => {
     await gotoApp(page, '/')
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click()
+    await collapseSidebarButton(page).click()
     await expect(sidebarBrand(page)).toBeHidden()
+    await expect(openSidebarButton(page)).toBeFocused()
     await openSidebarButton(page).click()
     await expect(sidebarBrand(page)).toBeVisible()
+    await expect(collapseSidebarButton(page)).toBeFocused()
+  })
+
+  test('a click on the sidebar edge does not resize it; only a real drag does', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/')
+    const handle = page.getByRole('separator', { name: 'Resize sidebar' })
+    const widthOf = async () => Number(await handle.getAttribute('aria-valuenow'))
+    const stored = () => page.evaluate(() => window.localStorage.getItem('forge:sidebar:width'))
+    const start = await widthOf()
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('resize handle has no box')
+    const x = box.x + box.width / 2
+    const y = box.y + box.height / 2
+
+    await page.mouse.click(x, y)
+    await page.mouse.click(x, y, { button: 'right' })
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x + 2, y) // within the 2px click tolerance
+    await page.mouse.up()
+    expect(await widthOf()).toBe(start)
+    expect(await stored()).toBeNull()
+
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x + 60, y, { steps: 6 })
+    await page.mouse.up()
+    expect(await widthOf()).toBeGreaterThan(start + 40)
+    expect(await stored()).not.toBeNull()
+  })
+
+  test('with nothing contributed to it, the Goals row has no empty sub-list', async ({ page }) => {
+    await gotoApp(page, '/')
+    const nav = page.getByRole('navigation', { name: 'Main' })
+    await expect(nav.getByRole('link', { name: 'Goals', exact: true })).toBeVisible()
+    await expect(nav.locator('li', { hasText: 'Goals' }).locator('ul')).toHaveCount(0)
   })
 })
 
@@ -399,5 +481,381 @@ test.describe('go-to sequences (1440)', () => {
     await page.keyboard.press('g')
     await page.keyboard.press('s')
     await expect.poll(() => pathnameOf(page)).toBe('/settings')
+  })
+})
+
+// ── 7. Tablet: the navigation drawer ─────────────────────────────────────────────────────────────
+
+test.describe('tablet drawer (768x1024)', () => {
+  test.use({ viewport: TABLET })
+
+  test('opens from the header button; Esc closes it and returns focus to the button', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/')
+    await expect(drawer(page)).toBeHidden()
+    const open = openSidebarButton(page)
+    await open.click()
+    await expect(drawer(page)).toBeVisible()
+    await expect(open).toHaveAttribute('aria-expanded', 'true')
+    // Focus moved into the dialog.
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null))
+      .toBe(true)
+
+    await page.keyboard.press('Escape')
+    await expect(drawer(page)).toBeHidden()
+    await expect(open).toHaveAttribute('aria-expanded', 'false')
+    await expect(open).toBeFocused()
+  })
+
+  test('the scrim and mod+\\ close it too', async ({ page }) => {
+    await gotoApp(page, '/')
+    await openSidebarButton(page).click()
+    await expect(drawer(page)).toBeVisible()
+    await page.mouse.click(TABLET.width - 20, 500) // right of the 300px panel: the scrim
+    await expect(drawer(page)).toBeHidden()
+
+    await page.keyboard.press('ControlOrMeta+\\')
+    await expect(drawer(page)).toBeVisible()
+    await page.keyboard.press('ControlOrMeta+\\')
+    await expect(drawer(page)).toBeHidden()
+  })
+
+  test('a route change closes it, focus lands on the page heading, and back does not reopen it', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/')
+    await openSidebarButton(page).click()
+    await drawer(page).getByRole('link', { name: 'Goals', exact: true }).click()
+    await expect(page).toHaveURL(/\/goals$/)
+    await expect(drawer(page)).toBeHidden()
+    await expect(pageHeading(page)).toBeFocused()
+
+    // The drawer belonged to "/" and must not come back when history returns there...
+    await page.goBack()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(drawer(page)).toBeHidden()
+    await expect(openSidebarButton(page)).toHaveAttribute('aria-expanded', 'false')
+    // ...nor when it moves forward again.
+    await page.goForward()
+    await expect(page).toHaveURL(/\/goals$/)
+    await expect(drawer(page)).toBeHidden()
+  })
+
+  test('opening it, leaving and coming back to the same page finds it closed', async ({ page }) => {
+    await gotoApp(page, '/focus')
+    await openSidebarButton(page).click()
+    await expect(drawer(page)).toBeVisible()
+    await drawer(page).getByRole('link', { name: 'Today', exact: true }).click()
+    await expect(page).toHaveURL(/\/$/)
+    await page.goBack()
+    await expect(page).toHaveURL(/\/focus$/)
+    await expect(drawer(page)).toBeHidden()
+  })
+
+  test('g sequences do not fire underneath the open drawer', async ({ page }) => {
+    await gotoApp(page, '/')
+    await openSidebarButton(page).click()
+    await expect(drawer(page)).toBeVisible()
+    await page.keyboard.press('g')
+    await page.keyboard.press('s')
+    expect(await pathnameOf(page)).toBe('/')
+
+    // With the drawer closed the same keys work again.
+    await page.keyboard.press('Escape')
+    await expect(drawer(page)).toBeHidden()
+    await page.keyboard.press('g')
+    await page.keyboard.press('s')
+    await expect.poll(() => pathnameOf(page)).toBe('/settings')
+  })
+
+  test('the skip link and the page behind are inert while it is open', async ({ page }) => {
+    await gotoApp(page, '/')
+    const skip = page.locator('a[href="#main"]')
+    await expect(skip).not.toHaveAttribute('inert', /.*/)
+    await openSidebarButton(page).click()
+    await expect(drawer(page)).toBeVisible()
+    await expect(skip).toHaveAttribute('inert', '')
+    const pageIsInert = () =>
+      page.locator('main#main').evaluate((el) => el.closest('[inert]') !== null)
+    expect(await pageIsInert()).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(drawer(page)).toBeHidden()
+    expect(await pageIsInert()).toBe(false)
+    await expect(skip).not.toHaveAttribute('inert', /.*/)
+  })
+
+  test('touch targets are at least 44px', async ({ page }) => {
+    await gotoApp(page, '/')
+    const height = async (loc: ReturnType<Page['locator']>) =>
+      (await loc.boundingBox())?.height ?? 0
+    const open = openSidebarButton(page)
+    expect((await open.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44)
+    expect(await height(open)).toBeGreaterThanOrEqual(44)
+
+    await open.click()
+    const dialog = drawer(page)
+    await expect(dialog).toBeVisible()
+    await page.evaluate(() => document.fonts.ready)
+    await expect
+      .poll(async () => height(dialog.getByRole('link', { name: 'Goals', exact: true })))
+      .toBeGreaterThanOrEqual(44)
+    expect(
+      await height(dialog.getByRole('button', { name: 'Search and commands' })),
+    ).toBeGreaterThanOrEqual(44)
+    expect(
+      await height(dialog.getByRole('link', { name: 'Forge, go to Today' })),
+    ).toBeGreaterThanOrEqual(44)
+  })
+})
+
+// ── 8. Mobile: More sheet state and current-page marking ─────────────────────────────────────────
+
+test.describe('mobile More sheet (375x812)', () => {
+  test.use({ viewport: PHONE })
+
+  test('More is marked current while a page from its sheet is showing', async ({ page }) => {
+    await gotoApp(page, '/settings')
+    const tabBar = page.getByRole('navigation', { name: 'Main' })
+    const more = tabBar.getByRole('button', { name: 'More' })
+    await expect(more).toHaveAttribute('aria-current', 'true')
+    for (const name of ['Today', 'Focus', 'Goals', 'Progress']) {
+      await expect(tabBar.getByRole('link', { name })).not.toHaveAttribute('aria-current', 'page')
+    }
+
+    await tabBar.getByRole('link', { name: 'Goals' }).click()
+    await expect(page).toHaveURL(/\/goals$/)
+    await expect(more).not.toHaveAttribute('aria-current', 'true')
+    await expect(tabBar.getByRole('link', { name: 'Goals' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
+  test('the sheet closes on navigation and does not reopen on back or forward', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/')
+    const tabBar = page.getByRole('navigation', { name: 'Main' })
+    await tabBar.getByRole('button', { name: 'More' }).click()
+    await expect(moreSheet(page)).toBeVisible()
+    await moreSheet(page).getByRole('link', { name: 'Settings' }).click()
+    await expect(page).toHaveURL(/\/settings$/)
+    await expect(moreSheet(page)).toBeHidden()
+    await expect(pageHeading(page)).toBeFocused()
+
+    await page.goBack()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(moreSheet(page)).toBeHidden()
+    await page.goForward()
+    await expect(page).toHaveURL(/\/settings$/)
+    await expect(moreSheet(page)).toBeHidden()
+  })
+
+  test('Esc closes the sheet and returns focus to the More tab', async ({ page }) => {
+    await gotoApp(page, '/')
+    const more = page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('button', { name: 'More' })
+    await more.click()
+    await expect(moreSheet(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(moreSheet(page)).toBeHidden()
+    await expect(more).toBeFocused()
+  })
+})
+
+// ── 9. History, focus and announcements ──────────────────────────────────────────────────────────
+
+test.describe('navigation and history (1440)', () => {
+  test.use({ viewport: DESKTOP })
+
+  test('back and forward restore the URL, title and current-page marking', async ({ page }) => {
+    await gotoApp(page, '/')
+    const nav = page.getByRole('navigation', { name: 'Main' })
+    const link = (name: string) => nav.getByRole('link', { name, exact: true })
+
+    await link('Goals').click()
+    await link('Progress').click()
+    await expect(page).toHaveURL(/\/progress$/)
+    await expect(page).toHaveTitle('Progress · Forge')
+    await expect(link('Progress')).toHaveAttribute('aria-current', 'page')
+
+    await page.goBack()
+    await expect(page).toHaveURL(/\/goals$/)
+    await expect(page).toHaveTitle('Goals · Forge')
+    await expect(link('Goals')).toHaveAttribute('aria-current', 'page')
+    await expect(link('Progress')).not.toHaveAttribute('aria-current', 'page')
+
+    await page.goBack()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveTitle('Forge')
+    await expect(link('Today')).toHaveAttribute('aria-current', 'page')
+
+    await page.goForward()
+    await page.goForward()
+    await expect(page).toHaveURL(/\/progress$/)
+    await expect(link('Progress')).toHaveAttribute('aria-current', 'page')
+    await expect(pageHeading(page)).toBeFocused()
+  })
+
+  test('navigating announces the new page and moves focus to its heading; first load does neither', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/goals')
+    await settle(page)
+    await expect(announcer(page)).toHaveText('')
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Rewards' })
+      .click()
+    await expect(page).toHaveURL(/\/rewards$/)
+    await expect(announcer(page)).toHaveText('Rewards')
+    await expect(announcer(page)).toHaveAttribute('aria-live', 'polite')
+    await expect(pageHeading(page)).toBeFocused()
+    await expect(pageHeading(page)).toHaveAttribute('tabindex', '-1')
+
+    // Keyboard navigation announces too, including the same title twice in a row.
+    await page.keyboard.press('g')
+    await page.keyboard.press('i')
+    await expect(page).toHaveURL(/\/tasks\/inbox$/)
+    await expect(announcer(page)).toHaveText('Tasks')
+    await page.keyboard.press('g')
+    await page.keyboard.press('a')
+    await expect(page).toHaveURL(/\/tasks\/all$/)
+    await expect(announcer(page)).toHaveText('Tasks')
+    await expect(pageHeading(page)).toBeFocused()
+  })
+
+  test('a page with params remounts when the param changes', async ({ page }) => {
+    await gotoApp(page, '/tasks/inbox')
+    await expect(pageHeading(page)).toBeVisible()
+    await pageHeading(page).evaluate((el) => el.setAttribute('data-marker', 'inbox-page'))
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Upcoming' })
+      .click()
+    await expect(page).toHaveURL(/\/tasks\/upcoming$/)
+    await expect(pageHeading(page)).toBeVisible()
+    await expect(pageHeading(page)).not.toHaveAttribute('data-marker', 'inbox-page')
+  })
+})
+
+// ── 10. Appearance mirrors ───────────────────────────────────────────────────────────────────────
+
+test.describe('accent and reduced motion (1440)', () => {
+  test.use({ viewport: DESKTOP, colorScheme: 'light' })
+
+  test('are applied from settings and mirrored to localStorage for the next load', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/')
+    await expect(html(page)).toHaveAttribute('data-accent', 'blue')
+    await setAppearance(page, { accent: 'teal', reducedMotion: 'on' })
+    await page.reload()
+    await expect(html(page)).toHaveAttribute('data-accent', 'teal')
+    await expect(html(page)).toHaveAttribute('data-reduced-motion', 'on')
+    const mirrors = await page.evaluate(() => ({
+      accent: window.localStorage.getItem('forge:accent'),
+      motion: window.localStorage.getItem('forge:reduced-motion'),
+    }))
+    expect(mirrors).toEqual({ accent: 'teal', motion: 'on' })
+  })
+
+  test('theme-init.js applies the mirrors before the app has rendered', async ({ page }) => {
+    type Snapshot = { theme: string | null; accent: string | null; motion: string | null }
+    await page.addInitScript(() => {
+      window.localStorage.setItem('forge:theme', 'dark')
+      window.localStorage.setItem('forge:accent', 'pink')
+      window.localStorage.setItem('forge:reduced-motion', 'on')
+      // The first attribute mutation on <html> is theme-init.js (a synchronous script in <head>);
+      // the observer callback runs right after it, before any app code.
+      const log: Snapshot[] = []
+      Object.assign(window, { __attributeLog: log })
+      new MutationObserver(() => {
+        const root = document.documentElement
+        log.push({
+          theme: root.getAttribute('data-theme'),
+          accent: root.getAttribute('data-accent'),
+          motion: root.getAttribute('data-reduced-motion'),
+        })
+      }).observe(document, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-theme', 'data-accent', 'data-reduced-motion'],
+      })
+    })
+    await gotoApp(page, '/')
+    const first = await page.evaluate(
+      () => (window as unknown as { __attributeLog: Snapshot[] }).__attributeLog[0],
+    )
+    expect(first).toEqual({ theme: 'dark', accent: 'pink', motion: 'on' })
+  })
+
+  test('the theme-color meta follows the resolved theme', async ({ page }) => {
+    await gotoApp(page, '/settings')
+    const colors = () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll('meta[name="theme-color"]')).map(
+          (m) => m.getAttribute('content') ?? '',
+        ),
+      )
+    const bg = () =>
+      page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+      )
+
+    await themeSelect(page).selectOption('dark')
+    await expect(html(page)).toHaveAttribute('data-theme', 'dark')
+    const dark = await bg()
+    await expect.poll(colors).toEqual([dark, dark])
+
+    await themeSelect(page).selectOption('light')
+    await expect(html(page)).toHaveAttribute('data-theme', 'light')
+    const light = await bg()
+    expect(light).not.toBe(dark)
+    await expect.poll(colors).toEqual([light, light])
+  })
+})
+
+// ── 11. A lazy page that no longer exists on the server ──────────────────────────────────────────
+
+test.describe('lazy chunk gone after a deploy (1440)', () => {
+  test.use({
+    viewport: DESKTOP,
+    ignoreConsoleErrors: [/Failed to load resource/, /Failed to fetch dynamically imported module/],
+  })
+
+  test('shows a Reload screen instead of a blank page, reloads once by itself, and the rest keeps working', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/')
+    await page.route('**/assets/SettingsPage-*.js', (route) =>
+      route.fulfill({ status: 404, body: 'Not found' }),
+    )
+    const reloaded = page.waitForEvent('load')
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings', exact: true })
+      .click()
+    await reloaded // the one automatic reload
+    await expect(
+      page.getByRole('heading', { name: 'A new version of Forge is available' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    expect(
+      await page.evaluate(() => window.sessionStorage.getItem('forge:chunk-reload-at')),
+    ).not.toBeNull()
+
+    // The sidebar and every other page still work.
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Goals', exact: true })
+      .click()
+    await expect(page).toHaveURL(/\/goals$/)
+    await expect(page.getByRole('heading', { name: 'Goals' })).toBeVisible()
   })
 })

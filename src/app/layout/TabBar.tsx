@@ -46,6 +46,7 @@ export function TabBar({ moreOpen, onToggleMore }: TabBarProps) {
           type="button"
           className={styles.tab}
           data-active={moreActive || undefined}
+          aria-current={moreActive ? 'true' : undefined}
           aria-haspopup="dialog"
           aria-expanded={moreOpen}
           onClick={onToggleMore}

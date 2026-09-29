@@ -90,6 +90,20 @@ export function matchRoute(pathname: string): MatchResult {
   return { name: 'notFound', params: {} }
 }
 
+/**
+ * True only for an app-relative path: one leading `/`, not `//` or `/\\` (both mean "another host" to a
+ * URL parser), no control characters (the parser strips tabs and newlines, so `/\t/host` becomes `//host`).
+ * Anything else, including absolute URLs, is refused so a stored or crafted link cannot leave the app.
+ */
+export function isAppPath(url: string): boolean {
+  if (!url.startsWith('/') || url.startsWith('//') || url.startsWith('/\\')) return false
+  for (let i = 0; i < url.length; i++) {
+    const c = url.charCodeAt(i)
+    if (c < 0x20 || c === 0x7f) return false
+  }
+  return true
+}
+
 /** Fill a pattern with params. Optional segments are dropped when absent. Throws on a missing required param. */
 export function buildPath(path: string, params: Record<string, string | undefined> = {}): string {
   if (path === '*') return '/'

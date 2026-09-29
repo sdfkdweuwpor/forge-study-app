@@ -7,6 +7,10 @@
 export const PREF_KEYS = {
   /** Mirror of settings.appearance.theme; read synchronously by public/theme-init.js. */
   theme: 'forge:theme',
+  /** Mirror of settings.appearance.accent (`data-accent`); read by public/theme-init.js. */
+  accent: 'forge:accent',
+  /** Mirror of settings.appearance.reducedMotion ('system' | 'on' | 'off'); read by public/theme-init.js. */
+  reducedMotion: 'forge:reduced-motion',
   sidebarWidth: 'forge:sidebar:width',
   sidebarCollapsed: 'forge:sidebar:collapsed',
   /** Last Tasks layout (list | board | calendar); written by the tasks feature. */

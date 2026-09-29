@@ -125,6 +125,19 @@
     color var(--dur-1) var(--ease);
 }
 
+/* Touch targets are at least 44px: the tablet layout, and any coarse pointer. */
+.shell[data-mode='tablet'] .openButton {
+  width: var(--tap-min);
+  height: var(--tap-min);
+}
+
+@media (pointer: coarse) {
+  .openButton {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+}
+
 .openButton:hover {
   background: var(--bg-hover);
   color: var(--text);
@@ -139,6 +152,11 @@
 }
 
 .main:focus {
+  outline: none;
+}
+
+/* The heading that receives focus after a route change (RouteAnnouncer) is not a control: no ring. */
+.main h1[tabindex='-1']:focus {
   outline: none;
 }
 

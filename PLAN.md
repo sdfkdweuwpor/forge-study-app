@@ -543,10 +543,10 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **1F Deploy (coordinator)** — ⏸ site created (`forge-study-app`, id `ae292093-4753-4fcf-886c-48bf406e202b`), but this cloud environment's egress policy blocks `api.netlify.com`/`*.netlify.app`; waiting on the user to allow those hosts or link the repo in Netlify's UI. Netlify site `forge-study-app`. A deep-link reload (`/goals/x`) serves the SPA, security headers are present, and the user is told about the optional `NETLIFY_AUTH_TOKEN`/`NETLIFY_SITE_ID` secrets.
 
 ### Phase 2 — Design system
-- [ ] **2A [D] Tokens & type** (first). Owns `src/styles/**` and the font import in `main.tsx`.
+- [x] **2A [D] Tokens & type** (first). Owns `src/styles/**` and the font import in `main.tsx`.
   - All brief colors in light and dark. Token selectors must work on **any element** (`:root, [data-theme=light]` / `[data-theme=dark]` + `prefers-color-scheme`), so `/design` can show both themes side by side.
   - 9 tag colors × bg/text × 2 themes; 6 accent presets (`data-accent`); spacing, radius, type scale, motion (`--dur-1/2/3`, `--ease`); focus ring; reduced-motion overrides.
-  - `@fontsource-variable/inter` with `cv11`/`ss01`.
+  - Self-hosted Inter with `cv11`/`ss01`: the official `inter-ui` Latin subset, because Fontsource's Google build strips those features (DECISIONS).
   - `contrast.test.ts` parses the token files and asserts WCAG AA for every text/background pair, compositing rgba over its background.
 - [ ] **2B [D] Primitives** (after 2A): Button, IconButton, Input, Textarea (auto-grow), Checkbox (round/square), Tag, Kbd, Tooltip (with Kbd hints), Toggle, SegmentedControl, Tabs, ProgressBar, ProgressRing, Skeleton, EmptyState.
   - Each covers hover, active, focus-visible, disabled and `[data-force=hover|active|focus]` for demos.

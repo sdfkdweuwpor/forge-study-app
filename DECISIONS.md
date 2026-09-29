@@ -39,7 +39,7 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 ## Dependencies beyond BRIEF §2 (each: why a few lines of code wouldn't do)
 
 - **2026-09-29 — `dexie-react-hooks`.** It provides `useLiveQuery`. Re-implementing Dexie liveQuery subscriptions, including the cleanup and StrictMode edge cases, isn't worth it.
-- **2026-09-29 — `@fontsource-variable/inter`.** It self-hosts Inter's variable woff2 with `unicode-range` subsets, so only Latin downloads.
+- **2026-09-29 — `@fontsource-variable/inter`.** *Superseded in Phase 2A by `inter-ui` (below).* It self-hosts Inter's variable woff2 with `unicode-range` subsets, so only Latin downloads.
   - Vite fingerprints the files and the PWA precaches them.
   - It is version-pinned in npm instead of hand-copied binaries.
   - The family name is `'Inter Variable'`.
@@ -57,6 +57,11 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
   - Runtime: vite ^8.3, @vitejs/plugin-react ^6.1, vitest ^5.0, react/react-dom ^19.3, vite-plugin-pwa ^1.3, dexie ^4.4, dexie-react-hooks ^4.4, date-fns ^4, zod ^4, lucide-react (latest), @dnd-kit/core, @dnd-kit/sortable.
   - TypeScript `~5.9`, not TS 6: ecosystem readiness.
   - Import lucide icons by name only, so tree-shaking works.
+- **2026-09-29 — `inter-ui` (official Inter 4.1 build) replaces `@fontsource-variable/inter` (Phase 2A).** Fontsource ships Google Fonts' build, which strips Inter's `cv*`/`ss*`/`zero` features, so the brief's `cv11` (single-storey a) and `ss01` (open digits) did nothing. This was verified by pixel comparison.
+  - `src/styles/typography.css` points one `@font-face` at `inter-ui/variable-latin/InterVariable-subset.woff2`, the official Latin subset with the wght and opsz axes. It precaches 99.7 KB, down from 7 subset files / 218 KB. Other scripts fall back per glyph to the system font.
+  - It is still version-pinned in npm, and the family name stays `'Inter Variable'`. Italic is synthesised; the italic file is not shipped.
+  - `font-optical-sizing: auto` uses the opsz axis, so titles and the 96 px timer get Inter Display.
+  - A metric-matched `'Inter Fallback'` (Arial with size and ascent overrides) avoids layout shift during `font-display: swap`.
 
 ## Architecture
 
@@ -140,3 +145,34 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 - **2026-09-29 — Calendar export offers an `.ics` download plus "Copy calendar text". There is no live subscription URL.** A subscribable URL needs a server. If Phase 12 sync lands, Supabase storage could host one.
 - **2026-09-29 — PDFs are stored as Blobs in `files` and opened in a new tab via object URL, not embedded in iframes.** This avoids CSP/plugin issues. Snapshots exclude blobs, and JSON export includes them only on request.
 - **2026-09-29 — Cloud sync (Phase 12) is deferred.** Supabase with last-write-wins on `updatedAt`, tombstones as schema v2, and lazy-loaded so it costs nothing when off. We'll decide on `@supabase/supabase-js` vs plain fetch at that point. The app works fully without it.
+
+## Design system
+
+- **2026-09-29 — Theme tokens work on any element (Phase 2A).** The selectors are `:root, [data-theme='light']`, `[data-theme='dark']`, and a `prefers-color-scheme: dark` block for `:root:not([data-theme])` / `[data-theme='system']`. That block repeats the dark values, and `contrast.test.ts` fails if the two drift. This lets `/design` nest a dark column inside a light page.
+  - Accent presets set raw `--_accent-*-l/-d` values on `[data-accent]`. Each theme block maps them to the public `--accent*` tokens, so the mapping re-resolves inside a nested theme. To preview an accent on a sub-tree, set both `data-accent` and `data-theme` on it.
+  - Colour tokens are literal hex or `rgba()` only, so the test can parse and composite them. Shorthands that reference theme colours (such as `--focus-ring`) are declared on `:root, [data-theme]` so they resolve per theme.
+- **2026-09-29 — Colour naming and contrast tiers (WCAG AA, enforced by `src/styles/contrast.test.ts`).** The surfaces are `--bg`, `--bg-sidebar` and `--bg-elevated`, each plain, with `--bg-hover` and with `--bg-active`.
+  - `--text` and `--text-muted` reach at least 4.5:1 on every surface. Use them for all small text, including placeholders and keyboard hints.
+  - `--text-faint` reaches at least 3:1. Use it only for large text (≥ 24 px, or ≥ 18.66 px at weight 700), icons, disabled text and decorative separators.
+  - `--{accent,success,warning,danger,xp}` are for fills, icons, bars and rings, at least 3:1.
+  - `--{…}-text` is coloured text, at least 4.5:1 on the surfaces and on its own `--{…}-soft` tint.
+  - `--accent-contrast` is text on an `--accent` or `--accent-hover` fill, at least 4.5:1.
+  - `--bg-inverse` with `--text-inverse` and `--text-inverse-muted` is for tooltips and toasts.
+  - `--border` and `--border-strong` are decorative hairlines, not held to 3:1. Controls are identified by their label or text and by the focus ring.
+- **2026-09-29 — Minimal colour changes to meet AA.** The rest of the brief's values are unchanged.
+  - Light `--text-muted`: 0.65 → 0.72 alpha. The brief's value is 4.2:1 on white.
+  - `--text-faint`: light 0.45 → 0.56, dark 0.35 → 0.38, to reach 3:1.
+  - Blue accent: `#2383E2` → `#2376D4`, because white text on the brief's blue was 3.9:1.
+  - Light `--xp`: `#CB912F` → `#BE8226`, so it reaches 3:1 as a fill.
+  - Warning, danger and XP get darker `-text` variants in light mode.
+  - Shell edits: the tab-bar labels, the sidebar `Ctrl K` hint, the placeholder "Coming soon" line and the phone date on Today moved from faint to muted. `--on-accent` was renamed `--accent-contrast`.
+- **2026-09-29 — Six accent presets, following `AccentId`: blue (default), teal, green, orange, pink and graphite.** Graphite replaces the suggested red, because red would read as `--danger`.
+  - A colour accent uses one fill in both themes. White text needs 4.5:1 on it and the fill needs 3:1 against `#252525`, which leaves a narrow window.
+  - Hover is darker. Dark mode gets a lighter `--accent-text` and a stronger `--accent-soft`.
+  - Graphite is near-black with white text in light mode, and light grey with `#191919` text in dark mode.
+- **2026-09-29 — Tag colours are opaque soft backgrounds with same-hue text, at least 5:1 in both themes.** `--tag-<name>-text` doubles as the colour for dots, icons and confetti (at least 3:1 on the page).
+- **2026-09-29 — Reduced motion collapses the movement tokens and adds a safety net.** It applies under `[data-reduced-motion='on']`, and under `prefers-reduced-motion` unless the attribute is `off`.
+  - `--shift-1/2/3` become 0 and `--scale-in`/`--scale-press` become 1, so components that build their transforms from these tokens become opacity-only.
+  - Everything else finishes its transitions and animations instantly. Elements whose motion is already token-based opt out with `data-motion="opacity"` and keep their fades (toasts, "+15 XP", the level-up moment).
+  - Delays are kept, because they are timing (tooltip delay, the 600 ms slide-out), not motion.
+- **2026-09-29 — Global styles load from one entry, `src/styles/index.css`.** The order is typography, tokens, accents, tags, reset, global, motion. The extension (Phase 9) needs `tokens.css`, `accents.css` and the Inter file. `/design` state demos can force the focus ring with `[data-force~='focus']`.

@@ -1,6 +1,6 @@
 import { PanelLeftClose, Search } from 'lucide-react'
 import { useOverlays } from '../providers/OverlayProvider'
-import { Slot } from '../registry'
+import { Slot, useSlotCount } from '../registry'
 import { Link, useRoute } from '../router'
 import type { RouteName } from '../router'
 import { Logo } from './Logo'
@@ -50,9 +50,12 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
   const overlays = useOverlays()
   const inTasks = route.name === 'tasks' || route.name === 'taskView' || route.name === 'task'
   const activeList = route.name === 'tasks' ? (route.params.list ?? 'inbox') : null
+  // Empty slots render nothing, and so must their wrappers (no stray bullets, gaps or separators).
+  const hasGoalLinks = useSlotCount('sidebar.nav.goals') > 0
+  const hasFooter = useSlotCount('sidebar.timer') + useSlotCount('sidebar.footer') > 0
 
   return (
-    <nav aria-label="Main" className={styles.sidebar} data-touch={touch || undefined}>
+    <div className={styles.sidebar} data-touch={touch || undefined}>
       <div className={styles.top}>
         <Link
           to="today"
@@ -67,6 +70,7 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
           <button
             type="button"
             className={styles.iconButton}
+            data-sidebar-collapse=""
             onClick={onCollapse}
             aria-label="Collapse sidebar"
             title={`Collapse sidebar  ${keyHint('mod+\\')}`}
@@ -93,7 +97,7 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
         </span>
       </button>
 
-      <div className={styles.scroll}>
+      <nav aria-label="Main" className={styles.scroll}>
         <ul className={styles.list}>
           {PRIMARY_NAV.map((item) => (
             <li key={item.id}>
@@ -133,7 +137,7 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
                   <Slot id="sidebar.nav.tasks" />
                 </ul>
               ) : null}
-              {item.id === 'goals' ? (
+              {item.id === 'goals' && hasGoalLinks ? (
                 <ul className={styles.sub}>
                   <Slot id="sidebar.nav.goals" />
                 </ul>
@@ -151,12 +155,15 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
             </li>
           ))}
         </ul>
-      </div>
+      </nav>
 
-      <div className={styles.bottom}>
-        <Slot id="sidebar.timer" />
-        <Slot id="sidebar.footer" />
-      </div>
-    </nav>
+      {/* The timer and level footer are status widgets, not navigation: outside the nav landmark. */}
+      {hasFooter ? (
+        <div className={styles.bottom}>
+          <Slot id="sidebar.timer" />
+          <Slot id="sidebar.footer" />
+        </div>
+      ) : null}
+    </div>
   )
 }

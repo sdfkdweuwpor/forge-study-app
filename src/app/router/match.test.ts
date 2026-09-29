@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPath, buildQuery, matchRoute, parseQuery } from './match'
+import { buildPath, buildQuery, isAppPath, matchRoute, parseQuery } from './match'
 import { ROUTES, type RouteName } from './routes'
 
 describe('matchRoute', () => {
@@ -81,5 +81,30 @@ describe('buildPath / query', () => {
     expect(buildQuery({ layout: 'board', tag: undefined, peek: '' })).toBe('?layout=board')
     expect(buildQuery()).toBe('')
     expect(parseQuery('?layout=board&tag=C182')).toEqual({ layout: 'board', tag: 'C182' })
+  })
+})
+
+describe('isAppPath', () => {
+  it('accepts app-relative paths with query and hash', () => {
+    expect(isAppPath('/')).toBe(true)
+    expect(isAppPath('/tasks/inbox')).toBe(true)
+    expect(isAppPath('/tasks?layout=board&tag=C182')).toBe(true)
+    expect(isAppPath('/goals/g1/courses/C779#notes')).toBe(true)
+  })
+
+  it('refuses anything that could leave the app', () => {
+    expect(isAppPath('//evil.example/steal')).toBe(false)
+    expect(isAppPath('/\\evil.example')).toBe(false)
+    expect(isAppPath('https://evil.example/')).toBe(false)
+    expect(isAppPath('javascript:alert(1)')).toBe(false)
+    expect(isAppPath('tasks/inbox')).toBe(false)
+    expect(isAppPath('')).toBe(false)
+    expect(isAppPath('?tab=all')).toBe(false)
+  })
+
+  it('refuses control characters, which URL parsers strip before resolving', () => {
+    expect(isAppPath('/\t/evil.example')).toBe(false)
+    expect(isAppPath('/\n/evil.example')).toBe(false)
+    expect(isAppPath('/tasks\u0000')).toBe(false)
   })
 })

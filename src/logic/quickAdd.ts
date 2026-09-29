@@ -672,8 +672,6 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     }
   }
 
-  const accepted = found
-
   // ── result ──
 
   let dateToken: string | undefined
@@ -683,7 +681,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   let recurrence: RecurrenceRule | undefined
   const tags: string[] = []
   const seenTags = new Set<string>()
-  for (const f of accepted) {
+  for (const f of found) {
     const p = f.payload
     if (p.kind === 'date') dateToken = p.date
     else if (p.kind === 'time') timeToken = p.time
@@ -716,19 +714,19 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   // Title: everything outside the tokens; quoted literals keep their text without the quotes.
   let title = ''
   let cursor = 0
-  for (const f of accepted) {
+  for (const f of found) {
     title += input.slice(cursor, f.start)
     if (f.payload.kind === 'literal') title += f.payload.text
     cursor = f.dropEnd
   }
   title += input.slice(cursor)
   title = title.replace(/\s+/g, ' ').trim()
-  if (accepted.length > 0) title = title.replace(/^[\s,;:\-–—]+|[\s,;:\-–—]+$/g, '')
+  if (found.length > 0) title = title.replace(/^[\s,;:\-–—]+|[\s,;:\-–—]+$/g, '')
 
   const result: QuickAddResult = {
     title,
     tags,
-    tokens: accepted.map((f) => ({
+    tokens: found.map((f) => ({
       kind: f.payload.kind,
       start: f.start,
       end: f.end,

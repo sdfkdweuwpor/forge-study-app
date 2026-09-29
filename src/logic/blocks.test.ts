@@ -138,7 +138,7 @@ describe('parseInline', () => {
 
   it('merges adjacent spans with the same style', () => {
     expect(parseInline('a\\*b')).toEqual([plain('a*b')])
-    expect(parseInline('**a****b**')).toEqual([span('ab', { bold: true })])
+    expect(parseInline('**a\\*b**')).toEqual([span('a*b', { bold: true })])
   })
 
   it('only allows http, https and mailto links', () => {

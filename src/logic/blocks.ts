@@ -67,7 +67,7 @@ export function isSafeUrl(url: string): boolean {
   const value = url.trim()
   if (value.length === 0 || hasSpaceOrControl(value)) return false
   if (/^mailto:[^\s@]+@[^\s@]+$/i.test(value)) return true
-  if (!/^https?:\/\//i.test(value)) return false
+  if (!/^https?:\/\/[^/?#]/i.test(value)) return false // the host must follow `//` directly
   try {
     const parsed = new URL(value)
     return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname !== ''

@@ -223,6 +223,28 @@ test.describe('Today', () => {
     await expect(group(page, 'Rolled over')).toHaveCount(0)
   })
 
+  test('Esc still closes the tablet drawer, and clears a selected row when there is one', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await gotoApp(page, '/', 'wgu')
+    await expect(nowTitle(page)).toHaveText(NOW_TITLE)
+
+    // Today's list shortcuts must not swallow the Escape that belongs to the drawer.
+    const drawer = page.getByRole('dialog', { name: 'Navigation' })
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    await expect(drawer).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+
+    // With a row selected, Escape clears the selection instead.
+    await page.keyboard.press('j')
+    const first = rows(group(page, 'From your goals')).first()
+    await expect(first.locator('[data-selected]')).toHaveCount(1)
+    await page.keyboard.press('Escape')
+    await expect(first.locator('[data-selected]')).toHaveCount(0)
+  })
+
   test('a brand-new user gets a friendly empty state with both first steps', async ({ page }) => {
     await gotoApp(page, '/', 'empty')
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Good morning')

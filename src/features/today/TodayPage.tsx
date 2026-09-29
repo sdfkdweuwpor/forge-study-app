@@ -172,6 +172,8 @@ function TodayScreen() {
 
   useTaskShortcuts({
     task: selectedTask,
+    // Esc only clears a selection; with none, it stays free to close the drawer and the More sheet.
+    escapeActive: selected !== null,
     editTags: () => {
       if (selectedTask) openTask(selectedTask.id)
     },

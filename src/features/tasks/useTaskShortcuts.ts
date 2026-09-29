@@ -24,6 +24,12 @@ export interface TaskShortcutOptions {
   editTags(): void
   /** Called just before a task leaves the list (completed or trashed), so selection can move on. */
   beforeLeave?(task: Task): void
+  /**
+   * Whether `esc` belongs to this list right now (default true). A deeper scope wins over the
+   * shell's global `esc`, so a screen with nothing to dismiss passes false; otherwise it would
+   * swallow the Escape that closes the sidebar drawer or the More sheet.
+   */
+  escapeActive?: boolean
 }
 
 /**
@@ -51,7 +57,13 @@ function useKeyboardIdle(): boolean {
 }
 
 /** Turns on the `tasks` scope and binds the tasks shortcuts (see `shortcuts.ts`) to the target task. */
-export function useTaskShortcuts({ task, list, editTags, beforeLeave }: TaskShortcutOptions): void {
+export function useTaskShortcuts({
+  task,
+  list,
+  editTags,
+  beforeLeave,
+  escapeActive = true,
+}: TaskShortcutOptions): void {
   useShortcutScope('tasks')
   const actions = useTaskActions()
   const overlays = useOverlays()
@@ -73,7 +85,11 @@ export function useTaskShortcuts({ task, list, editTags, beforeLeave }: TaskShor
   )
   useShortcutHandler('tasks.moveUp', () => list?.reorder(-1), active && list !== undefined)
   useShortcutHandler('tasks.moveDown', () => list?.reorder(1), active && list !== undefined)
-  useShortcutHandler('tasks.escape', () => void list?.escape(), free && list !== undefined)
+  useShortcutHandler(
+    'tasks.escape',
+    () => void list?.escape(),
+    free && list !== undefined && escapeActive,
+  )
 
   useShortcutHandler(
     'tasks.complete',

@@ -176,6 +176,7 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
   - A task that is completing stays in the pool as open until its motion ends, for the groups and for `pickNow`, so the Now card does not jump to the next task while the row is still striking through.
   - `TaskRow` gained an optional `dueText` prop that replaces the words of the due chip, so Rolled over says "3 days overdue" instead of "3 days ago". Tone and icon stay.
   - Today's own keys live in the `today` scope beside the `tasks` ones from `useTaskShortcuts`: `shift+x` completes the Now task, `shift+n` skips it for today, `shift+t` moves every rolled-over task to today (one Undo). The palette has the same three; a command opens Today and files a request (`requestTodayAction`) that the page runs once its tasks have loaded, so the toast and Undo appear where they can be seen.
+  - `useTaskShortcuts` gained an optional `escapeActive` (default true). The controller lets the deepest scope win, so a list's `tasks.escape` swallowed the Escape that closes the tablet drawer and the More sheet (both use the global `app.escape`). Today passes `escapeActive` only while a row is selected, so Escape clears the selection first and otherwise stays free.
 
 ## Design system
 

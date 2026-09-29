@@ -6,12 +6,7 @@
  * The reference date is `targetDate`, or the accepted plan's `baselineEnd` when there is no target:
  * the same date the slip ("+9 days") is measured against.
  */
-import {
-  countStudyDays,
-  dayNumber,
-  floorTo,
-  MAX_REQUIRED_MINUTES,
-} from './capacity'
+import { countStudyDays, dayNumber, floorTo, MAX_REQUIRED_MINUTES } from './capacity'
 import { finishSchedule, prepareSchedule, walkSchedule, type PreparedSchedule } from './schedule'
 import type { CatchUp, ScheduleInput, ScheduleResult } from './types'
 
@@ -37,7 +32,9 @@ export function suggestCatchUp(input: ScheduleInput, result?: ScheduleResult): C
   if (p.totalMinutes === 0) return null
   const res = result ?? finishSchedule(p, walkSchedule(p, p.caps))
   const ref = dayNumber(refIso)
-  const blocked = res.issues.some((i) => i.code === 'NO_AVAILABILITY' || i.code === 'HORIZON_EXCEEDED')
+  const blocked = res.issues.some(
+    (i) => i.code === 'NO_AVAILABILITY' || i.code === 'HORIZON_EXCEEDED',
+  )
   if (!blocked && res.projectedEnd !== null && dayNumber(res.projectedEnd) <= ref) return null
 
   const { grain, maxCatchUp } = p.opts
@@ -57,7 +54,10 @@ export function suggestCatchUp(input: ScheduleInput, result?: ScheduleResult): C
 
   let required: number | null = null
   if (studyDaysLeft > 0) {
-    const first = Math.max(grain, Math.ceil(Math.ceil(p.totalMinutes / studyDaysLeft) / grain) * grain)
+    const first = Math.max(
+      grain,
+      Math.ceil(Math.ceil(p.totalMinutes / studyDaysLeft) / grain) * grain,
+    )
     for (let r = first; r <= MAX_REQUIRED_MINUTES; r += grain) {
       const caps = p.caps.map((c) => (c > 0 ? r : 0))
       if (fitsBy(p, caps, ref)) {

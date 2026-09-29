@@ -47,7 +47,10 @@ function compareCyclePosition(a: TopoCourse, b: TopoCourse): number {
 }
 
 /** Tarjan's strongly connected components over `ids`, following `edges` (prerequisite → dependent). */
-function stronglyConnected(ids: readonly string[], edges: ReadonlyMap<string, string[]>): string[][] {
+function stronglyConnected(
+  ids: readonly string[],
+  edges: ReadonlyMap<string, string[]>,
+): string[][] {
   let index = 0
   const idx = new Map<string, number>()
   const low = new Map<string, number>()
@@ -84,7 +87,8 @@ function stronglyConnected(ids: readonly string[], edges: ReadonlyMap<string, st
       }
       work.pop()
       const parent = work[work.length - 1]
-      if (parent) low.set(parent.v, Math.min(low.get(parent.v) as number, low.get(frame.v) as number))
+      if (parent)
+        low.set(parent.v, Math.min(low.get(parent.v) as number, low.get(frame.v) as number))
       if (low.get(frame.v) === idx.get(frame.v)) {
         const comp: string[] = []
         let w: string | undefined

@@ -117,7 +117,13 @@ function courseUnits(
         return {
           course,
           units: [
-            { id: course.id, title: SYNTHETIC_UNIT_TITLE, order: 0, estimateMinutes: minutes, done: courseDone },
+            {
+              id: course.id,
+              title: SYNTHETIC_UNIT_TITLE,
+              order: 0,
+              estimateMinutes: minutes,
+              done: courseDone,
+            },
           ],
         }
       }
@@ -202,7 +208,9 @@ export function planGoal(
       minutes: taskMinutes(t),
       courseId: courseOfUnit.get(taskUnitId(t) as string) ?? t.milestoneId ?? '',
     }))
-    .sort((a, b) => cmpStr(a.date, b.date) || cmpStr(a.courseId, b.courseId) || a.minutes - b.minutes)
+    .sort(
+      (a, b) => cmpStr(a.date, b.date) || cmpStr(a.courseId, b.courseId) || a.minutes - b.minutes,
+    )
 
   const input: ScheduleInput = {
     today,
@@ -246,6 +254,21 @@ export function planGoal(
     })
   }
 
+  return {
+    input,
+    result,
+    catchUp,
+    diff,
+    projection,
+    courseDates,
+    work: sumWork(courses, remaining),
+  }
+}
+
+function sumWork(
+  courses: readonly CourseUnits[],
+  remaining: ReadonlyMap<string, { doneMinutes: number }>,
+): GoalWork {
   const work: GoalWork = { totalMinutes: 0, doneMinutes: 0, remainingMinutes: 0, courses: [] }
   for (const { course, units } of courses) {
     let total = 0
@@ -266,6 +289,27 @@ export function planGoal(
     work.doneMinutes += doneMinutes
     work.remainingMinutes += total - doneMinutes
   }
+  return work
+}
 
-  return { input, result, catchUp, diff, projection, courseDates, work }
+/**
+ * Hours done and left per course, for progress bars ("% of hours done"). A unit or course marked done
+ * counts in full; otherwise a unit's done chunks count, up to its estimate. No scheduling involved.
+ */
+export function goalWork(
+  rows: Pick<GoalRows, 'milestones' | 'units' | 'tasks'>,
+  options: Partial<SchedulerOptions> = {},
+): GoalWork {
+  const { grain } = resolveOptions(options)
+  const courses = courseUnits(rows.milestones, rows.units, grain)
+  const done = rows.tasks.filter((t) => t.source === 'schedule' && t.status === 'done')
+  return sumWork(
+    courses,
+    computeRemaining(
+      courses.flatMap((c) => c.units),
+      done,
+      [],
+      grain,
+    ),
+  )
 }

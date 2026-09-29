@@ -16,7 +16,14 @@
  */
 import type { Block, ID, ISODate, Task } from '@/db/types'
 import { parseScheduleKey, pomodorosFor, taskUnitId } from './estimates'
-import type { ChunkFields, ChunkPatch, ChunkUpdate, DiffTask, PlannedChunk, ScheduleDiff } from './types'
+import type {
+  ChunkFields,
+  ChunkPatch,
+  ChunkUpdate,
+  DiffTask,
+  PlannedChunk,
+  ScheduleDiff,
+} from './types'
 
 /** A pin the rebalancer must respect: open, not skipped today, and not dated in the past. */
 export function isActivePin(
@@ -190,7 +197,8 @@ export function diffSchedule(
     if (Object.keys(changes).length > 0) update.push({ id: t.id, chunk: c, changes })
   }
   update.sort(
-    (a, b) => (position.get(a.chunk.key) ?? 0) - (position.get(b.chunk.key) ?? 0) || cmpStr(a.id, b.id),
+    (a, b) =>
+      (position.get(a.chunk.key) ?? 0) - (position.get(b.chunk.key) ?? 0) || cmpStr(a.id, b.id),
   )
   const insert = [...chunkByKey.values()].filter((c) => !owner.has(c.key))
 

@@ -366,6 +366,14 @@ computeRemaining(units, doneTasks, pinnedTasks): Map<unitId, {remainingMinutes, 
 diffSchedule(existingOpenTasks, chunks): { insert: PlannedChunk[]; update: {id, date, minutes, title, orderInDay}[]; remove: ID[] }
 ```
 
+**As built (5A), additions to the contract above** (import everything from `@/logic/scheduler`; the repo side is `rebalanceGoal`/`computeRemaining` in `@/db/repos/goals`):
+- `SchedUnit.usedSeqs?` (chunk numbers held by done/pinned chunks; new chunks take the smallest free ones) and `SchedUnit.deferredMinutes?` (skipped today: may not land on `today`).
+- `ScheduleInput.pinned?: {date, minutes, courseId}[]`: pinned work consumes its day and counts toward `projectedEnd` and the course window. `reservedMinutes` holds only today's done/skipped minutes.
+- `diffSchedule(goalScheduledTasks, chunks, {today, pinnedIds?})` → `{ insert, update: {id, chunk, changes}[], remove, trash, keep }`. `trash` = unneeded chunks carrying user content (detached, then trashed); `keep` = done tasks and active pins.
+- `suggestCatchUp(input, result?)` measures against `targetDate ?? baselineEnd` (the same reference as `slipDays`).
+- `projectedEnd` is `null` when `NO_AVAILABILITY` or `HORIZON_EXCEEDED`.
+- `planGoal(rows, today)` (rows → input, result, catchUp, diff, projection, courseDates, work) and `goalWork(rows)` compose the pieces; the wizard preview can call `planGoal` with draft rows and no tasks.
+
 ### 4.2 Algorithm (deterministic, pure)
 1. **Prepare.**
    - If every `minutesByWeekday` is ≤ 0: return `NO_AVAILABILITY`, with no chunks and not feasible (unless nothing remains).
@@ -613,7 +621,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **4C [B] e2e** `focus.spec.ts` with `page.clock`: fast-forward to the end (dialog shows, XP granted); reload mid-session keeps the remaining time; a session stopped at 50% is not counted.
 
 ### Phase 5 — Goals, scheduler, rebalancing, Claude import
-- [ ] **5A [A] Scheduler** (∥ 5B, 5C). Owns `src/logic/scheduler/**` and `rebalanceGoal`/`computeRemaining` wiring in `src/db/repos/goals.ts` (the section marked `// scheduling`). Implements §4 exactly with all §4.4 tests.
+- [x] **5A [A] Scheduler** (∥ 5B, 5C). Owns `src/logic/scheduler/**` and `rebalanceGoal`/`computeRemaining` wiring in `src/db/repos/goals.ts` (the section marked `// scheduling`). Implements §4 exactly with all §4.4 tests.
+  - Done: 61 pure tests (`scheduler.test.ts`, `diff.test.ts`: every §4.4 case plus DST, per-weekday hours, pins, skip, idempotency, a 250-plan chunk-bounds property test, determinism, a 12-course year in ~1–4 ms) and 11 fake-indexeddb tests (`src/db/repos/goals.scheduling.test.ts`, including adopting the WGU sample's hand-written chunks by key).
 - [ ] **5B [B] Goals UI** (∥ 5A; codes against the §4.1 contract). Owns `src/features/goals/**` except `import/` and `src/db/repos/goals.ts` CRUD (cascade trash).
   - Goals list.
   - Wizard steps 1–3 (name/icon/cover/target; courses with code, CUs, OA/PA, hours, prereqs and units; per-weekday availability and days off; WGU terms).

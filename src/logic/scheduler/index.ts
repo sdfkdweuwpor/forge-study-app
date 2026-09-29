@@ -44,5 +44,19 @@ export {
 export { orderCourses, type TopoCourse, type TopoResult } from './topo'
 export { buildSchedule, chunkTitle } from './schedule'
 export { suggestCatchUp } from './catchUp'
-export { chunkFields, diffSchedule, hasUserContent, isActivePin, isDiffEmpty, type DiffContext } from './diff'
-export { planGoal, type CourseWork, type GoalPlan, type GoalRows, type GoalWork } from './plan'
+export {
+  chunkFields,
+  diffSchedule,
+  hasUserContent,
+  isActivePin,
+  isDiffEmpty,
+  type DiffContext,
+} from './diff'
+export {
+  goalWork,
+  planGoal,
+  type CourseWork,
+  type GoalPlan,
+  type GoalRows,
+  type GoalWork,
+} from './plan'

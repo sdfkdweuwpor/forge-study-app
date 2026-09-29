@@ -40,7 +40,14 @@ export function avail(minutesByWeekday: WeekMinutes, daysOff: DateRange[] = []):
 }
 
 export function unit(id: string, minutes: number, extra: Partial<SchedUnit> = {}): SchedUnit {
-  return { id, title: `Unit ${id}`, order: 0, remainingMinutes: minutes, chunkSeqStart: 0, ...extra }
+  return {
+    id,
+    title: `Unit ${id}`,
+    order: 0,
+    remainingMinutes: minutes,
+    chunkSeqStart: 0,
+    ...extra,
+  }
 }
 
 /** A course whose units are given as minutes (ids `${id}-u1`, …) or as units. */
@@ -63,7 +70,9 @@ export function course(
   }
 }
 
-export function input(partial: Partial<ScheduleInput> & Pick<ScheduleInput, 'courses'>): ScheduleInput {
+export function input(
+  partial: Partial<ScheduleInput> & Pick<ScheduleInput, 'courses'>,
+): ScheduleInput {
   return {
     today: MONDAY,
     targetDate: null,
@@ -124,7 +133,8 @@ export function checkInvariants(inp: ScheduleInput, res: ScheduleResult): string
     if (c.key !== `${c.unitId}:${c.seq}`) out.push(`${c.key}: key does not match unit and seq`)
     if (c.seq < 1 || c.seq > c.seqTotal) out.push(`${c.key}: seq ${c.seq} of ${c.seqTotal}`)
     if (c.minutes % opts.grain !== 0) out.push(`${c.key}: ${c.minutes} min is off the grain`)
-    if (c.minutes <= 0 || c.minutes > opts.maxChunk) out.push(`${c.key}: ${c.minutes} min out of range`)
+    if (c.minutes <= 0 || c.minutes > opts.maxChunk)
+      out.push(`${c.key}: ${c.minutes} min out of range`)
     lastOfUnit.set(c.unitId, c)
   }
   for (const c of res.chunks) {
@@ -132,11 +142,14 @@ export function checkInvariants(inp: ScheduleInput, res: ScheduleResult): string
       out.push(`${c.key}: ${c.minutes} min is under ${minEff} and not the unit's last chunk`)
   }
 
-  const blocked = res.issues.some((i) => i.code === 'NO_AVAILABILITY' || i.code === 'HORIZON_EXCEEDED')
+  const blocked = res.issues.some(
+    (i) => i.code === 'NO_AVAILABILITY' || i.code === 'HORIZON_EXCEEDED',
+  )
   if (!blocked) {
     for (const co of inp.courses) {
       if (co.status === 'done') {
-        if (res.chunks.some((c) => c.courseId === co.id)) out.push(`${co.id}: done course scheduled`)
+        if (res.chunks.some((c) => c.courseId === co.id))
+          out.push(`${co.id}: done course scheduled`)
         continue
       }
       for (const u of co.units) {
@@ -273,7 +286,12 @@ export function milestoneRow(id: ID, extra: Partial<Milestone> = {}): Milestone 
   }
 }
 
-export function unitRow(id: ID, milestoneId: ID, minutes: number | null, extra: Partial<Unit> = {}): Unit {
+export function unitRow(
+  id: ID,
+  milestoneId: ID,
+  minutes: number | null,
+  extra: Partial<Unit> = {},
+): Unit {
   return {
     id,
     createdAt: T0,

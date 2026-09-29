@@ -258,7 +258,8 @@ export function finishSchedule(p: PreparedSchedule, walk: WalkResult): ScheduleR
       w.minutes += minutes
     }
   }
-  for (const pl of walk.placements) widen((p.queue[pl.q] as QueueUnit).course.id, pl.day, pl.minutes)
+  for (const pl of walk.placements)
+    widen((p.queue[pl.q] as QueueUnit).course.id, pl.day, pl.minutes)
   for (const pin of p.pins) widen(pin.courseId, pin.day, pin.minutes)
   const seen = new Set<string>()
   const courseOrder: string[] = []
@@ -272,7 +273,13 @@ export function finishSchedule(p: PreparedSchedule, walk: WalkResult): ScheduleR
   const windows: CourseWindow[] = []
   for (const id of courseOrder) {
     const w = span.get(id)
-    if (w) windows.push({ courseId: id, start: isoOfDay(w.start), end: isoOfDay(w.end), minutes: w.minutes })
+    if (w)
+      windows.push({
+        courseId: id,
+        start: isoOfDay(w.start),
+        end: isoOfDay(w.end),
+        minutes: w.minutes,
+      })
   }
 
   const issues: SchedulerIssue[] = [...p.topoIssues]
@@ -292,15 +299,20 @@ export function finishSchedule(p: PreparedSchedule, walk: WalkResult): ScheduleR
   if (!blocked) {
     const lastChunk = walk.placements.length > 0 ? (walk.placements.at(-1) as Placement).day : null
     const end =
-      lastChunk === null ? p.pinnedEnd : p.pinnedEnd === null ? lastChunk : Math.max(lastChunk, p.pinnedEnd)
+      lastChunk === null
+        ? p.pinnedEnd
+        : p.pinnedEnd === null
+          ? lastChunk
+          : Math.max(lastChunk, p.pinnedEnd)
     projectedEnd = end === null ? null : isoOfDay(end)
   }
   const reference = input.targetDate ?? input.baselineEnd
   const slipDays =
-    projectedEnd !== null && reference !== null ? dayNumber(projectedEnd) - dayNumber(reference) : null
+    projectedEnd !== null && reference !== null
+      ? dayNumber(projectedEnd) - dayNumber(reference)
+      : null
   const feasible =
-    !blocked &&
-    (p.target === null || projectedEnd === null || dayNumber(projectedEnd) <= p.target)
+    !blocked && (p.target === null || projectedEnd === null || dayNumber(projectedEnd) <= p.target)
 
   return { chunks, windows, totalMinutes, projectedEnd, slipDays, feasible, issues }
 }

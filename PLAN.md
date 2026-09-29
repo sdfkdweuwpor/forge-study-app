@@ -517,7 +517,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [x] [A] `PLAN.md`, `DECISIONS.md`.
 
 ### Phase 1 — Foundation
-- [ ] **1A [B] Scaffold** (first, alone). Owns the root configs, `index.html`, `public/theme-init.js`, `src/main.tsx`, `src/vite-env.d.ts`, `netlify.toml`, `security-headers.mjs`, `.github/workflows/{ci,deploy}.yml`, `playwright*.config.ts`, `scripts/shoot.spec.ts`, `e2e/fixtures.ts`, `.gitignore`.
+- [x] **1A [B] Scaffold** (first, alone). Owns the root configs, `index.html`, `public/theme-init.js`, `src/main.tsx`, `src/vite-env.d.ts`, `netlify.toml`, `security-headers.mjs`, `.github/workflows/{ci,deploy}.yml`, `playwright*.config.ts`, `scripts/shoot.spec.ts`, `e2e/fixtures.ts`, `.gitignore`.
   - Exact deps from DECISIONS; `@playwright/test` pinned to `1.56.1`; never run `playwright install`.
   - Scripts: `dev`, `build` (`tsc -b && vite build`), `preview` (`vite preview --port 4173 --strictPort`), `typecheck` (`tsc -b`), `lint`, `test` (`TZ=America/New_York vitest`), `e2e`, `shoot`, `build:ext`, `zip:ext`, `format`.
   - TS: strict and `noUncheckedIndexedAccess`; aliases `@/`→`src/`, `@ext/`→`extension/src/shared/`.

@@ -51,6 +51,8 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 - **2026-09-29 — `prettier` (dev).** It keeps formatting consistent across parallel builders at zero runtime cost. It runs via `npm run format`; lint doesn't check formatting.
 - **2026-09-29 — `@types/react`, `@types/react-dom`, `@types/node`, `@types/chrome` (dev).** Types only. `@types/node` covers configs, scripts and fs in tests. `@types/chrome` covers the extension. The app declares its own ~10-line `chrome.runtime.sendMessage` type so `@types/chrome` doesn't leak into it.
 - **2026-09-29 — No jsdom, happy-dom or Testing Library.** The brief asks for Vitest on logic and Playwright for UI. Pure logic and Dexie tests run in the Node environment. Add a DOM environment only if a component test becomes necessary, with a line here.
+- **2026-09-29 — ESLint is pinned to v9 (`^9.39`), not v10.** `eslint-plugin-jsx-a11y@6.10` (latest) only peers ESLint up to 9, and we install without `--legacy-peer-deps`. `@eslint/js` is on v9 to match. Revisit when jsx-a11y supports v10.
+- **2026-09-29 — Theme boot key.** `public/theme-init.js` reads `localStorage['forge:theme']` (`light|dark|system`) and falls back to `prefers-color-scheme`; ThemeProvider must mirror the theme to that key.
 - **2026-09-29 — Versions.**
   - Runtime: vite ^8.3, @vitejs/plugin-react ^6.1, vitest ^5.0, react/react-dom ^19.3, vite-plugin-pwa ^1.3, dexie ^4.4, dexie-react-hooks ^4.4, date-fns ^4, zod ^4, lucide-react (latest), @dnd-kit/core, @dnd-kit/sortable.
   - TypeScript `~5.9`, not TS 6: ecosystem readiness.

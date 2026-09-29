@@ -1,0 +1,14 @@
+node_modules
+dist
+dev-dist
+screenshots
+test-results
+playwright-report
+extension/dist
+*.zip
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+.netlify

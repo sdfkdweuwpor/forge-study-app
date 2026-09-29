@@ -1,0 +1,41 @@
+name: Deploy
+
+# Deploys to Netlify on push to main, but only if the repo secrets exist.
+# If you connect the repo through Netlify's Git integration instead, delete this file.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+    steps:
+      - name: Check secrets
+        id: secrets
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "::notice::NETLIFY_AUTH_TOKEN / NETLIFY_SITE_ID not set; skipping deploy."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.present == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.present == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: steps.secrets.outputs.present == 'true'
+        run: npm ci
+      - if: steps.secrets.outputs.present == 'true'
+        run: npm run build
+      - if: steps.secrets.outputs.present == 'true'
+        run: npx netlify-cli deploy --prod --dir=dist

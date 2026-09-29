@@ -1,12 +1,15 @@
 import { useId, useState, type ChangeEvent } from 'react'
 import { X } from 'lucide-react'
 import { toISODate, type WeekStart } from '@/logic/dates'
+import { IconButton } from '../IconButton'
+import { cx } from '../internal/cx'
+import type { ForceProps } from '../internal/force'
 import { quickDates, type QuickDateId } from './quickDates'
 import styles from './DatePicker.module.css'
 
 export type { QuickDateId } from './quickDates'
 
-export interface DatePickerProps {
+export interface DatePickerProps extends ForceProps {
   /** ISO calendar day `'YYYY-MM-DD'`, or null when empty. */
   value: string | null
   onChange: (value: string | null) => void
@@ -58,6 +61,7 @@ export function DatePicker({
   size = 'md',
   id,
   className,
+  'data-force': force,
 }: DatePickerProps) {
   const autoId = useId()
   const dateId = id ?? `${autoId}-date`
@@ -76,12 +80,13 @@ export function DatePicker({
   }
 
   return (
-    <div className={className ? `${styles.root} ${className}` : styles.root}>
+    <div className={cx(styles.root, className)}>
       <div
         className={styles.field}
         data-size={size}
         data-invalid={error ? true : undefined}
         data-disabled={disabled ? true : undefined}
+        data-force={force}
       >
         <input
           id={dateId}
@@ -116,9 +121,14 @@ export function DatePicker({
           </>
         ) : null}
         {clearable && hasValue && !disabled ? (
-          <button type="button" className={styles.clear} onClick={clear} aria-label={`Clear ${label}`}>
-            <X size={14} aria-hidden="true" />
-          </button>
+          <IconButton
+            size="xs"
+            label={`Clear ${label}`}
+            icon={<X />}
+            tooltip={false}
+            className={styles.clear}
+            onClick={clear}
+          />
         ) : null}
       </div>
 

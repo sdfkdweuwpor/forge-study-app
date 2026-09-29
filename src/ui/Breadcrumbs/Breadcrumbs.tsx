@@ -43,7 +43,11 @@ const defaultRenderLink = ({ item, className, children }: BreadcrumbLinkProps): 
  * collapse into a single "…" (they stay in the accessibility tree). The nav is a size container,
  * so give it a width from its parent (`flex: 1; min-width: 0` in a flex row).
  */
-export function Breadcrumbs({ items, renderLink = defaultRenderLink, className }: BreadcrumbsProps) {
+export function Breadcrumbs({
+  items,
+  renderLink = defaultRenderLink,
+  className,
+}: BreadcrumbsProps) {
   const lastIndex = items.length - 1
   const collapsible = items.length > 2
 
@@ -76,7 +80,11 @@ export function Breadcrumbs({ items, renderLink = defaultRenderLink, className }
               </span>
             )
           } else if (item.href !== undefined) {
-            crumb = renderLink({ item, className: `${styles.crumb} ${styles.link}`, children: content })
+            crumb = renderLink({
+              item,
+              className: `${styles.crumb} ${styles.link}`,
+              children: content,
+            })
           } else {
             crumb = <span className={styles.crumb}>{content}</span>
           }

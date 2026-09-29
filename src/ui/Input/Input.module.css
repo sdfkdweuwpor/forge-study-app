@@ -1,0 +1,122 @@
+/*
+ * Text input. The wrapper draws the box (1px inset hairline, 4px radius) and the focus ring; the
+ * <input> fills it edge to edge, so a click anywhere but the trailing slot lands in the text.
+ */
+.control {
+  --_h: var(--control-h-md);
+  --_px: 10px;
+  --_line: var(--border-strong);
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--_h);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--_line);
+  color: var(--text);
+  transition:
+    box-shadow var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.control[data-size='sm'] {
+  --_h: var(--control-h-sm);
+  --_px: var(--space-2);
+}
+
+@media (hover: hover) {
+  .control:where(:not([data-disabled])):hover {
+    --_line: color-mix(in srgb, var(--border-strong), var(--text) 16%);
+  }
+}
+
+.control[data-force~='hover'] {
+  --_line: color-mix(in srgb, var(--border-strong), var(--text) 16%);
+}
+
+/* Focus: the system ring (2px accent, 2px offset) around the box, not the bare <input>. */
+.control:has(.input:focus-visible),
+.control[data-force~='focus'],
+.control[data-force~='active'] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.control[data-invalid] {
+  --_line: var(--danger);
+}
+
+.control[data-disabled] {
+  background: var(--bg-hover);
+  opacity: 0.6;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--_px);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
+
+.control[data-leading] .input {
+  padding-left: calc(var(--_px) + 16px + var(--space-2));
+}
+
+.leading {
+  position: absolute;
+  top: 50%;
+  left: var(--_px);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  translate: 0 -50%;
+  color: var(--text-faint);
+  pointer-events: none;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.leading > svg {
+  width: 100%;
+  height: 100%;
+}
+
+.control:focus-within .leading,
+.control[data-force~='focus'] .leading {
+  color: var(--text-muted);
+}
+
+.trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding-right: calc(var(--_px) - 4px);
+  color: var(--text-muted);
+}
+
+/* iOS zooms into inputs under 16px on focus; phones get 16px text instead. */
+@media (pointer: coarse) {
+  .input {
+    font-size: var(--fs-16);
+  }
+}

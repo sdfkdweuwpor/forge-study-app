@@ -1,0 +1,67 @@
+.ring {
+  --_arc: var(--accent);
+  --_track: var(--bg-active);
+
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  vertical-align: middle;
+}
+
+.ring[data-tone='success'] {
+  --_arc: var(--success);
+}
+
+.ring[data-tone='warning'] {
+  --_arc: var(--warning);
+}
+
+.ring[data-tone='danger'] {
+  --_arc: var(--danger);
+}
+
+.ring[data-tone='xp'] {
+  --_arc: var(--xp);
+  --_track: var(--xp-soft);
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  rotate: -90deg;
+  overflow: visible;
+}
+
+.track,
+.arc {
+  fill: none;
+}
+
+.track {
+  stroke: var(--_track);
+}
+
+.arc {
+  stroke: var(--_arc);
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset var(--dur-3) var(--ease),
+    opacity var(--dur-1) var(--ease);
+}
+
+/* A round cap would draw a dot at 0%. */
+.arc[data-empty] {
+  opacity: 0;
+}
+
+.center {
+  position: relative;
+  color: var(--text);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}

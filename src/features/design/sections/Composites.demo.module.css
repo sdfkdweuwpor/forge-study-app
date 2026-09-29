@@ -1,0 +1,97 @@
+/* Layout helpers for the DatePicker, CommandPalette, Breadcrumbs and PageHeader demos. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.caption {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.note {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.value {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.value strong {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Fixed-width frames, to show the responsive behaviour of a component. */
+.frame {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sidebar);
+}
+
+.narrow {
+  width: 320px;
+  max-width: 100%;
+}
+
+.tight {
+  width: 240px;
+  max-width: 100%;
+}
+
+/* A quiet backdrop so an inline palette reads as sitting on a page. */
+.stage {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sidebar);
+}
+
+.paletteWidth {
+  max-width: 640px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* PageHeader specimens sit on a page-coloured card so the cover edge and hover row are visible. */
+.page {
+  --page-header-gutter: var(--space-6);
+
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}

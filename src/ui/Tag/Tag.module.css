@@ -1,0 +1,205 @@
+/*
+ * Tag / pill in one of nine Notion hues (tags.css: opaque soft background + same-hue text,
+ * ≥ 5:1). Interactive tags tint toward their text colour on hover (5%) and press (8%) and gain a
+ * hairline; the tints are capped so text stays ≥ 4.5:1 in every hue and theme (worst: 4.52:1).
+ */
+.tag {
+  --_bg: var(--tag-bg);
+  --_ring: transparent;
+  --_h: 22px;
+  --_px: 6px;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: var(--_h);
+  border-radius: var(--radius-sm);
+  background: var(--_bg);
+  box-shadow: inset 0 0 0 1px var(--_ring);
+  color: var(--tag-fg);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+.tag[data-size='sm'] {
+  --_h: 18px;
+  --_px: 5px;
+}
+
+.tag[data-shape='pill'] {
+  --_px: var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.tag[data-color='gray'] {
+  --tag-bg: var(--tag-gray-bg);
+  --tag-fg: var(--tag-gray-text);
+}
+.tag[data-color='brown'] {
+  --tag-bg: var(--tag-brown-bg);
+  --tag-fg: var(--tag-brown-text);
+}
+.tag[data-color='orange'] {
+  --tag-bg: var(--tag-orange-bg);
+  --tag-fg: var(--tag-orange-text);
+}
+.tag[data-color='yellow'] {
+  --tag-bg: var(--tag-yellow-bg);
+  --tag-fg: var(--tag-yellow-text);
+}
+.tag[data-color='green'] {
+  --tag-bg: var(--tag-green-bg);
+  --tag-fg: var(--tag-green-text);
+}
+.tag[data-color='blue'] {
+  --tag-bg: var(--tag-blue-bg);
+  --tag-fg: var(--tag-blue-text);
+}
+.tag[data-color='purple'] {
+  --tag-bg: var(--tag-purple-bg);
+  --tag-fg: var(--tag-purple-text);
+}
+.tag[data-color='pink'] {
+  --tag-bg: var(--tag-pink-bg);
+  --tag-fg: var(--tag-pink-text);
+}
+.tag[data-color='red'] {
+  --tag-bg: var(--tag-red-bg);
+  --tag-fg: var(--tag-red-text);
+}
+
+.main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--_px);
+  border-radius: inherit;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+}
+
+.tag[data-removable] .main {
+  padding-right: 2px;
+}
+
+.text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+}
+
+.icon > svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Interactive tag: the whole chip reacts, and the focus ring wraps the whole chip. */
+@media (hover: hover) {
+  .tag[data-interactive]:where(:not([data-disabled])):has(.main:hover) {
+    --_bg: color-mix(in srgb, var(--tag-bg), var(--tag-fg) 5%);
+    --_ring: color-mix(in srgb, var(--tag-fg) 24%, transparent);
+  }
+}
+
+.tag[data-force~='hover'] {
+  --_bg: color-mix(in srgb, var(--tag-bg), var(--tag-fg) 5%);
+  --_ring: color-mix(in srgb, var(--tag-fg) 24%, transparent);
+}
+
+.tag[data-interactive]:where(:not([data-disabled])):has(.main:active),
+.tag[data-force~='active'] {
+  --_bg: color-mix(in srgb, var(--tag-bg), var(--tag-fg) 8%);
+  --_ring: color-mix(in srgb, var(--tag-fg) 36%, transparent);
+}
+
+/* A selected filter chip keeps a full-strength rim. */
+.tag:has(.main[aria-pressed='true']) {
+  --_ring: var(--tag-fg);
+}
+
+.main:focus-visible {
+  outline: none;
+}
+
+.tag:has(.main:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.tag[data-disabled] {
+  opacity: 0.5;
+}
+
+.main:disabled {
+  cursor: default;
+}
+
+/* Remove button: a small square that darkens on its own hover. */
+.remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--_h) - 4px);
+  height: calc(var(--_h) - 4px);
+  margin-right: 2px;
+  border-radius: 3px;
+  color: inherit;
+  opacity: 0.7;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    opacity var(--dur-1) var(--ease);
+}
+
+.remove > svg {
+  width: 12px;
+  height: 12px;
+}
+
+@media (hover: hover) {
+  .remove:where(:not(:disabled)):hover {
+    background: color-mix(in srgb, var(--tag-fg) 14%, transparent);
+    opacity: 1;
+  }
+}
+
+.remove:where(:not(:disabled)):active {
+  background: color-mix(in srgb, var(--tag-fg) 22%, transparent);
+  opacity: 1;
+}
+
+.remove:disabled {
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .remove {
+    position: relative;
+  }
+
+  .remove::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--tap-min);
+    height: var(--tap-min);
+    translate: -50% -50%;
+  }
+}

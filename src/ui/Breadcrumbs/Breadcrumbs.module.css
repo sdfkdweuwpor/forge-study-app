@@ -20,8 +20,12 @@
 .item {
   display: flex;
   align-items: center;
-  flex: 0 1 auto;
+  flex: 0 2 auto; /* middle crumbs give up space first */
   min-width: 0;
+}
+
+.item:first-child {
+  flex-shrink: 0; /* the root keeps its width; its label is capped below */
 }
 
 .item[data-last] {
@@ -127,5 +131,10 @@
 
   .item[data-last] .label {
     max-width: 22ch;
+  }
+
+  /* Two crumbs only: keep room for the current page. */
+  .nav:not([data-collapsible]) .item:first-child .label {
+    max-width: 10ch;
   }
 }

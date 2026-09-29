@@ -1,0 +1,164 @@
+/* Stack: bottom-right on desktop, bottom-centre above the tab bar on phones. */
+.viewport {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+
+@media (max-width: 639.98px) {
+  .viewport {
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: min(420px, calc(100vw - 2 * var(--space-4)));
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + var(--space-3));
+  }
+}
+
+/* /design: the stack lives inside a positioned specimen box. Declared after the media query so it wins. */
+.viewport[data-inline] {
+  position: absolute;
+  left: auto;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  margin: 0;
+  width: min(380px, calc(100% - 2 * var(--space-3)));
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Spacing lives on the entries so an empty live region takes no room. */
+.entry {
+  margin-top: var(--space-2);
+  pointer-events: auto;
+}
+
+.entry[data-state='open'] {
+  animation: toast-in var(--dur-2) var(--ease) both;
+}
+
+.entry[data-state='closed'] {
+  animation: toast-out var(--dur-2) var(--ease) both;
+  pointer-events: none;
+}
+
+/* The card: an inverse surface, so it reads on any page. */
+.toast {
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+
+/* Dark theme scope for status colours and buttons; the surface itself stays --bg-inverse. */
+.content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+  background: transparent;
+  color: var(--text-inverse);
+  border-radius: inherit;
+}
+
+.icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--text-inverse-muted);
+}
+
+.icon > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.toast[data-variant='success'] .icon {
+  color: var(--success);
+}
+
+.toast[data-variant='error'] .icon {
+  color: var(--danger);
+}
+
+.toast[data-variant='xp'] .icon {
+  color: var(--xp);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-block: 2px;
+}
+
+.title {
+  color: var(--text-inverse);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  color: var(--text-inverse-muted);
+  font-size: var(--fs-12);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.toast[data-variant='xp'] .description {
+  color: var(--xp-text);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.content .actions .undo {
+  --btn-fg: var(--text-inverse);
+  font-weight: var(--fw-semibold);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--shift-3)) scale(var(--scale-in));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(var(--shift-2)) scale(var(--scale-in));
+  }
+}

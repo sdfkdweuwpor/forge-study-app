@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   TOAST_DURATION,
-  initialToastState,
+  createToastState,
   partitionToasts,
   resolveDuration,
   toastReducer,
@@ -19,7 +19,7 @@ const toast = (id: string, extra: Partial<NewToast> = {}): NewToast => ({
   ...extra,
 })
 
-const run = (actions: ToastAction[], from: ToastState = initialToastState): ToastState =>
+const run = (actions: ToastAction[], from: ToastState = createToastState(3)): ToastState =>
   actions.reduce(toastReducer, from)
 
 const add = (id: string, extra?: Partial<NewToast>): ToastAction => ({
@@ -70,11 +70,9 @@ describe('toastReducer: dismiss and remove', () => {
 
   it('drops a queued toast at once, because it was never shown', () => {
     const start = run([add('a'), add('b'), add('c'), add('d')])
-    // With room for 3, `d` is queued.
-    expect(partitionToasts(start, 3).queued.map((t) => t.id)).toEqual(['d'])
-    // The reducer does not know the cap, so a plain dismiss of a queued item only sees it as
-    // visible; the provider passes through `dismissAll`/`dismiss` for shown toasts only.
-    expect(toastReducer(start, { type: 'dismiss', id: 'zzz' })).toBe(start)
+    expect(partitionToasts(start).queued.map((t) => t.id)).toEqual(['d'])
+    const state = toastReducer(start, { type: 'dismiss', id: 'd' })
+    expect(ids(state)).toEqual(['a', 'b', 'c'])
   })
 
   it('ignores unknown ids and repeated dismissals (same state reference)', () => {
@@ -83,8 +81,9 @@ describe('toastReducer: dismiss and remove', () => {
     expect(toastReducer(start, { type: 'remove', id: 'nope' })).toBe(start)
   })
 
-  it('dismissAll starts every exit animation', () => {
-    const state = run([add('a'), add('b'), { type: 'dismissAll' }])
+  it('dismissAll animates the visible toasts out and drops the queued ones', () => {
+    const state = run([add('a'), add('b'), add('c'), add('d'), { type: 'dismissAll' }])
+    expect(ids(state)).toEqual(['a', 'b', 'c'])
     expect(state.items.every((item) => item.leaving)).toBe(true)
   })
 })
@@ -92,14 +91,14 @@ describe('toastReducer: dismiss and remove', () => {
 describe('partitionToasts', () => {
   it('shows at most `max` and queues the rest in order', () => {
     const state = run([add('a'), add('b'), add('c'), add('d'), add('e')])
-    const { visible, queued } = partitionToasts(state, 3)
+    const { visible, queued } = partitionToasts(state)
     expect(visible.map((t) => t.id)).toEqual(['a', 'b', 'c'])
     expect(queued.map((t) => t.id)).toEqual(['d', 'e'])
   })
 
   it('promotes the next queued toast as soon as a visible one starts leaving', () => {
     const state = run([add('a'), add('b'), add('c'), add('d'), { type: 'dismiss', id: 'a' }])
-    const { visible, queued } = partitionToasts(state, 3)
+    const { visible, queued } = partitionToasts(state)
     expect(visible.map((t) => t.id)).toEqual(['a', 'b', 'c', 'd'])
     expect(queued).toEqual([])
   })
@@ -113,11 +112,17 @@ describe('partitionToasts', () => {
       { type: 'dismiss', id: 'a' },
       { type: 'remove', id: 'a' },
     ])
-    expect(partitionToasts(state, 3).visible.map((t) => t.id)).toEqual(['b', 'c', 'd'])
+    expect(partitionToasts(state).visible.map((t) => t.id)).toEqual(['b', 'c', 'd'])
+  })
+
+  it('respects a custom cap', () => {
+    const state = run([add('a'), add('b'), add('c')], createToastState(1))
+    expect(partitionToasts(state).visible.map((t) => t.id)).toEqual(['a'])
+    expect(partitionToasts(state).queued.map((t) => t.id)).toEqual(['b', 'c'])
   })
 
   it('handles an empty state', () => {
-    expect(partitionToasts(initialToastState, 3)).toEqual({ visible: [], queued: [] })
+    expect(partitionToasts(createToastState(3))).toEqual({ visible: [], queued: [] })
   })
 })
 
@@ -152,6 +157,19 @@ describe('toastReducer: undo lifecycle', () => {
       phase: 'undoFailed',
       duration: TOAST_DURATION.undoFailed,
     })
+  })
+
+  it('lets a failed undo be retried', () => {
+    const failed = run(
+      [
+        { type: 'undoStart', id: 'a' },
+        { type: 'undoFailed', id: 'a' },
+        { type: 'undoStart', id: 'a' },
+        { type: 'undoDone', id: 'a' },
+      ],
+      withUndo(),
+    )
+    expect(failed.items[0]?.phase).toBe('undone')
   })
 
   it('ignores a second undo while one is running', () => {

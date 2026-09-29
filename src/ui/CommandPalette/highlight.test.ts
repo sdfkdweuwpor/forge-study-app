@@ -51,7 +51,9 @@ describe('highlightSegments', () => {
 
   it('reassembles to the original text', () => {
     const text = 'D278 Scripting and Programming'
-    const joined = highlightSegments(text, [0, 5, 6, 20]).map((s) => s.text).join('')
+    const joined = highlightSegments(text, [0, 5, 6, 20])
+      .map((s) => s.text)
+      .join('')
     expect(joined).toBe(text)
   })
 })

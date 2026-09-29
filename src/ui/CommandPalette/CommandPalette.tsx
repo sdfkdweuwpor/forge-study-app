@@ -6,10 +6,12 @@ import {
   useReducer,
   useRef,
   type KeyboardEvent,
-  type MouseEvent,
   type ReactNode,
 } from 'react'
 import { Search } from 'lucide-react'
+import { Button } from '../Button'
+import { Kbd } from '../Kbd'
+import { cx } from '../internal/cx'
 import { highlightSegments } from './highlight'
 import { INITIAL_NAV_STATE, paletteNavReducer, resolveActive } from './paletteNav'
 import type { PaletteGroup, PaletteItem } from './types'
@@ -35,8 +37,6 @@ export interface CommandPalettePanelProps {
   label?: string
   /** Initial highlighted item (demos and tests); defaults to the first result. */
   defaultActiveId?: string
-  /** Focus the search field on mount. */
-  autoFocus?: boolean
   /** Inline panels ignore the small-screen full-screen layout. */
   className?: string
 }
@@ -56,7 +56,6 @@ export function CommandPalettePanel({
   placeholder = 'Search tasks, goals, pages and actions',
   label = 'Command palette',
   defaultActiveId,
-  autoFocus = false,
   className,
 }: CommandPalettePanelProps) {
   const uid = useId()
@@ -141,14 +140,8 @@ export function CommandPalettePanel({
     }
   }
 
-  // Keep focus in the search field when an option is clicked (options are not tab stops).
-  const keepFocus = (e: MouseEvent) => e.preventDefault()
-
   return (
-    <div
-      className={className ? `${styles.panel} ${className}` : styles.panel}
-      data-has-items={hasItems || undefined}
-    >
+    <div className={cx(styles.panel, className)} data-has-items={hasItems || undefined}>
       <div className={styles.searchRow}>
         <Search size={18} className={styles.searchIcon} aria-hidden="true" />
         <input
@@ -167,8 +160,7 @@ export function CommandPalettePanel({
           autoCapitalize="off"
           spellCheck={false}
           enterKeyHint="go"
-          // eslint-disable-next-line jsx-a11y/no-autofocus -- the palette exists to be typed into
-          autoFocus={autoFocus}
+          data-autofocus=""
           onChange={(e) => {
             dispatch({ type: 'reset' })
             onQueryChange(e.target.value)
@@ -177,12 +169,12 @@ export function CommandPalettePanel({
         />
         {onEscape ? (
           <>
-            <kbd className={styles.escHint} aria-hidden="true">
-              Esc
-            </kbd>
-            <button type="button" className={styles.cancel} onClick={onEscape}>
-              Cancel
-            </button>
+            <Kbd keys="esc" size="sm" className={styles.escHint} />
+            <span className={styles.cancel}>
+              <Button variant="ghost" onClick={onEscape}>
+                Cancel
+              </Button>
+            </span>
           </>
         ) : null}
       </div>
@@ -193,17 +185,16 @@ export function CommandPalettePanel({
 
       <div ref={scroller} className={styles.results}>
         {hasItems ? (
-          <div
-            id={listId}
-            role="listbox"
-            aria-label={`${label} results`}
-            className={styles.listbox}
-            onMouseDown={keepFocus}
-          >
+          <div id={listId} role="listbox" aria-label={`${label} results`}>
             {visibleGroups.map((group) => {
               const headingId = `${uid}-group-${group.id}`
               return (
-                <div key={group.id} role="group" aria-labelledby={headingId} className={styles.group}>
+                <div
+                  key={group.id}
+                  role="group"
+                  aria-labelledby={headingId}
+                  className={styles.group}
+                >
                   <div id={headingId} role="presentation" className={styles.heading}>
                     {group.heading}
                   </div>
@@ -228,7 +219,7 @@ export function CommandPalettePanel({
         ) : null}
 
         {loading ? (
-          <div className={styles.skeletons} aria-hidden="true" data-testid="palette-loading">
+          <div className={styles.skeletons} aria-hidden="true">
             {SKELETON_TITLE_WIDTHS.slice(0, hasItems ? 1 : 3).map((width, i) => (
               <div key={width} className={styles.skeletonRow}>
                 <span className={styles.skeletonIcon} />
@@ -241,13 +232,15 @@ export function CommandPalettePanel({
 
         {showEmpty ? (
           <p className={styles.state} aria-hidden="true">
-            {trimmed ? (
-              <>
-                No results for <strong className={styles.stateQuery}>{trimmed}</strong>
-              </>
-            ) : (
-              'Nothing to show yet. Start typing to search.'
-            )}
+            <span>
+              {trimmed ? (
+                <>
+                  No results for <strong className={styles.stateQuery}>{trimmed}</strong>
+                </>
+              ) : (
+                'Nothing to show yet. Start typing to search.'
+              )}
+            </span>
           </p>
         ) : null}
 
@@ -255,9 +248,9 @@ export function CommandPalettePanel({
           <div className={styles.state} role="alert">
             <span>{error}</span>
             {onRetry ? (
-              <button type="button" className={styles.retry} onClick={onRetry}>
+              <Button size="sm" onClick={onRetry}>
                 Try again
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}
@@ -266,16 +259,16 @@ export function CommandPalettePanel({
       {hasItems ? (
         <div className={styles.footer} aria-hidden="true">
           <span className={styles.footerHint}>
-            <kbd className={styles.key}>↑</kbd>
-            <kbd className={styles.key}>↓</kbd>
+            <Kbd keys="up" size="sm" />
+            <Kbd keys="down" size="sm" />
             navigate
           </span>
           <span className={styles.footerHint}>
-            <kbd className={styles.key}>↵</kbd>
+            <Kbd keys="enter" size="sm" />
             open
           </span>
           <span className={styles.footerHint}>
-            <kbd className={styles.key}>Esc</kbd>
+            <Kbd keys="esc" size="sm" />
             close
           </span>
         </div>
@@ -305,6 +298,8 @@ function PaletteRow({ item, domId, active, register, onHover, onSelect }: Palett
       aria-selected={active}
       aria-disabled={item.disabled || undefined}
       data-active={active || undefined}
+      // Options are not tab stops: clicking one must not pull focus out of the search field.
+      onMouseDown={(e) => e.preventDefault()}
       onPointerMove={item.disabled ? undefined : onHover}
       onClick={item.disabled ? undefined : onSelect}
     >
@@ -323,15 +318,7 @@ function PaletteRow({ item, domId, active, register, onHover, onSelect }: Palett
           </span>
         ) : null}
       </span>
-      {item.shortcut && item.shortcut.length > 0 ? (
-        <span className={styles.itemKeys} aria-hidden="true">
-          {item.shortcut.map((part, i) => (
-            <kbd key={`${i}:${part}`} className={styles.key}>
-              {part}
-            </kbd>
-          ))}
-        </span>
-      ) : null}
+      {item.shortcut ? <Kbd keys={item.shortcut} size="sm" className={styles.itemKeys} /> : null}
     </button>
   )
 }
@@ -352,7 +339,7 @@ function Highlighted({ text, matches }: { text: string; matches: readonly number
   )
 }
 
-export interface CommandPaletteProps extends Omit<CommandPalettePanelProps, 'onEscape' | 'autoFocus'> {
+export interface CommandPaletteProps extends Omit<CommandPalettePanelProps, 'onEscape'> {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Extra content, e.g. a hint under the results. */
@@ -370,7 +357,10 @@ export function CommandPalette({ open, onOpenChange, children, ...panel }: Comma
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
+    if (open && !dialog.open) {
+      dialog.showModal()
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
+    }
     if (!open && dialog.open) dialog.close()
   }, [open])
 
@@ -391,7 +381,7 @@ export function CommandPalette({ open, onOpenChange, children, ...panel }: Comma
     >
       <div className={styles.scrim} role="presentation" onClick={close} />
       {open ? (
-        <CommandPalettePanel {...panel} onEscape={close} autoFocus className={styles.overlayPanel} />
+        <CommandPalettePanel {...panel} onEscape={close} className={styles.overlayPanel} />
       ) : null}
       {open ? children : null}
     </dialog>

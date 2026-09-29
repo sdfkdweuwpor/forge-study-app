@@ -1,0 +1,67 @@
+/* Keycaps tint from currentColor so they sit on any surface (page, menu, inverse tooltip). */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  color: var(--kbd-color, var(--text-muted));
+  font-family: var(--font-ui);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, currentColor 16%, transparent);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.cap[data-wide] {
+  padding: 0 5px;
+}
+
+.kbd[data-size='sm'] .cap {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+}
+
+.then {
+  padding: 0 1px;
+  font-weight: var(--fw-regular);
+  opacity: 0.85;
+}
+
+/* Plain: "⌘K" on a Mac, "Ctrl+K" elsewhere, as quiet text. */
+.chord {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.plainKey {
+  font: inherit;
+}
+
+.chord:not([data-mac]) .plainKey + .plainKey::before {
+  content: '+';
+}
+
+.chord[data-mac] .plainKey + .plainKey {
+  margin-left: 1px;
+}

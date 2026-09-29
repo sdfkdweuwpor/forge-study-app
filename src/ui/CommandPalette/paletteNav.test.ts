@@ -41,7 +41,10 @@ describe('paletteNavReducer', () => {
   })
 
   it('wraps from the last item to the first when going down', () => {
-    const state = run([{ type: 'hover', id: 'goal:c779' }, { type: 'next', ids: IDS }])
+    const state = run([
+      { type: 'hover', id: 'goal:c779' },
+      { type: 'next', ids: IDS },
+    ])
     expect(state.activeId).toBe('start-focus')
   })
 

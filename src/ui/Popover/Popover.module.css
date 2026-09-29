@@ -1,0 +1,86 @@
+.panel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-popover);
+  min-width: var(--panel-min-w, 160px);
+  max-width: min(var(--panel-max-w, 360px), calc(100vw - 2 * var(--space-2)));
+  padding: var(--panel-pad, var(--space-3));
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  /* Enter from the anchor's side. Both come from motion tokens, so reduced motion is opacity-only. */
+  --_x: 0px;
+  --_y: calc(-1 * var(--shift-2));
+}
+
+.panel[data-side='top'] {
+  --_y: var(--shift-2);
+}
+
+.panel[data-side='left'] {
+  --_x: var(--shift-2);
+  --_y: 0px;
+}
+
+.panel[data-side='right'] {
+  --_x: calc(-1 * var(--shift-2));
+  --_y: 0px;
+}
+
+.panel[data-state='open'] {
+  animation: pop-in var(--dur-2) var(--ease) both;
+}
+
+.panel[data-state='closed'] {
+  animation: pop-out var(--dur-1) var(--ease) both;
+  pointer-events: none;
+}
+
+.panel:focus {
+  outline: none;
+}
+
+/* /design specimen: an open panel in normal flow. */
+.panel[data-inline] {
+  position: relative;
+  left: auto;
+  top: auto;
+  display: inline-block;
+  animation: none;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--_x), var(--_y)) scale(var(--scale-in));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(var(--_x), var(--_y)) scale(var(--scale-in));
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

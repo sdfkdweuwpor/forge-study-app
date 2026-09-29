@@ -1,5 +1,7 @@
 import { addDays, startOfWeekISO, type WeekStart } from '@/logic/dates'
-import type { ISODate } from '@/db/types'
+
+/** `'YYYY-MM-DD'`, a local calendar day (the ui layer may not import `@/db/types`). */
+type ISODate = string
 
 export type QuickDateId = 'today' | 'tomorrow' | 'next-week'
 

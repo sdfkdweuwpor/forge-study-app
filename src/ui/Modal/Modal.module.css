@@ -1,0 +1,195 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--scrim);
+}
+
+.scrim[data-state='open'] {
+  animation: fade-in var(--dur-3) var(--ease) both;
+}
+
+.scrim[data-state='closed'] {
+  animation: fade-out var(--dur-2) var(--ease) both;
+  pointer-events: none;
+}
+
+.panel {
+  --modal-w: 520px;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--modal-w), 100%);
+  max-height: min(calc(100dvh - 2 * var(--space-8)), 760px);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  /* Enter/exit movement comes from motion tokens, so reduced motion leaves a plain fade. */
+  --_from: translateY(var(--shift-3)) scale(var(--scale-in));
+}
+
+.panel[data-size='sm'] {
+  --modal-w: 400px;
+}
+
+.panel[data-size='lg'] {
+  --modal-w: 720px;
+}
+
+.panel[data-state='open'] {
+  animation: panel-in var(--dur-3) var(--ease) both;
+}
+
+.panel[data-state='closed'] {
+  animation: panel-out var(--dur-2) var(--ease) both;
+}
+
+.panel:focus {
+  outline: none;
+}
+
+/* /design specimen: the surface on its own, in flow. */
+.panel[data-inline] {
+  max-height: none;
+  animation: none;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-6) 0;
+}
+
+.header[data-hidden] {
+  padding-bottom: var(--space-2);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-snug);
+  text-wrap: balance;
+}
+
+.description {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.close {
+  flex: none;
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) 0 0;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: 0 var(--space-6) var(--space-6);
+}
+
+/* Full-screen sheet on phones (BRIEF §3.8). It rises from the bottom; with reduced motion the
+   distance is 0 and only the fade remains. */
+@media (max-width: 639.98px) {
+  .scrim {
+    padding: 0;
+    place-items: stretch;
+  }
+
+  .panel {
+    width: 100%;
+    max-height: none;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    --_from: translateY(calc(var(--shift-3) * 60));
+  }
+
+  .panel[data-inline] {
+    height: auto;
+  }
+
+  .header {
+    padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) 0;
+  }
+
+  .body {
+    padding: var(--space-4);
+  }
+
+  .footer {
+    padding: var(--space-3) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  }
+
+  /* Full-width actions are easier to hit; the primary one stays last. */
+  .footer > * {
+    flex: 1 1 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: var(--_from);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: var(--_from);
+  }
+}

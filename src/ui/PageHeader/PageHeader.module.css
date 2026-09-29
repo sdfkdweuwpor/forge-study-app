@@ -1,0 +1,446 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Cover ─────────────────────────────────────────────────────────────────────────────────── */
+
+.coverWrap {
+  position: relative;
+}
+
+.cover {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+/*
+ * Cover gradients: calm, low-chroma, warm-leaning. Each preset sets three colours (light, dark);
+ * presets.test.ts fails if an id is missing here or a colour drifts into blue-violet (BRIEF §9).
+ * `light-dark()` follows the theme through `color-scheme` from tokens.css, so it works in a nested
+ * theme column on /design too.
+ */
+/* presets:start */
+:is(.cover, .swatch)[data-preset='warm-paper'] {
+  --cover-a: light-dark(#f4ecdd, #3a332a);
+  --cover-b: light-dark(#e7d9bf, #2c2620);
+  --cover-glow: light-dark(#fbf6ec, #4a4034);
+}
+
+:is(.cover, .swatch)[data-preset='sage'] {
+  --cover-a: light-dark(#dde7d6, #2e3a2d);
+  --cover-b: light-dark(#bfd0b6, #222d22);
+  --cover-glow: light-dark(#eef4e9, #3d4c3b);
+}
+
+:is(.cover, .swatch)[data-preset='sand'] {
+  --cover-a: light-dark(#ecd9b4, #41371f);
+  --cover-b: light-dark(#d6bb8b, #2f2818);
+  --cover-glow: light-dark(#f6e9cd, #54472a);
+}
+
+:is(.cover, .swatch)[data-preset='slate'] {
+  --cover-a: light-dark(#d8dde2, #2c3238);
+  --cover-b: light-dark(#b8c1ca, #22272c);
+  --cover-glow: light-dark(#e9edf0, #3a424a);
+}
+
+:is(.cover, .swatch)[data-preset='dusk-orange'] {
+  --cover-a: light-dark(#f2cba8, #553826);
+  --cover-b: light-dark(#d99a7c, #3c2820);
+  --cover-glow: light-dark(#f9e0c9, #6a4530);
+}
+
+:is(.cover, .swatch)[data-preset='sea-glass'] {
+  --cover-a: light-dark(#cde6de, #233e3a);
+  --cover-b: light-dark(#a6cbc2, #1a2d2a);
+  --cover-glow: light-dark(#e2f2ed, #2e514b);
+}
+
+:is(.cover, .swatch)[data-preset='stone'] {
+  --cover-a: light-dark(#e3e0db, #3a3835);
+  --cover-b: light-dark(#c8c4bd, #2a2927);
+  --cover-glow: light-dark(#efede9, #48453f);
+}
+
+:is(.cover, .swatch)[data-preset='ink'] {
+  --cover-a: light-dark(#3b3934, #33312d);
+  --cover-b: light-dark(#1f1e1b, #1f1e1c);
+  --cover-glow: light-dark(#55524b, #45423b);
+}
+/* presets:end */
+
+:is(.cover, .swatch)[data-preset] {
+  background:
+    radial-gradient(90% 140% at 88% 0%, var(--cover-glow), transparent 62%),
+    linear-gradient(135deg, var(--cover-a), var(--cover-b));
+}
+
+.cover[data-status='loading'] {
+  background: var(--bg-hover);
+  animation: pulse 1.4s var(--ease) infinite;
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--dur-3) var(--ease);
+}
+
+.cover[data-status='loaded'] .coverImage {
+  opacity: 1;
+}
+
+.coverError {
+  display: grid;
+  height: 100%;
+  margin: 0;
+  place-items: center;
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Revealed on hover and keyboard focus; always visible where there is no hover. */
+.coverActions {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.coverWrap:hover .coverActions,
+.coverWrap:focus-within .coverActions,
+.coverWrap[data-open] .coverActions,
+.root[data-force~='hover'] .coverActions {
+  opacity: 1;
+}
+
+/* ── Icon, title, slots ───────────────────────────────────────────────────────────────────── */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  /* Set --page-header-gutter on an ancestor to let the cover bleed while the content stays inset. */
+  padding-inline: var(--page-header-gutter, 0px);
+  padding-bottom: var(--space-4);
+}
+
+.removeButton {
+  align-self: flex-start;
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.root:not([data-has-cover]) .content {
+  padding-top: var(--space-8);
+}
+
+.iconRow {
+  position: relative;
+  z-index: var(--z-raised);
+}
+
+/* The icon sits half over the cover's bottom edge. */
+.root[data-has-cover] .iconRow {
+  margin-top: -42px;
+}
+
+.iconGlyph {
+  display: block;
+  font-size: 64px;
+  line-height: 1;
+}
+
+span.iconGlyph {
+  padding: var(--space-2);
+}
+
+.iconButton {
+  display: block;
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.iconButton:hover,
+.iconButton[data-force~='hover'],
+.iconButton[aria-expanded='true'] {
+  background: var(--bg-hover);
+}
+
+.iconButton:active,
+.iconButton[data-force~='active'] {
+  background: var(--bg-active);
+  transform: scale(var(--scale-press));
+}
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-height: var(--control-h-sm);
+  margin-bottom: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.root:hover .addRow,
+.root:focus-within .addRow,
+.root[data-force~='hover'] .addRow,
+.addRow[data-open] {
+  opacity: 1;
+}
+
+.titleHeading {
+  width: 100%;
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  overflow-wrap: anywhere;
+}
+
+.titleStatic[data-empty] {
+  color: var(--text-faint); /* 40px bold: large text, 3:1 is enough */
+}
+
+/* The field is padded and pulled back by the same amount, so text aligns with the column. */
+.titleInput {
+  display: block;
+  width: calc(100% + 2 * var(--space-2));
+  margin: 0 calc(-1 * var(--space-2));
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  resize: none;
+  overflow: hidden;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.titleInput:hover {
+  background: var(--bg-hover);
+}
+
+.titleInput:focus {
+  background: transparent;
+}
+
+.titleInput::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+.subtitle {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+/* Buttons over a cover need their own opaque surface (the cover shows through a ghost). */
+.coverActions > button {
+  --btn-bg: var(--bg-elevated);
+  --btn-bg-hover: color-mix(in srgb, var(--text) 6%, var(--bg-elevated));
+  --btn-bg-active: color-mix(in srgb, var(--text) 9%, var(--bg-elevated));
+  --btn-fg: var(--text-muted);
+  --btn-fg-hover: var(--text);
+  --btn-ring: var(--border);
+}
+
+/* ── Pickers (inside a Popover) ────────────────────────────────────────────────────────────── */
+
+.emojiPicker,
+.coverPicker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.emojiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 2px;
+  width: 318px;
+  max-width: calc(100vw - 2 * var(--space-2) - 2 * var(--space-3));
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.emojiCell {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: var(--radius-md);
+  font-size: 20px;
+  line-height: 1;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.emojiCell:hover {
+  background: var(--bg-hover);
+}
+
+.emojiCell:active {
+  background: var(--bg-active);
+}
+
+.emojiCell[aria-pressed='true'] {
+  background: var(--accent-soft);
+}
+
+.coverPicker {
+  gap: var(--space-3);
+  width: 288px;
+  max-width: calc(100vw - 2 * var(--space-2) - 2 * var(--space-3));
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+
+.swatch {
+  height: 40px;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  transition:
+    box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.swatch:hover {
+  box-shadow: inset 0 0 0 1px var(--text-faint);
+}
+
+.swatch:active {
+  transform: scale(var(--scale-press));
+}
+
+.swatch[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px var(--bg-elevated),
+    0 0 0 4px var(--accent);
+}
+
+.linkForm {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────────────────────────── */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.skeletonTitle,
+.skeletonLine {
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--bg-hover) 25%,
+    var(--bg-active) 50%,
+    var(--bg-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s var(--ease) infinite;
+}
+
+.skeletonTitle {
+  width: min(420px, 70%);
+  height: var(--fs-40);
+}
+
+.skeletonLine {
+  width: min(280px, 50%);
+  height: var(--fs-16);
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* ── Small screens and touch ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 639px) {
+  .cover {
+    height: 120px;
+  }
+
+  .coverActions {
+    right: var(--space-3);
+    bottom: var(--space-2);
+  }
+
+  .titleHeading,
+  .skeletonTitle {
+    font-size: var(--fs-32);
+  }
+
+  .skeletonTitle {
+    height: var(--fs-32);
+  }
+}
+
+@media (hover: none) {
+  .coverActions,
+  .addRow {
+    opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  .emojiGrid {
+    grid-template-columns: repeat(auto-fill, minmax(var(--tap-min), 1fr));
+  }
+
+  .emojiCell {
+    height: var(--tap-min);
+  }
+
+  .swatch {
+    height: var(--tap-min);
+  }
+}

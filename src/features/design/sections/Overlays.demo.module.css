@@ -1,0 +1,89 @@
+/* Layout helpers shared by the Popover, Dropdown, Modal and Toast demos. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.caption {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.note {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.result {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  min-height: 1.5em;
+}
+
+.result strong {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+/* A quiet backdrop so a floating specimen reads as sitting on a page. */
+.stage {
+  position: relative;
+  min-height: 280px;
+  padding: var(--space-4);
+  overflow: hidden;
+  background: var(--bg-sidebar);
+  border-radius: var(--radius-lg);
+}
+
+.specimens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.listItem span:last-child {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.courseTitle {
+  font-weight: var(--fw-semibold);
+}
+
+.courseMeta {
+  color: var(--text-muted);
+}

@@ -11,7 +11,8 @@ import type { AccentId, TagColor } from '@/db/types'
  *   4.5:1  text: --text, --text-muted, --*-text, --accent-contrast on --accent, tag text on tag bg
  *   3:1    --text-faint (large text, icons, disabled only) and non-text fills/rings
  *          (--accent, --success, --warning, --danger, --xp, tag text used as a dot)
- * Surfaces are --bg, --bg-sidebar and --bg-elevated, each plain, hovered and active.
+ * Surfaces are --bg, --bg-sidebar and --bg-elevated, each plain, hovered and active. --bg-raised
+ * (the segmented-control thumb) only ever holds --text / --text-muted labels and is checked for those.
  */
 
 const STYLES = fileURLToPath(new URL('.', import.meta.url))
@@ -186,9 +187,11 @@ function colorOf(scope: Map<string, string>, name: string, seen: string[] = []):
   return parseColor(value)
 }
 
+const BASE_SURFACES = ['--bg', '--bg-sidebar', '--bg-elevated'] as const
+
 function surfaces(scope: Map<string, string>): Surface[] {
   const out: Surface[] = []
-  for (const base of ['--bg', '--bg-sidebar', '--bg-elevated']) {
+  for (const base of BASE_SURFACES) {
     const b = colorOf(scope, base)
     expect(b[3], `${base} must be opaque`).toBe(1)
     out.push({ name: base, color: b })
@@ -199,7 +202,7 @@ function surfaces(scope: Map<string, string>): Surface[] {
 }
 
 function bases(scope: Map<string, string>): Surface[] {
-  return ['--bg', '--bg-sidebar', '--bg-elevated'].map((name) => ({
+  return BASE_SURFACES.map((name) => ({
     name,
     color: colorOf(scope, name),
   }))
@@ -270,6 +273,17 @@ describe.each<ThemeName>(['light', 'dark'])('WCAG AA, %s theme', (theme) => {
 
   it('--text-faint reaches 3:1 on every surface (large text, icons and disabled only)', () => {
     expect(failures(scope, '--text-faint', surfaces(scope), AA_LARGE_OR_UI)).toEqual([])
+  })
+
+  it('--text and --text-muted reach 4.5:1 on --bg-raised, and it is opaque', () => {
+    const raised = colorOf(scope, '--bg-raised')
+    expect(raised[3]).toBe(1)
+    const on = [{ name: '--bg-raised', color: raised }]
+    expect([
+      ...failures(scope, '--text', on, AA_TEXT),
+      ...failures(scope, '--text-muted', on, AA_TEXT),
+      ...failures(scope, '--text-faint', on, AA_LARGE_OR_UI),
+    ]).toEqual([])
   })
 
   it('--text-inverse and --text-inverse-muted reach 4.5:1 on --bg-inverse', () => {

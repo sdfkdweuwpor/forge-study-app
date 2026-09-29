@@ -7,11 +7,8 @@ export interface PaletteItem {
   subtitle?: string
   /** A 16px icon (lucide) or an emoji; decorative. */
   icon?: ReactNode
-  /**
-   * Shortcut hint as display parts, one key cap each, e.g. `['⌘', 'K']` or `['G', 'T']`
-   * (`formatKeys` in `@/lib/keys` produces these).
-   */
-  shortcut?: readonly string[]
+  /** Shortcut spec shown right-aligned as key caps: `'mod+k'`, `'g t'`, `'shift+s'` (see Kbd). */
+  shortcut?: string
   /** Indices into `title` (UTF-16 code units) to emphasise, e.g. from the fuzzy matcher. */
   matches?: readonly number[]
   /** Same, for `subtitle`. */

@@ -1,0 +1,59 @@
+/* Same box as Input: 1px inset hairline, 4px radius, the system focus ring around it. */
+.textarea {
+  --_line: var(--border-strong);
+
+  display: block;
+  width: 100%;
+  min-height: var(--control-h-md);
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--_line);
+  color: var(--text);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  resize: none;
+  overflow-y: hidden;
+  overflow-wrap: anywhere;
+  transition:
+    box-shadow var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .textarea:where(:not(:disabled)):hover {
+    --_line: color-mix(in srgb, var(--border-strong), var(--text) 16%);
+  }
+}
+
+.textarea[data-force~='hover'] {
+  --_line: color-mix(in srgb, var(--border-strong), var(--text) 16%);
+}
+
+/* Text fields show the ring for mouse focus too (browsers match :focus-visible there). */
+.textarea[data-force~='active'] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.textarea[data-invalid] {
+  --_line: var(--danger);
+}
+
+.textarea:disabled {
+  background: var(--bg-hover);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (pointer: coarse) {
+  .textarea {
+    font-size: var(--fs-16);
+  }
+}

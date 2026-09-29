@@ -7,8 +7,11 @@
  *   afterwards. Dismissing a queued item deletes it at once.
  * - Adding an item whose `id` already exists updates it in place (same slot) and bumps `revision`,
  *   which restarts its timer. Use a fixed id for status toasts such as "Saving…" then "Saved".
- * - Undo has its own lifecycle: idle → undoing → undone | undoFailed.
+ * - Undo has its own lifecycle: idle → undoing → undone | undoFailed (Retry goes back to undoing).
  */
+
+/** Default number of toasts on screen at once. */
+export const MAX_VISIBLE_TOASTS = 3
 
 export type ToastVariant = 'default' | 'success' | 'error' | 'xp'
 
@@ -32,9 +35,13 @@ export interface ToastItem {
 
 export interface ToastState {
   items: readonly ToastItem[]
+  /** How many toasts may be on screen at once; later ones wait in the queue. */
+  max: number
 }
 
-export const initialToastState: ToastState = { items: [] }
+export function createToastState(max: number = MAX_VISIBLE_TOASTS): ToastState {
+  return { items: [], max: Math.max(1, Math.floor(max)) }
+}
 
 /** How long a toast stays, by kind. Errors and undoable toasts stay longer (WCAG 2.2.1). */
 export const TOAST_DURATION = {
@@ -48,9 +55,6 @@ export const TOAST_DURATION = {
   /** "Couldn't undo". */
   undoFailed: 5000,
 } as const
-
-/** Default number of toasts on screen at once. */
-export const MAX_VISIBLE_TOASTS = 3
 
 /** Matches the exit animation in Toast.module.css (--dur-2), plus a little slack. */
 export const TOAST_EXIT_MS = 220
@@ -87,7 +91,7 @@ function patch(
   const items = state.items.slice()
   if (next === null) items.splice(index, 1)
   else items[index] = next
-  return { items }
+  return { ...state, items }
 }
 
 export function toastReducer(state: ToastState, action: ToastAction): ToastState {
@@ -104,31 +108,35 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
         }))
       }
       const item: ToastItem = { ...action.toast, phase: 'idle', leaving: false, revision: 0 }
-      return { items: [...state.items, item] }
+      return { ...state, items: [...state.items, item] }
     }
 
     case 'dismiss': {
       const target = state.items.find((item) => item.id === action.id)
       if (!target) return state
-      const { visible } = partitionToasts(state, Number.POSITIVE_INFINITY)
       // Queued items were never shown: drop them without an exit animation.
-      const shown = visible.some((item) => item.id === action.id)
-      return shown
-        ? patch(state, action.id, (item) => (item.leaving ? item : { ...item, leaving: true }))
-        : patch(state, action.id, () => null)
+      const queued = partitionToasts(state).queued.some((item) => item.id === action.id)
+      return queued
+        ? patch(state, action.id, () => null)
+        : patch(state, action.id, (item) => (item.leaving ? item : { ...item, leaving: true }))
     }
 
-    case 'dismissAll':
+    case 'dismissAll': {
+      const { visible } = partitionToasts(state)
       return {
-        items: state.items.map((item) => (item.leaving ? item : { ...item, leaving: true })),
+        ...state,
+        items: visible.map((item) => (item.leaving ? item : { ...item, leaving: true })),
       }
+    }
 
     case 'remove':
       return patch(state, action.id, () => null)
 
     case 'undoStart':
       return patch(state, action.id, (item) =>
-        item.undo && item.phase === 'idle' && !item.leaving ? { ...item, phase: 'undoing' } : item,
+        item.undo && (item.phase === 'idle' || item.phase === 'undoFailed') && !item.leaving
+          ? { ...item, phase: 'undoing' }
+          : item,
       )
 
     case 'undoDone':
@@ -161,11 +169,8 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
  * Splits items into those on screen and those waiting. `leaving` items stay in `visible` (they are
  * still animating out) but free their slot immediately, so the next queued toast starts to enter.
  */
-export function partitionToasts(
-  state: ToastState,
-  max: number,
-): { visible: ToastItem[]; queued: ToastItem[] } {
-  let slots = max
+export function partitionToasts(state: ToastState): { visible: ToastItem[]; queued: ToastItem[] } {
+  let slots = state.max
   const visible: ToastItem[] = []
   const queued: ToastItem[] = []
   for (const item of state.items) {

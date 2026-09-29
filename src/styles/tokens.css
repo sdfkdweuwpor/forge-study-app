@@ -33,6 +33,7 @@
   --bg: #ffffff;
   --bg-sidebar: #f7f7f5;
   --bg-elevated: #ffffff;
+  --bg-raised: #ffffff; /* a control lifted off a tinted track: the segmented-control thumb */
   --bg-hover: rgba(55, 53, 47, 0.06);
   --bg-active: rgba(55, 53, 47, 0.09);
   --bg-inverse: #2f2e2b;
@@ -74,6 +75,10 @@
     0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
     0 9px 24px rgba(15, 15, 15, 0.2);
   --scrim: rgba(15, 15, 15, 0.35);
+
+  /* Loading placeholders: the bone, and the lighter band that sweeps across it */
+  --skeleton: rgba(55, 53, 47, 0.07);
+  --skeleton-shine: rgba(255, 255, 255, 0.65);
 }
 
 [data-theme='dark'] {
@@ -82,6 +87,7 @@
   --bg: #191919;
   --bg-sidebar: #202020;
   --bg-elevated: #252525;
+  --bg-raised: #2f2f2f;
   --bg-hover: rgba(255, 255, 255, 0.055);
   --bg-active: rgba(255, 255, 255, 0.09);
   --bg-inverse: #3a3a3a;
@@ -117,6 +123,9 @@
   --shadow-pop:
     0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4), 0 9px 24px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.55);
+
+  --skeleton: rgba(255, 255, 255, 0.06);
+  --skeleton-shine: rgba(255, 255, 255, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -127,6 +136,7 @@
     --bg: #191919;
     --bg-sidebar: #202020;
     --bg-elevated: #252525;
+    --bg-raised: #2f2f2f;
     --bg-hover: rgba(255, 255, 255, 0.055);
     --bg-active: rgba(255, 255, 255, 0.09);
     --bg-inverse: #3a3a3a;
@@ -163,6 +173,9 @@
       0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4),
       0 9px 24px rgba(0, 0, 0, 0.5);
     --scrim: rgba(0, 0, 0, 0.55);
+
+    --skeleton: rgba(255, 255, 255, 0.06);
+    --skeleton-shine: rgba(255, 255, 255, 0.06);
   }
 }
 

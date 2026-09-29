@@ -71,14 +71,24 @@ function BlockEditorSkeleton({ className, label }: { className?: string; label: 
   )
 }
 
-interface EditorProps extends Required<Pick<BlockEditorProps, 'value' | 'placeholder' | 'readOnly'>> {
+interface EditorProps extends Required<
+  Pick<BlockEditorProps, 'value' | 'placeholder' | 'readOnly'>
+> {
   onChange: BlockEditorProps['onChange']
   emptyLabel: ReactNode
   className: string | undefined
   label: string
 }
 
-function Editor({ value, onChange, placeholder, readOnly, emptyLabel, className, label }: EditorProps) {
+function Editor({
+  value,
+  onChange,
+  placeholder,
+  readOnly,
+  emptyLabel,
+  className,
+  label,
+}: EditorProps) {
   const { doc, ctrl, menu, currentId } = useBlockEditor({ value, onChange, readOnly })
   const listboxId = useId()
   const helpId = useId()

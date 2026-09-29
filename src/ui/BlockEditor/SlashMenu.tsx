@@ -75,10 +75,12 @@ export function SlashMenuPanel({
     const panel = list.current?.parentElement
     const active = list.current?.querySelector<HTMLElement>('[aria-selected="true"]')
     if (!panel || !active || panel.scrollHeight <= panel.clientHeight) return
-    const top = active.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop
+    const top =
+      active.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop
     const bottom = top + active.offsetHeight
     if (top < panel.scrollTop) panel.scrollTop = top
-    else if (bottom > panel.scrollTop + panel.clientHeight) panel.scrollTop = bottom - panel.clientHeight
+    else if (bottom > panel.scrollTop + panel.clientHeight)
+      panel.scrollTop = bottom - panel.clientHeight
   }, [activeIndex, items])
 
   return (

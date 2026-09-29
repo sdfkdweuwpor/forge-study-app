@@ -32,7 +32,8 @@ export const emptyHistory: History = { past: [], future: [], lastKey: null, last
  * another with the same key within `GROUP_MS` joins its group; the earliest `before` is kept.
  */
 export function record(h: History, before: Snapshot, key: string | null, now: number): History {
-  const grouped = key !== null && key === h.lastKey && now - h.lastAt < GROUP_MS && h.past.length > 0
+  const grouped =
+    key !== null && key === h.lastKey && now - h.lastAt < GROUP_MS && h.past.length > 0
   const past = grouped ? h.past : [...h.past, before].slice(-MAX_STEPS)
   return { past, future: [], lastKey: key, lastAt: now }
 }

@@ -212,7 +212,13 @@ export const BlockRow = memo(function BlockRow({
     const native = e.nativeEvent as InputEvent
     const text = readText(el)
     const selection = getSelectionOffsets(el)
-    ctrl.input(block.id, text, selection?.start ?? text.length, native.inputType, native.isComposing)
+    ctrl.input(
+      block.id,
+      text,
+      selection?.start ?? text.length,
+      native.inputType,
+      native.isComposing,
+    )
   }
 
   const onMouseDown = (e: MouseEvent<HTMLDivElement>): void => {
@@ -223,7 +229,8 @@ export const BlockRow = memo(function BlockRow({
     // browser would put it is meaningless.
     e.preventDefault()
     const visible = textOffsetAtPoint(el, e.clientX, e.clientY)
-    const at = visible === null ? latestText.current.length : sourceOffset(latestText.current, visible)
+    const at =
+      visible === null ? latestText.current.length : sourceOffset(latestText.current, visible)
     pending.current = { start: at, end: at }
     el.focus()
     pending.current = null

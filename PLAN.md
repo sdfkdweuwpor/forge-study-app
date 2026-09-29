@@ -557,7 +557,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [x] **2F [D] Review.** Screenshot `/design` (both themes, 1440 and 375), compare with brief §3 honestly and fix. Accept: contrast test green, all 21 §3.6 components present, the designer signs off.
 
 ### Phase 3 — Tasks, Today, quick add, command palette
-- [ ] **3A [B] Tasks core** (wave 1). Owns `src/db/repos/{tasks,xp,trash}.ts`, `src/db/hooks/useTasks.ts`, `src/logic/{xp(task/session fns only),recurrence,taskQuery,tagColor}.ts` and their tests, and `src/features/tasks/**` except `views/Board*`, `views/Calendar*`, `SavedViews*`.
+- [x] **3A [B] Tasks core** (wave 1). Owns `src/db/repos/{tasks,xp,trash}.ts`, `src/db/hooks/useTasks.ts`, `src/logic/{xp(task/session fns only),recurrence,taskQuery,tagColor}.ts` and their tests, and `src/features/tasks/**` except `views/Board*`, `views/Calendar*`, `SavedViews*`.
   - Repo API: `createTask`, `updateTask`, `completeTask→{xp,undo}` (XP event in the same transaction; the next recurring instance is created), `uncompleteTask`, `skipTask`, `moveTask`, `trashTask→{undo}`.
   - UI:
     - TaskRow with a hover `⋮⋮` handle and `…` menu.

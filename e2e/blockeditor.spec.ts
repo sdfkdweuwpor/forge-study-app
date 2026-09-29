@@ -266,7 +266,9 @@ test.describe('slash menu', () => {
     await page.keyboard.press('Control+a')
     await page.keyboard.type('/')
     await expect(menu(page)).toBeVisible()
-    await menu(page).getByRole('option', { name: /Bulleted list/ }).click()
+    await menu(page)
+      .getByRole('option', { name: /Bulleted list/ })
+      .click()
     expect(await rows(ed)).toEqual([{ type: 'bullet', text: '', checked: false }])
     await expect(ed.getByRole('textbox').first()).toBeFocused()
     await page.keyboard.type('Cables')
@@ -485,7 +487,9 @@ test.describe('pasting, undo and reordering', () => {
       const data = new DataTransfer()
       data.setData('text/plain', 'TCP\r\nUDP\n\nICMP\n')
       data.setData('text/html', '<b>bold html that must not be used</b>')
-      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+      el.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+      )
     })
     expect(await rows(ed)).toEqual([
       { type: 'p', text: 'Topics: TCP', checked: false },
@@ -553,12 +557,13 @@ test.describe('pasting, undo and reordering', () => {
 
     const first = ed.locator('[data-type="todo"]').first()
     await first.hover()
-    await first.getByRole('button', { name: 'Drag to reorder' }).focus()
-    // dnd-kit starts listening for the arrow keys a tick after the pick-up, and announces each step.
+    const grip = first.getByRole('button', { name: 'Drag to reorder' })
+    await grip.focus()
+    // dnd-kit listens for the arrow keys a tick after the pick-up, so wait for each step to show.
     await page.keyboard.press('Space')
-    await expect(page.getByRole('status').filter({ hasText: 'Picked up' })).toBeAttached()
+    await expect(grip).toHaveAttribute('aria-pressed', 'true')
     await page.keyboard.press('ArrowDown')
-    await expect(page.getByRole('status').filter({ hasText: 'is now at position' })).toBeAttached()
+    await expect(page.getByRole('status').filter({ hasText: 'position 7 of 11' })).toBeAttached()
     await page.keyboard.press('Space')
     await expect
       .poll(async () => (await texts(ed)).filter((t) => /Read chapter 4|Flashcards/.test(t)))
@@ -636,7 +641,9 @@ test.describe('states', () => {
     await page.keyboard.press('Control+z') // history from the old document is gone
     expect(await texts(ed)).toHaveLength(3)
     await light(page).getByRole('button', { name: 'Reset to C182' }).click()
-    await expect(ed.getByRole('textbox', { name: 'Heading 1' })).toHaveText('C182 Introduction to IT')
+    await expect(ed.getByRole('textbox', { name: 'Heading 1' })).toHaveText(
+      'C182 Introduction to IT',
+    )
   })
 
   test('the demo reports the edit and the delayed save', async ({ page }) => {

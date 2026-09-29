@@ -109,8 +109,8 @@ function Demo() {
           ))}
         </ul>
         <span className={composites.note}>
-          Markdown at the start of a paragraph or list item converts it: # ## ### heading, - bullet, [] to-do, ›
-          callout, --- divider. Tab stays in the editor; Esc leaves it.
+          Markdown at the start of a paragraph or list item converts it: # ## ### heading, - bullet,
+          [] to-do, › callout, --- divider. Tab stays in the editor; Esc leaves it.
         </span>
       </div>
 

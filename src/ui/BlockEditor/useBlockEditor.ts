@@ -139,7 +139,8 @@ export function useBlockEditor({ value, onChange, readOnly }: Options): BlockEdi
 
     const snapshot = (from: readonly Block[]): Snapshot => {
       const active = document.activeElement
-      const holder = active instanceof HTMLElement ? active.closest<HTMLElement>('[data-block-id]') : null
+      const holder =
+        active instanceof HTMLElement ? active.closest<HTMLElement>('[data-block-id]') : null
       const focusId = holder?.dataset.blockId ?? null
       const selected = focusId ? handles.current.get(focusId)?.offsets() : null
       return { doc: from, focusId, caret: selected?.start ?? 0 }

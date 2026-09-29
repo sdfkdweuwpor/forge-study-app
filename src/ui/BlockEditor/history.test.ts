@@ -98,7 +98,11 @@ describe('commonPrefix / caretAfterRestore', () => {
   })
 
   it('puts the caret where the text changed', () => {
-    const restored: Snapshot = { doc: [{ id: 'a', type: 'p', text: 'Read chapter' }], focusId: 'a', caret: 0 }
+    const restored: Snapshot = {
+      doc: [{ id: 'a', type: 'p', text: 'Read chapter' }],
+      focusId: 'a',
+      caret: 0,
+    }
     const current: Block[] = [{ id: 'a', type: 'p', text: 'Read chapter 4 today' }]
     expect(caretAfterRestore(restored, current)).toEqual({ focusId: 'a', caret: 12 })
   })

@@ -11,7 +11,8 @@
  */
 import { parseInline } from '@/logic/blocks'
 
-type Leaf = { node: Text; length: number; br: false } | { node: HTMLBRElement; length: 0 | 1; br: true }
+type Leaf =
+  { node: Text; length: number; br: false } | { node: HTMLBRElement; length: 0 | 1; br: true }
 
 function collectLeaves(root: HTMLElement): Leaf[] {
   const walker = root.ownerDocument.createTreeWalker(

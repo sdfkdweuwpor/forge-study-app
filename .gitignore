@@ -12,3 +12,6 @@ extension/dist
 .env.*
 !.env.example
 .netlify
+
+# agent scratch specs
+e2e/_tmp*.spec.ts

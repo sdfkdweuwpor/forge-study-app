@@ -606,7 +606,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
     - `today.header`: daily goal ring (pomodoros today / goal) and XP today.
     - `today.now`: Start focus hook-up.
   - Shortcuts: `shift+s f space enter shift+n 1 2 3 s`.
-- [ ] **4B [B] Sound & notifications** (∥ 4A). Owns `src/lib/audio/**`, `src/lib/notify.ts` and `src/features/focus/sound/**` (SoundSection for `settings.sections`, NotifyPrompt). 4A registers both in `focus/feature.ts`.
+- [x] **4B [B] Sound & notifications** (∥ 4A). Owns `src/lib/audio/**`, `src/lib/notify.ts` and `src/features/focus/sound/**` (SoundSection for `settings.sections`, NotifyPrompt). 4A registers both in `focus/feature.ts`.
   - Generated brown noise, rain and café via Web Audio, plus a soft chime.
   - Notification permission asked once, gently, after the first completed session.
   - Contract with 4A: `playChime()`, `startAmbient(kind, vol)`, `stopAmbient()`, `notify(title, body)`.

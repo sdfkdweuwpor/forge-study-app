@@ -81,10 +81,12 @@ export const TaskRow = memo(function TaskRow({
   // A finished row shows when it was done, not when it was due.
   const finished = task.status === 'done' && phase === undefined
 
-  const course = showCourse && task.milestoneId ? projects?.courseById.get(task.milestoneId) : undefined
+  const course =
+    showCourse && task.milestoneId ? projects?.courseById.get(task.milestoneId) : undefined
   const courseCode = course?.code ?? null
   const tags = useMemo(
-    () => task.tags.filter((t) => courseCode === null || normalizeTag(t) !== normalizeTag(courseCode)),
+    () =>
+      task.tags.filter((t) => courseCode === null || normalizeTag(t) !== normalizeTag(courseCode)),
     [task.tags, courseCode],
   )
   const due = dueLabel(task, today)
@@ -138,9 +140,7 @@ export const TaskRow = memo(function TaskRow({
             />
 
             <div className={styles.meta}>
-              {task.status === 'doing' ? (
-                <span className={styles.doing}>Doing</span>
-              ) : null}
+              {task.status === 'doing' ? <span className={styles.doing}>Doing</span> : null}
               {courseCode ? (
                 <Tag size="sm" color={tagColor(courseCode, tagColors)}>
                   {courseCode}

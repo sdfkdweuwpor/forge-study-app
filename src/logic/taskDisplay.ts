@@ -42,7 +42,8 @@ export function relativeDay(day: ISODate, today: ISODate): string {
   if (diff === 1) return 'Tomorrow'
   if (diff === -1) return 'Yesterday'
   if (diff < 0 && diff >= -13) return `${-diff} days ago`
-  if (diff > 1 && diff <= 6) return WEEKDAY_NAMES[fromISODate(day).getDay()] ?? formatDay(day, today)
+  if (diff > 1 && diff <= 6)
+    return WEEKDAY_NAMES[fromISODate(day).getDay()] ?? formatDay(day, today)
   return formatDay(day, today)
 }
 
@@ -75,7 +76,8 @@ export function dueLabel(
   const day = relativeDay(dueDate, today)
   // A time of day only matters while the task can still be done on that day.
   const text = dueTime !== null && diff >= 0 ? `${day}, ${formatTimeOfDay(dueTime)}` : day
-  const full = formatDayLong(dueDate, today) + (dueTime !== null ? `, ${formatTimeOfDay(dueTime)}` : '')
+  const full =
+    formatDayLong(dueDate, today) + (dueTime !== null ? `, ${formatTimeOfDay(dueTime)}` : '')
   const description =
     tone === 'overdue' ? `Overdue, due ${full}` : done ? `Was due ${full}` : `Due ${full}`
   return { text, tone, description }
@@ -95,7 +97,10 @@ export function estimateLabel(
   const { estimatePomodoros: pomodoros, estimateMinutes: minutes } = task
   if (pomodoros !== null && pomodoros > 0) {
     const noun = pomodoros === 1 ? 'pomodoro' : 'pomodoros'
-    return { text: `~${pomodoros}`, description: `${pomodoros} ${noun}, about ${pomodoros * 25} min` }
+    return {
+      text: `~${pomodoros}`,
+      description: `${pomodoros} ${noun}, about ${pomodoros * 25} min`,
+    }
   }
   if (minutes !== null && minutes > 0) {
     return { text: `${minutes}m`, description: `About ${minutes} min` }

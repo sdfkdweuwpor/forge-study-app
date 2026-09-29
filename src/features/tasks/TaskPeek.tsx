@@ -56,7 +56,13 @@ export function TaskPeek({ taskId, onClose, focusTagsNonce = 0 }: TaskPeekProps)
       data-motion="opacity"
     >
       <header className={styles.bar}>
-        <IconButton label="Close" shortcut="esc" icon={<X />} onClick={onClose} tooltipSide="bottom" />
+        <IconButton
+          label="Close"
+          shortcut="esc"
+          icon={<X />}
+          onClick={onClose}
+          tooltipSide="bottom"
+        />
         <IconButton
           label="Open as page"
           icon={<Maximize2 />}
@@ -87,7 +93,12 @@ export function TaskPeek({ taskId, onClose, focusTagsNonce = 0 }: TaskPeekProps)
       </header>
       <div className={styles.body}>
         {task ? (
-          <TaskDetail task={task} variant="peek" focusTagsNonce={focusTagsNonce} onDeleted={onClose} />
+          <TaskDetail
+            task={task}
+            variant="peek"
+            focusTagsNonce={focusTagsNonce}
+            onDeleted={onClose}
+          />
         ) : (
           <div className={styles.loading} role="status" aria-busy="true" aria-label="Loading task">
             <Skeleton width="70%" height={28} variant="block" />

@@ -117,7 +117,11 @@ describe('helpers', () => {
 
   it('clearFilters keeps grouping and sort', () => {
     const view = viewFromQuery('all', { group: 'project', sort: 'title', priority: '4' })
-    expect(clearFilters(view)).toEqual({ groupBy: 'project', sort: { key: 'title', dir: 'asc' }, filter: {} })
+    expect(clearFilters(view)).toEqual({
+      groupBy: 'project',
+      sort: { key: 'title', dir: 'asc' },
+      filter: {},
+    })
   })
 
   it('isDefaultView is false as soon as anything differs', () => {

@@ -51,11 +51,28 @@ export function TaskMenu({ task, panel, onPanelChange, onEdit, className }: Task
   const done = task.status === 'done'
 
   const items: MenuEntry[] = [
-    { id: 'open', label: 'Open', icon: <PanelRight />, shortcut: 'enter', onSelect: () => openTask(task.id) },
+    {
+      id: 'open',
+      label: 'Open',
+      icon: <PanelRight />,
+      shortcut: 'enter',
+      onSelect: () => openTask(task.id),
+    },
     { id: 'edit', label: 'Edit title', icon: <Pencil />, shortcut: 'e', onSelect: onEdit },
     { type: 'separator', id: 'sep-edit' },
-    { id: 'due', label: 'Due date…', icon: <CalendarDays />, shortcut: 'd', onSelect: () => onPanelChange('due') },
-    { id: 'priority', label: 'Priority…', icon: <Flag />, onSelect: () => onPanelChange('priority') },
+    {
+      id: 'due',
+      label: 'Due date…',
+      icon: <CalendarDays />,
+      shortcut: 'd',
+      onSelect: () => onPanelChange('due'),
+    },
+    {
+      id: 'priority',
+      label: 'Priority…',
+      icon: <Flag />,
+      onSelect: () => onPanelChange('priority'),
+    },
     { id: 'move', label: 'Move to…', icon: <FolderInput />, onSelect: () => onPanelChange('move') },
     { type: 'separator', id: 'sep-props' },
     {
@@ -67,8 +84,20 @@ export function TaskMenu({ task, panel, onPanelChange, onEdit, className }: Task
     },
     ...(done
       ? []
-      : [{ id: 'skip', label: 'Skip for today', icon: <SkipForward />, onSelect: () => actions.skip(task) }]),
-    { id: 'duplicate', label: 'Duplicate', icon: <Copy />, onSelect: () => void actions.duplicate(task.id) },
+      : [
+          {
+            id: 'skip',
+            label: 'Skip for today',
+            icon: <SkipForward />,
+            onSelect: () => actions.skip(task),
+          },
+        ]),
+    {
+      id: 'duplicate',
+      label: 'Duplicate',
+      icon: <Copy />,
+      onSelect: () => void actions.duplicate(task.id),
+    },
     { type: 'separator', id: 'sep-delete' },
     {
       id: 'delete',

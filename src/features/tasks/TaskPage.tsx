@@ -12,7 +12,8 @@ import styles from './TaskPage.module.css'
 
 function crumbLink({ item, className, children }: BreadcrumbLinkProps): ReactNode {
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+      return
     if (item.href) {
       e.preventDefault()
       navigateToUrl(item.href)
@@ -70,10 +71,7 @@ function TaskPageScreen() {
       <Breadcrumbs
         className={styles.crumbs}
         renderLink={crumbLink}
-        items={[
-          { label: 'Tasks', href: href('tasks', { list }) },
-          { label: task.title },
-        ]}
+        items={[{ label: 'Tasks', href: href('tasks', { list }) }, { label: task.title }]}
       />
       <TaskDetail
         task={task}

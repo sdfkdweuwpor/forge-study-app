@@ -52,7 +52,9 @@ export function SubtasksField({ task }: { task: Pick<Task, 'id' | 'subtasks'> })
                 variant="round"
                 aria-label={`${item.done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
                 checked={item.done}
-                onCheckedChange={() => void toggleSubtask(task.id, item.id).catch(report('toggleSubtask'))}
+                onCheckedChange={() =>
+                  void toggleSubtask(task.id, item.id).catch(report('toggleSubtask'))
+                }
               />
               <InlineTitle
                 className={styles.title}
@@ -61,7 +63,9 @@ export function SubtasksField({ task }: { task: Pick<Task, 'id' | 'subtasks'> })
                 done={item.done}
                 editing={editingId === item.id}
                 onEditingChange={(editing) => setEditingId(editing ? item.id : null)}
-                onCommit={(title) => void updateSubtask(task.id, item.id, { title }).catch(report('renameSubtask'))}
+                onCommit={(title) =>
+                  void updateSubtask(task.id, item.id, { title }).catch(report('renameSubtask'))
+                }
               />
               <IconButton
                 className={styles.remove}
@@ -71,7 +75,8 @@ export function SubtasksField({ task }: { task: Pick<Task, 'id' | 'subtasks'> })
                 onClick={() => {
                   removeSubtask(task.id, item.id)
                     .then((result) => {
-                      if (result) toast.show({ title: `Removed “${item.title}”`, undo: result.undo })
+                      if (result)
+                        toast.show({ title: `Removed “${item.title}”`, undo: result.undo })
                     })
                     .catch(report('removeSubtask'))
                 }}

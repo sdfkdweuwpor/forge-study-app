@@ -4,10 +4,9 @@
  */
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db/db'
-import type { ID, Task } from '@/db/types'
-import { toPlainText } from '@/logic/blocks'
-import { fuzzyScore } from '@/logic/fuzzy'
+import type { ID } from '@/db/types'
 import { normalizeTag } from '@/logic/tagColor'
+import { searchTasksIn, type TaskHit } from '@/logic/taskSearch'
 import type { ProjectRef } from '@/logic/taskQuery'
 
 export interface GoalInfo {
@@ -93,41 +92,13 @@ export function useTagList(): string[] | undefined {
   })
 }
 
-export interface TaskHit {
-  task: Task
-  score: number
-  /** Where it matched, for the palette subtitle. */
-  in: 'title' | 'notes' | 'subtask' | 'tag'
-}
-
 /**
  * Palette search over titles (fuzzy) and, more loosely, notes, checklist items and tags (substring).
  * Open tasks rank above finished ones with the same score. An empty query finds nothing.
  */
 export async function searchTasks(query: string, limit: number): Promise<TaskHit[]> {
-  const q = query.trim()
-  if (q === '' || limit <= 0) return []
-  const lower = q.toLowerCase()
-  const hits: TaskHit[] = []
-  await db.tasks.each((task) => {
-    const title = fuzzyScore(q, task.title)
-    let hit: TaskHit | null = title ? { task, score: 1000 + title.score, in: 'title' } : null
-    if (!hit) {
-      if (task.subtasks.some((s) => s.title.toLowerCase().includes(lower))) {
-        hit = { task, score: 200, in: 'subtask' }
-      } else if (task.tags.some((t) => t.toLowerCase().includes(lower))) {
-        hit = { task, score: 150, in: 'tag' }
-      } else if (toPlainText(task.notes).toLowerCase().includes(lower)) {
-        hit = { task, score: 100, in: 'notes' }
-      }
-    }
-    if (hit) {
-      if (task.status !== 'done') hit.score += 5
-      hits.push(hit)
-    }
-  })
-  hits.sort((a, b) => b.score - a.score || a.task.title.length - b.task.title.length)
-  return hits.slice(0, limit)
+  if (query.trim() === '' || limit <= 0) return []
+  return searchTasksIn(await db.tasks.toArray(), query, limit)
 }
 
 /** XP a task has earned so far (its award minus any reversal), or `undefined` while loading. */

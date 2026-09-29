@@ -1,4 +1,4 @@
-import { CircleCheckBig, ListChecks, Plus } from 'lucide-react'
+import { CircleCheckBig, ListChecks } from 'lucide-react'
 import { lazy } from 'react'
 import type { FeatureManifest, SearchProvider } from '@/app/registry'
 import { dayOf } from '@/logic/dates'
@@ -37,14 +37,6 @@ const manifest: FeatureManifest = {
   },
   shortcuts: taskShortcuts,
   commands: [
-    {
-      id: 'command.tasks.new',
-      title: 'New task',
-      group: 'Create',
-      icon: Plus,
-      keywords: ['add', 'create', 'todo', 'quick add'],
-      run: (c) => c.overlays.open('quickAdd'),
-    },
     {
       id: 'command.tasks.completed',
       title: 'Go to Completed tasks',

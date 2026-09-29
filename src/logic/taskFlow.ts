@@ -46,10 +46,15 @@ export function buildNextInstance(task: Task, opts: NextInstanceOptions): Task {
     updatedAt: opts.now,
     status: 'todo',
     dueDate: opts.dueDate,
-    notes: task.notes.map((block) => ({ ...block, ...(block.type === 'todo' ? { checked: false } : {}) })),
+    notes: task.notes.map((block) => ({
+      ...block,
+      ...(block.type === 'todo' ? { checked: false } : {}),
+    })),
     subtasks: task.subtasks.map((sub) => ({ ...sub, id: opts.newId(), done: false })),
     tags: [...task.tags],
-    recurrence: task.recurrence ? { ...task.recurrence, byWeekday: [...task.recurrence.byWeekday] } : null,
+    recurrence: task.recurrence
+      ? { ...task.recurrence, byWeekday: [...task.recurrence.byWeekday] }
+      : null,
     seriesId: task.seriesId ?? task.id,
     scheduleKey: null,
     schedulePinned: false,

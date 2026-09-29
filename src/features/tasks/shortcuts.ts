@@ -28,6 +28,18 @@ export const taskShortcuts: ShortcutDef[] = [
   { id: 'tasks.tags', keys: '#', description: 'Edit tags', group, scope },
   { id: 'tasks.moveUp', keys: 'alt+up', description: 'Move the task up', group, scope },
   { id: 'tasks.moveDown', keys: 'alt+down', description: 'Move the task down', group, scope },
-  { id: 'tasks.trash', keys: 'mod+backspace', description: 'Move the task to the trash', group, scope },
-  { id: 'tasks.escape', keys: 'esc', description: 'Close the task panel or clear the selection', group, scope },
+  {
+    id: 'tasks.trash',
+    keys: 'mod+backspace',
+    description: 'Move the task to the trash',
+    group,
+    scope,
+  },
+  {
+    id: 'tasks.escape',
+    keys: 'esc',
+    description: 'Close the task panel or clear the selection',
+    group,
+    scope,
+  },
 ]

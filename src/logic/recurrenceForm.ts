@@ -19,7 +19,11 @@ export function recurrencePresets(weekday: number): RecurrencePreset[] {
   return [
     { id: 'none', label: 'Does not repeat', rule: null },
     { id: 'daily', label: 'Every day', rule: { freq: 'daily', interval: 1, byWeekday: [] } },
-    { id: 'weekdays', label: 'Every weekday', rule: { freq: 'weekdays', interval: 1, byWeekday: [] } },
+    {
+      id: 'weekdays',
+      label: 'Every weekday',
+      rule: { freq: 'weekdays', interval: 1, byWeekday: [] },
+    },
     {
       id: 'weekly',
       label: `Every ${WEEKDAY_NAMES[day] ?? 'week'}`,
@@ -29,7 +33,10 @@ export function recurrencePresets(weekday: number): RecurrencePreset[] {
 }
 
 /** Which preset a rule is exactly, or `null` when it needs the custom form. */
-export function presetOf(rule: RecurrenceRule | null, weekday: number): RecurrencePreset['id'] | null {
+export function presetOf(
+  rule: RecurrenceRule | null,
+  weekday: number,
+): RecurrencePreset['id'] | null {
   return recurrencePresets(weekday).find((p) => deepEqual(p.rule, rule))?.id ?? null
 }
 
@@ -48,9 +55,9 @@ const clampInterval = (n: number): number =>
 /** The form for an existing rule (or the default, "every 1 week", for none). */
 export function formFromRule(rule: RecurrenceRule | null): RecurrenceForm {
   if (!rule) return { every: 1, unit: 'week', days: [] }
-  const days = [...new Set(rule.byWeekday.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort(
-    (a, b) => a - b,
-  )
+  const days = [
+    ...new Set(rule.byWeekday.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)),
+  ].sort((a, b) => a - b)
   switch (rule.freq) {
     case 'daily':
       return { every: clampInterval(rule.interval), unit: 'day', days: [] }

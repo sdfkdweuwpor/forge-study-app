@@ -30,7 +30,12 @@ const list: ShotList = {
       waitFor: '[aria-label="Task details"], main h1',
       prepare: settle,
     },
-    { name: 'task-page', path: '/task/task-c779-u3-2?seed=wgu', waitFor: 'main h1', prepare: settle },
+    {
+      name: 'task-page',
+      path: '/task/task-c779-u3-2?seed=wgu',
+      waitFor: 'main h1',
+      prepare: settle,
+    },
     { name: 'completed', path: '/tasks/completed?seed=wgu', waitFor: ROWS, fullPage: true },
     {
       name: 'filters',
@@ -45,6 +50,39 @@ const list: ShotList = {
         await page.locator(ROWS).first().hover()
         await page.getByRole('button', { name: 'More actions' }).first().click()
         await page.getByRole('menu').waitFor()
+        await settle(page)
+      },
+    },
+    {
+      name: 'filter-popover',
+      path: '/tasks/all?seed=wgu',
+      waitFor: ROWS,
+      prepare: async (page) => {
+        await page.getByRole('button', { name: 'Priority', exact: true }).click()
+        await page.getByRole('group', { name: 'Priority' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      name: 'due-picker',
+      path: '/tasks/inbox?seed=wgu',
+      waitFor: ROWS,
+      prepare: async (page) => {
+        await page.locator(ROWS).first().hover()
+        await page.getByRole('button', { name: 'More actions' }).first().click()
+        await page.getByRole('menuitem', { name: 'Due date…' }).click()
+        await page.getByRole('dialog', { name: 'Due date' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      name: 'custom-repeat',
+      path: '/task/task-weekly-review-next?seed=wgu',
+      waitFor: 'main h1',
+      prepare: async (page) => {
+        await page.getByRole('button', { name: /Every Sunday/ }).click()
+        await page.getByRole('menuitem', { name: 'Custom…' }).click()
+        await page.getByRole('dialog', { name: 'Custom repeat' }).waitFor()
         await settle(page)
       },
     },

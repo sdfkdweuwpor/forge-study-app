@@ -60,7 +60,9 @@ export function viewFromQuery(list: TaskListId, query: Readonly<ViewQuery>): Tas
   const fallbackSort = defaultSort(list)
   const key = pick(query.sort, SORT_KEYS) ?? fallbackSort.key
   // A direction on its own means nothing; it applies to whichever key is in effect.
-  const dir = pick(query.dir, ['asc', 'desc'] as const) ?? (key === fallbackSort.key ? fallbackSort.dir : 'asc')
+  const dir =
+    pick(query.dir, ['asc', 'desc'] as const) ??
+    (key === fallbackSort.key ? fallbackSort.dir : 'asc')
 
   const filter: TaskFilter = {}
   const status = csv(query.status).flatMap((s) => STATUSES.filter((known) => known === s))

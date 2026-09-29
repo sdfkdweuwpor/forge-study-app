@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/db/db'
 import { onDomainEvent, resetDomainEvents, settleDomainEvents, type DomainEvent } from '@/db/events'
-import { moveToTrash, purgeExpired, restoreFromTrash, TRASH_TTL_MS, trashedTasks } from '@/db/repos/trash'
+import {
+  moveToTrash,
+  purgeExpired,
+  restoreFromTrash,
+  TRASH_TTL_MS,
+  trashedTasks,
+} from '@/db/repos/trash'
 import { createTask } from '@/db/repos/tasks'
 import type { Goal, Milestone, Resource, Unit } from '@/db/types'
 
@@ -116,10 +122,18 @@ describe('moveToTrash and restoreFromTrash', () => {
     ])
     await db.units.bulkAdd([unit('u1', 'g1', 'm1'), unit('u2', 'g1', 'm2')])
     const chunk = await createTask(
-      { title: 'C779 · Unit 3: CSS layout (45 min)', goalId: 'g1', milestoneId: 'm1', unitId: 'u1' },
+      {
+        title: 'C779 · Unit 3: CSS layout (45 min)',
+        goalId: 'g1',
+        milestoneId: 'm1',
+        unitId: 'u1',
+      },
       { now: NOW },
     )
-    const other = await createTask({ title: 'D278 reading', goalId: 'g1', milestoneId: 'm2' }, { now: NOW })
+    const other = await createTask(
+      { title: 'D278 reading', goalId: 'g1', milestoneId: 'm2' },
+      { now: NOW },
+    )
     const resource: Resource = {
       id: 'r1',
       createdAt: 7,
@@ -138,7 +152,12 @@ describe('moveToTrash and restoreFromTrash', () => {
 
     const result = await moveToTrash('milestones', 'm1', { now: NOW })
     expect(result?.item.title).toBe('C779 Web Development Foundations')
-    expect(Object.keys(result!.item.payload).sort()).toEqual(['milestones', 'resources', 'tasks', 'units'])
+    expect(Object.keys(result!.item.payload).sort()).toEqual([
+      'milestones',
+      'resources',
+      'tasks',
+      'units',
+    ])
     expect(await db.milestones.count()).toBe(1)
     expect(await db.units.count()).toBe(1)
     expect(await db.resources.count()).toBe(0)
@@ -157,9 +176,18 @@ describe('moveToTrash and restoreFromTrash', () => {
     await db.goals.add(goal('g1'))
     await db.milestones.add(course('m1', 'g1', 'C182', 'Introduction to IT'))
     await db.units.add(unit('u1', 'g1', 'm1'))
-    await createTask({ title: 'C182 · Unit 1: Hardware (30 min)', goalId: 'g1', milestoneId: 'm1' }, { now: NOW })
+    await createTask(
+      { title: 'C182 · Unit 1: Hardware (30 min)', goalId: 'g1', milestoneId: 'm1' },
+      { now: NOW },
+    )
     const blob = new Blob(['%PDF-1.7 study guide'], { type: 'application/pdf' })
-    await db.files.add({ id: 'f1', name: 'C182 study guide.pdf', mime: 'application/pdf', size: blob.size, blob })
+    await db.files.add({
+      id: 'f1',
+      name: 'C182 study guide.pdf',
+      mime: 'application/pdf',
+      size: blob.size,
+      blob,
+    })
     await db.resources.add({
       id: 'r1',
       goalId: 'g1',
@@ -190,7 +218,10 @@ describe('moveToTrash and restoreFromTrash', () => {
 
     await restoreFromTrash(result!.trashId)
     expect(await db.goals.count()).toBe(1)
-    expect(await db.files.get('f1')).toMatchObject({ name: 'C182 study guide.pdf', size: blob.size })
+    expect(await db.files.get('f1')).toMatchObject({
+      name: 'C182 study guide.pdf',
+      size: blob.size,
+    })
     expect(await db.tasks.count()).toBe(2)
     await settleDomainEvents()
     expect(events.filter((e) => e.type === 'goal.changed').length).toBeGreaterThan(0)

@@ -1,4 +1,12 @@
-import { CalendarDays, CircleAlert, CircleCheckBig, Inbox, ListChecks, Plus, SearchX } from 'lucide-react'
+import {
+  CalendarDays,
+  CircleAlert,
+  CircleCheckBig,
+  Inbox,
+  ListChecks,
+  Plus,
+  SearchX,
+} from 'lucide-react'
 import { useOverlays } from '@/app/providers/OverlayProvider'
 import type { TaskListId } from '@/logic/taskLists'
 import { Button } from '@/ui/Button'
@@ -28,7 +36,8 @@ const EMPTY_COPY: Record<TaskListId, { icon: typeof Inbox; title: string; descri
   completed: {
     icon: CircleCheckBig,
     title: 'Nothing completed yet',
-    description: 'Finished tasks collect here with the XP they earned. Tick one off and it lands on today.',
+    description:
+      'Finished tasks collect here with the XP they earned. Tick one off and it lands on today.',
   },
 }
 

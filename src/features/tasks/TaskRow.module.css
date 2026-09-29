@@ -227,7 +227,7 @@
 /* ── "+15 XP" ────────────────────────────────────────────────────────────── */
 .xp {
   position: absolute;
-  top: 0;
+  top: -9px;
   left: 36px;
   z-index: 2;
   padding: 2px var(--space-2);

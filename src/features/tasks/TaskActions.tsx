@@ -15,6 +15,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -136,6 +137,16 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   const results = useRef(new Map<ID, Promise<CompleteResult | null>>())
   const undos = useRef(new Map<ID, () => Promise<void>>())
   const rows = useRef(new Map<ID, RowHandle>())
+
+  // Leaving the screen mid-motion: stop the timers so nothing fires into an unmounted tree.
+  useEffect(() => {
+    const pending = timers.current
+    return () => {
+      for (const handles of pending.values())
+        for (const handle of handles) window.clearTimeout(handle)
+      pending.clear()
+    }
+  }, [])
 
   const setPhase = useCallback((id: ID, next: TaskMotion | null) => {
     if (next) phases.current.set(id, next)

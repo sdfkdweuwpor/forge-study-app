@@ -69,7 +69,10 @@ async function gather(name: TableName, id: ID): Promise<Gathered | null> {
   const resources = (payload.resources ?? []) as Resource[]
   const fileIds = [...new Set(resources.flatMap((r) => (r.fileId ? [r.fileId] : [])))]
   if (fileIds.length > 0) {
-    add('files', (await db.files.bulkGet(fileIds)).filter((f) => f !== undefined))
+    add(
+      'files',
+      (await db.files.bulkGet(fileIds)).filter((f) => f !== undefined),
+    )
   }
 
   return { title: titleOf(name, row as unknown as Record<string, unknown>, id), payload }
@@ -96,7 +99,11 @@ function idsOf(rows: readonly unknown[] | undefined): ID[] {
 
 function emitFor(payload: TrashPayload, kind: 'deleted' | 'restored'): void {
   for (const id of idsOf(payload.tasks)) {
-    emit(kind === 'deleted' ? { type: 'task.deleted', taskId: id } : { type: 'task.changed', taskId: id })
+    emit(
+      kind === 'deleted'
+        ? { type: 'task.deleted', taskId: id }
+        : { type: 'task.changed', taskId: id },
+    )
   }
   const goalIds = new Set<ID>(idsOf(payload.goals))
   for (const m of (payload.milestones ?? []) as Array<{ goalId: ID }>) goalIds.add(m.goalId)

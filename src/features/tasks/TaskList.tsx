@@ -52,8 +52,15 @@ interface SortableRowProps {
 }
 
 function SortableRow({ task, selected, reveal, onSelect, showCourse, motion }: SortableRowProps) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id })
   return (
     <li
       ref={setNodeRef}
@@ -198,7 +205,8 @@ export function TaskList({
             over
               ? `Dropped ${titleOf(active.id)} over ${titleOf(over.id)}.`
               : `Dropped ${titleOf(active.id)}.`,
-          onDragCancel: ({ active }) => `Reordering cancelled. ${titleOf(active.id)} is back where it was.`,
+          onDragCancel: ({ active }) =>
+            `Reordering cancelled. ${titleOf(active.id)} is back where it was.`,
         },
       }}
     >

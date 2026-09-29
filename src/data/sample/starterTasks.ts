@@ -7,13 +7,7 @@
 import type { Block, ID, ISODate, Millis, Task, XpEvent } from '@/db/types'
 import { addDays, atTime, dayStartMs } from '@/logic/dates'
 import { xpForTask, XP_COURSE_COMPLETE, XP_DAILY_GOAL } from '@/logic/xp'
-import {
-  COURSE_IDS,
-  WGU_GOAL_ID,
-  unitId,
-  unitTitle,
-  type CourseCode,
-} from './wguBsCs'
+import { COURSE_IDS, WGU_GOAL_ID, unitId, unitTitle, type CourseCode } from './wguBsCs'
 
 export interface StarterContext {
   today: ISODate
@@ -95,7 +89,12 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
     priority: 3,
     estimatePomodoros: 1,
     tags: ['admin'],
-    notes: [note('n-fa', 'They asked for the enrollment verification letter. It is in the WGU portal under Documents.')],
+    notes: [
+      note(
+        'n-fa',
+        'They asked for the enrollment verification letter. It is in the WGU portal under Documents.',
+      ),
+    ],
   })
   add({
     id: 'task-library-card',
@@ -229,11 +228,7 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   })
 
   // ── Finished in the last two weeks ───────────────────────────────────────────
-  const done = (
-    offset: number,
-    time: string,
-    spec: Spec,
-  ): Spec => ({
+  const done = (offset: number, time: string, spec: Spec): Spec => ({
     status: 'done',
     dueDate: day(offset),
     completedDay: day(offset),
@@ -256,9 +251,24 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   )
   add(done(-8, '07:50', chunk('C779', 1, 45, 1)))
   add(done(-7, '21:15', chunk('C779', 1, 30, 2)))
-  add(done(-6, '12:30', { id: 'task-vscode', title: 'Set up VS Code and Git for the C779 labs', estimatePomodoros: 1, tags: ['C779'] }))
+  add(
+    done(-6, '12:30', {
+      id: 'task-vscode',
+      title: 'Set up VS Code and Git for the C779 labs',
+      estimatePomodoros: 1,
+      tags: ['C779'],
+    }),
+  )
   add(done(-5, '18:45', chunk('C779', 2, 45, 1)))
-  add(done(-4, '11:00', { id: 'task-fafsa', title: 'Submit FAFSA renewal', priority: 3, estimatePomodoros: 2, tags: ['finance'] }))
+  add(
+    done(-4, '11:00', {
+      id: 'task-fafsa',
+      title: 'Submit FAFSA renewal',
+      priority: 3,
+      estimatePomodoros: 2,
+      tags: ['finance'],
+    }),
+  )
   add(done(-3, '10:40', chunk('C779', 2, 45, 2)))
   add(
     done(-2, '17:30', {
@@ -301,13 +311,48 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
       note: null,
     })
   }
-  const bonus = (id: string, offset: number, time: string, source: 'course' | 'dailyGoal', amount: number, key: string, refId: ID | null) => {
+  const bonus = (
+    id: string,
+    offset: number,
+    time: string,
+    source: 'course' | 'dailyGoal',
+    amount: number,
+    key: string,
+    refId: ID | null,
+  ) => {
     const at = atTime(day(offset), time)
-    xpEvents.push({ id, createdAt: at, updatedAt: at, at, day: day(offset), source, amount, key, refId, note: null })
+    xpEvents.push({
+      id,
+      createdAt: at,
+      updatedAt: at,
+      at,
+      day: day(offset),
+      source,
+      amount,
+      key,
+      refId,
+      note: null,
+    })
   }
-  bonus('xp-course-c182', -9, '16:30', 'course', XP_COURSE_COMPLETE, `course:${COURSE_IDS.C182}`, COURSE_IDS.C182)
+  bonus(
+    'xp-course-c182',
+    -9,
+    '16:30',
+    'course',
+    XP_COURSE_COMPLETE,
+    `course:${COURSE_IDS.C182}`,
+    COURSE_IDS.C182,
+  )
   for (const offset of [-8, -5, -3]) {
-    bonus(`xp-daily-${offset}`, offset, '22:00', 'dailyGoal', XP_DAILY_GOAL, `dailyGoal:${day(offset)}`, null)
+    bonus(
+      `xp-daily-${offset}`,
+      offset,
+      '22:00',
+      'dailyGoal',
+      XP_DAILY_GOAL,
+      `dailyGoal:${day(offset)}`,
+      null,
+    )
   }
 
   return { tasks, xpEvents }

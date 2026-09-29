@@ -86,9 +86,9 @@ describe('createTask', () => {
     const task = await createTask({ title: 'Weekly review', recurrence: sundays }, { now: NOW })
     expect(task.dueDate).toBe('2026-10-04')
     const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
-    expect((await createTask({ title: 'Flashcards', recurrence: daily }, { now: NOW })).dueDate).toBe(
-      TODAY,
-    )
+    expect(
+      (await createTask({ title: 'Flashcards', recurrence: daily }, { now: NOW })).dueDate,
+    ).toBe(TODAY)
   })
 })
 
@@ -102,7 +102,11 @@ describe('completeTask', () => {
 
     // 10 + 5 × 2 pomodoros + 5 for high priority.
     expect(result.xp).toBe(25)
-    expect(result.task).toMatchObject({ status: 'done', completedAt: NOW + 1000, completedDay: TODAY })
+    expect(result.task).toMatchObject({
+      status: 'done',
+      completedAt: NOW + 1000,
+      completedDay: TODAY,
+    })
     expect(await db.tasks.get(task.id)).toMatchObject({ status: 'done', completedDay: TODAY })
 
     const log = await db.xpEvents.toArray()
@@ -213,7 +217,12 @@ describe('recurring tasks', () => {
     expect(await db.tasks.count()).toBe(2)
     expect((await db.tasks.get(task.id))?.seriesId).toBe(task.id)
     await settleDomainEvents()
-    expect(eventTypes().sort()).toEqual(['task.completed', 'task.created', 'task.created', 'xp.changed'])
+    expect(eventTypes().sort()).toEqual([
+      'task.completed',
+      'task.created',
+      'task.created',
+      'xp.changed',
+    ])
   })
 
   it('undo removes the instance it created and nets XP to zero', async () => {
@@ -244,7 +253,10 @@ describe('recurring tasks', () => {
 
   it('a task finished days late is next due after today, not in the past', async () => {
     const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
-    const task = await createTask({ title: 'Flashcards', recurrence: daily, dueDate: '2026-09-25' }, { now: NOW })
+    const task = await createTask(
+      { title: 'Flashcards', recurrence: daily, dueDate: '2026-09-25' },
+      { now: NOW },
+    )
     const result = await completeTask(task.id, { now: NOW })
     expect(result.next?.dueDate).toBe('2026-09-30')
   })
@@ -253,10 +265,18 @@ describe('recurring tasks', () => {
 describe('updateTask', () => {
   it('changes only what differs, and undo puts those fields back', async () => {
     const task = await createTask({ title: 'Read chapter 4', priority: 1 }, { now: NOW })
-    const result = await updateTask(task.id, { priority: 3, dueDate: '2026-09-30', title: 'Read chapter 4' })
+    const result = await updateTask(task.id, {
+      priority: 3,
+      dueDate: '2026-09-30',
+      title: 'Read chapter 4',
+    })
     expect(result?.task).toMatchObject({ priority: 3, dueDate: '2026-09-30' })
     await result?.undo()
-    expect(await db.tasks.get(task.id)).toMatchObject({ priority: 1, dueDate: null, title: 'Read chapter 4' })
+    expect(await db.tasks.get(task.id)).toMatchObject({
+      priority: 1,
+      dueDate: null,
+      title: 'Read chapter 4',
+    })
   })
 
   it('writes nothing for a patch that changes nothing', async () => {
@@ -288,7 +308,12 @@ describe('updateTask', () => {
 
   it('pins a scheduled task when its date changes, but not for other edits', async () => {
     const chunk = await createTask(
-      { title: 'C779 · Unit 3: CSS layout (45 min)', source: 'schedule', dueDate: TODAY, scheduleKey: 'u3:1' },
+      {
+        title: 'C779 · Unit 3: CSS layout (45 min)',
+        source: 'schedule',
+        dueDate: TODAY,
+        scheduleKey: 'u3:1',
+      },
       { now: NOW },
     )
     expect((await updateTask(chunk.id, { priority: 2 }))?.task.schedulePinned).toBe(false)
@@ -330,7 +355,10 @@ describe('skipTask', () => {
 
   it('moves a recurring task of your own to its next occurrence', async () => {
     const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
-    const task = await createTask({ title: 'Flashcards', recurrence: daily, dueDate: TODAY }, { now: NOW })
+    const task = await createTask(
+      { title: 'Flashcards', recurrence: daily, dueDate: TODAY },
+      { now: NOW },
+    )
     const result = await skipTask(task.id, { now: NOW })
     expect(result?.task.dueDate).toBe('2026-09-30')
     await result?.undo()
@@ -385,11 +413,20 @@ describe('moveTask', () => {
 
   it('changes the date and pins a scheduled task', async () => {
     const chunk = await createTask(
-      { title: 'C779 · Unit 4: JavaScript basics (60 min)', source: 'schedule', dueDate: TODAY, dueTime: '10:00' },
+      {
+        title: 'C779 · Unit 4: JavaScript basics (60 min)',
+        source: 'schedule',
+        dueDate: TODAY,
+        dueTime: '10:00',
+      },
       { now: NOW },
     )
     const result = await moveTask(chunk.id, { dueDate: '2026-10-01', dueTime: '14:00' })
-    expect(result?.task).toMatchObject({ dueDate: '2026-10-01', dueTime: '14:00', schedulePinned: true })
+    expect(result?.task).toMatchObject({
+      dueDate: '2026-10-01',
+      dueTime: '14:00',
+      schedulePinned: true,
+    })
     await result?.undo()
     expect(await db.tasks.get(chunk.id)).toMatchObject({ dueDate: TODAY, dueTime: '10:00' })
     expect(await moveTask('nope', { dueDate: null })).toBeNull()
@@ -510,7 +547,9 @@ describe('subtasks', () => {
 
     expect(await toggleSubtask(task.id, a?.id ?? '')).toBe(true)
     expect((await subs())[0]?.done).toBe(true)
-    expect(await updateSubtask(task.id, b?.id ?? '', { title: 'Take the practice assessment' })).toBe(true)
+    expect(
+      await updateSubtask(task.id, b?.id ?? '', { title: 'Take the practice assessment' }),
+    ).toBe(true)
     expect(await updateSubtask(task.id, b?.id ?? '', { title: '  ' })).toBe(true)
     expect((await subs())[1]?.title).toBe('Take the practice assessment')
     expect(await updateSubtask(task.id, 'nope', { done: true })).toBe(false)

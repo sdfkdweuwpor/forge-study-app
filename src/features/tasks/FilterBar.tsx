@@ -1,11 +1,7 @@
 import { ArrowDownUp, Check, ListFilter } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Priority, TaskDueFilter, TaskSortKey, TaskStatus } from '@/db/types'
-import {
-  activeFilterCount,
-  clearFilters,
-  type TaskListView,
-} from '@/logic/taskListView'
+import { activeFilterCount, clearFilters, type TaskListView } from '@/logic/taskListView'
 import type { TaskListId } from '@/logic/taskLists'
 import type { TaskGroupBy } from '@/logic/taskQuery'
 import { Button } from '@/ui/Button'
@@ -70,7 +66,13 @@ function FilterPopover({ label, count, children }: FilterPopoverProps) {
       side="bottom"
       align="start"
       trigger={(p) => (
-        <Button {...p} variant="ghost" size="sm" className={styles.filter} data-active={count > 0 || undefined}>
+        <Button
+          {...p}
+          variant="ghost"
+          size="sm"
+          className={styles.filter}
+          data-active={count > 0 || undefined}
+        >
           {count > 0 ? `${label} · ${count}` : label}
         </Button>
       )}
@@ -97,7 +99,8 @@ export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProp
   const { filter } = view
   const count = activeFilterCount(filter)
   const completed = list === 'completed'
-  const set = (patch: Partial<TaskListView['filter']>) => onChange({ ...view, filter: { ...filter, ...patch } })
+  const set = (patch: Partial<TaskListView['filter']>) =>
+    onChange({ ...view, filter: { ...filter, ...patch } })
 
   const sortItems: MenuEntry[] = [
     { type: 'label', label: 'Sort by' },
@@ -105,7 +108,8 @@ export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProp
       id: key,
       label: SORT_LABELS[key],
       icon: view.sort.key === key ? <Check /> : undefined,
-      onSelect: () => onChange({ ...view, sort: { key, dir: key === 'priority' ? 'desc' : 'asc' } }),
+      onSelect: () =>
+        onChange({ ...view, sort: { key, dir: key === 'priority' ? 'desc' : 'asc' } }),
     })),
     ...(view.sort.key === 'manual'
       ? []
@@ -115,7 +119,10 @@ export function FilterBar({ list, view, onChange, courses, tags }: FilterBarProp
             id: 'dir',
             label: view.sort.dir === 'asc' ? 'Reverse order' : 'Back to the usual order',
             onSelect: () =>
-              onChange({ ...view, sort: { ...view.sort, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } }),
+              onChange({
+                ...view,
+                sort: { ...view.sort, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' },
+              }),
           },
         ] satisfies MenuEntry[])),
   ]

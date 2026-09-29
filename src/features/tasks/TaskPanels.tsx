@@ -98,7 +98,14 @@ export function useProjectOptions(task: Pick<Task, 'goalId' | 'milestoneId'>): P
     },
   ]
   for (const goal of projects?.goals ?? []) {
-    options.push({ key: `heading:${goal.id}`, label: `${goal.icon} ${goal.title}`, goalId: null, milestoneId: null, current: false, heading: true })
+    options.push({
+      key: `heading:${goal.id}`,
+      label: `${goal.icon} ${goal.title}`,
+      goalId: null,
+      milestoneId: null,
+      current: false,
+      heading: true,
+    })
     options.push({
       key: `goal:${goal.id}`,
       label: 'Whole goal',

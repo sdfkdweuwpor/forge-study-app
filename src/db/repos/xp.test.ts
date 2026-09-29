@@ -22,7 +22,13 @@ afterEach(async () => {
 
 describe('appendXpEvent', () => {
   it('appends one event, derives the day from `at`, and emits xp.changed', async () => {
-    const event = await appendXpEvent({ source: 'task', amount: 15, key: 'task:a', refId: 'a', at: NOW })
+    const event = await appendXpEvent({
+      source: 'task',
+      amount: 15,
+      key: 'task:a',
+      refId: 'a',
+      at: NOW,
+    })
     expect(event).toMatchObject({
       source: 'task',
       amount: 15,
@@ -61,13 +67,25 @@ describe('appendXpEvent', () => {
 
 describe('awardXp', () => {
   it('is idempotent per key while the award stands', async () => {
-    const first = await awardXp({ source: 'dailyGoal', amount: 25, key: 'dailyGoal:2026-09-29', at: NOW })
-    const second = await awardXp({ source: 'dailyGoal', amount: 25, key: 'dailyGoal:2026-09-29', at: NOW })
+    const first = await awardXp({
+      source: 'dailyGoal',
+      amount: 25,
+      key: 'dailyGoal:2026-09-29',
+      at: NOW,
+    })
+    const second = await awardXp({
+      source: 'dailyGoal',
+      amount: 25,
+      key: 'dailyGoal:2026-09-29',
+      at: NOW,
+    })
     expect(first?.amount).toBe(25)
     expect(second).toBeNull()
     expect(await db.xpEvents.count()).toBe(1)
     // A different key is independent.
-    expect(await awardXp({ source: 'dailyGoal', amount: 25, key: 'dailyGoal:2026-09-30', at: NOW })).not.toBeNull()
+    expect(
+      await awardXp({ source: 'dailyGoal', amount: 25, key: 'dailyGoal:2026-09-30', at: NOW }),
+    ).not.toBeNull()
   })
 
   it('awards again once the key has been reversed', async () => {
@@ -124,8 +142,24 @@ describe('getXpSummary', () => {
     await appendXpEvent({ source: 'dailyGoal', amount: 25, key: 'dailyGoal:2026-09-29', at: NOW })
     await reverseXp('task:b', { at: NOW })
     await db.redemptions.bulkAdd([
-      { id: 'r1', rewardId: 'x', rewardTitle: 'Takeout', price: 60, at: NOW, day: TODAY, refundedAt: null },
-      { id: 'r2', rewardId: 'x', rewardTitle: 'Takeout', price: 60, at: NOW, day: TODAY, refundedAt: NOW },
+      {
+        id: 'r1',
+        rewardId: 'x',
+        rewardTitle: 'Takeout',
+        price: 60,
+        at: NOW,
+        day: TODAY,
+        refundedAt: null,
+      },
+      {
+        id: 'r2',
+        rewardId: 'x',
+        rewardTitle: 'Takeout',
+        price: 60,
+        at: NOW,
+        day: TODAY,
+        refundedAt: NOW,
+      },
     ])
 
     const summary = await getXpSummary(TODAY)

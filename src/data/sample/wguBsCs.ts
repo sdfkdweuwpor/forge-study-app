@@ -205,7 +205,9 @@ export function buildWguBsCs(today: ISODate, now: Millis): WguSample {
       estimateMinutes: u.minutes,
       difficulty: (i % 3 === 0 ? 1 : i % 3 === 1 ? 2 : 3) as Unit['difficulty'],
       status: u.done ? ('done' as const) : ('todo' as const),
-      completedAt: u.done ? dayStartMs(addDays(today, Math.min(-1, c.startsIn + i * 3))) + 12 * 3_600_000 : null,
+      completedAt: u.done
+        ? dayStartMs(addDays(today, Math.min(-1, c.startsIn + i * 3))) + 12 * 3_600_000
+        : null,
     })),
   )
 

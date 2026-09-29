@@ -66,7 +66,11 @@ export function useTaskShortcuts({ task, list, editTags, beforeLeave }: TaskShor
   useShortcutHandler('tasks.nextArrow', () => list?.moveSelection(1), free && list !== undefined)
   useShortcutHandler('tasks.prev', () => list?.moveSelection(-1), free && list !== undefined)
   useShortcutHandler('tasks.prevArrow', () => list?.moveSelection(-1), free && list !== undefined)
-  useShortcutHandler('tasks.open', () => list?.open(), free && idle && list !== undefined && task !== null)
+  useShortcutHandler(
+    'tasks.open',
+    () => list?.open(),
+    free && idle && list !== undefined && task !== null,
+  )
   useShortcutHandler('tasks.moveUp', () => list?.reorder(-1), active && list !== undefined)
   useShortcutHandler('tasks.moveDown', () => list?.reorder(1), active && list !== undefined)
   useShortcutHandler('tasks.escape', () => void list?.escape(), free && list !== undefined)

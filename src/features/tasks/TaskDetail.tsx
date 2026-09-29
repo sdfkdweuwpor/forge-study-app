@@ -41,8 +41,14 @@ function Property({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** The estimate in pomodoros. Commits on Enter or blur; the key remounts it when the value changes elsewhere. */
-function EstimateField({ task }: { task: Pick<Task, 'id' | 'estimatePomodoros' | 'estimateMinutes'> }) {
-  const [draft, setDraft] = useState(task.estimatePomodoros === null ? '' : String(task.estimatePomodoros))
+function EstimateField({
+  task,
+}: {
+  task: Pick<Task, 'id' | 'estimatePomodoros' | 'estimateMinutes'>
+}) {
+  const [draft, setDraft] = useState(
+    task.estimatePomodoros === null ? '' : String(task.estimatePomodoros),
+  )
 
   function commit() {
     const n = draft.trim() === '' ? null : Math.max(0, Math.min(99, Math.round(Number(draft))))
@@ -105,7 +111,9 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
         openPanel: (kind) => {
           if (kind === 'due') document.getElementById(dueId)?.focus()
           else if (kind === 'priority') {
-            priorityGroup.current?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')?.focus()
+            priorityGroup.current
+              ?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')
+              ?.focus()
           }
         },
       }),
@@ -194,10 +202,7 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
         </Property>
 
         <Property label="Estimate">
-          <EstimateField
-            key={`${task.id}:${task.estimatePomodoros}`}
-            task={task}
-          />
+          <EstimateField key={`${task.id}:${task.estimatePomodoros}`} task={task} />
         </Property>
 
         <Property label="Repeat">
@@ -225,7 +230,9 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
       <footer className={styles.foot}>
         <p className={styles.footText}>
           Added {format(task.createdAt, 'MMM d, yyyy')}
-          {done && task.completedAt !== null ? ` · Completed ${format(task.completedAt, 'MMM d, h:mm a')}` : ''}
+          {done && task.completedAt !== null
+            ? ` · Completed ${format(task.completedAt, 'MMM d, h:mm a')}`
+            : ''}
           {done && xp !== undefined && xp > 0 ? (
             <>
               {' · '}

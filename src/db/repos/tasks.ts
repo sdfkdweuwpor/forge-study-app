@@ -146,7 +146,10 @@ function settle(before: Task, patch: TaskPatch, now: Millis): Partial<Task> {
 }
 
 /** Only the keys whose value really changes, with the values they had. */
-function diff(before: Task, next: Partial<Task>): { changes: Partial<Task>; previous: Partial<Task> } {
+function diff(
+  before: Task,
+  next: Partial<Task>,
+): { changes: Partial<Task>; previous: Partial<Task> } {
   const changes: Mutable = {}
   const previous: Mutable = {}
   for (const key of Object.keys(next) as (keyof Task)[]) {
@@ -260,7 +263,8 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
   const day = dayOf(now)
   const result = await db.transaction('rw', db.tasks, db.xpEvents, async () => {
     const task = await db.tasks.get(id)
-    if (!task || task.status === 'done') return { task: task ?? null, xp: 0, next: null, changed: false }
+    if (!task || task.status === 'done')
+      return { task: task ?? null, xp: 0, next: null, changed: false }
 
     let next: Task | null = null
     const changes: Partial<Task> = { status: 'done', completedAt: now, completedDay: day }

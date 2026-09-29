@@ -22,7 +22,13 @@ import {
   viewToQuery,
   type TaskListView,
 } from '@/logic/taskListView'
-import { groupCompleted, inList, listFromParam, listLabel, type TaskListId } from '@/logic/taskLists'
+import {
+  groupCompleted,
+  inList,
+  listFromParam,
+  listLabel,
+  type TaskListId,
+} from '@/logic/taskLists'
 import { queryTasks } from '@/logic/taskQuery'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
@@ -106,10 +112,7 @@ function TasksBody({ list }: { list: TaskListId }) {
     if (peekId && !peekFits) navigate('task', { taskId: peekId }, { replace: true })
   }, [peekId, peekFits])
 
-  const setView = useCallback(
-    (next: TaskListView) => setQuery(viewToQuery(list, next)),
-    [list],
-  )
+  const setView = useCallback((next: TaskListView) => setQuery(viewToQuery(list, next)), [list])
 
   const select = useCallback(
     (id: ID, viaKeyboard = false) => {
@@ -198,7 +201,9 @@ function TasksBody({ list }: { list: TaskListId }) {
 
   const summary = result
     ? [
-        list === 'completed' ? `${plural(result.total, 'task')} done` : plural(result.total, 'task'),
+        list === 'completed'
+          ? `${plural(result.total, 'task')} done`
+          : plural(result.total, 'task'),
         result.overdue > 0 ? `${result.overdue} overdue` : null,
         list === 'completed' && xp && xp.today > 0 ? `+${xp.today} XP today` : null,
       ]
@@ -260,12 +265,7 @@ function TasksBody({ list }: { list: TaskListId }) {
       )}
 
       {peekId && peekFits ? (
-        <TaskPeek
-          key="peek"
-          taskId={peekId}
-          onClose={closePeek}
-          focusTagsNonce={tagsNonce}
-        />
+        <TaskPeek key="peek" taskId={peekId} onClose={closePeek} focusTagsNonce={tagsNonce} />
       ) : null}
     </>
   )

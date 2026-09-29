@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TagColor } from '@/db/types'
-import { hashTag, normalizeTag, TAG_COLORS, tagColor } from '@/logic/tagColor'
+import { cleanTags, hashTag, normalizeTag, TAG_COLORS, tagColor } from '@/logic/tagColor'
 
 describe('tagColor', () => {
   it('has the nine palette names', () => {
@@ -106,5 +106,21 @@ describe('tagColor', () => {
       expect(tagColor('exam', undefined)).toBe(tagColor('exam'))
       expect(tagColor('exam', {})).toBe(tagColor('exam'))
     })
+  })
+})
+
+describe('cleanTags', () => {
+  it('trims, strips leading #, drops empties and case-insensitive duplicates, keeps first spelling', () => {
+    expect(cleanTags(['#C182', ' c182 ', '', '##', 'mentor', 'Mentor', ' # errands'])).toEqual([
+      'C182',
+      'mentor',
+      'errands',
+    ])
+  })
+
+  it('returns a new array and copes with no tags', () => {
+    const input = ['a']
+    expect(cleanTags(input)).not.toBe(input)
+    expect(cleanTags([])).toEqual([])
   })
 })

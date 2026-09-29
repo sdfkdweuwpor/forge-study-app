@@ -5,12 +5,14 @@ import { RootErrorScreen } from './ErrorScreens'
 import { runAppStart } from './boot'
 import { useToday } from './hooks/useToday'
 import { Shell } from './layout/Shell'
+import { PaletteOverlay } from './palette/PaletteOverlay'
 import { OverlayProvider, useOpenOverlays, useOverlays } from './providers/OverlayProvider'
 import { ThemeProvider } from './providers/ThemeProvider'
 import type { Registry } from './registry'
 import { RegistryProvider } from './registry/RegistryContext'
 import { RouterProvider } from './router'
 import { ShortcutProvider } from './shortcuts/ShortcutProvider'
+import { ShortcutSheet } from './shortcuts/ShortcutSheet'
 import { useShortcutHandler } from './shortcuts'
 
 /** Escape closes the most recently opened app overlay (palette, quick add, shortcut sheet, full-screen focus). */
@@ -64,6 +66,8 @@ export function App({ registry }: { registry: Registry }) {
                     <OverlayEscape />
                     <AppStart registry={registry} />
                     <Shell />
+                    <PaletteOverlay />
+                    <ShortcutSheet />
                   </FeatureProviders>
                 </ToastProvider>
               </ShortcutProvider>

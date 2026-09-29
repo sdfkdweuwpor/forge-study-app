@@ -145,6 +145,8 @@ function parseInto(
   to: number,
   style: InlineStyle,
   out: InlineSpan[],
+  /** When given, receives the index in `src` of every visible character, in order. */
+  map?: number[],
 ): void {
   let buffer = ''
   const flush = (): void => {
@@ -156,6 +158,7 @@ function parseInto(
     const c = src[i] as string
     if (c === '\\' && i + 1 < to && ESCAPABLE.includes(src[i + 1] as string)) {
       buffer += src[i + 1]
+      map?.push(i + 1)
       i += 2
       continue
     }
@@ -164,6 +167,7 @@ function parseInto(
       if (end !== -1 && end < to && end > i + 1) {
         flush()
         out.push({ text: src.slice(i + 1, end), ...style, code: true })
+        if (map) for (let k = i + 1; k < end; k++) map.push(k)
         i = end + 1
         continue
       }
@@ -172,7 +176,7 @@ function parseInto(
       const link = matchLink(src, i, to)
       if (link) {
         flush()
-        parseInto(src, link.labelStart, link.labelEnd, { ...style, href: link.href }, out)
+        parseInto(src, link.labelStart, link.labelEnd, { ...style, href: link.href }, out, map)
         i = link.end
         continue
       }
@@ -182,7 +186,7 @@ function parseInto(
         const close = findClose(src, i + 2, to, '**')
         if (close > i + 2) {
           flush()
-          parseInto(src, i + 2, close, { ...style, bold: true }, out)
+          parseInto(src, i + 2, close, { ...style, bold: true }, out, map)
           i = close + 2
           continue
         }
@@ -190,13 +194,14 @@ function parseInto(
         const close = findClose(src, i + 1, to, '*')
         if (close > i + 1) {
           flush()
-          parseInto(src, i + 1, close, { ...style, italic: true }, out)
+          parseInto(src, i + 1, close, { ...style, italic: true }, out, map)
           i = close + 1
           continue
         }
       }
     }
     buffer += c
+    map?.push(i)
     i++
   }
   flush()
@@ -236,6 +241,29 @@ export function stripInline(text: string): string {
   return parseInline(text)
     .map((span) => span.text)
     .join('')
+}
+
+/**
+ * For each visible character of `stripInline(text)`, the index of that character in `text`
+ * (markers and backslashes have no entry). `text[map[k]] === stripInline(text)[k]`.
+ */
+export function inlineSourceMap(text: string): number[] {
+  const map: number[] = []
+  parseInto(text, 0, text.length, { bold: false, italic: false, code: false, href: null }, [], map)
+  return map
+}
+
+/**
+ * Where a caret placed at `visibleOffset` in the formatted text (`stripInline(text)`) sits in the
+ * raw text. The start and end of the text map to the start and end; a caret between two visible
+ * characters lands just before the second one, so a caret after a bold word ends up after its
+ * closing marker (`**bold**| x`) and one inside a word stays inside it (`**bo|ld**`).
+ */
+export function sourceOffset(text: string, visibleOffset: number): number {
+  const map = inlineSourceMap(text)
+  if (visibleOffset <= 0) return 0
+  if (visibleOffset >= map.length) return text.length
+  return map[Math.floor(visibleOffset)] ?? text.length
 }
 
 // ─── Document helpers ───────────────────────────────────────────────────────
@@ -498,4 +526,378 @@ export function applySlashCommand(
   const created = blockOf(freshId(doc, id, newId), 'p', '')
   next.splice(index + 1, 0, created)
   return { doc: next, focusId: created.id, caret: 0 }
+}
+
+// ─── Editing helpers (used by the editor UI) ────────────────────────────────
+
+/** Clamps an offset into `0..length`; anything that is not a finite number becomes 0. */
+function clampOffset(offset: number, length: number): number {
+  if (!Number.isFinite(offset)) return 0
+  return Math.min(Math.max(0, Math.floor(offset)), length)
+}
+
+/** `[start, end]` clamped into the text and put in order. */
+function orderedRange(text: string, start: number, end: number): [number, number] {
+  const a = clampOffset(start, text.length)
+  const b = clampOffset(end, text.length)
+  return a <= b ? [a, b] : [b, a]
+}
+
+/** Replaces `text[start..end)` with `insert`. `caret` is the offset just after the insertion. */
+export function replaceRange(
+  text: string,
+  start: number,
+  end: number,
+  insert: string,
+): { text: string; caret: number } {
+  const [a, b] = orderedRange(text, start, end)
+  return { text: text.slice(0, a) + insert + text.slice(b), caret: a + insert.length }
+}
+
+/** The document with block `id`'s text replaced. Every other block keeps its identity. */
+export function setBlockText(doc: BlockDoc, id: ID, text: string): Block[] {
+  return doc.map((block) => (block.id === id && block.text !== text ? { ...block, text } : block))
+}
+
+/** Sets a to-do's `checked` flag. Other blocks, and to-dos already in that state, are untouched. */
+export function setBlockChecked(doc: BlockDoc, id: ID, checked: boolean): Block[] {
+  return doc.map((block) =>
+    block.id === id && block.type === 'todo' && (block.checked ?? false) !== checked
+      ? { ...block, checked }
+      : block,
+  )
+}
+
+/** Sets a callout's emoji (`null` removes it). */
+export function setBlockEmoji(doc: BlockDoc, id: ID, emoji: string | null): Block[] {
+  return doc.map((block) => {
+    if (block.id !== id || block.type !== 'callout') return block
+    const { emoji: _previous, ...rest } = block
+    return emoji === null ? rest : { ...rest, emoji }
+  })
+}
+
+/**
+ * Enter with a selection: the selected text is deleted first, then the block splits where the
+ * selection began. With a collapsed selection this is `splitBlock`.
+ */
+export function splitAtSelection(
+  doc: BlockDoc,
+  id: ID,
+  start: number,
+  end: number,
+  newId?: () => ID,
+): BlockEdit {
+  const block = doc.find((b) => b.id === id)
+  if (!block) return { doc: [...doc], focusId: id, caret: 0 }
+  const [a, b] = orderedRange(block.text, start, end)
+  if (a === b) return splitBlock(doc, id, a, newId)
+  const { text, caret } = replaceRange(block.text, a, b, '')
+  return splitBlock(setBlockText(doc, id, text), id, caret, newId)
+}
+
+/** Removes a block. Focus goes to the end of the previous block, else the start of the next. */
+export function removeBlock(doc: BlockDoc, id: ID, newId?: () => ID): BlockEdit {
+  const index = doc.findIndex((b) => b.id === id)
+  if (index === -1) return { doc: [...doc], focusId: id, caret: 0 }
+  const rest = [...doc.slice(0, index), ...doc.slice(index + 1)]
+  const prev = doc[index - 1]
+  const next = doc[index + 1]
+  if (prev) {
+    return { doc: rest, focusId: prev.id, caret: prev.type === 'divider' ? 0 : prev.text.length }
+  }
+  if (next) return { doc: rest, focusId: next.id, caret: 0 }
+  const created = blockOf(freshId(doc, id, newId), 'p', '')
+  return { doc: [created], focusId: created.id, caret: 0 }
+}
+
+/**
+ * Backspace with the caret at the very start of block `id`. Headings, lists and callouts turn
+ * back into a paragraph first (text kept); a paragraph joins the previous block; a divider is
+ * deleted. `null` when there is nothing to do (the first paragraph).
+ */
+export function backspaceAtStart(doc: BlockDoc, id: ID, newId?: () => ID): BlockEdit | null {
+  const block = doc.find((b) => b.id === id)
+  if (!block) return null
+  if (block.type === 'p') return mergeWithPrevious(doc, id)
+  if (block.type === 'divider') return mergeWithPrevious(doc, id) ?? removeBlock(doc, id, newId)
+  return { doc: changeBlockType(doc, id, 'p'), focusId: id, caret: 0 }
+}
+
+/**
+ * Delete with the caret at the very end of block `id`: the next block's text joins this one (a
+ * next divider is deleted instead). A divider itself is deleted. `null` at the end of the document.
+ */
+export function deleteAtEnd(doc: BlockDoc, id: ID, newId?: () => ID): BlockEdit | null {
+  const index = doc.findIndex((b) => b.id === id)
+  const block = doc[index]
+  if (!block) return null
+  if (block.type === 'divider') return removeBlock(doc, id, newId)
+  const next = doc[index + 1]
+  return next ? mergeWithPrevious(doc, next.id) : null
+}
+
+/** Moves block `id` so it ends up at `toIndex` (clamped). Returns a new array either way. */
+export function moveBlockToIndex(doc: BlockDoc, id: ID, toIndex: number): Block[] {
+  const from = doc.findIndex((b) => b.id === id)
+  const moving = doc[from]
+  if (!moving) return [...doc]
+  const to = clampOffset(toIndex, doc.length - 1)
+  if (to === from) return [...doc]
+  const next = [...doc]
+  next.splice(from, 1)
+  next.splice(to, 0, moving)
+  return next
+}
+
+// ─── Slash trigger and markdown shortcuts ───────────────────────────────────
+
+export interface SlashContext {
+  /** Index of the `/` in the text. */
+  start: number
+  /** Index just after the query (the caret). */
+  end: number
+  /** What was typed after the `/`. */
+  query: string
+}
+
+/**
+ * The `/query` under the caret: a `/` at the start of the text or right after whitespace, with no
+ * whitespace between it and the caret. A slash inside a word (`and/or`, `https://x`) is not one.
+ */
+export function slashContext(text: string, caret: number): SlashContext | null {
+  const end = clampOffset(caret, text.length)
+  for (let i = end - 1; i >= 0; i--) {
+    const c = text.charAt(i)
+    if (c === '/') {
+      const before = i === 0 ? '' : text.charAt(i - 1)
+      if (i !== 0 && !/\s/.test(before)) return null
+      return { start: i, end, query: text.slice(i + 1, end) }
+    }
+    if (/\s/.test(c)) return null
+  }
+  return null
+}
+
+/**
+ * Runs a slash command typed inside a block: the `/query` in `range` is removed and the block
+ * becomes the chosen type, keeping the rest of its text. When nothing else is left this is
+ * `applySlashCommand`. For a divider with text around it, the text stays in its block and the
+ * divider (plus an empty paragraph for the caret) follows it.
+ */
+export function applySlashAt(
+  doc: BlockDoc,
+  id: ID,
+  command: SlashCommandId,
+  range: { start: number; end: number },
+  newId?: () => ID,
+): BlockEdit {
+  const spec = slashCommands.find((c) => c.id === command)
+  const block = doc.find((b) => b.id === id)
+  if (!spec || !block) return { doc: [...doc], focusId: id, caret: 0 }
+
+  const [a, b] = orderedRange(block.text, range.start, range.end)
+  const after = block.text.slice(b)
+  const before = after === '' ? block.text.slice(0, a).trimEnd() : block.text.slice(0, a)
+  const rest = before + after
+  if (rest.trim() === '') return applySlashCommand(doc, id, command, newId)
+
+  const withText = setBlockText(doc, id, rest)
+  if (spec.type === 'divider') {
+    const index = withText.findIndex((x) => x.id === id)
+    const holder = blockOf(freshId(withText, id, newId), 'p', '')
+    withText.splice(index + 1, 0, holder)
+    return applySlashCommand(withText, holder.id, command, newId)
+  }
+  return { doc: changeBlockType(withText, id, spec.type), focusId: id, caret: before.length }
+}
+
+export interface MarkdownShortcut {
+  type: BlockType
+  /** The block's text once the typed prefix is removed. */
+  text: string
+  /** A `[x] ` prefix starts a checked to-do. */
+  checked: boolean
+}
+
+const MARKDOWN_PREFIXES: ReadonlyArray<{ prefix: string; type: BlockType; checked?: boolean }> = [
+  { prefix: '# ', type: 'h1' },
+  { prefix: '## ', type: 'h2' },
+  { prefix: '### ', type: 'h3' },
+  { prefix: '- ', type: 'bullet' },
+  { prefix: '* ', type: 'bullet' },
+  { prefix: '[] ', type: 'todo' },
+  { prefix: '[ ] ', type: 'todo' },
+  { prefix: '[x] ', type: 'todo', checked: true },
+  { prefix: '> ', type: 'callout' },
+]
+
+/**
+ * Markdown typed at the start of a block: `# `, `## `, `### `, `- `, `* `, `[] `, `[ ] `, `[x] `,
+ * `> ` (callout), and `---` typed as the whole text (divider). `caret` is where the caret is right
+ * after the keystroke; the shortcut fires only when everything before it is exactly the prefix.
+ * Callers apply it to paragraphs only.
+ */
+export function markdownShortcut(text: string, caret: number): MarkdownShortcut | null {
+  const at = clampOffset(caret, text.length)
+  const head = text.slice(0, at)
+  if (head === '---' && text === '---') return { type: 'divider', text: '', checked: false }
+  for (const { prefix, type, checked } of MARKDOWN_PREFIXES) {
+    if (head === prefix) return { type, text: text.slice(at), checked: checked ?? false }
+  }
+  return null
+}
+
+/** Applies a `markdownShortcut` to block `id`; the caret goes to the start of the remaining text. */
+export function applyMarkdownShortcut(
+  doc: BlockDoc,
+  id: ID,
+  shortcut: MarkdownShortcut,
+  newId?: () => ID,
+): BlockEdit {
+  const block = doc.find((b) => b.id === id)
+  if (!block) return { doc: [...doc], focusId: id, caret: 0 }
+  if (shortcut.type === 'divider') return applySlashCommand(doc, id, 'divider', newId)
+  const converted = blockOf(id, shortcut.type, shortcut.text)
+  if (shortcut.type === 'todo' && shortcut.checked) converted.checked = true
+  return {
+    doc: doc.map((b) => (b.id === id ? converted : b)),
+    focusId: id,
+    caret: 0,
+  }
+}
+
+// ─── Paste ──────────────────────────────────────────────────────────────────
+
+/**
+ * Pastes plain text into block `id`, replacing `[start, end)`. One line is inserted in place.
+ * Several lines become several blocks: the first line joins the text before the caret, the last
+ * line is followed by the text that was after it, and every line in between is a new block of
+ * the same list kind (bullets and to-dos continue, anything else becomes a paragraph). Blank
+ * lines are dropped. A divider takes no text.
+ */
+export function pasteText(
+  doc: BlockDoc,
+  id: ID,
+  start: number,
+  end: number,
+  pasted: string,
+  newId?: () => ID,
+): BlockEdit {
+  const index = doc.findIndex((b) => b.id === id)
+  const block = doc[index]
+  if (!block || block.type === 'divider') return { doc: [...doc], focusId: id, caret: 0 }
+  const [a, b] = orderedRange(block.text, start, end)
+  const normalised = pasted.replace(/\r\n?/g, '\n')
+
+  const lines = normalised.includes('\n')
+    ? normalised
+        .split('\n')
+        .map((line) => line.trimEnd())
+        .filter((line) => line.trim() !== '')
+    : [normalised]
+  if (lines.length === 0) return { doc: [...doc], focusId: id, caret: a }
+  const [first = '', ...more] = lines
+
+  const head = block.text.slice(0, a)
+  const tail = block.text.slice(b)
+  if (more.length === 0) {
+    const inserted = replaceRange(block.text, a, b, first)
+    return { doc: setBlockText(doc, id, inserted.text), focusId: id, caret: inserted.caret }
+  }
+
+  const kind = continuationType(block.type)
+  const created: Block[] = []
+  let working: Block[] = [...doc]
+  more.forEach((line, i) => {
+    const isLast = i === more.length - 1
+    const made = blockOf(freshId(working, id, newId), kind, isLast ? line + tail : line)
+    created.push(made)
+    working = [...working, made] // reserves the id for the next call to freshId
+  })
+  const lastLine = more[more.length - 1] ?? ''
+  const edited: Block = { ...block, text: head + first }
+  const next = [...doc.slice(0, index), edited, ...created, ...doc.slice(index + 1)]
+  const last = created[created.length - 1] as Block
+  return { doc: next, focusId: last.id, caret: lastLine.length }
+}
+
+// ─── Inline formatting shortcuts ────────────────────────────────────────────
+
+export type InlineMarker = '**' | '*' | '`'
+
+export interface TextEdit {
+  text: string
+  /** Selection after the edit. */
+  start: number
+  end: number
+}
+
+/** Length of the run of `*` that ends just before `at` (`step` -1) or starts at `at` (`step` 1). */
+function starRun(text: string, at: number, step: 1 | -1): number {
+  let n = 0
+  let i = step === 1 ? at : at - 1
+  while (i >= 0 && i < text.length && text.charAt(i) === '*') {
+    n++
+    i += step
+  }
+  return n
+}
+
+/** Whether a marker of this kind is really there: `*` needs an odd run of stars, `**` at least two. */
+function hasMarker(text: string, at: number, step: 1 | -1, marker: InlineMarker): boolean {
+  if (marker === '`') {
+    return text.slice(step === 1 ? at : at - 1, step === 1 ? at + 1 : at) === '`'
+  }
+  const run = starRun(text, at, step)
+  return marker === '*' ? run % 2 === 1 : run >= 2
+}
+
+/**
+ * Toggles an inline marker around a selection (Mod+B, Mod+I, Mod+E). A selection already wrapped
+ * by the marker, outside or inside the selection, is unwrapped; otherwise the marker is added on
+ * both sides, and with a collapsed caret the caret lands between the new pair.
+ */
+export function toggleInlineMarker(
+  text: string,
+  start: number,
+  end: number,
+  marker: InlineMarker,
+): TextEdit {
+  const [a, b] = orderedRange(text, start, end)
+  const m = marker.length
+
+  const outside =
+    a >= m &&
+    text.slice(a - m, a) === marker &&
+    text.slice(b, b + m) === marker &&
+    hasMarker(text, a, -1, marker) &&
+    hasMarker(text, b, 1, marker)
+  if (outside) {
+    return {
+      text: text.slice(0, a - m) + text.slice(a, b) + text.slice(b + m),
+      start: a - m,
+      end: b - m,
+    }
+  }
+
+  const inside =
+    b - a >= 2 * m &&
+    text.slice(a, a + m) === marker &&
+    text.slice(b - m, b) === marker &&
+    hasMarker(text, a, 1, marker) &&
+    hasMarker(text, b, -1, marker)
+  if (inside) {
+    return {
+      text: text.slice(0, a) + text.slice(a + m, b - m) + text.slice(b),
+      start: a,
+      end: b - 2 * m,
+    }
+  }
+
+  return {
+    text: text.slice(0, a) + marker + text.slice(a, b) + marker + text.slice(b),
+    start: a + m,
+    end: b + m,
+  }
 }

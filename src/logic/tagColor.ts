@@ -77,3 +77,20 @@ export function tagColor(tag: string, overrides?: Readonly<Record<string, TagCol
   const bucket = hashTag(normalizeTag(tag)) % TAG_COLORS.length
   return TAG_COLORS[bucket] ?? 'gray'
 }
+
+/**
+ * A tag list as it is stored: trimmed, no leading `#`, empty entries dropped, duplicates (compared
+ * case-insensitively) removed. The first spelling wins, so `C182` stays `C182`.
+ */
+export function cleanTags(tags: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of tags) {
+    const tag = raw.trim().replace(/^#+/, '').trim()
+    const key = normalizeTag(tag)
+    if (key === '' || seen.has(key)) continue
+    seen.add(key)
+    out.push(tag)
+  }
+  return out
+}

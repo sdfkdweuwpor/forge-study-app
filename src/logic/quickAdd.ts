@@ -22,9 +22,11 @@
  *    only counts after `at`/`@` or a date word, so "Problem 2a" stays a title. A bare `at N` only
  *    counts at the end of the title or before another token ("Look at 9 examples" is left alone).
  *    A leading `by` is absorbed (`by 5pm`).
- *  - Recurrence: daily, every day, weekdays, every weekday, weekly, every week, every monday (also
- *    `every mon, wed and fri`), every 2 days|weeks, every other day|week. A recurring task with no
- *    date is due on its first occurrence on or after today.
+ *  - Recurrence: every day, every weekday, every week, every monday (also `every mon, wed and fri`),
+ *    every 2 days|weeks, every other day|week. The bare words daily, everyday, weekdays and weekly
+ *    are ordinary words too, so they only count after at least one title word and when nothing but
+ *    other tokens follows ("Water plants daily #home"); "Weekly review" and "Daily standup notes"
+ *    keep their words. A recurring task with no date is due on its first occurrence on or after today.
  *  - Abbreviations that are also ordinary words (`sun`, `sat`, `wed`) only count with context (`on
  *    sat`, `by wed`, `sun 2pm`); `may` and the other months only count with a day number after.
  *  - `M/D` is a date unless "of" follows, so "read 1/2 of the chapter" stays a title.
@@ -571,15 +573,57 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     return recurrenceMatch(isWorkWeek ? rule('weekdays', 1, []) : rule('weekly', 1, unique), j - k)
   }
 
+  /** The bare one-word forms. They are ordinary words too ("Weekly review"), so they need context. */
+  const bareRecurrence = (lower: string): RecurrenceRule | null =>
+    lower === 'daily' || lower === 'everyday'
+      ? rule('daily', 1, [])
+      : lower === 'weekdays'
+        ? rule('weekdays', 1, [])
+        : lower === 'weekly'
+          ? rule('weekly', 1, [])
+          : null
+
+  /**
+   * Whether a bare `daily`/`weekly`/`weekdays` at word `k` is a recurrence: a title word must come
+   * before it, and everything after it must be a token too ("Water plants daily #home"). Otherwise
+   * it belongs to the title ("Weekly review", "Daily standup notes", "Review weekly notes").
+   */
+  const bareRecurrenceFits = (k: number): boolean => {
+    let titleWordBefore = false
+    for (let i = 0; i < k && !titleWordBefore; i++) {
+      const o = owner[i] ?? -1
+      titleWordBefore = o === -1 || found[o]?.payload.kind === 'literal'
+    }
+    if (!titleWordBefore) return false
+
+    // Walk the tail as the scan would, pretending each single-use token is taken as it goes.
+    const saved = { ...taken }
+    let onlyTokens = true
+    for (let j = k + 1; j < words.length; ) {
+      if (words[j]?.quoted) {
+        j++
+        continue
+      }
+      const m = matchAny(j)
+      if (!m) {
+        onlyTokens = false
+        break
+      }
+      const kind = m.payload.kind
+      if (kind !== 'tag' && kind !== 'literal' && kind !== 'recurrence') taken[kind] = true
+      j += m.count
+    }
+    Object.assign(taken, saved)
+    return onlyTokens
+  }
+
   const matchRecurrence = (k: number): Match | null => {
     if (taken.recurrence) return null
     const w = wordAt(k)
     if (!w) return null
-    if (w.lower === 'daily' || w.lower === 'everyday')
-      return recurrenceMatch(rule('daily', 1, []), 1)
-    if (w.lower === 'weekdays') return recurrenceMatch(rule('weekdays', 1, []), 1)
-    if (w.lower === 'weekly') return recurrenceMatch(rule('weekly', 1, []), 1)
-    return w.lower === 'every' ? matchEvery(k) : null
+    if (w.lower === 'every') return matchEvery(k)
+    const bare = bareRecurrence(w.lower)
+    return bare && bareRecurrenceFits(k) ? recurrenceMatch(bare, 1) : null
   }
 
   // ── single-word tokens ──
@@ -747,4 +791,47 @@ function timeLabel(minutes: number): string {
   const hour = Math.floor(minutes / 60)
   const h12 = hour % 12 === 0 ? 12 : hour % 12
   return `${h12}:${pad2(minutes % 60)} ${hour < 12 ? 'AM' : 'PM'}`
+}
+
+// ─── Presentation helpers ───────────────────────────────────────────────────
+
+/** Where a new task shows up first: Today (due today or earlier), Upcoming (due later) or Inbox (no date). */
+export type QuickAddDestination = 'today' | 'upcoming' | 'inbox'
+
+export const QUICK_ADD_DESTINATION_LABELS: Record<QuickAddDestination, string> = {
+  today: 'Today',
+  upcoming: 'Upcoming',
+  inbox: 'Inbox',
+}
+
+export function quickAddDestination(
+  result: Pick<QuickAddResult, 'due'>,
+  today: ISODate,
+): QuickAddDestination {
+  if (!result.due) return 'inbox'
+  return result.due.date <= today ? 'today' : 'upcoming'
+}
+
+export interface InputSegment {
+  text: string
+  /** Set on the pieces that are a recognised token; plain text has no token. */
+  token?: QuickAddToken
+}
+
+/**
+ * Cuts `input` into runs at the token boundaries, so an overlay can highlight the recognised text
+ * while the user types. Concatenating every `text` gives `input` back exactly. Tokens that overlap
+ * or fall outside the input are ignored (the parser never produces them).
+ */
+export function splitByTokens(input: string, tokens: readonly QuickAddToken[]): InputSegment[] {
+  const segments: InputSegment[] = []
+  let cursor = 0
+  for (const token of tokens) {
+    if (token.start < cursor || token.end > input.length || token.end <= token.start) continue
+    if (token.start > cursor) segments.push({ text: input.slice(cursor, token.start) })
+    segments.push({ text: input.slice(token.start, token.end), token })
+    cursor = token.end
+  }
+  if (cursor < input.length) segments.push({ text: input.slice(cursor) })
+  return segments
 }

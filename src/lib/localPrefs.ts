@@ -15,6 +15,8 @@ export const PREF_KEYS = {
   sidebarCollapsed: 'forge:sidebar:collapsed',
   /** Last Tasks layout (list | board | calendar); written by the tasks feature. */
   tasksLayout: 'forge:tasks:layout',
+  /** Command palette recents: JSON array, newest first (src/app/palette/recents.ts). */
+  paletteRecent: 'forge:palette:recent',
 } as const
 
 export type PrefKey = (typeof PREF_KEYS)[keyof typeof PREF_KEYS]

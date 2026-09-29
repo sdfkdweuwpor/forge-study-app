@@ -1,4 +1,5 @@
 import { buildRegistry, validateManifests, type Registry } from './registry'
+import { paletteManifest } from '../palette/manifest'
 import { builtins } from './builtins'
 import type { FeatureManifest } from './types'
 
@@ -12,7 +13,11 @@ export const discovered: readonly (readonly [string, FeatureManifest])[] = Objec
   .map(([path, mod]) => [path.split('/').at(-2) ?? path, mod.default] as const)
   .sort(([a], [b]) => a.localeCompare(b))
 
-export const manifests: readonly FeatureManifest[] = [builtins, ...discovered.map(([, m]) => m)]
+export const manifests: readonly FeatureManifest[] = [
+  builtins,
+  paletteManifest,
+  ...discovered.map(([, m]) => m),
+]
 
 export const registryProblems: readonly string[] = validateManifests(manifests)
 

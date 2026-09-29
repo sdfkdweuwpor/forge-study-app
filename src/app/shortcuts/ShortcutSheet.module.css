@@ -1,0 +1,66 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Two columns of groups on wide screens; a group never splits across them. */
+.columns {
+  column-gap: var(--space-8);
+}
+
+@media (min-width: 640px) {
+  .columns {
+    column-count: 2;
+  }
+}
+
+.group {
+  break-inside: avoid;
+  margin-bottom: var(--space-6);
+}
+
+.heading {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.list {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 32px;
+  padding-block: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.description {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+}
+
+.scope {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  white-space: nowrap;
+}
+
+.keys {
+  flex: none;
+  margin: 0;
+}

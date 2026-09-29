@@ -1,6 +1,13 @@
 // Runs with TZ=America/New_York. DST 2026: starts Sun Mar 8, ends Sun Nov 1.
 import { describe, expect, it } from 'vitest'
-import { parseQuickAdd, type QuickAddContext, type QuickAddResult } from '@/logic/quickAdd'
+import type { RecurrenceRule } from '@/db/types'
+import {
+  parseQuickAdd,
+  quickAddDestination,
+  splitByTokens,
+  type QuickAddContext,
+  type QuickAddResult,
+} from '@/logic/quickAdd'
 
 /** Tuesday 2026-09-29, 10:00 local. */
 const TUE = new Date(2026, 8, 29, 10, 0).getTime()
@@ -607,6 +614,98 @@ describe('recurrence', () => {
   })
 })
 
+describe('bare daily / weekly / weekdays', () => {
+  it('stay in the title when they begin it', () => {
+    for (const input of [
+      'Weekly review',
+      'Daily standup notes',
+      'weekdays planning',
+      'Daily',
+      'Everyday carry checklist',
+    ]) {
+      const r = parse(input)
+      expect(r.recurrence, input).toBeUndefined()
+      expect(r.tokens, input).toEqual([])
+      expect(r.title, input).toBe(input)
+    }
+  })
+
+  it('a token before the word is not a title word', () => {
+    for (const input of ['#home weekly', 'tomorrow daily', '!high weekdays review']) {
+      const r = parse(input)
+      expect(r.recurrence, input).toBeUndefined()
+      expect(r.tokens.map((t) => t.kind)).not.toContain('recurrence')
+    }
+    expect(parse('#home weekly').title).toBe('weekly')
+  })
+
+  it('count after a title word at the end of the input', () => {
+    const cases: [string, RecurrenceRule, string][] = [
+      ['Water plants daily', { freq: 'daily', interval: 1, byWeekday: [] }, 'Water plants'],
+      ['Standup weekdays', { freq: 'weekdays', interval: 1, byWeekday: [] }, 'Standup'],
+      ['Review notes weekly', { freq: 'weekly', interval: 1, byWeekday: [] }, 'Review notes'],
+      ['Water plants daily.', { freq: 'daily', interval: 1, byWeekday: [] }, 'Water plants'],
+      // The first word stays a title word; only the trailing one is the rule.
+      ['Weekly review daily', { freq: 'daily', interval: 1, byWeekday: [] }, 'Weekly review'],
+    ]
+    for (const [input, rule, title] of cases) {
+      const r = parse(input)
+      expect(r.recurrence, input).toEqual(rule)
+      expect(r.title, input).toBe(title)
+    }
+  })
+
+  it('count when only other recognised tokens follow', () => {
+    const tagged = parse('Plan week weekly #home')
+    expect(tagged.recurrence).toEqual({ freq: 'weekly', interval: 1, byWeekday: [] })
+    expect(tagged.title).toBe('Plan week')
+    expect(tagged.tags).toEqual(['home'])
+
+    const timed = parse('Standup weekdays at 9:30 !low')
+    expect(timed.recurrence?.freq).toBe('weekdays')
+    expect(timed.due).toEqual({ date: '2026-09-29', time: '09:30' })
+    expect(timed.priority).toBe(1)
+    expect(timed.title).toBe('Standup')
+
+    const spread = parse('Flashcards daily ~1 #C779, "quoted"')
+    expect(spread.recurrence?.freq).toBe('daily')
+    expect(spread.estimate).toBe(1)
+    expect(spread.title).toBe('Flashcards quoted')
+  })
+
+  it('a quoted literal counts as a title word', () => {
+    const r = parse('"Chapter 4" daily')
+    expect(r.recurrence?.freq).toBe('daily')
+    expect(r.title).toBe('Chapter 4')
+  })
+
+  it('stay in the title when ordinary words follow', () => {
+    for (const input of [
+      'Review weekly notes',
+      'Send daily update to Sam',
+      'Plan weekdays and weekends',
+      'Water plants daily tomorrow tomorrow',
+      'Read daily #C182 then rest',
+    ]) {
+      const r = parse(input)
+      expect(r.recurrence, input).toBeUndefined()
+      expect(r.tokens.map((t) => t.kind), input).not.toContain('recurrence')
+    }
+    expect(parse('Review weekly notes').title).toBe('Review weekly notes')
+  })
+
+  it('every … forms always count, even at the start', () => {
+    const start = parse('Every day standup')
+    expect(start.recurrence?.freq).toBe('daily')
+    expect(start.title).toBe('standup')
+    const mid = parse('Weekly review every week #C182')
+    expect(mid.recurrence?.freq).toBe('weekly')
+    expect(mid.title).toBe('Weekly review')
+    expect(parse('Weekly review every monday').title).toBe('Weekly review')
+    expect(parse('Daily notes every other day').title).toBe('Daily notes')
+  })
+})
+
 describe('quoted literals', () => {
   it('keeps quoted text verbatim without the quotes', () => {
     const input = 'Buy "tomorrow" milk'
@@ -806,5 +905,48 @@ describe('token invariants', () => {
   it('parsing a plain title again finds nothing more', () => {
     const r = parse('Read chapter 4 tomorrow 2p #C182 !high ~2')
     expect(parse(r.title).tokens).toEqual([])
+  })
+})
+
+describe('quickAddDestination', () => {
+  it('is Inbox without a date, Today for today, Upcoming for later', () => {
+    expect(quickAddDestination(parse('Read chapter 4'), '2026-09-29')).toBe('inbox')
+    expect(quickAddDestination(parse('Read chapter 4 today'), '2026-09-29')).toBe('today')
+    expect(quickAddDestination(parse('Call at 3'), '2026-09-29')).toBe('today')
+    expect(quickAddDestination(parse('Read chapter 4 tomorrow 2p'), '2026-09-29')).toBe('upcoming')
+    expect(quickAddDestination(parse('Standup weekdays'), '2026-09-29')).toBe('today')
+    expect(quickAddDestination({ due: { date: '2026-09-01' } }, '2026-09-29')).toBe('today')
+  })
+})
+
+describe('splitByTokens', () => {
+  it("cuts the brief's example at every token and round-trips the input", () => {
+    const input = 'Read chapter 4 tomorrow 2p #C182 !high ~2'
+    const segments = splitByTokens(input, parse(input).tokens)
+    expect(segments.map((s) => s.text).join('')).toBe(input)
+    expect(segments.filter((s) => s.token).map((s) => s.text)).toEqual([
+      'tomorrow',
+      '2p',
+      '#C182',
+      '!high',
+      '~2',
+    ])
+    expect(segments[0]).toEqual({ text: 'Read chapter 4 ' })
+  })
+
+  it('handles no tokens, an empty input and a token at either edge', () => {
+    expect(splitByTokens('', [])).toEqual([])
+    expect(splitByTokens('plain', [])).toEqual([{ text: 'plain' }])
+    const input = '#a b !low'
+    const segments = splitByTokens(input, parse(input).tokens)
+    expect(segments.map((s) => s.text)).toEqual(['#a', ' b ', '!low'])
+    expect(segments[0]?.token?.kind).toBe('tag')
+    expect(segments[2]?.token?.kind).toBe('priority')
+  })
+
+  it('ignores overlapping or out-of-range tokens', () => {
+    const token = { kind: 'tag', start: 0, end: 4, text: '#abc', label: '#abc' } as const
+    const segments = splitByTokens('#abc', [token, { ...token, start: 2, end: 9 }])
+    expect(segments).toEqual([{ text: '#abc', token }])
   })
 })

@@ -15,10 +15,13 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 - **2026-09-29 — `netlify.toml` holds build, SPA rewrite and cache headers.**
   - Build: `npm run build`, publish `dist`, `NODE_VERSION=22`.
   - SPA rewrite: `/* /index.html 200`.
-  - Cache: `Cache-Control: immutable` for `/assets/*`; `no-cache` for `/index.html`, `/sw.js` and `/manifest.webmanifest`.
+  - Cache: `Cache-Control: immutable` for `/assets/*`; `no-cache` for `/`, `/index.html`, `/sw.js` and `/manifest.webmanifest`.
+  - A missing `/assets/*` file returns a real 404 (`/404.html`), via a rule placed above the SPA rewrite. Redirects only apply where no file exists (no `force`), so existing assets are served normally. Without it, a tab left open across a deploy gets `index.html` in place of a JavaScript chunk and fails with a MIME-type error.
 - **2026-09-29 — Security headers come from one file, `security-headers.mjs`.** A 15-line Vite plugin writes it to `dist/_headers`, and the same object feeds `vite preview` headers. Playwright therefore runs under the production CSP, and the header list can't drift between two files.
   - The CSP is `default-src 'self'`.
-  - `style-src` adds `'unsafe-inline'`, for library inline styles.
+  - `style-src` adds `'unsafe-inline'`: some libraries inject `<style>` elements or style attributes, and with `script-src 'self'` it cannot run script. React `style` props alone would not need it.
+  - `font-src` adds `data:`, because Vite inlines small font subsets as data URIs.
+  - `worker-src 'self'` only: workers are separate built files (`new Worker(new URL(...))`), never `blob:` or `?worker&inline`.
   - `img-src` adds `data:`, `blob:` and `https://icons.duckduckgo.com`.
   - `frame-ancestors 'none'`.
   - The theme bootstrap is an external `/theme-init.js`, so no inline scripts are needed.
@@ -102,7 +105,9 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 - **2026-09-29 — Subtasks are an embedded checklist array on the task, not separate task rows.** This matches Things/Notion checklists and keeps queries simple.
 - **2026-09-29 — Notes (task, goal, course) are a small `Block[]` model with a hand-made block editor and slash menu.** The brief asks for `/todo /heading /divider /callout` only, which doesn't justify a rich-text dependency.
 - **2026-09-29 — Device-specific UI prefs (sidebar width/collapsed, last tasks layout, a theme mirror for no-flash boot) live in `localStorage` behind try/catch. Everything else lives in the `settings` row.** Those prefs shouldn't sync between laptop and phone.
-- **2026-09-29 — Sample data comes from `?seed=wgu|empty`, which lazy-imports `src/dev/seed.ts`.** It is used for screenshots and e2e (realistic WGU data: C182, C172, C779, D278, C959, C867, C949), costs nothing in the main bundle, and is harmless in production (single user, local data).
+- **2026-09-29 — Sample data comes from `?seed=wgu|empty`, which lazy-imports `src/dev/seed.ts`, and only in builds compiled with `VITE_ENABLE_SEED=1`.** It is used for screenshots and e2e (realistic WGU data: C182, C172, C779, D278, C959, C867, C949).
+  - `npm run dev` and both Playwright `webServer` commands set the flag. A deployed build never has it: the seed module is dropped from the bundle and `?seed=` is ignored (and stripped from the address). A crafted link therefore can't replace anyone's data, whether or not the database already holds any.
+  - Never set `VITE_ENABLE_SEED` in Netlify's environment.
 - **2026-09-29 — `TaskFilter`/`TaskSort` live in `src/db/types.ts`, not `logic/taskQuery`.** `SavedView` needs them, and `db` must not depend on `logic` for types; `logic/taskQuery` imports them from `@/db/types` instead.
 - **2026-09-29 — Tables are typed `Table<T, ID, NewRow<T>>`.** `add`/`put` accept rows without `createdAt`/`updatedAt` because the hooks stamp them; reads always return full rows.
 - **2026-09-29 — Stamping edge cases.** An explicit `updatedAt` in a change is kept (sync/import); a `put()` that omits `createdAt` keeps the stored one; an empty diff is not stamped. `ForgeDB(name, clock)` takes an injectable clock for tests.
@@ -145,6 +150,10 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
 - **2026-09-29 — Calendar export offers an `.ics` download plus "Copy calendar text". There is no live subscription URL.** A subscribable URL needs a server. If Phase 12 sync lands, Supabase storage could host one.
 - **2026-09-29 — PDFs are stored as Blobs in `files` and opened in a new tab via object URL, not embedded in iframes.** This avoids CSP/plugin issues. Snapshots exclude blobs, and JSON export includes them only on request.
 - **2026-09-29 — Cloud sync (Phase 12) is deferred.** Supabase with last-write-wins on `updatedAt`, tombstones as schema v2, and lazy-loaded so it costs nothing when off. We'll decide on `@supabase/supabase-js` vs plain fetch at that point. The app works fully without it.
+- **2026-09-29 — A lazy chunk that fails to load (usually after a deploy) reloads the tab once, then offers "Reload".** `RouteErrorView` recognises the browser's dynamic-import failure messages (`logic/chunkError.ts`) and calls `location.reload()` at most once per 30 s per tab, guarded by `sessionStorage['forge:chunk-reload-at']`; if storage is unavailable it never reloads on its own. "Try again" is not offered for these, because `React.lazy` caches the rejected import.
+- **2026-09-29 — Startup and database failures render a full-screen recovery page, never a blank one.** `app/start.tsx` boots, then renders once. A rejected boot shows "Forge could not start", and a boot still pending after 10 s shows "taking a while" (an IndexedDB open blocked by another tab hangs silently; if boot finishes later, the app replaces the screen). Both offer Reload and a raw JSON export. Another tab upgrading or deleting the database (`versionchange`, handled in `boot.ts`, not `db.ts`) closes this tab's connection for good and shows "Forge was updated in another tab". Uncaught errors and unhandled rejections go to `recordError`.
+- **2026-09-29 — Storage.** Boot asks `navigator.storage.persist()` once, without waiting for it. The raw export reads all tables in one read transaction and embeds attached files as base64 only while they total under 50 MB, otherwise it lists them and says so in `notes`.
+- **2026-09-29 — Navigation is announced.** After a pathname change (not on first load, not on query-only changes) focus moves to the page `<h1>` (or `<main>`) and a polite live region announces the page title. Focus is left alone when the page already put it somewhere (an autofocused field) or a modal holds it.
 
 ## Design system
 

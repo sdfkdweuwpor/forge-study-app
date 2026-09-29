@@ -826,7 +826,7 @@ test.describe('accent and reduced motion (1440)', () => {
 test.describe('lazy chunk gone after a deploy (1440)', () => {
   test.use({
     viewport: DESKTOP,
-    ignoreConsoleErrors: [/Failed to load resource/, /Failed to fetch dynamically imported module/],
+    ignoreConsoleErrors: ['Failed to load resource', 'Failed to fetch dynamically imported module'],
   })
 
   test('shows a Reload screen instead of a blank page, reloads once by itself, and the rest keeps working', async ({
@@ -857,5 +857,62 @@ test.describe('lazy chunk gone after a deploy (1440)', () => {
       .click()
     await expect(page).toHaveURL(/\/goals$/)
     await expect(page.getByRole('heading', { name: 'Goals' })).toBeVisible()
+  })
+})
+
+// ── 12. Startup and database failures ────────────────────────────────────────────────────────────
+
+test.describe('startup and database failures (1440)', () => {
+  test.use({ viewport: DESKTOP })
+
+  test('another tab upgrading the database gives this tab a Reload screen', async ({ page }) => {
+    await gotoApp(page, '/')
+    // What a newer build in another tab does: open the same database at a higher version.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const request = indexedDB.open('forge', 10_000)
+          request.onsuccess = () => {
+            request.result.close()
+            resolve()
+          }
+          request.onerror = () => reject(request.error)
+        }),
+    )
+    await expect(
+      page.getByRole('heading', { name: 'Forge was updated in another tab' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Export my data' })).toHaveCount(0)
+  })
+
+  test('a database that cannot be opened shows the recovery screen instead of a blank page', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      indexedDB.open = () => {
+        throw new DOMException('Access to storage was denied', 'SecurityError')
+      }
+    })
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Forge could not start' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Export my data' })).toBeVisible()
+  })
+
+  test('a database that never answers shows the recovery screen after 10 seconds', async ({
+    page,
+  }) => {
+    test.setTimeout(45_000)
+    await page.addInitScript(() => {
+      // A request that never fires: what an open blocked by an old tab looks like.
+      indexedDB.open = () => new EventTarget() as IDBOpenDBRequest
+    })
+    await page.goto('/')
+    await expect(
+      page.getByRole('heading', { name: 'Forge is taking a while to start' }),
+    ).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Export my data' })).toBeVisible()
   })
 })

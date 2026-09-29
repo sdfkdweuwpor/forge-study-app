@@ -33,6 +33,8 @@ npm run format           # Prettier
 - `?seed=empty` — blank slate for testing empty states
 - Default (no seed) — production mode with no sample data
 
+Seeding replaces the stored data, so it only exists in builds compiled with `VITE_ENABLE_SEED=1`: `npm run dev` and the Playwright web servers set it. A deployed build ignores `?seed=`.
+
 ## Deploy (Netlify)
 
 The site is deployed to Netlify as `forge-study-app`.

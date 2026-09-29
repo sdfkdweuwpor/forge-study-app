@@ -9,8 +9,8 @@ type Seed = 'wgu' | 'empty'
 interface Fixtures {
   /** Freeze `Date.now()`/`new Date()` at FIXED_NOW (timers still run). Set `false` to opt out. */
   fixedClock: boolean
-  /** console.error messages a test provokes on purpose (e.g. a blocked request). Everything else still fails it. */
-  ignoreConsoleErrors: RegExp[]
+  /** Substrings of console.error messages a test provokes on purpose (e.g. a blocked request). Everything else still fails it. */
+  ignoreConsoleErrors: string[]
 }
 
 /** Every test fails on any `console.error` or uncaught page error. */
@@ -20,7 +20,10 @@ export const test = base.extend<Fixtures>({
   page: async ({ page, fixedClock, ignoreConsoleErrors }, use) => {
     const problems: string[] = []
     page.on('console', (msg) => {
-      if (msg.type() === 'error' && !ignoreConsoleErrors.some((re) => re.test(msg.text()))) {
+      if (
+        msg.type() === 'error' &&
+        !ignoreConsoleErrors.some((part) => msg.text().includes(part))
+      ) {
         problems.push(`console.error: ${msg.text()}`)
       }
     })

@@ -8,6 +8,7 @@ import {
   crossedMark,
   cyclePosition,
   displaySeconds,
+  earnedXp,
   elapsedMs,
   focusPhase,
   formatClock,
@@ -24,7 +25,9 @@ import {
   settleSession,
   shouldDiscard,
   spokenClock,
+  phaseLabel,
   upNext,
+  variantOf,
   type CycleConfig,
   type LastPhase,
   type TimerClock,
@@ -349,6 +352,22 @@ describe('the pomodoro cycle', () => {
   })
 })
 
+describe('naming a stored phase', () => {
+  it('a focus row is focus; a break is short, or long after every fourth round', () => {
+    expect(variantOf({ kind: 'focus', round: 4 }, CYCLE)).toBe('focus')
+    expect(variantOf({ kind: 'break', round: 3 }, CYCLE)).toBe('short-break')
+    expect(variantOf({ kind: 'break', round: 4 }, CYCLE)).toBe('long-break')
+    expect(variantOf({ kind: 'break', round: 8 }, CYCLE)).toBe('long-break')
+    expect(variantOf({ kind: 'break', round: 2 }, { longBreakEvery: 2 })).toBe('long-break')
+  })
+
+  it('labels each phase', () => {
+    expect(phaseLabel('focus')).toBe('Focus')
+    expect(phaseLabel('short-break')).toBe('Short break')
+    expect(phaseLabel('long-break')).toBe('Long break')
+  })
+})
+
 describe('up next', () => {
   const now = at('2026-09-29T10:00:00-04:00')
   const last = (over: Partial<LastPhase> = {}): LastPhase => ({
@@ -433,5 +452,11 @@ describe('the outcome of a session and the anti-cheat rule (BRIEF §5.5)', () =>
     expect(shouldDiscard(0)).toBe(true)
     expect(shouldDiscard(59_999)).toBe(true)
     expect(shouldDiscard(60_000)).toBe(false)
+  })
+
+  it('reads the XP of a settled session: minutes when counted, nothing otherwise', () => {
+    expect(earnedXp({ counted: true, actualMinutes: 25 })).toBe(25)
+    expect(earnedXp({ counted: false, actualMinutes: 12 })).toBe(0)
+    expect(earnedXp({ counted: true, actualMinutes: null })).toBe(0)
   })
 })

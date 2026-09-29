@@ -230,6 +230,26 @@ export function breakAfter(round: number, cfg: CycleConfig): Phase {
   }
 }
 
+/** Which phase a stored session is: a focus round, or the short or long break after round `round`. */
+export function variantOf(
+  session: { kind: SessionKind; round: number },
+  cfg: Pick<CycleConfig, 'longBreakEvery'>,
+): PhaseVariant {
+  if (session.kind === 'focus') return 'focus'
+  const every = clampInt(cfg.longBreakEvery, 1, 12, 4)
+  return session.round % every === 0 ? 'long-break' : 'short-break'
+}
+
+const PHASE_LABELS: Record<PhaseVariant, string> = {
+  focus: 'Focus',
+  'short-break': 'Short break',
+  'long-break': 'Long break',
+}
+
+export function phaseLabel(variant: PhaseVariant): string {
+  return PHASE_LABELS[variant]
+}
+
 /** What comes after a phase: a break after focus round `r`, and focus round `r + 1` after a break. */
 export function nextPhase(prev: { kind: SessionKind; round: number }, cfg: CycleConfig): Phase {
   return prev.kind === 'focus' ? breakAfter(prev.round, cfg) : focusPhase(prev.round + 1, cfg)
@@ -293,4 +313,9 @@ export function settleSession(input: {
   if (input.kind === 'break') return { actualMinutes, counted: false, xp: 0 }
   const basis = { plannedMin: input.plannedMinutes, actualMin: actualMinutes }
   return { actualMinutes, counted: isSessionCounted(basis), xp: xpForSession(basis) }
+}
+
+/** The XP a settled session earned: its whole minutes when it counted, else nothing. */
+export function earnedXp(session: Pick<Session, 'counted' | 'actualMinutes'>): number {
+  return session.counted ? Math.max(0, session.actualMinutes ?? 0) : 0
 }

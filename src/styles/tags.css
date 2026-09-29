@@ -1,0 +1,73 @@
+/*
+ * Notion-style tag colours (TagColor in src/db/types.ts): an opaque soft background plus a text
+ * colour per hue, per theme. Every pair is at least 5:1 (contrast.test.ts). Use
+ * --tag-<name>-text on its own for dots, icons and confetti; it is at least 3:1 on the page too.
+ * Dark values are repeated for the prefers-color-scheme block; the test keeps them equal.
+ */
+
+:root,
+[data-theme='light'] {
+  --tag-gray-bg: #e9e8e5;
+  --tag-gray-text: #64615c;
+  --tag-brown-bg: #f5e4db;
+  --tag-brown-text: #7a5a49;
+  --tag-orange-bg: #ffe2ca;
+  --tag-orange-text: #8b541c;
+  --tag-yellow-bg: #f6e7bf;
+  --tag-yellow-text: #7f5b1d;
+  --tag-green-bg: #d8efdc;
+  --tag-green-text: #396d46;
+  --tag-blue-bg: #d5ecfb;
+  --tag-blue-text: #24678d;
+  --tag-purple-bg: #ede2fb;
+  --tag-purple-text: #715391;
+  --tag-pink-bg: #fcdfea;
+  --tag-pink-text: #91496b;
+  --tag-red-bg: #ffdedb;
+  --tag-red-text: #9a4541;
+}
+
+[data-theme='dark'] {
+  --tag-gray-bg: #363533;
+  --tag-gray-text: #adaba7;
+  --tag-brown-bg: #41322a;
+  --tag-brown-text: #c0a699;
+  --tag-orange-bg: #482f18;
+  --tag-orange-text: #cda27d;
+  --tag-yellow-bg: #423305;
+  --tag-yellow-text: #c2a77d;
+  --tag-green-bg: #263b2a;
+  --tag-green-text: #8fb696;
+  --tag-blue-bg: #233846;
+  --tag-blue-text: #84b1cf;
+  --tag-purple-bg: #3a3046;
+  --tag-purple-text: #b6a1d1;
+  --tag-pink-bg: #462d37;
+  --tag-pink-text: #d399b2;
+  --tag-red-bg: #4a2c29;
+  --tag-red-text: #dc9892;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]),
+  [data-theme='system'] {
+    --tag-gray-bg: #363533;
+    --tag-gray-text: #adaba7;
+    --tag-brown-bg: #41322a;
+    --tag-brown-text: #c0a699;
+    --tag-orange-bg: #482f18;
+    --tag-orange-text: #cda27d;
+    --tag-yellow-bg: #423305;
+    --tag-yellow-text: #c2a77d;
+    --tag-green-bg: #263b2a;
+    --tag-green-text: #8fb696;
+    --tag-blue-bg: #233846;
+    --tag-blue-text: #84b1cf;
+    --tag-purple-bg: #3a3046;
+    --tag-purple-text: #b6a1d1;
+    --tag-pink-bg: #462d37;
+    --tag-pink-text: #d399b2;
+    --tag-red-bg: #4a2c29;
+    --tag-red-text: #dc9892;
+  }
+}

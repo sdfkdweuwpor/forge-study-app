@@ -1,0 +1,90 @@
+/*
+ * Accent presets (settings.appearance.accent → <html data-accent>). Ids match `AccentId` in
+ * src/db/types.ts. Components never read these raw values: tokens.css maps them to
+ * --accent, --accent-hover, --accent-soft, --accent-text and --accent-contrast per theme
+ * (-l = light, -d = dark).
+ *
+ * Colour accents share one fill in both themes: white text on it must reach 4.5:1 and the fill
+ * must reach 3:1 against the dark surfaces (focus ring, progress), which leaves a narrow window.
+ * Hover goes darker. Dark mode gets a lighter --accent-text and a stronger --accent-soft.
+ * Graphite is monochrome: near-black in light, light grey with dark text in dark.
+ */
+
+:root,
+[data-accent='blue'] {
+  --_accent-l: #2376d4; /* brief #2383E2, darkened just enough for white text */
+  --_accent-hover-l: #0f68c5;
+  --_accent-soft-l: rgba(35, 118, 212, 0.1);
+  --_accent-text-l: #1565c2;
+  --_accent-contrast-l: #ffffff;
+  --_accent-d: #2376d4;
+  --_accent-hover-d: #0f68c5;
+  --_accent-soft-d: rgba(35, 118, 212, 0.22);
+  --_accent-text-d: #68a6f4;
+  --_accent-contrast-d: #ffffff;
+}
+
+[data-accent='teal'] {
+  --_accent-l: #048389;
+  --_accent-hover-l: #00767c;
+  --_accent-soft-l: rgba(4, 131, 137, 0.1);
+  --_accent-text-l: #077276;
+  --_accent-contrast-l: #ffffff;
+  --_accent-d: #048389;
+  --_accent-hover-d: #00767c;
+  --_accent-soft-d: rgba(4, 131, 137, 0.22);
+  --_accent-text-d: #64afb3;
+  --_accent-contrast-d: #ffffff;
+}
+
+[data-accent='green'] {
+  --_accent-l: #2b864b;
+  --_accent-hover-l: #18783e;
+  --_accent-soft-l: rgba(43, 134, 75, 0.1);
+  --_accent-text-l: #21753d;
+  --_accent-contrast-l: #ffffff;
+  --_accent-d: #2b864b;
+  --_accent-hover-d: #18783e;
+  --_accent-soft-d: rgba(43, 134, 75, 0.22);
+  --_accent-text-d: #6fb281;
+  --_accent-contrast-d: #ffffff;
+}
+
+[data-accent='orange'] {
+  --_accent-l: #c15611;
+  --_accent-hover-l: #b24800;
+  --_accent-soft-l: rgba(193, 86, 17, 0.1);
+  --_accent-text-l: #af4500;
+  --_accent-contrast-l: #ffffff;
+  --_accent-d: #c15611;
+  --_accent-hover-d: #b24800;
+  --_accent-soft-d: rgba(193, 86, 17, 0.22);
+  --_accent-text-d: #e68d61;
+  --_accent-contrast-d: #ffffff;
+}
+
+[data-accent='pink'] {
+  --_accent-l: #c14b85;
+  --_accent-hover-l: #b23d78;
+  --_accent-soft-l: rgba(193, 75, 133, 0.1);
+  --_accent-text-l: #ad3b78;
+  --_accent-contrast-l: #ffffff;
+  --_accent-d: #c14b85;
+  --_accent-hover-d: #b23d78;
+  --_accent-soft-d: rgba(193, 75, 133, 0.22);
+  --_accent-text-d: #e784b0;
+  --_accent-contrast-d: #ffffff;
+}
+
+[data-accent='graphite'] {
+  --_accent-l: #37352f;
+  --_accent-hover-l: #4b4943;
+  --_accent-soft-l: rgba(55, 53, 47, 0.1);
+  --_accent-text-l: #37352f;
+  --_accent-contrast-l: #ffffff;
+  --_accent-d: #d4d4d4;
+  --_accent-hover-d: #e6e6e6;
+  --_accent-soft-d: rgba(255, 255, 255, 0.1);
+  --_accent-text-d: rgba(255, 255, 255, 0.87);
+  --_accent-contrast-d: #191919;
+}

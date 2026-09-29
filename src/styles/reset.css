@@ -78,13 +78,3 @@ table {
 [hidden] {
   display: none !important;
 }
-
-/* Focus ring: 2px accent, 2px offset, keyboard only (BRIEF §3.9) */
-:focus {
-  outline: none;
-}
-
-:focus-visible {
-  outline: var(--focus-ring-width) solid var(--accent);
-  outline-offset: var(--focus-ring-offset);
-}

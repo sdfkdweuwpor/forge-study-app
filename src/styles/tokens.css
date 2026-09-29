@@ -1,34 +1,79 @@
 /*
- * Design tokens (BRIEF §3.2–3.5). Plain custom properties only; Phase 2 (designer) extends this file.
- * Theme is chosen by <html data-theme="light|dark"> (set before first paint by public/theme-init.js and
- * kept in sync by ThemeProvider). Without the attribute, the OS preference applies.
+ * Design tokens (BRIEF §3.2–3.5). Plain custom properties only.
+ *
+ * Themes work on ANY element, so /design can show light and dark side by side:
+ *   :root, [data-theme='light']   light (default)
+ *   [data-theme='dark']           dark
+ *   no data-theme / 'system'      follows prefers-color-scheme (public/theme-init.js normally sets
+ *                                 data-theme on <html> before first paint)
+ * Accent presets live in accents.css (<html data-accent>), tag colors in tags.css. To preview an
+ * accent on a sub-tree, set both data-accent and data-theme on it (the theme block maps the raw
+ * --_accent-* values to the public --accent-* tokens).
+ *
+ * Colour tiers (checked by contrast.test.ts; see DECISIONS "Design tokens"):
+ *   --text, --text-muted          ≥ 4.5:1 on every surface, incl. hover/active rows. Any text size.
+ *   --text-faint                  ≥ 3:1. Only large text (≥ 24px, or ≥ 18.66px at 700), icons,
+ *                                 disabled text and decorative separators. Never small essential
+ *                                 text, never placeholders (use --text-muted).
+ *   --{accent,success,warning,danger,xp}        fills, icons, bars, rings: ≥ 3:1 on surfaces.
+ *   --{…}-text                    coloured text: ≥ 4.5:1 on surfaces and on its own --{…}-soft.
+ *   --{…}-soft                    tinted background (selected rows, callouts, badges).
+ *   --accent-contrast             text/icons on an --accent (or --accent-hover) fill: ≥ 4.5:1.
+ *   --border, --border-strong     decorative hairlines; controls are identified by label/text.
+ *
+ * Every colour is a literal hex or rgba() so contrast.test.ts can parse and composite it.
+ * The dark values are repeated inside the prefers-color-scheme block; the test keeps them equal.
  */
 
 :root,
 [data-theme='light'] {
   color-scheme: light;
 
+  /* Surfaces */
   --bg: #ffffff;
   --bg-sidebar: #f7f7f5;
+  --bg-elevated: #ffffff;
   --bg-hover: rgba(55, 53, 47, 0.06);
   --bg-active: rgba(55, 53, 47, 0.09);
-  --bg-elevated: #ffffff;
+  --bg-inverse: #2f2e2b;
+
+  /* Text (brief muted 0.65 and faint 0.45 fail AA; see header) */
   --text: #37352f;
-  --text-muted: rgba(55, 53, 47, 0.65);
-  --text-faint: rgba(55, 53, 47, 0.45);
+  --text-muted: rgba(55, 53, 47, 0.72);
+  --text-faint: rgba(55, 53, 47, 0.56);
+  --text-inverse: rgba(255, 255, 255, 0.94);
+  --text-inverse-muted: rgba(255, 255, 255, 0.66);
+
+  /* Lines */
   --border: rgba(55, 53, 47, 0.09);
   --border-strong: rgba(55, 53, 47, 0.16);
-  --accent: #2383e2;
-  --accent-soft: rgba(35, 131, 226, 0.1);
+
+  /* Accent, mapped from accents.css */
+  --accent: var(--_accent-l);
+  --accent-hover: var(--_accent-hover-l);
+  --accent-soft: var(--_accent-soft-l);
+  --accent-text: var(--_accent-text-l);
+  --accent-contrast: var(--_accent-contrast-l);
+
+  /* Status */
   --success: #0f7b6c;
+  --success-text: #197364;
+  --success-soft: rgba(15, 123, 108, 0.1);
   --warning: #d9730d;
+  --warning-text: #a74c00;
+  --warning-soft: rgba(217, 115, 13, 0.12);
   --danger: #e03e3e;
-  --xp: #cb912f; /* gold: XP and rewards only */
+  --danger-text: #c6232a;
+  --danger-soft: rgba(224, 62, 62, 0.1);
+  --xp: #be8226; /* gold: XP and rewards only */
+  --xp-text: #955800;
+  --xp-soft: rgba(190, 130, 38, 0.14);
+
+  /* Elevation */
   --shadow-pop:
     0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
     0 9px 24px rgba(15, 15, 15, 0.2);
   --scrim: rgba(15, 15, 15, 0.35);
-  --on-accent: #ffffff;
 }
 
 [data-theme='dark'] {
@@ -36,68 +81,127 @@
 
   --bg: #191919;
   --bg-sidebar: #202020;
+  --bg-elevated: #252525;
   --bg-hover: rgba(255, 255, 255, 0.055);
   --bg-active: rgba(255, 255, 255, 0.09);
-  --bg-elevated: #252525;
+  --bg-inverse: #3a3a3a;
+
   --text: rgba(255, 255, 255, 0.87);
   --text-muted: rgba(255, 255, 255, 0.55);
-  --text-faint: rgba(255, 255, 255, 0.35);
+  --text-faint: rgba(255, 255, 255, 0.38);
+  --text-inverse: rgba(255, 255, 255, 0.94);
+  --text-inverse-muted: rgba(255, 255, 255, 0.66);
+
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.15);
-  --accent: #2383e2;
-  --accent-soft: rgba(35, 131, 226, 0.2);
+
+  --accent: var(--_accent-d);
+  --accent-hover: var(--_accent-hover-d);
+  --accent-soft: var(--_accent-soft-d);
+  --accent-text: var(--_accent-text-d);
+  --accent-contrast: var(--_accent-contrast-d);
+
   --success: #4dab9a;
+  --success-text: #59b1a1;
+  --success-soft: rgba(77, 171, 154, 0.16);
   --warning: #ffa344;
+  --warning-text: #ffa344;
+  --warning-soft: rgba(255, 163, 68, 0.16);
   --danger: #ff7369;
+  --danger-text: #ff7972;
+  --danger-soft: rgba(255, 115, 105, 0.16);
   --xp: #e0a93b;
+  --xp-text: #e0a93b;
+  --xp-soft: rgba(224, 169, 59, 0.16);
+
   --shadow-pop:
     0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4), 0 9px 24px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.55);
-  --on-accent: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
+  :root:not([data-theme]),
+  [data-theme='system'] {
     color-scheme: dark;
 
     --bg: #191919;
     --bg-sidebar: #202020;
+    --bg-elevated: #252525;
     --bg-hover: rgba(255, 255, 255, 0.055);
     --bg-active: rgba(255, 255, 255, 0.09);
-    --bg-elevated: #252525;
+    --bg-inverse: #3a3a3a;
+
     --text: rgba(255, 255, 255, 0.87);
     --text-muted: rgba(255, 255, 255, 0.55);
-    --text-faint: rgba(255, 255, 255, 0.35);
+    --text-faint: rgba(255, 255, 255, 0.38);
+    --text-inverse: rgba(255, 255, 255, 0.94);
+    --text-inverse-muted: rgba(255, 255, 255, 0.66);
+
     --border: rgba(255, 255, 255, 0.08);
     --border-strong: rgba(255, 255, 255, 0.15);
-    --accent: #2383e2;
-    --accent-soft: rgba(35, 131, 226, 0.2);
+
+    --accent: var(--_accent-d);
+    --accent-hover: var(--_accent-hover-d);
+    --accent-soft: var(--_accent-soft-d);
+    --accent-text: var(--_accent-text-d);
+    --accent-contrast: var(--_accent-contrast-d);
+
     --success: #4dab9a;
+    --success-text: #59b1a1;
+    --success-soft: rgba(77, 171, 154, 0.16);
     --warning: #ffa344;
+    --warning-text: #ffa344;
+    --warning-soft: rgba(255, 163, 68, 0.16);
     --danger: #ff7369;
+    --danger-text: #ff7972;
+    --danger-soft: rgba(255, 115, 105, 0.16);
     --xp: #e0a93b;
+    --xp-text: #e0a93b;
+    --xp-soft: rgba(224, 169, 59, 0.16);
+
     --shadow-pop:
       0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4),
       0 9px 24px rgba(0, 0, 0, 0.5);
     --scrim: rgba(0, 0, 0, 0.55);
-    --on-accent: #ffffff;
   }
+}
+
+/* Theme-dependent shorthands. Declared on every themed element so they resolve per theme. */
+:root,
+[data-theme] {
+  --focus-ring: var(--focus-ring-width) solid var(--accent);
 }
 
 /* Theme-independent scales */
 :root {
-  /* Type (BRIEF §3.3) */
+  /* Type (BRIEF §3.3). Inter is self-hosted in typography.css. */
   --font-ui:
-    'Inter Variable', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
+    'Inter Variable', 'Inter Fallback', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, Roboto,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --font-features: 'cv11' 1, 'ss01' 1;
+
   --fs-12: 0.75rem;
-  --fs-14: 0.875rem;
-  --fs-16: 1rem;
+  --fs-14: 0.875rem; /* base UI */
+  --fs-16: 1rem; /* body */
   --fs-20: 1.25rem;
   --fs-24: 1.5rem;
   --fs-32: 2rem;
-  --fs-40: 2.5rem;
+  --fs-40: 2.5rem; /* page titles */
+  --fs-display: 6rem; /* focus timer: weight 600, tabular */
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
   --lh-body: 1.5;
   --lh-heading: 1.2;
+  --lh-display: 1;
+
+  --tracking-title: -0.02em; /* 24–40px titles */
+  --tracking-snug: -0.01em; /* 16–20px headings, brand */
+  --tracking-display: -0.02em;
 
   /* Spacing (4px scale) */
   --space-1: 4px;
@@ -109,31 +213,50 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* Radius */
+  /* Radius: inputs/tags, buttons/menu items, cards/popovers, modals, pills */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 10px;
   --radius-xl: 14px;
+  --radius-full: 999px;
 
-  /* Motion (BRIEF §3.5) */
-  --dur-1: 120ms;
-  --dur-2: 200ms;
-  --dur-3: 280ms;
+  /* Motion (BRIEF §3.5); reduced-motion overrides live in motion.css */
+  --dur-1: 120ms; /* hover, press */
+  --dur-2: 200ms; /* popovers, toasts */
+  --dur-3: 280ms; /* pages, modals, drawers */
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Movement: build enter/exit transforms from these so reduced motion collapses them to 0. */
+  --shift-1: 4px;
+  --shift-2: 8px;
+  --shift-3: 16px;
+  --scale-in: 0.97;
+  --scale-press: 0.97;
 
   /* Layout */
   --sidebar-w: 240px;
+  --sidebar-min: 200px;
+  --sidebar-max: 400px;
+  --panel-w: 320px;
   --page-max: 900px;
   --tabbar-h: 56px;
   --tap-min: 44px;
+  --control-h-sm: 28px;
+  --control-h-md: 32px;
 
   /* Focus ring (BRIEF §3.9): 2px accent, 2px offset */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
   /* Stacking */
+  --z-raised: 1;
+  --z-sticky: 10;
   --z-sidebar: 20;
   --z-tabbar: 30;
   --z-drawer: 40;
   --z-overlay: 50;
+  --z-modal: 60;
+  --z-popover: 70;
+  --z-toast: 80;
+  --z-tooltip: 90;
+  --z-celebration: 100;
 }

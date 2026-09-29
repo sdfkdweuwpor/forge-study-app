@@ -1,0 +1,74 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.group {
+  margin-top: var(--space-6);
+}
+
+.group:first-child {
+  margin-top: 0;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.groupHeader .count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-regular);
+}
+
+.group[data-group='overdue'] .groupHeader {
+  color: var(--warning-text);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  position: relative;
+  list-style: none;
+}
+
+.item[data-dragging] {
+  z-index: var(--z-raised);
+}
+
+.grip {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+@media (hover: hover) {
+  .grip:hover {
+    background: var(--bg-active);
+    color: var(--text);
+  }
+}

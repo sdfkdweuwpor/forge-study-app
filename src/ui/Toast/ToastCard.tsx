@@ -14,6 +14,8 @@ export interface ToastCardProps extends Omit<ComponentProps<'div'>, 'title'> {
   phase?: UndoPhase
   /** Shows an Undo button (ignored once undone). */
   onUndo?: () => void
+  /** Shows an action button (ignored once undone or while an undo failed). */
+  action?: { label: string; onClick: () => void }
   /** Shows a dismiss (X) button. */
   onDismiss?: () => void
 }
@@ -36,6 +38,7 @@ export function ToastCard({
   description,
   phase = 'idle',
   onUndo,
+  action,
   onDismiss,
   className,
   ...rest
@@ -60,6 +63,11 @@ export function ToastCard({
           {detail && <p className={styles.description}>{detail}</p>}
         </div>
         <div className={styles.actions}>
+          {action && !undone && !failed && (
+            <Button variant="ghost" size="sm" className={styles.undo} onClick={action.onClick}>
+              {action.label}
+            </Button>
+          )}
           {onUndo && !undone && (
             <Button
               variant="ghost"

@@ -566,12 +566,12 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
     - Lists: Inbox, Upcoming, All, Completed, grouped by date or project, with sort and filter bar.
     - Task peek and page: all brief §5.3 fields, subtasks and recurrence. Notes use `BlockEditor` from 3C.
   - Shortcuts: `j k x e enter n 0-4 t m d # alt+↑↓ mod+backspace`. Search provider: tasks.
-- [ ] **3B [B] Quick add + palette** (wave 1). Owns `src/logic/{quickAdd,fuzzy}.ts` and tests, `src/features/quickadd/**`, `src/app/palette/**` and `src/app/shortcuts/ShortcutSheet.tsx`.
+- [x] **3B [B] Quick add + palette** (wave 1). Owns `src/logic/{quickAdd,fuzzy}.ts` and tests, `src/features/quickadd/**`, `src/app/palette/**` and `src/app/shortcuts/ShortcutSheet.tsx`.
   - The parser handles `#tag`, `!low|med|high|urgent`, `~N`, today/tomorrow/weekdays/`next week`/`in N days`/dates, `2p`/`2:30pm`/`14:00`/`noon`, `every day|weekday|monday`, and `"quoted literal"`. It returns the title plus token spans for live chips, and a course link when a tag matches a known course code.
   - The brief's example must parse exactly (test).
   - Palette: fuzzy search over commands and search providers, recent items, groups.
   - `?` sheet lists all registered shortcuts.
-- [ ] **3C [B] BlockEditor** (wave 1). Owns `src/ui/BlockEditor/**` and `src/logic/blocks.ts` (inline `**bold**`/`*italic*`/`` `code` ``/links, tested).
+- [x] **3C [B] BlockEditor** (wave 1). Owns `src/ui/BlockEditor/**` and `src/logic/blocks.ts` (inline `**bold**`/`*italic*`/`` `code` ``/links, tested).
   - Block types p/h1–h3/bullet/todo/callout/divider.
   - Slash menu (`/todo /heading /divider /callout /bullet`).
   - Keys: enter splits, backspace merges, arrows move between blocks.

@@ -1,0 +1,146 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.check {
+  margin-top: 4px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-24);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  text-wrap: pretty;
+}
+
+.root[data-variant='page'] .title {
+  font-size: var(--fs-32);
+}
+
+.root[data-variant='page'] .check {
+  margin-top: 8px;
+}
+
+.props {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.prop {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 36px;
+}
+
+.propLabel {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.propValue {
+  min-width: 0;
+}
+
+.estimate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.estimateInput {
+  width: 64px;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.sectionHeading {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+}
+
+.notes {
+  min-width: 0;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.footText {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.xp {
+  color: var(--xp-text);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Phones: label above value. */
+@media (max-width: 639px) {
+  .prop {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+    padding-block: var(--space-1);
+  }
+
+  .root[data-variant='page'] .title {
+    font-size: var(--fs-24);
+  }
+
+  .root[data-variant='page'] .check {
+    margin-top: 4px;
+  }
+}
+
+/*
+ * The editor reserves a left gutter for its block handles (--be-gutter) so its text lines up with the
+ * page. On the page, pull it back into the margin; in the narrower peek, use a slimmer gutter.
+ */
+.notes .editor {
+  --be-gutter: 40px;
+
+  margin-inline-start: -16px;
+}
+
+.root[data-variant='page'] .notes .editor {
+  --be-gutter: 56px;
+
+  margin-inline-start: -56px;
+}
+
+@media (max-width: 639px) {
+  .notes .editor,
+  .root[data-variant='page'] .notes .editor {
+    margin-inline-start: 0;
+  }
+}

@@ -15,6 +15,12 @@ export const MAX_VISIBLE_TOASTS = 3
 
 export type ToastVariant = 'default' | 'success' | 'error' | 'xp'
 
+/** Same shape as `ToastButton` in ToastContext (kept here so the reducer has no React imports). */
+export interface ToastActionButton {
+  label: string
+  onClick: () => void
+}
+
 export type UndoPhase = 'idle' | 'undoing' | 'undone' | 'undoFailed'
 
 export interface ToastItem {
@@ -26,6 +32,8 @@ export interface ToastItem {
   duration: number
   /** Present when the toast offers an Undo button. */
   undo?: () => void | Promise<void>
+  /** Present when the toast offers an action button ("Open"). */
+  action?: ToastActionButton
   phase: UndoPhase
   /** Exit animation running; removed shortly after. */
   leaving: boolean

@@ -1,7 +1,7 @@
 export { ToastProvider } from './ToastProvider'
 export type { ToastProviderProps } from './ToastProvider'
 export { useToast } from './ToastContext'
-export type { ToastApi, ToastExtras, ToastOptions } from './ToastContext'
+export type { ToastApi, ToastButton, ToastExtras, ToastOptions } from './ToastContext'
 export { ToastCard } from './ToastCard'
 export type { ToastCardProps } from './ToastCard'
 export type { ToastVariant } from './toastReducer'

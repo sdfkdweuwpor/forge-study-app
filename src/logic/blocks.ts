@@ -10,7 +10,7 @@
 import type { Block, BlockType, ID } from '@/db/types'
 import { fuzzyScore } from './fuzzy'
 
-export type { Block, BlockType } from '@/db/types'
+export type { Block, BlockType, ID } from '@/db/types'
 export type BlockDoc = readonly Block[]
 
 /** All block types the editor can render. */
@@ -736,7 +736,7 @@ const MARKDOWN_PREFIXES: ReadonlyArray<{ prefix: string; type: BlockType; checke
  * Markdown typed at the start of a block: `# `, `## `, `### `, `- `, `* `, `[] `, `[ ] `, `[x] `,
  * `> ` (callout), and `---` typed as the whole text (divider). `caret` is where the caret is right
  * after the keystroke; the shortcut fires only when everything before it is exactly the prefix.
- * Callers apply it to paragraphs only.
+ * Callers apply it to paragraphs and list items.
  */
 export function markdownShortcut(text: string, caret: number): MarkdownShortcut | null {
   const at = clampOffset(caret, text.length)

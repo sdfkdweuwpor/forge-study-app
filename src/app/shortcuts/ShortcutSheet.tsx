@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useState } from 'react'
+import { Fragment, useCallback, useId, useMemo, useState } from 'react'
 import { Keyboard, Search } from 'lucide-react'
 import { isMac } from '@/lib/platform'
 import { Button } from '@/ui/Button'
@@ -50,7 +50,7 @@ export function ShortcutSheet() {
       open={open}
       onClose={() => overlays.close('shortcuts')}
       title="Keyboard shortcuts"
-      description="Everything the keyboard can do. Sequences like G then T are pressed one key after the other."
+      description="Sequences such as G then T are pressed one key after the other."
       size="lg"
     >
       <div className={styles.sheet}>
@@ -109,7 +109,12 @@ export function ShortcutSheet() {
                           ) : null}
                         </dt>
                         <dd className={styles.keys}>
-                          <Kbd keys={row.keys} size="sm" />
+                          {row.keys.map((keys, i) => (
+                            <Fragment key={keys}>
+                              {i > 0 ? <span className={styles.or}>or</span> : null}
+                              <Kbd keys={keys} size="sm" />
+                            </Fragment>
+                          ))}
                         </dd>
                       </div>
                     ))}

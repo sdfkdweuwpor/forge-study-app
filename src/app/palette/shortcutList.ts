@@ -7,11 +7,12 @@ import type { ScopeId, ShortcutDef } from '../registry/types'
  */
 
 export interface ShortcutRow {
+  /** The first shortcut's id. */
   id: string
   description: string
-  /** The `ShortcutDef.keys` spec ('mod+k', 'g t'); the sheet draws it with Kbd. */
-  keys: string
-  /** Where it works, or null for shortcuts that work everywhere. */
+  /** `ShortcutDef.keys` specs ('mod+k', 'g t'), one per way to do it (`j` and `↓` select the next task); the sheet draws each with Kbd. */
+  keys: string[]
+  /** Where it works, or null when it works everywhere or the group heading already says so. */
   scopeLabel: string | null
 }
 
@@ -78,7 +79,9 @@ export function buildShortcutGroups(
       .split(/[\s+]+/)
     return {
       def: s,
-      row: { id: s.id, description: s.description, keys: s.keys, scopeLabel } satisfies ShortcutRow,
+      scoped: scopeLabel !== null,
+      // "Tasks" under the heading "Tasks" says nothing.
+      shownScope: scopeLabel !== s.group ? scopeLabel : null,
       keyMatch: phrase !== '' && keyTexts.some((k) => k.includes(phrase)),
       wordMatch: words.every((w) => tokens.some((t) => t.startsWith(w))),
     }
@@ -87,10 +90,23 @@ export function buildShortcutGroups(
   const byKeys = rows.some((r) => r.keyMatch)
   const kept = words.length === 0 ? rows : rows.filter((r) => (byKeys ? r.keyMatch : r.wordMatch))
 
-  const byHeading = new Map<string, ShortcutRow[]>()
-  for (const { def, row } of kept) {
+  // One row per action: shortcuts with the same description in the same group and scope share it.
+  interface Entry extends ShortcutRow {
+    scoped: boolean
+  }
+  const byHeading = new Map<string, Entry[]>()
+  for (const { def, scoped, shownScope } of kept) {
     const list = byHeading.get(def.group) ?? []
-    list.push(row)
+    const same = list.find((r) => r.description === def.description && r.scopeLabel === shownScope)
+    if (same && same.scoped === scoped) same.keys.push(def.keys)
+    else
+      list.push({
+        id: def.id,
+        description: def.description,
+        keys: [def.keys],
+        scopeLabel: shownScope,
+        scoped,
+      })
     byHeading.set(def.group, list)
   }
 
@@ -100,7 +116,9 @@ export function buildShortcutGroups(
       id: slug(heading),
       heading,
       // Shortcuts that work everywhere come first; registration order otherwise (the sort is stable).
-      rows: [...rows].sort((a, b) => Number(a.scopeLabel !== null) - Number(b.scopeLabel !== null)),
+      rows: [...rows]
+        .sort((a, b) => Number(a.scoped) - Number(b.scoped))
+        .map(({ scoped: _scoped, ...row }) => row),
     }))
 }
 

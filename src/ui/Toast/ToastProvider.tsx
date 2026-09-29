@@ -143,6 +143,17 @@ function ToastEntry({ item, dispatch }: ToastEntryProps) {
         description={item.description}
         phase={item.phase}
         onUndo={item.undo ? runUndo : undefined}
+        action={
+          item.action
+            ? {
+                label: item.action.label,
+                onClick: () => {
+                  item.action?.onClick()
+                  dismiss()
+                },
+              }
+            : undefined
+        }
         onDismiss={dismiss}
       />
     </div>
@@ -176,6 +187,7 @@ export function ToastProvider({
           description: options.description,
           duration: resolveDuration(variant, options.undo !== undefined, options.duration),
           undo: options.undo,
+          action: options.action,
         },
       })
       return id

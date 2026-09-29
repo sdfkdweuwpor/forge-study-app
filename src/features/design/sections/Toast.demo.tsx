@@ -33,6 +33,18 @@ function Controls() {
         With Undo
       </Button>
       <Button
+        onClick={() =>
+          toast.show({
+            variant: 'success',
+            title: 'Added to Upcoming',
+            description: 'Read chapter 4',
+            action: { label: 'Open', onClick: () => undefined },
+          })
+        }
+      >
+        With action
+      </Button>
+      <Button
         variant="ghost"
         onClick={() =>
           toast.show({
@@ -99,6 +111,13 @@ function ToastDemo() {
             variant="xp"
             title="Task completed"
             description="+15 XP"
+            onDismiss={() => undefined}
+          />
+          <ToastCard
+            variant="success"
+            title="Added to Upcoming"
+            description="Read chapter 4"
+            action={{ label: 'Open', onClick: () => undefined }}
             onDismiss={() => undefined}
           />
         </div>

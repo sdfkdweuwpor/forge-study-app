@@ -61,6 +61,14 @@
 }
 
 .keys {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
+}
+
+.or {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
 }

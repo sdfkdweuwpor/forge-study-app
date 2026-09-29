@@ -1,16 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyMarkdownShortcut,
+  applySlashAt,
   applySlashCommand,
+  backspaceAtStart,
   BLOCK_TYPES,
   changeBlockType,
+  deleteAtEnd,
   filterSlash,
+  inlineSourceMap,
   isSafeUrl,
+  markdownShortcut,
   mergeWithPrevious,
+  moveBlockToIndex,
   parseInline,
+  pasteText,
+  removeBlock,
+  replaceRange,
+  setBlockChecked,
+  setBlockEmoji,
+  setBlockText,
   slashCommands,
+  slashContext,
   slashQuery,
+  sourceOffset,
+  splitAtSelection,
   splitBlock,
   stripInline,
+  toggleInlineMarker,
   toPlainText,
   type Block,
   type InlineSpan,
@@ -688,5 +705,581 @@ describe('applySlashCommand', () => {
     const input = frozen(doc())
     expect(() => applySlashCommand(input, 'b', 'divider')).not.toThrow()
     expect(input[1]?.type).toBe('p')
+  })
+})
+
+describe('inlineSourceMap / sourceOffset', () => {
+  it('maps each visible character back to the raw text', () => {
+    const raw = 'a **bold** and `code` [WGU](https://www.wgu.edu) \\* end'
+    const visible = stripInline(raw)
+    const map = inlineSourceMap(raw)
+    expect(map).toHaveLength(visible.length)
+    map.forEach((rawIndex, k) => expect(raw[rawIndex]).toBe(visible[k]))
+    expect([...map]).toEqual([...map].sort((a, b) => a - b))
+  })
+
+  it('plain text maps to itself', () => {
+    expect(inlineSourceMap('abc')).toEqual([0, 1, 2])
+    expect(inlineSourceMap('')).toEqual([])
+  })
+
+  it('a caret in formatted text lands just before the next visible character', () => {
+    const raw = 'a **bold** c'
+    // visible: "a bold c"
+    expect(sourceOffset(raw, 0)).toBe(0)
+    expect(sourceOffset(raw, 2)).toBe(4) // before "b", after the opening **
+    expect(sourceOffset(raw, 4)).toBe(6) // inside the word, before "l"
+    expect(sourceOffset(raw, 6)).toBe(10) // after "d": past the closing **
+    expect(sourceOffset(raw, 8)).toBe(raw.length)
+  })
+
+  it('clamps out-of-range offsets', () => {
+    expect(sourceOffset('**a**', -3)).toBe(0)
+    expect(sourceOffset('**a**', 99)).toBe(5)
+    expect(sourceOffset('', 0)).toBe(0)
+  })
+
+  it('never throws on adversarial input', () => {
+    for (const raw of ['****', '`', '[', '](', '\\', '*'.repeat(200), '[a](b'.repeat(50)]) {
+      expect(() => sourceOffset(raw, raw.length >> 1)).not.toThrow()
+      expect(inlineSourceMap(raw)).toHaveLength(stripInline(raw).length)
+    }
+  })
+})
+
+describe('replaceRange / setBlockText / setBlockChecked / setBlockEmoji', () => {
+  it('replaces a range and reports the caret after the insertion', () => {
+    expect(replaceRange('Hello world', 5, 11, '!')).toEqual({ text: 'Hello!', caret: 6 })
+    expect(replaceRange('abc', 1, 1, 'XY')).toEqual({ text: 'aXYbc', caret: 3 })
+  })
+
+  it('orders and clamps the range', () => {
+    expect(replaceRange('abc', 3, 1, '-')).toEqual({ text: 'a-', caret: 2 })
+    expect(replaceRange('abc', -5, 99, '')).toEqual({ text: '', caret: 0 })
+    expect(replaceRange('abc', Number.NaN, 1, 'x')).toEqual({ text: 'xbc', caret: 1 })
+  })
+
+  it('setBlockText keeps the identity of untouched blocks', () => {
+    const start: Block[] = [
+      { id: 'a', type: 'p', text: 'one' },
+      { id: 'b', type: 'p', text: 'two' },
+    ]
+    const next = setBlockText(start, 'b', 'TWO')
+    expect(next[0]).toBe(start[0])
+    expect(next[1]).toEqual({ id: 'b', type: 'p', text: 'TWO' })
+    expect(setBlockText(start, 'b', 'two')[1]).toBe(start[1])
+  })
+
+  it('setBlockChecked only touches to-dos', () => {
+    const start: Block[] = [
+      { id: 'a', type: 'todo', text: 'Read', checked: false },
+      { id: 'b', type: 'p', text: 'Note' },
+    ]
+    expect(setBlockChecked(start, 'a', true)[0]).toEqual({
+      id: 'a',
+      type: 'todo',
+      text: 'Read',
+      checked: true,
+    })
+    expect(setBlockChecked(start, 'b', true)[1]).toBe(start[1])
+    expect(setBlockChecked(start, 'a', false)[0]).toBe(start[0])
+  })
+
+  it('setBlockEmoji sets and removes a callout emoji', () => {
+    const start: Block[] = [{ id: 'a', type: 'callout', text: 'Tip', emoji: '💡' }]
+    expect(setBlockEmoji(start, 'a', '🎯')[0]).toEqual({
+      id: 'a',
+      type: 'callout',
+      text: 'Tip',
+      emoji: '🎯',
+    })
+    expect(setBlockEmoji(start, 'a', null)[0]).toEqual({ id: 'a', type: 'callout', text: 'Tip' })
+    const plain: Block[] = [{ id: 'p', type: 'p', text: 'x' }]
+    expect(setBlockEmoji(plain, 'p', '🎯')[0]).toBe(plain[0])
+  })
+})
+
+describe('splitAtSelection', () => {
+  const doc = (): Block[] => [{ id: 'a', type: 'p', text: 'Hello world' }]
+
+  it('a collapsed selection is splitBlock', () => {
+    expect(splitAtSelection(doc(), 'a', 5, 5)).toEqual(splitBlock(doc(), 'a', 5))
+  })
+
+  it('deletes the selected text, then splits where the selection began', () => {
+    const edit = splitAtSelection(doc(), 'a', 5, 6)
+    expect(edit.doc.map((b) => b.text)).toEqual(['Hello', 'world'])
+    expect(edit.focusId).toBe('a-1')
+  })
+
+  it('works with a reversed range and a selection that covers the whole block', () => {
+    expect(splitAtSelection(doc(), 'a', 6, 5).doc.map((b) => b.text)).toEqual(['Hello', 'world'])
+    const all = splitAtSelection(doc(), 'a', 0, 11)
+    expect(all.doc.map((b) => b.text)).toEqual(['', ''])
+    expect(all.focusId).toBe('a-1')
+  })
+
+  it('ignores an unknown block', () => {
+    expect(splitAtSelection(doc(), 'zzz', 0, 1).doc).toEqual(doc())
+  })
+})
+
+describe('removeBlock', () => {
+  const doc = (): Block[] => [
+    { id: 'a', type: 'p', text: 'First' },
+    { id: 'b', type: 'divider', text: '' },
+    { id: 'c', type: 'p', text: 'Third' },
+  ]
+
+  it('focuses the end of the previous block', () => {
+    const edit = removeBlock(doc(), 'c')
+    expect(edit.doc.map((b) => b.id)).toEqual(['a', 'b'])
+    expect(edit.focusId).toBe('b')
+    expect(edit.caret).toBe(0) // the previous block is a divider
+    const other = removeBlock(doc(), 'b')
+    expect(other.focusId).toBe('a')
+    expect(other.caret).toBe(5)
+  })
+
+  it('the first block hands focus to the next one', () => {
+    const edit = removeBlock(doc(), 'a')
+    expect(edit.doc.map((b) => b.id)).toEqual(['b', 'c'])
+    expect(edit.focusId).toBe('b')
+  })
+
+  it('removing the only block leaves an empty paragraph', () => {
+    const edit = removeBlock([{ id: 'a', type: 'divider', text: '' }], 'a', () => 'n1')
+    expect(edit.doc).toEqual([{ id: 'n1', type: 'p', text: '' }])
+    expect(edit.focusId).toBe('n1')
+  })
+
+  it('ignores an unknown block', () => {
+    expect(removeBlock(doc(), 'zzz').doc).toEqual(doc())
+  })
+})
+
+describe('backspaceAtStart', () => {
+  it.each(['h1', 'h2', 'h3', 'bullet', 'todo', 'callout'] as const)(
+    'a %s becomes a paragraph and keeps its text',
+    (type) => {
+      const start: Block[] = [
+        { id: 'a', type: 'p', text: 'Above' },
+        { id: 'b', type, text: 'Keep me' },
+      ]
+      const edit = backspaceAtStart(start, 'b')
+      expect(edit?.doc[1]).toEqual({ id: 'b', type: 'p', text: 'Keep me' })
+      expect(edit?.doc).toHaveLength(2)
+      expect(edit?.focusId).toBe('b')
+      expect(edit?.caret).toBe(0)
+    },
+  )
+
+  it('a paragraph merges into the previous block', () => {
+    const start: Block[] = [
+      { id: 'a', type: 'p', text: 'Above' },
+      { id: 'b', type: 'p', text: 'Below' },
+    ]
+    const edit = backspaceAtStart(start, 'b')
+    expect(edit?.doc).toEqual([{ id: 'a', type: 'p', text: 'AboveBelow' }])
+    expect(edit?.caret).toBe(5)
+  })
+
+  it('the first paragraph has nothing to merge into', () => {
+    expect(backspaceAtStart([{ id: 'a', type: 'p', text: 'Only' }], 'a')).toBeNull()
+    expect(backspaceAtStart([], 'zzz')).toBeNull()
+  })
+
+  it('a divider is deleted, even as the first block', () => {
+    const second = backspaceAtStart(
+      [
+        { id: 'a', type: 'p', text: 'Above' },
+        { id: 'b', type: 'divider', text: '' },
+      ],
+      'b',
+    )
+    expect(second?.doc.map((b) => b.id)).toEqual(['a'])
+    expect(second?.focusId).toBe('a')
+    const first = backspaceAtStart(
+      [
+        { id: 'b', type: 'divider', text: '' },
+        { id: 'c', type: 'p', text: 'Below' },
+      ],
+      'b',
+    )
+    expect(first?.doc.map((b) => b.id)).toEqual(['c'])
+    expect(first?.focusId).toBe('c')
+  })
+})
+
+describe('deleteAtEnd', () => {
+  it('pulls the next block text into this one', () => {
+    const start: Block[] = [
+      { id: 'a', type: 'h2', text: 'Head' },
+      { id: 'b', type: 'bullet', text: 'tail' },
+      { id: 'c', type: 'p', text: 'end' },
+    ]
+    const edit = deleteAtEnd(start, 'a')
+    expect(edit?.doc).toEqual([
+      { id: 'a', type: 'h2', text: 'Headtail' },
+      { id: 'c', type: 'p', text: 'end' },
+    ])
+    expect(edit?.focusId).toBe('a')
+    expect(edit?.caret).toBe(4)
+  })
+
+  it('a next divider is deleted and the caret stays put', () => {
+    const edit = deleteAtEnd(
+      [
+        { id: 'a', type: 'p', text: 'Above' },
+        { id: 'b', type: 'divider', text: '' },
+        { id: 'c', type: 'p', text: 'Below' },
+      ],
+      'a',
+    )
+    expect(edit?.doc.map((b) => b.id)).toEqual(['a', 'c'])
+    expect(edit?.focusId).toBe('a')
+    expect(edit?.caret).toBe(5)
+  })
+
+  it('deleting on a divider removes it; the end of the document does nothing', () => {
+    const start: Block[] = [
+      { id: 'a', type: 'p', text: 'Above' },
+      { id: 'b', type: 'divider', text: '' },
+    ]
+    expect(deleteAtEnd(start, 'b')?.doc.map((b) => b.id)).toEqual(['a'])
+    expect(deleteAtEnd(start, 'a')?.doc.map((b) => b.id)).toEqual(['a'])
+    expect(deleteAtEnd([{ id: 'a', type: 'p', text: 'x' }], 'a')).toBeNull()
+  })
+})
+
+describe('moveBlockToIndex', () => {
+  const doc = (): Block[] => ['a', 'b', 'c', 'd'].map((id) => ({ id, type: 'p', text: id }))
+  const ids = (blocks: Block[]): string => blocks.map((b) => b.id).join('')
+
+  it('moves a block down and up', () => {
+    expect(ids(moveBlockToIndex(doc(), 'a', 2))).toBe('bcad')
+    expect(ids(moveBlockToIndex(doc(), 'd', 1))).toBe('adbc')
+  })
+
+  it('clamps and treats a no-op as a copy', () => {
+    expect(ids(moveBlockToIndex(doc(), 'b', 99))).toBe('acdb')
+    expect(ids(moveBlockToIndex(doc(), 'b', -3))).toBe('bacd')
+    const start = doc()
+    const same = moveBlockToIndex(start, 'b', 1)
+    expect(same).toEqual(start)
+    expect(same).not.toBe(start)
+    expect(ids(moveBlockToIndex(start, 'zzz', 0))).toBe('abcd')
+  })
+
+  it('does not mutate its input', () => {
+    const input = frozen(doc())
+    expect(() => moveBlockToIndex(input, 'a', 3)).not.toThrow()
+  })
+})
+
+describe('slashContext', () => {
+  it('finds a slash at the start of the text', () => {
+    expect(slashContext('/', 1)).toEqual({ start: 0, end: 1, query: '' })
+    expect(slashContext('/tod', 4)).toEqual({ start: 0, end: 4, query: 'tod' })
+  })
+
+  it('finds a slash after a space, with text before it', () => {
+    expect(slashContext('Read this /head', 15)).toEqual({ start: 10, end: 15, query: 'head' })
+    expect(slashContext('a\n/todo', 7)).toEqual({ start: 2, end: 7, query: 'todo' })
+  })
+
+  it('reads only up to the caret', () => {
+    expect(slashContext('/todo later', 3)).toEqual({ start: 0, end: 3, query: 'to' })
+  })
+
+  it('ignores slashes inside words and after the query ended', () => {
+    expect(slashContext('and/or', 6)).toBeNull()
+    expect(slashContext('https://wgu.edu', 15)).toBeNull()
+    expect(slashContext('a /todo b', 9)).toBeNull() // caret is past a space
+    expect(slashContext('plain text', 10)).toBeNull()
+    expect(slashContext('/a/b', 4)).toBeNull()
+    expect(slashContext('', 0)).toBeNull()
+  })
+
+  it('clamps the caret', () => {
+    expect(slashContext('/x', 99)).toEqual({ start: 0, end: 2, query: 'x' })
+    expect(slashContext('/x', -4)).toBeNull()
+  })
+})
+
+describe('applySlashAt', () => {
+  const doc = (text: string): Block[] => [
+    { id: 'a', type: 'p', text: 'Intro' },
+    { id: 'b', type: 'p', text },
+  ]
+
+  it('a block that is only the slash text is applySlashCommand', () => {
+    expect(applySlashAt(doc('/todo'), 'b', 'todo', { start: 0, end: 5 })).toEqual(
+      applySlashCommand(doc('/todo'), 'b', 'todo'),
+    )
+  })
+
+  it('keeps the text around the slash and converts the block', () => {
+    const edit = applySlashAt(doc('Read chapter 4 /todo'), 'b', 'todo', { start: 15, end: 20 })
+    expect(edit.doc[1]).toEqual({ id: 'b', type: 'todo', text: 'Read chapter 4', checked: false })
+    expect(edit.focusId).toBe('b')
+    expect(edit.caret).toBe(14)
+  })
+
+  it('keeps text after the caret and puts the caret where the slash was', () => {
+    const edit = applySlashAt(doc('Before /h2 after'), 'b', 'h2', { start: 7, end: 10 })
+    expect(edit.doc[1]).toEqual({ id: 'b', type: 'h2', text: 'Before  after' })
+    expect(edit.caret).toBe(7)
+  })
+
+  it('a divider goes after the block that keeps its text', () => {
+    const edit = applySlashAt(doc('Summary /divider'), 'b', 'divider', { start: 8, end: 16 })
+    expect(edit.doc.map((b) => [b.type, b.text])).toEqual([
+      ['p', 'Intro'],
+      ['p', 'Summary'],
+      ['divider', ''],
+      ['p', ''],
+    ])
+    expect(edit.focusId).toBe(edit.doc[3]?.id)
+  })
+
+  it('ignores an unknown block', () => {
+    expect(applySlashAt(doc('/todo'), 'zzz', 'todo', { start: 0, end: 5 }).doc).toEqual(
+      doc('/todo'),
+    )
+  })
+
+  it('does not mutate its input', () => {
+    const input = frozen(doc('x /divider'))
+    expect(() => applySlashAt(input, 'b', 'divider', { start: 2, end: 10 })).not.toThrow()
+  })
+})
+
+describe('markdownShortcut', () => {
+  it.each([
+    ['# ', 'h1'],
+    ['## ', 'h2'],
+    ['### ', 'h3'],
+    ['- ', 'bullet'],
+    ['* ', 'bullet'],
+    ['[] ', 'todo'],
+    ['[ ] ', 'todo'],
+    ['> ', 'callout'],
+  ] as const)('%j at the start becomes %s', (prefix, type) => {
+    expect(markdownShortcut(prefix, prefix.length)).toEqual({ type, text: '', checked: false })
+  })
+
+  it('[x] starts a checked to-do', () => {
+    expect(markdownShortcut('[x] ', 4)).toEqual({ type: 'todo', text: '', checked: true })
+  })
+
+  it('--- as the whole text is a divider', () => {
+    expect(markdownShortcut('---', 3)).toEqual({ type: 'divider', text: '', checked: false })
+    expect(markdownShortcut('--', 2)).toBeNull()
+    expect(markdownShortcut('---x', 3)).toBeNull()
+  })
+
+  it('keeps the text that follows the prefix', () => {
+    expect(markdownShortcut('# Chapter 4', 2)).toEqual({
+      type: 'h1',
+      text: 'Chapter 4',
+      checked: false,
+    })
+  })
+
+  it('needs the caret right after the prefix and nothing before it', () => {
+    expect(markdownShortcut('# Chapter 4', 5)).toBeNull()
+    expect(markdownShortcut(' # ', 3)).toBeNull()
+    expect(markdownShortcut('a- ', 3)).toBeNull()
+    expect(markdownShortcut('#', 1)).toBeNull()
+    expect(markdownShortcut('#hashtag', 1)).toBeNull()
+    expect(markdownShortcut('####', 4)).toBeNull()
+    expect(markdownShortcut('', 0)).toBeNull()
+  })
+})
+
+describe('applyMarkdownShortcut', () => {
+  const doc = (): Block[] => [
+    { id: 'a', type: 'p', text: '# Chapter 4' },
+    { id: 'b', type: 'p', text: 'After' },
+  ]
+
+  it('converts the block, drops the prefix and puts the caret at the start', () => {
+    const shortcut = markdownShortcut('# Chapter 4', 2)
+    if (!shortcut) throw new Error('expected a shortcut')
+    const edit = applyMarkdownShortcut(doc(), 'a', shortcut)
+    expect(edit.doc[0]).toEqual({ id: 'a', type: 'h1', text: 'Chapter 4' })
+    expect(edit.focusId).toBe('a')
+    expect(edit.caret).toBe(0)
+    expect(edit.doc[1]).toEqual({ id: 'b', type: 'p', text: 'After' })
+  })
+
+  it('a checked to-do keeps checked', () => {
+    const edit = applyMarkdownShortcut(
+      doc(),
+      'a',
+      { type: 'todo', text: '', checked: true },
+      undefined,
+    )
+    expect(edit.doc[0]).toEqual({ id: 'a', type: 'todo', text: '', checked: true })
+  })
+
+  it('a divider gets a paragraph after it', () => {
+    const edit = applyMarkdownShortcut(
+      [{ id: 'a', type: 'p', text: '---' }],
+      'a',
+      { type: 'divider', text: '', checked: false },
+      () => 'n1',
+    )
+    expect(edit.doc.map((b) => b.type)).toEqual(['divider', 'p'])
+    expect(edit.focusId).toBe('n1')
+  })
+
+  it('ignores an unknown block', () => {
+    const edit = applyMarkdownShortcut(doc(), 'zzz', { type: 'h1', text: '', checked: false })
+    expect(edit.doc).toEqual(doc())
+  })
+})
+
+describe('pasteText', () => {
+  const doc = (): Block[] => [
+    { id: 'a', type: 'p', text: 'Hello world' },
+    { id: 'b', type: 'p', text: 'After' },
+  ]
+
+  it('one line is inserted at the caret, replacing the selection', () => {
+    const edit = pasteText(doc(), 'a', 5, 11, ', C182')
+    expect(edit.doc[0]).toEqual({ id: 'a', type: 'p', text: 'Hello, C182' })
+    expect(edit.focusId).toBe('a')
+    expect(edit.caret).toBe(11)
+  })
+
+  it('several lines become several blocks; the tail follows the last line', () => {
+    const edit = pasteText(doc(), 'a', 5, 5, ' one\ntwo\nthree')
+    expect(edit.doc.map((b) => b.text)).toEqual(['Hello one', 'two', 'three world', 'After'])
+    expect(edit.doc.map((b) => b.type)).toEqual(['p', 'p', 'p', 'p'])
+    expect(edit.focusId).toBe(edit.doc[2]?.id)
+    expect(edit.caret).toBe(5)
+  })
+
+  it('accepts Windows and old Mac line endings', () => {
+    expect(pasteText(doc(), 'a', 0, 0, 'x\r\ny\rz').doc.map((b) => b.text)).toEqual([
+      'x',
+      'y',
+      'zHello world',
+      'After',
+    ])
+  })
+
+  it('drops blank lines and trailing whitespace; a trailing newline is not a block', () => {
+    expect(pasteText(doc(), 'a', 11, 11, 'x\n\n\ny  \n').doc.map((b) => b.text)).toEqual([
+      'Hello worldx',
+      'y',
+      'After',
+    ])
+    const single = pasteText(doc(), 'a', 0, 0, 'Line\n')
+    expect(single.doc.map((b) => b.text)).toEqual(['LineHello world', 'After'])
+  })
+
+  it('bullets and to-dos continue as the same kind; new to-dos are unchecked', () => {
+    const start: Block[] = [{ id: 'a', type: 'todo', text: '', checked: true }]
+    const edit = pasteText(start, 'a', 0, 0, 'Read ch 4\nTake quiz\nSubmit')
+    expect(edit.doc.map((b) => b.type)).toEqual(['todo', 'todo', 'todo'])
+    expect(edit.doc[0]).toEqual({ id: 'a', type: 'todo', text: 'Read ch 4', checked: true })
+    expect(edit.doc[1]).toMatchObject({ text: 'Take quiz', checked: false })
+    const heading = pasteText([{ id: 'h', type: 'h1', text: '' }], 'h', 0, 0, 'A\nB')
+    expect(heading.doc.map((b) => b.type)).toEqual(['h1', 'p'])
+  })
+
+  it('never reuses an id, with or without an id factory', () => {
+    const plain = pasteText(doc(), 'a', 0, 0, 'a\nb\nc').doc.map((b) => b.id)
+    expect(new Set(plain).size).toBe(plain.length)
+    let n = 0
+    const made = pasteText(doc(), 'a', 0, 0, 'a\nb\nc', () => `id${++n}`).doc.map((b) => b.id)
+    expect(new Set(made).size).toBe(made.length)
+  })
+
+  it('whitespace-only multi-line paste changes nothing; a divider takes no text', () => {
+    expect(pasteText(doc(), 'a', 3, 3, '\n\n \n').doc).toEqual(doc())
+    const withDivider: Block[] = [{ id: 'd', type: 'divider', text: '' }]
+    expect(pasteText(withDivider, 'd', 0, 0, 'x').doc).toEqual(withDivider)
+    expect(pasteText(doc(), 'zzz', 0, 0, 'x').doc).toEqual(doc())
+  })
+
+  it('does not mutate its input', () => {
+    const input = frozen(doc())
+    expect(() => pasteText(input, 'a', 2, 4, 'x\ny')).not.toThrow()
+  })
+})
+
+describe('toggleInlineMarker', () => {
+  it('wraps a selection and keeps it selected', () => {
+    expect(toggleInlineMarker('make it bold', 8, 12, '**')).toEqual({
+      text: 'make it **bold**',
+      start: 10,
+      end: 14,
+    })
+    expect(toggleInlineMarker('say hi', 4, 6, '*')).toEqual({ text: 'say *hi*', start: 5, end: 7 })
+    expect(toggleInlineMarker('run npm', 4, 7, '`')).toEqual({
+      text: 'run `npm`',
+      start: 5,
+      end: 8,
+    })
+  })
+
+  it('a collapsed caret gets an empty pair with the caret between', () => {
+    expect(toggleInlineMarker('ab', 1, 1, '**')).toEqual({ text: 'a****b', start: 3, end: 3 })
+  })
+
+  it('unwraps a selection that sits inside the markers', () => {
+    expect(toggleInlineMarker('make it **bold**', 10, 14, '**')).toEqual({
+      text: 'make it bold',
+      start: 8,
+      end: 12,
+    })
+    expect(toggleInlineMarker('a `b` c', 3, 4, '`')).toEqual({ text: 'a b c', start: 2, end: 3 })
+  })
+
+  it('unwraps a selection that includes the markers', () => {
+    expect(toggleInlineMarker('make it **bold**', 8, 16, '**')).toEqual({
+      text: 'make it bold',
+      start: 8,
+      end: 12,
+    })
+  })
+
+  it('an empty pair with the caret inside is removed', () => {
+    expect(toggleInlineMarker('a****b', 3, 3, '**')).toEqual({ text: 'ab', start: 1, end: 1 })
+  })
+
+  it('italic inside bold adds a star instead of removing one', () => {
+    expect(toggleInlineMarker('**bold**', 2, 6, '*')).toEqual({
+      text: '***bold***',
+      start: 3,
+      end: 7,
+    })
+    // …and toggling it off again leaves the bold
+    expect(toggleInlineMarker('***bold***', 3, 7, '*')).toEqual({
+      text: '**bold**',
+      start: 2,
+      end: 6,
+    })
+    // bold inside italic
+    expect(toggleInlineMarker('*it*', 1, 3, '**')).toEqual({ text: '***it***', start: 3, end: 5 })
+  })
+
+  it('a selection covering **bold** with the italic shortcut adds italic', () => {
+    expect(toggleInlineMarker('**bold**', 0, 8, '*').text).toBe('***bold***')
+  })
+
+  it('round-trips through the parser', () => {
+    const wrapped = toggleInlineMarker('C182 notes', 5, 10, '**').text
+    expect(parseInline(wrapped)).toEqual([plain('C182 '), span('notes', { bold: true })])
+    const unwrapped = toggleInlineMarker(wrapped, 7, 12, '**').text
+    expect(unwrapped).toBe('C182 notes')
+  })
+
+  it('clamps the range', () => {
+    expect(toggleInlineMarker('abc', -2, 99, '*').text).toBe('*abc*')
   })
 })

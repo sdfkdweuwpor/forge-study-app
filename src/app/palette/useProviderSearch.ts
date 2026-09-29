@@ -30,15 +30,11 @@ export interface ProviderSearch {
 export function useProviderSearch(
   providers: readonly SearchProvider[],
   query: string,
-  enabled: boolean,
 ): ProviderSearch {
   const q = query.trim()
-  const active = enabled && q !== '' && providers.length > 0
+  const active = q !== '' && providers.length > 0
   const [settled, setSettled] = useState<Settled | null>(null)
   const [attempt, setAttempt] = useState(0)
-
-  // Forget results when the palette closes (reset while rendering; nothing outside React changes).
-  if (!enabled && settled !== null) setSettled(null)
 
   useEffect(() => {
     if (!active) return undefined

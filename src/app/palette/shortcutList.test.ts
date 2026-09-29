@@ -31,17 +31,42 @@ describe('buildShortcutGroups', () => {
     ])
   })
 
-  it('lists shortcuts that work everywhere before scoped ones, and labels the scope', () => {
+  it('lists shortcuts that work everywhere before scoped ones', () => {
     const tasks = buildShortcutGroups(SHORTCUTS).find((g) => g.heading === 'Tasks')
-    expect(tasks?.rows.map((r) => [r.id, r.scopeLabel])).toEqual([
-      ['quickadd.open', null],
-      ['tasks.complete', 'Tasks'],
-    ])
+    expect(tasks?.rows.map((r) => r.id)).toEqual(['quickadd.open', 'tasks.complete'])
+  })
+
+  it('labels the scope unless the heading already says it', () => {
+    const rows = buildShortcutGroups([
+      s('a', 'x', 'Complete', 'Tasks', 'tasks'),
+      s('b', 'f', 'Full screen', 'Focus', 'fullscreen'),
+      s('c', 'q', 'Quick add', 'Tasks'),
+    ]).flatMap((g) => g.rows)
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.scopeLabel]))).toEqual({
+      a: null, // heading "Tasks", scope Tasks
+      b: 'Full-screen focus',
+      c: null,
+    })
   })
 
   it('keeps the keys spec for the Kbd component', () => {
     const general = buildShortcutGroups(SHORTCUTS)[0]
-    expect(general?.rows.map((r) => r.keys)).toEqual(['mod+k', '?'])
+    expect(general?.rows.map((r) => r.keys)).toEqual([['mod+k'], ['?']])
+  })
+
+  it('shows one row with every way to do the same thing', () => {
+    const rows = buildShortcutGroups([
+      s('next', 'j', 'Select the next task', 'Tasks', 'tasks'),
+      s('nextArrow', 'down', 'Select the next task', 'Tasks', 'tasks'),
+      s('prev', 'k', 'Select the previous task', 'Tasks', 'tasks'),
+      // Same words in another scope are a different row.
+      s('nextToday', 'j', 'Select the next task', 'Tasks', 'today'),
+    ]).flatMap((g) => g.rows)
+    expect(rows.map((r) => [r.id, r.keys])).toEqual([
+      ['next', ['j', 'down']],
+      ['prev', ['k']],
+      ['nextToday', ['j']],
+    ])
   })
 
   it('counts every registered shortcut when there is no query', () => {

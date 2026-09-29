@@ -36,6 +36,12 @@ describe('toastReducer: add', () => {
     expect(state.items[0]).toMatchObject({ phase: 'idle', leaving: false, revision: 0 })
   })
 
+  it('keeps an action button on the item', () => {
+    const onClick = () => undefined
+    const state = run([add('a', { action: { label: 'Open', onClick } })])
+    expect(state.items[0]?.action).toEqual({ label: 'Open', onClick })
+  })
+
   it('updates an existing id in place and restarts its timer', () => {
     const state = run([
       add('sync', { title: 'Saving…', duration: 0 }),

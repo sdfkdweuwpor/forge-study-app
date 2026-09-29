@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Command,
   CornerDownRight,
@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { CommandPalette, type PaletteGroup, type PaletteItem } from '@/ui/CommandPalette'
+import { useRestoreFocus } from '../hooks/useRestoreFocus'
 import { useOpenOverlays, useOverlays } from '../providers/OverlayProvider'
 import { useRegistry } from '../registry/RegistryContext'
 import { recordError } from '../reportError'
@@ -24,8 +25,9 @@ import { loadRecents, pushRecent, saveRecents, type RecentEntry } from './recent
 import { useCommandCtx } from './useCommandCtx'
 import { useProviderSearch } from './useProviderSearch'
 
-const PLACEHOLDER_ALL = 'Search tasks, goals, pages and actions'
-const PLACEHOLDER_SEARCH = 'Search tasks, goals and pages'
+// Short enough for a phone: the field shares the row with Cancel.
+const PLACEHOLDER_ALL = 'Search or run a command'
+const PLACEHOLDER_SEARCH = 'Search tasks, goals, pages'
 const ICON_SIZE = 16
 
 /** The icon a row shows when its command or provider brought none. */
@@ -83,20 +85,21 @@ function PaletteSession() {
   const [mode] = useState(getPaletteMode)
   const [recents, setRecents] = useState(loadRecents)
   const [query, setQuery] = useState('')
-  const [returnFocusTo] = useState(() => document.activeElement)
+  useRestoreFocus()
 
-  // The native dialog is removed with the session, so give focus back to where it was (like Modal does).
-  useEffect(
-    () => () => {
-      resetPaletteMode()
-      if (returnFocusTo instanceof HTMLElement && returnFocusTo.isConnected) {
-        returnFocusTo.focus({ preventScroll: true })
-      }
-    },
-    [returnFocusTo],
-  )
+  // Put the next open back to the full palette (a `/` request is for one opening only).
+  useEffect(() => resetPaletteMode, [])
 
-  const search = useProviderSearch(registry.search, query, true)
+  // A remembered result is looked up asynchronously; if the palette was dismissed meanwhile, drop it.
+  const alive = useRef(false)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
+
+  const search = useProviderSearch(registry.search, query)
 
   const model = useMemo(
     () =>
@@ -149,6 +152,7 @@ function PaletteSession() {
     const provider = registry.search.find((p) => p.id === entry.providerId)
     try {
       const hits = provider ? await provider.search(entry.title, 12) : []
+      if (!alive.current) return
       const hit = hits.find((r) => r.id === entry.id)
       if (hit) {
         remember(entry)
@@ -159,7 +163,7 @@ function PaletteSession() {
     } catch (e) {
       recordError(e, 'palette.recent')
     }
-    setQuery(entry.title)
+    if (alive.current) setQuery(entry.title)
   }
 
   const select = (picked: PaletteItem) => {

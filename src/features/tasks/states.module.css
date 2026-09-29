@@ -1,0 +1,22 @@
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 35px;
+  padding: 0 var(--space-2);
+}

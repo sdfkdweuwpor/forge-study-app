@@ -207,7 +207,7 @@ export async function updateTask(
 
 /**
  * Sets todo, doing or done. Done and back go through `completeTask` / `uncompleteTask`, so XP and
- * recurrence stay consistent; todo ⇄ doing only stamps `startedAt`.
+ * recurrence stay consistent; todo ⇄ doing only stamps `startedAt`. Returns `null` for a missing task.
  */
 export async function setTaskStatus(
   id: ID,
@@ -215,34 +215,28 @@ export async function setTaskStatus(
   opts: RepoOptions = {},
 ): Promise<Undoable | null> {
   const now = opts.now ?? Date.now()
+  const before = await db.tasks.get(id)
+  if (!before) return null
+  if (status === before.status) return { undo: noop }
+
   if (status === 'done') {
     const result = await completeTask(id, opts)
-    return result.task ? { undo: result.undo } : null
+    return { undo: result.undo }
   }
-  const current = await db.tasks.get(id)
-  if (!current) return null
-  let reopen: Undoable | null = null
-  if (current.status === 'done') reopen = await uncompleteTask(id, opts)
-  if (status === 'todo' && current.status !== 'done') {
-    // todo <- doing
-    await db.transaction('rw', db.tasks, async () => {
-      await writeChanges(id, { status: 'todo', startedAt: null })
+
+  const write = (changes: Partial<Task>) =>
+    db.transaction('rw', db.tasks, async () => {
+      if (await db.tasks.get(id)) await writeChanges(id, changes)
     })
-  } else if (status === 'doing') {
-    await db.transaction('rw', db.tasks, async () => {
-      await writeChanges(id, { status: 'doing', startedAt: now })
-    })
+
+  if (before.status === 'done') {
+    await uncompleteTask(id, opts)
+    if (status === 'doing') await write({ status: 'doing', startedAt: now })
+    return { undo: async () => void (await completeTask(id)) }
   }
-  return {
-    undo: async () => {
-      await db.transaction('rw', db.tasks, async () => {
-        if (await db.tasks.get(id)) {
-          await writeChanges(id, { status: current.status === 'done' ? 'todo' : current.status, startedAt: current.startedAt })
-        }
-      })
-      if (reopen) await completeTask(id, opts)
-    },
-  }
+
+  await write({ status, startedAt: status === 'doing' ? now : null })
+  return { undo: () => write({ status: before.status, startedAt: before.startedAt }) }
 }
 
 // ─── Complete / uncomplete / skip ───────────────────────────────────────────
@@ -266,7 +260,7 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
   const day = dayOf(now)
   const result = await db.transaction('rw', db.tasks, db.xpEvents, async () => {
     const task = await db.tasks.get(id)
-    if (!task || task.status === 'done') return { task: task ?? null, xp: 0, next: null }
+    if (!task || task.status === 'done') return { task: task ?? null, xp: 0, next: null, changed: false }
 
     let next: Task | null = null
     const changes: Partial<Task> = { status: 'done', completedAt: now, completedDay: day }
@@ -290,14 +284,14 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
 
     emit({ type: 'task.completed', taskId: id, day, at: now })
     if (next) emit({ type: 'task.created', taskId: next.id })
-    return { task: { ...task, ...changes }, xp: award?.amount ?? 0, next }
+    return { task: (await db.tasks.get(id)) ?? null, xp: award?.amount ?? 0, next, changed: true }
   })
 
-  if (!result.task || result.task.status !== 'done' || result.xp === 0 && result.next === null && !result.task.completedAt) {
-    return { ...result, undo: noop }
-  }
-  const nextId = result.next?.id ?? null
-  return { ...result, undo: async () => void (await reopen(id, nextId, opts)) }
+  const { changed, ...rest } = result
+  if (!changed) return { ...rest, undo: noop }
+  const generatedId = rest.next?.id ?? null
+  // An undo happens later, so it is stamped with the time it runs, not the time of the action.
+  return { ...rest, undo: async () => void (await reopen(id, generatedId, {})) }
 }
 
 /**
@@ -320,8 +314,15 @@ async function generatedInstance(task: Task, completedDay: ISODate): Promise<Tas
   )
 }
 
-/** Reopens a done task. `nextId` is the instance completion created (known for an undo), or `'auto'`. */
-async function reopen(id: ID, nextId: ID | 'auto' | null, opts: RepoOptions): Promise<number> {
+/**
+ * Reopens a done task and reverses its XP. `generated` is the instance completion created (known for an
+ * undo, `null` when there was none); `undefined` looks for one.
+ */
+async function reopen(
+  id: ID,
+  generated: ID | null | undefined,
+  opts: RepoOptions,
+): Promise<number> {
   const now = opts.now ?? Date.now()
   return db.transaction('rw', db.tasks, db.xpEvents, async () => {
     const task = await db.tasks.get(id)
@@ -330,15 +331,15 @@ async function reopen(id: ID, nextId: ID | 'auto' | null, opts: RepoOptions): Pr
 
     await db.tasks.update(id, { status: 'todo', completedAt: null, completedDay: null })
 
-    const generated =
-      nextId === 'auto'
+    const created =
+      generated === undefined
         ? await generatedInstance(task, day)
-        : nextId
-          ? ((await db.tasks.get(nextId)) ?? null)
-          : null
-    if (generated && generated.status !== 'done') {
-      await db.tasks.delete(generated.id)
-      emit({ type: 'task.deleted', taskId: generated.id })
+        : generated === null
+          ? null
+          : ((await db.tasks.get(generated)) ?? null)
+    if (created && created.status !== 'done') {
+      await db.tasks.delete(created.id)
+      emit({ type: 'task.deleted', taskId: created.id })
     }
 
     const reversal = await reverseXp(`task:${id}`, { at: now })
@@ -358,8 +359,8 @@ export interface UncompleteResult extends Undoable {
  * removed. `undo()` completes the task again.
  */
 export async function uncompleteTask(id: ID, opts: RepoOptions = {}): Promise<UncompleteResult> {
-  const xp = await reopen(id, 'auto', opts)
-  return { xp, undo: async () => void (await completeTask(id, opts)) }
+  const xp = await reopen(id, undefined, opts)
+  return { xp, undo: async () => void (await completeTask(id)) }
 }
 
 /**
@@ -414,7 +415,7 @@ async function renumber(key: OrderKey, movedId: ID, above: ID | null): Promise<v
   if (moved) sorted.splice(at, 0, moved)
   const orders = evenOrders(sorted.length)
   await db.tasks.bulkUpdate(
-    sorted.map((t, i) => ({ key: t.id, changes: { [key]: orders[i] ?? 0 } })),
+    sorted.map((t, i) => ({ key: t.id, changes: { [key]: orders[i] ?? 0 } as Partial<Task> })),
   )
 }
 

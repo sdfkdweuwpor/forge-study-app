@@ -1,0 +1,53 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+}
+
+.add {
+  flex: none;
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 639px) {
+  /* The long form of the list's description is for wide screens. */
+  .description {
+    display: none;
+  }
+
+  .title {
+    font-size: var(--fs-32);
+  }
+
+  .header {
+    margin-bottom: var(--space-4);
+  }
+}

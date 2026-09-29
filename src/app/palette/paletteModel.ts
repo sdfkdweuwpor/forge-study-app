@@ -13,7 +13,8 @@ import { recentKey, type RecentEntry } from './recents'
  * What the command palette lists (pure, unit-tested; PaletteOverlay only renders it).
  *
  * Groups, in this order: Recent, Actions (commands), Pages ("Go to" commands plus any provider group
- * called Pages), Tasks, Goals, then every other provider group by name. Without a query it shows
+ * called Pages), Tasks, Goals, then every other provider group by name; with a query, groups whose
+ * items match the text move ahead of groups that do not. Without a query it shows
  * recents and a short list of suggestions; with one it fuzzy-ranks commands (title, then keywords)
  * and re-ranks each provider's results by how well their title matches.
  */
@@ -101,16 +102,32 @@ export function shortcutKeysById(shortcuts: readonly ShortcutDef[]): Map<string,
   return new Map(shortcuts.map((s) => [s.id, s.keys]))
 }
 
-/** Commands whose `when` allows them right now. A `when` that throws hides its command. */
+/**
+ * Commands whose `when` allows them right now. A `when` that throws hides its command. Two commands
+ * with the same group and title (two features both offering "New task") list once, keeping the one
+ * that shows a shortcut.
+ */
 export function availableCommands(commands: readonly CommandDef[], ctx: CommandCtx): CommandDef[] {
-  return commands.filter((c) => {
-    if (!c.when) return true
-    try {
-      return c.when(ctx)
-    } catch {
-      return false
+  const out: CommandDef[] = []
+  const at = new Map<string, number>()
+  for (const c of commands) {
+    if (c.when) {
+      try {
+        if (!c.when(ctx)) continue
+      } catch {
+        continue
+      }
     }
-  })
+    const key = `${c.group}\u0000${c.title.trim().toLowerCase()}`
+    const first = at.get(key)
+    if (first === undefined) {
+      at.set(key, out.length)
+      out.push(c)
+    } else if (!out[first]?.shortcutId && c.shortcutId) {
+      out[first] = c
+    }
+  }
+  return out
 }
 
 function commandItem(
@@ -294,6 +311,14 @@ export function buildPaletteGroups(input: PaletteInput): ModelGroup[] {
     ([a], [b]) => groupOrder(a) - groupOrder(b) || a.localeCompare(b),
   )
   for (const [heading, items] of rest) push(`group-${slug(heading)}`, heading, items)
+
+  // With a query, a group whose items really match what was typed comes before one that only holds
+  // what a provider returned (or a keyword hit), so the first row is the best match, not just the
+  // first group. Otherwise the order above stands (the sort is stable).
+  if (query !== '') {
+    const matched = (g: ModelGroup) => g.items.some((i) => i.matches || i.subtitleMatches)
+    groups.sort((a, b) => Number(!matched(a)) - Number(!matched(b)))
+  }
   return groups
 }
 

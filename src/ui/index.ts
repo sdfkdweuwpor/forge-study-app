@@ -98,3 +98,5 @@ export {
   isCoverPresetId,
 } from './PageHeader'
 export type { CoverPickerProps, CoverPresetId, PageCover, PageHeaderProps } from './PageHeader'
+export { BlockEditor } from './BlockEditor'
+export type { BlockEditorProps } from './BlockEditor'

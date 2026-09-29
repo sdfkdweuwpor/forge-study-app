@@ -169,8 +169,21 @@ describe('with a query', () => {
   it('lists provider groups after Actions and Pages: Tasks, Goals, then others A to Z', () => {
     const extra: ProviderResults = { providerId: 'x', group: 'Notes', results: [result('n', 'Read notes')] }
     const groups = build({ query: 'read', providers: [extra, GOALS, TASKS] })
-    // Providers are trusted to have found their results, so a group is listed even when no title matches.
-    expect(headings(groups)).toEqual(['Tasks', 'Goals', 'Notes'])
+    // Providers are trusted to have found their results, so Goals is listed although no title matches;
+    // it follows the groups that do.
+    expect(headings(groups)).toEqual(['Tasks', 'Notes', 'Goals'])
+  })
+
+  it('puts groups that match the text ahead of groups that only hold provider results', () => {
+    const pages: ProviderResults = {
+      providerId: 'courses',
+      group: 'Pages',
+      results: [result('c1', 'D278 Scripting and Programming')],
+    }
+    // "Pages" comes first by default, but nothing in it matches "read chap"; Tasks does.
+    const groups = build({ query: 'read chap', providers: [pages, TASKS] })
+    expect(headings(groups)).toEqual(['Tasks', 'Pages'])
+    expect(groups[0]?.items[0]?.title).toBe('Read chapter 4: Networks')
   })
 
   it('merges a "Pages" provider into the Pages group', () => {
@@ -201,6 +214,22 @@ describe('with a query', () => {
       cmd('c', 'Alpha gamma', 'Create', { when: (c) => c.today === '2026-09-29' }),
     ]
     expect(titles(build({ commands, query: 'alpha' }), 'Actions')).toEqual(['Alpha gamma'])
+  })
+
+  it('lists two commands with the same group and title once, keeping the one with a shortcut', () => {
+    const commands = [
+      cmd('a.new', 'New task', 'Create'),
+      cmd('b.new', 'New task', 'Create', { shortcutId: 'quickadd.open' }),
+      cmd('c.new', 'new task', 'Create'),
+      cmd('d.other', 'New task', 'Help'), // another group: a different command
+    ]
+    const groups = build({ commands, query: 'new task' })
+    const listed = groups.flatMap((g) => g.items)
+    expect(listed.map((i) => (i.action.type === 'command' ? i.action.command.id : ''))).toEqual([
+      'b.new',
+      'd.other',
+    ])
+    expect(listed[0]?.shortcut).toBe('q')
   })
 
   it('is empty when nothing matches', () => {

@@ -1,0 +1,86 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-regular);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 4px var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+@media (hover: hover) {
+  .item:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  line-height: 21px;
+}
+
+.remove {
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.item:hover .remove,
+.item:focus-within .remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .remove {
+    opacity: 1;
+  }
+}
+
+.add {
+  height: var(--control-h-md);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.add::placeholder {
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .add:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.add:focus {
+  background: var(--bg-hover);
+}

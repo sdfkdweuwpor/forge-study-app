@@ -1,6 +1,12 @@
 import { createContext, useContext } from 'react'
 import type { ToastVariant } from './toastReducer'
 
+/** A plain action button on a toast ("Open"). Runs `onClick`, then the toast closes. */
+export interface ToastButton {
+  label: string
+  onClick: () => void
+}
+
 export interface ToastOptions {
   /** Reuse an id to update a toast in place ("Saving…" → "Saved"). Generated when omitted. */
   id?: string
@@ -15,6 +21,8 @@ export interface ToastOptions {
    * the toast says it could not undo and offers Retry.
    */
   undo?: () => void | Promise<void>
+  /** Adds an action button beside Undo, e.g. `{ label: 'Open', onClick }`. */
+  action?: ToastButton
 }
 
 /** Options for the variant helpers, which set `title` and `variant` themselves. */

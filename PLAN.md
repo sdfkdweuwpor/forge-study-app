@@ -539,7 +539,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Hello Today page and a minimal Settings page with the theme select (replaced in P10).
   - Accept: every route renders its Placeholder with no console errors; the tab bar shows at 375; the sidebar toggles.
 - [ ] **1D [B] e2e smoke** (after 1B+1C). `e2e/smoke.spec.ts` visits every route, fails on console errors, checks theme switching and the mobile tab bar.
-- [ ] **1E [H] README** skeleton: what it is, dev commands, deploy notes.
+- [x] **1E [H] README** skeleton: what it is, dev commands, deploy notes.
 - [ ] **1F Deploy (coordinator).** Netlify site `forge-study-app`. A deep-link reload (`/goals/x`) serves the SPA, security headers are present, and the user is told about the optional `NETLIFY_AUTH_TOKEN`/`NETLIFY_SITE_ID` secrets.
 
 ### Phase 2 — Design system

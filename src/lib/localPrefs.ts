@@ -17,6 +17,10 @@ export const PREF_KEYS = {
   tasksLayout: 'forge:tasks:layout',
   /** Command palette recents: JSON array, newest first (src/app/palette/recents.ts). */
   paletteRecent: 'forge:palette:recent',
+  /** Last Focus mode (pomodoro | custom | stopwatch); written by the focus feature. */
+  focusMode: 'forge:focus:mode',
+  /** Id of a session whose "Done with this task?" dialog has not been answered (survives a refresh). */
+  focusPendingEnd: 'forge:focus:pending-end',
 } as const
 
 export type PrefKey = (typeof PREF_KEYS)[keyof typeof PREF_KEYS]

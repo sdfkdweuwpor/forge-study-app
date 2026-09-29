@@ -1,0 +1,56 @@
+.mini {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .mini:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.time {
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+}
+
+.mini[data-paused] .time {
+  color: var(--text-muted);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a phone the timer floats above the tab bar, centred, clear of the + button. */
+.mini[data-variant='pill'] {
+  display: none;
+}
+
+@media (max-width: 639.98px) {
+  .mini[data-variant='pill'] {
+    position: fixed;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+    left: 50%;
+    z-index: var(--z-tabbar);
+    display: flex;
+    min-height: var(--tap-min);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-pop);
+    translate: -50% 0;
+  }
+}

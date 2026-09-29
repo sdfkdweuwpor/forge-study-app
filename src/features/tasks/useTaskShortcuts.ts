@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useOverlays } from '@/app/providers/OverlayProvider'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
+import { beginFocus } from '@/features/focus'
 import type { Priority, Task } from '@/db/types'
 import { useTaskActions } from './TaskActions'
 
@@ -85,6 +86,7 @@ export function useTaskShortcuts({ task, list, editTags, beforeLeave }: TaskShor
   useShortcutHandler('tasks.dueTomorrow', () => task && void actions.dueTomorrow(task.id), active)
   useShortcutHandler('tasks.dueDate', () => task && actions.request(task.id, 'due'), active)
   useShortcutHandler('tasks.tags', editTags, active)
+  useShortcutHandler('tasks.focus', () => task && void beginFocus({ taskId: task.id }), active)
   useShortcutHandler(
     'tasks.trash',
     () => {

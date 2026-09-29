@@ -1,4 +1,7 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
+import type { SessionMode } from '@/db/types'
+import { subscribePrefs } from '@/lib/localPrefs'
+import { getMode } from './actions'
 import { TimerStore, type TimerSnapshot } from './timerStore'
 
 export const TimerContext = createContext<TimerStore | null>(null)
@@ -17,4 +20,9 @@ export function useTimerStore(): TimerStore {
 export function useTimer(): TimerSnapshot {
   const store = useTimerStore()
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+}
+
+/** The mode picked on the Focus page (a device preference), live across tabs. */
+export function useMode(): SessionMode {
+  return useSyncExternalStore(subscribePrefs, getMode, () => 'pomodoro')
 }

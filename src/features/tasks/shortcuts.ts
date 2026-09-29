@@ -26,6 +26,7 @@ export const taskShortcuts: ShortcutDef[] = [
   { id: 'tasks.dueTomorrow', keys: 'm', description: 'Due tomorrow', group, scope },
   { id: 'tasks.dueDate', keys: 'd', description: 'Pick a due date', group, scope },
   { id: 'tasks.tags', keys: '#', description: 'Edit tags', group, scope },
+  { id: 'tasks.focus', keys: 's', description: 'Start focus on the task', group, scope },
   { id: 'tasks.moveUp', keys: 'alt+up', description: 'Move the task up', group, scope },
   { id: 'tasks.moveDown', keys: 'alt+down', description: 'Move the task down', group, scope },
   {

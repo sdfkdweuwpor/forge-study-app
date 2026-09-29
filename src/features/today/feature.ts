@@ -1,8 +1,9 @@
-import { CalendarArrowUp, Check, SkipForward } from 'lucide-react'
+import { CalendarArrowUp, Check, Play, SkipForward } from 'lucide-react'
 import { lazy } from 'react'
 import type { FeatureManifest, ShortcutDef } from '@/app/registry'
 import { MilestoneCountdown, MiniHeatmap } from './Aside'
 import { DailyGoalStat, StreakStat, XpTodayStat } from './HeaderStats'
+import { StartFocusHotkey } from './StartFocusHotkey'
 import { requestTodayAction } from './todayActions'
 
 /**
@@ -10,6 +11,14 @@ import { requestTodayAction } from './todayActions'
  * and act on the Now card and the Rolled over group; `j k x e enter` come from the tasks feature.
  */
 const shortcuts: ShortcutDef[] = [
+  {
+    id: 'today.startFocus',
+    keys: 'shift+s',
+    description: 'Start focus on the Now task',
+    group: 'Focus',
+    // From any page: it reads the Now task itself (see StartFocusHotkey).
+    scope: 'global',
+  },
   {
     id: 'today.nowDone',
     keys: 'shift+x',
@@ -44,6 +53,15 @@ const manifest: FeatureManifest = {
   shortcuts,
   commands: [
     {
+      id: 'command.today.startFocus',
+      title: 'Start focus',
+      group: 'Focus',
+      icon: Play,
+      keywords: ['timer', 'pomodoro', 'begin', 'now task', 'session'],
+      shortcutId: 'today.startFocus',
+      run: (c) => c.invoke('today.startFocus'),
+    },
+    {
       id: 'command.today.completeNow',
       title: 'Complete the Now task',
       group: 'Focus',
@@ -72,6 +90,7 @@ const manifest: FeatureManifest = {
     },
   ],
   slots: [
+    { slot: 'global.overlays', id: 'today.startFocusHotkey', order: 5, component: StartFocusHotkey },
     { slot: 'today.header', id: 'today.stat.goal', order: 10, component: DailyGoalStat },
     { slot: 'today.header', id: 'today.stat.streak', order: 20, component: StreakStat },
     { slot: 'today.header', id: 'today.stat.xp', order: 30, component: XpTodayStat },

@@ -1,14 +1,15 @@
-import { navigate } from '@/app/router'
+import { beginFocus } from '@/features/focus'
 import type { ID } from '@/db/types'
 
 /**
- * Starts focus on a task. This is the single seam for "Start focus": the Now card button, and any
- * shortcut or command, call it.
+ * Starts focus on a task. This is the single seam for "Start focus": the Now card button, the `shift+s`
+ * shortcut and the palette command call it.
  *
- * Phase 3: it opens the Focus route with `?task=<id>` (no `task` when there is none). The Focus page
- * reads that parameter to pre-select the task. Phase 4 replaces the body: start the session for the
- * task, then navigate to `/focus`, and the Today screen keeps working unchanged.
+ * It starts a session (the mode picked on the Focus page, pomodoro by default) linked to the task, then
+ * opens the Focus page. With a timer already running it starts nothing: it opens the page, linking the
+ * task if the running session has none. `null` starts a session with no task (or with the one picked on
+ * the Focus page). Errors are recorded and shown there; this never throws.
  */
 export function startFocus(task: { id: ID } | null): void {
-  navigate('focus', undefined, task ? { query: { task: task.id } } : undefined)
+  void beginFocus(task ? { taskId: task.id } : {})
 }

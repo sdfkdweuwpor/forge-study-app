@@ -25,7 +25,7 @@ import {
 } from '@/db/repos/sessions'
 import { getSettings, updateSettings } from '@/db/repos/settings'
 import type { ID, Session, SessionMode, Settings } from '@/db/types'
-import { unlockAudio } from '@/lib/audio'
+import { unlockAudio } from '@/lib/audio/engine'
 import { PREF_KEYS, readPref, writePref } from '@/lib/localPrefs'
 import {
   clockOf,

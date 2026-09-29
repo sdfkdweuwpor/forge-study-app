@@ -133,15 +133,15 @@ export function formatMinutes(minutes: number): string {
 }
 
 /** "9:30 AM" in the device's time zone. */
-export function formatTimeOfDay(at: Millis): string {
+export function formatClockTime(at: Millis): string {
   return format(at, 'h:mm a')
 }
 
 /** "9:30–9:55 AM"; the meridiem is written once when both ends share it, and an open end is "now". */
 export function formatSpan(start: Millis, end: Millis | null): string {
-  const from = formatTimeOfDay(start)
+  const from = formatClockTime(start)
   if (end === null) return `${from} – now`
-  const to = formatTimeOfDay(end)
+  const to = formatClockTime(end)
   const [fromTime, fromMeridiem] = from.split(' ')
   const [, toMeridiem] = to.split(' ')
   return fromMeridiem === toMeridiem ? `${fromTime}–${to}` : `${from}–${to}`

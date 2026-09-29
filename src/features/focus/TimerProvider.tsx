@@ -12,10 +12,11 @@
  * Nothing here keeps time: every tick recomputes from the session's timestamps.
  */
 import {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useEffectEvent,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -25,17 +26,18 @@ import { useActiveSession } from '@/db/hooks/useActiveSession'
 import { useSettings } from '@/db/hooks/useSettings'
 import { reconcileRunning } from '@/db/repos/sessions'
 import type { ID } from '@/db/types'
-import { armAudioUnlock, setAmbientVolume, startAmbient, stopAmbient } from '@/lib/audio'
 import { PREF_KEYS, readPref, removePref, writePref } from '@/lib/localPrefs'
 import { MS_PER_MINUTE, clockOf, crossedMark, isDue } from '@/logic/timer'
 import { useToast } from '@/ui/Toast'
-import { EndDialog } from './EndDialog'
 import { LATE_MS, handlePhaseEnd } from './phaseEnd'
 import { getSessionById } from './queries'
 import { registerRuntime } from './runtime'
 import { startTicker } from './ticker'
 import { TimerStore } from './timerStore'
 import { TimerContext } from './useTimer'
+
+/** Loaded when the first "Done with this task?" is due: it pulls in the tasks repo and the modal. */
+const EndDialog = lazy(() => import('./EndDialog'))
 
 interface EndState {
   id: ID | null
@@ -54,7 +56,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const announce = useCallback((text: string) => {
     // The same words twice in a row would not be read again, so vary them invisibly.
-    setAnnouncement((prev) => (prev === text ? `${text} ` : text))
+    setAnnouncement((prev) => (prev === text ? `${text}\u00a0` : text))
   }, [])
 
   const openEnd = useCallback((id: ID) => {
@@ -164,27 +166,28 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     ambient !== 'none' &&
     session?.kind === 'focus' &&
     session.status === 'running'
-  const startBed = useEffectEvent(() => {
-    if (ambient !== 'none') void startAmbient(ambient, ambientVolume)
-  })
+  const bedVolume = useEffectEvent(() => ambientVolume)
+  // The audio code is loaded when it is first needed, not with the app.
   useEffect(() => {
-    armAudioUnlock()
+    void import('@/lib/audio').then((audio) => audio.armAudioUnlock())
   }, [])
   useEffect(() => {
     if (!wantAmbient) return undefined
-    startBed()
+    let cancelled = false
+    void import('@/lib/audio').then((audio) => {
+      if (!cancelled) void audio.startAmbient(ambient, bedVolume())
+    })
     return () => {
-      void stopAmbient()
+      cancelled = true
+      void import('@/lib/audio').then((audio) => audio.stopAmbient())
     }
   }, [wantAmbient, ambient])
   useEffect(() => {
-    if (wantAmbient) setAmbientVolume(ambientVolume)
+    if (wantAmbient) void import('@/lib/audio').then((audio) => audio.setAmbientVolume(ambientVolume))
   }, [wantAmbient, ambientVolume])
 
-  const value = useMemo(() => store, [store])
-
   return (
-    <TimerContext.Provider value={value}>
+    <TimerContext.Provider value={store}>
       {children}
       <div
         className="sr-only"
@@ -195,7 +198,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       >
         {announcement}
       </div>
-      <EndDialog key={end.id ?? 'none'} sessionId={end.id} open={end.open} onClose={closeEnd} />
+      {end.id !== null ? (
+        <Suspense fallback={null}>
+          <EndDialog key={end.id} sessionId={end.id} open={end.open} onClose={closeEnd} />
+        </Suspense>
+      ) : null}
     </TimerContext.Provider>
   )
 }

@@ -41,18 +41,6 @@ export function useTaskTitles(ids: readonly ID[]): ReadonlyMap<ID, string> | und
   }, [key])
 }
 
-/** XP each session earned, by session id (the log shows it beside a counted session). */
-export function useSessionXp(day: ISODate): ReadonlyMap<ID, number> | undefined {
-  return useLiveQuery(async () => {
-    const events = await db.xpEvents.where('day').equals(day).toArray()
-    const map = new Map<ID, number>()
-    for (const e of events) {
-      if (e.source === 'session' && e.refId) map.set(e.refId, (map.get(e.refId) ?? 0) + e.amount)
-    }
-    return map
-  }, [day])
-}
-
 /** One session by id, read once (no subscription). */
 export async function getSessionById(id: ID): Promise<Session | null> {
   return (await db.sessions.get(id)) ?? null

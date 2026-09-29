@@ -45,7 +45,7 @@ function minutesText(session: Session): string {
     : `${actual} of ${session.plannedMinutes} min`
 }
 
-export function EndDialog({ sessionId, open, onClose }: EndDialogProps) {
+export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) {
   const toast = useToast()
   const session = useSession(sessionId)
   const task = useTask(session?.taskId ?? undefined)

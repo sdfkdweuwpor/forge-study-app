@@ -1,0 +1,66 @@
+.dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--dial);
+  height: var(--dial);
+}
+
+/* Ring and digits share one grid cell, so the digits sit in the middle of the ring. */
+.ring,
+.face {
+  grid-area: 1 / 1;
+}
+
+/* The ring turns quietly in the full-screen view: a thin line, not a gauge. */
+.dial[data-subtle] .ring {
+  opacity: 0.7;
+}
+
+.face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 88%;
+  text-align: center;
+}
+
+/* 96px / 600 / tabular (BRIEF §3.3); it scales down with the ring on a phone. */
+.time {
+  color: var(--text);
+  font-size: clamp(3.25rem, calc(var(--dial) * 0.27), var(--fs-display));
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--lh-display);
+  white-space: nowrap;
+  transition: color var(--dur-2) var(--ease);
+}
+
+/* h:mm:ss is a third wider than mm:ss. */
+.time[data-long] {
+  font-size: clamp(2.5rem, calc(var(--dial) * 0.17), 4rem);
+}
+
+.dial[data-paused] .time {
+  color: var(--text-muted);
+}
+
+.dial[data-subtle] .time {
+  font-size: clamp(3.5rem, calc(var(--dial) * 0.3), 12rem);
+  font-weight: var(--fw-medium);
+}
+
+.dial[data-subtle] .time[data-long] {
+  font-size: clamp(2.5rem, calc(var(--dial) * 0.2), 8rem);
+}
+
+.label {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}

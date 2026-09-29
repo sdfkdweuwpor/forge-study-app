@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Forge: a bold F on a black tile whose middle arm breaks out through the tile's edge.
-       Same drawing as src/app/layout/Logo.tsx. On dark browser chrome a light ring outlines the
-       tile, and the arm breaks the ring too. -->
+  <!-- Forge ("breach"): an upward chevron that has punched through a bar, leaving it split.
+       Same drawing as src/app/layout/Logo.tsx. On dark browser chrome a light ring outlines the tile. -->
   <style>
     .ring { fill: #111111; }
     @media (prefers-color-scheme: dark) {
@@ -10,5 +9,6 @@
   </style>
   <rect class="ring" width="64" height="64" rx="14"/>
   <rect x="3" y="3" width="58" height="58" rx="11" fill="#111111"/>
-  <path fill="#FFFFFF" d="M16 12h28v8H24v8h40v8H24v16h-8z"/>
+  <path fill="#FFFFFF" d="M32 10 50 28 44 34 32 22 20 34 14 28Z"/>
+  <path fill="#FFFFFF" d="M12 42h16l-4 8H12zM36 42h16v8H40z"/>
 </svg>

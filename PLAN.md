@@ -803,7 +803,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Grid shows locked (grayscale + hint) and unlocked (date) states.
   - Handlers plus an `onAppStart` reconcile.
   - Done: `logic/badges.ts` (`evaluateBadges`, `BADGES`, `computeStreakForBadges` seam for 7A, display helpers; 76 tests incl. DST and re-evaluation stability), `db/repos/badges.ts` (`reconcileBadges`, `watchStreakDays`) and `db/hooks/useBadges.ts`, `features/gamification/{Badges.feature.ts,badgeHandlers.ts,BadgeUnlockToaster,BadgesGrid,BadgeCard,BadgeRecent (RecentBadges)}` (exported from `index.ts`), `e2e/badges.spec.ts`, `scripts/shots/badges.ts`. Palette: "Go to Badges".
-- [ ] **6D [D] Review** of the level-up moment, badges and shop screenshots.
+- [x] **6D [D] Review** of the level-up moment, badges and shop screenshots.
+  - Done: the level meter is one line over its bar, with a tooltip in the shop's words. The level-up has a 64px headline, a denser backdrop and `--confetti-*` tokens. Unaffordable rewards show a gold progress bar, phone rows keep Redeem inline, and the redeem confirmation is a phone bottom sheet (`Modal phoneLayout`). Locked badges share the card surface, with light-mode glyphs darkened (`--locked-glyph-filter`); phones get a single column; the tooltip uses 12-hour time. History lists same-instant purchases in a fixed order (monotonic `createdAt`), and each tab has its own error boundary. Screenshots are in `screenshots/6d/`. The shell has no collapsed rail, so a collapsed sidebar shows no level badge.
 
 ### Phase 7 — Streaks, Progress, charts, weekly review
 - [ ] **7A [B] Streaks** (∥ 7B). Owns `src/logic/streaks.ts` and test, `src/db/repos/progress.ts`, `src/db/hooks/useStreak.ts` and `src/features/progress/{feature.ts,handlers.ts,Streak*}`.

@@ -19,6 +19,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
 import { useMediaQuery } from '@/app/hooks/useMediaQuery'
@@ -126,6 +127,37 @@ export interface TaskActions {
 const TaskActionsContext = createContext<TaskActions | null>(null)
 const TaskMotionContext = createContext<ReadonlyMap<ID, TaskMotion>>(new Map())
 
+/**
+ * The same motion map as a store, so a row can follow its own entry (`useRowMotion`) and a list its
+ * own summary (`useTaskMotionSelector`) without the whole list redrawing at every step of one row's
+ * motion. With hundreds of rows on screen that redraw was most of the cost of a click.
+ */
+interface MotionStore {
+  get(): ReadonlyMap<ID, TaskMotion>
+  set(next: ReadonlyMap<ID, TaskMotion>): void
+  subscribe(listener: () => void): () => void
+}
+
+function createMotionStore(): MotionStore {
+  let current: ReadonlyMap<ID, TaskMotion> = new Map()
+  const listeners = new Set<() => void>()
+  return {
+    get: () => current,
+    set(next) {
+      current = next
+      for (const listener of [...listeners]) listener()
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+  }
+}
+
+const TaskMotionStoreContext = createContext<MotionStore>(createMotionStore())
+
 export function useTaskActions(): TaskActions {
   const actions = useContext(TaskActionsContext)
   if (!actions) throw new Error('useTaskActions must be used inside <TaskActionsProvider>')
@@ -135,6 +167,21 @@ export function useTaskActions(): TaskActions {
 /** Rows in the middle of a completion. A list keeps these visible even though they are already done. */
 export function useTaskMotion(): ReadonlyMap<ID, TaskMotion> {
   return useContext(TaskMotionContext)
+}
+
+/** One row's motion (`undefined` when it is not completing). Re-renders only when that entry changes. */
+export function useRowMotion(id: ID): TaskMotion | undefined {
+  const store = useContext(TaskMotionStoreContext)
+  return useSyncExternalStore(store.subscribe, () => store.get().get(id))
+}
+
+/**
+ * A value derived from the motion map, re-rendering only when it changes (compared with `Object.is`,
+ * so return a primitive such as a joined list of ids). `select` may change between renders.
+ */
+export function useTaskMotionSelector<T>(select: (motion: ReadonlyMap<ID, TaskMotion>) => T): T {
+  const store = useContext(TaskMotionStoreContext)
+  return useSyncExternalStore(store.subscribe, () => select(store.get()))
 }
 
 function shorten(text: string, max = 48): string {
@@ -149,6 +196,7 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   const canEditInPlace = useMediaQuery('(hover: hover) and (pointer: fine)')
 
   const [motion, setMotionState] = useState<ReadonlyMap<ID, TaskMotion>>(() => new Map())
+  const [motionStore] = useState(createMotionStore)
 
   // The source of truth for timing decisions; `motion` mirrors it for rendering.
   const phases = useRef(new Map<ID, TaskMotion>())
@@ -167,11 +215,16 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const setPhase = useCallback((id: ID, next: TaskMotion | null) => {
-    if (next) phases.current.set(id, next)
-    else phases.current.delete(id)
-    setMotionState(new Map(phases.current))
-  }, [])
+  const setPhase = useCallback(
+    (id: ID, next: TaskMotion | null) => {
+      if (next) phases.current.set(id, next)
+      else phases.current.delete(id)
+      const map = new Map(phases.current)
+      setMotionState(map)
+      motionStore.set(map)
+    },
+    [motionStore],
+  )
 
   const later = useCallback((id: ID, ms: number, fn: () => void) => {
     const handle = window.setTimeout(fn, ms)
@@ -456,7 +509,9 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   return (
     <TaskEnvContext.Provider value={env}>
       <TaskActionsContext.Provider value={actions}>
-        <TaskMotionContext.Provider value={motion}>{children}</TaskMotionContext.Provider>
+        <TaskMotionStoreContext.Provider value={motionStore}>
+          <TaskMotionContext.Provider value={motion}>{children}</TaskMotionContext.Provider>
+        </TaskMotionStoreContext.Provider>
       </TaskActionsContext.Provider>
     </TaskEnvContext.Provider>
   )

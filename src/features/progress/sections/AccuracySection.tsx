@@ -29,23 +29,20 @@ function AccuracyBody({ today }: { today: ISODate }) {
   }, [inputs])
   if (!view) return <ChartSkeleton what="estimate accuracy" height={240} />
 
-  const sentence = accuracySentence(view.accuracy)
   return (
-    <>
-      <AccuracyScatter
-        title="Estimate accuracy"
-        titleAs="h2"
-        subtitle="Planned against actual pomodoros · last 90 days"
-        points={view.points}
-        empty={
-          <p className={styles.note}>
-            Give a task an estimate, focus on it and check it off: it’s compared with the time it
-            took here.
-          </p>
-        }
-      />
-      {sentence && <p className={styles.note}>{sentence}</p>}
-    </>
+    <AccuracyScatter
+      title="Estimate accuracy"
+      titleAs="h2"
+      subtitle="Planned against actual pomodoros · last 90 days"
+      lede={accuracySentence(view.accuracy)}
+      points={view.points}
+      empty={
+        <p className={styles.note}>
+          Give a task an estimate, focus on it and check it off: it’s compared with the time it
+          took here.
+        </p>
+      }
+    />
   )
 }
 

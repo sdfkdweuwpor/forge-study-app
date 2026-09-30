@@ -4,7 +4,9 @@
  * A suggestion only becomes a do date and time when the person accepts it, and every write here returns
  * an `undo()`.
  */
+import Dexie from 'dexie'
 import {
+  autoSlotCandidates,
   busyBlocksOf,
   slotConflicts,
   suggestAutoSlots,
@@ -12,16 +14,37 @@ import {
   type SlotSuggestion,
 } from '@/logic/everydaySlots'
 import { db } from '../db'
-import type { ID } from '../types'
+import type { ID, Task } from '../types'
 import { getSettings } from './settings'
 import { updateTask, type RepoOptions, type Undoable } from './tasks'
 
-/** Where each candidate would go: earliest deadline first, around timed tasks and goal sessions. */
+const OPEN = ['todo', 'doing'] as const
+
+/** Open tasks with a value in `index`'s second part (`[status+dueDate]`, `[status+doDate]`). */
+async function openWith(index: '[status+dueDate]' | '[status+doDate]'): Promise<Task[]> {
+  const lists = await Promise.all(
+    OPEN.map((status) =>
+      db.tasks.where(index).between([status, Dexie.minKey], [status, Dexie.maxKey], true, true).toArray(),
+    ),
+  )
+  return lists.flat()
+}
+
+/**
+ * Where each candidate would go: earliest deadline first, around timed tasks and goal sessions.
+ * Reads through indexes, not the whole table: candidates are open tasks with a deadline, and only when
+ * there are some are the open tasks with a do date (the busy time) read. As a live query it then re-runs
+ * only when one of those changes, not on every task write (a finished task, a year of history).
+ */
 export async function proposeAutoSlots(opts: RepoOptions = {}): Promise<AutoSlotProposal> {
   const now = opts.now ?? Date.now()
-  const [tasks, settings] = await Promise.all([db.tasks.toArray(), getSettings()])
+  const [withDeadline, settings] = await Promise.all([openWith('[status+dueDate]'), getSettings()])
+  if (autoSlotCandidates(withDeadline).length === 0) return { suggestions: [], noRoom: [] }
+  const dated = await openWith('[status+doDate]')
+  const byId = new Map<ID, Task>()
+  for (const t of [...withDeadline, ...dated]) byId.set(t.id, t)
   return suggestAutoSlots(
-    tasks,
+    [...byId.values()],
     settings.scheduling.taskWindows,
     settings.scheduling.globalDaysOff,
     now,

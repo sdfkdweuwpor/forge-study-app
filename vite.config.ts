@@ -31,34 +31,92 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     react(),
-    // Minimal for now; full PWA polish (icons, update toast, offline) lands in Phase 10.
     VitePWA({
+      // The new worker waits until the person taps "Reload" in the update toast (src/app/pwa); it never
+      // takes over an open tab, so a running focus session is not interrupted.
       registerType: 'prompt',
+      // Registration is ours (src/app/pwa/register.ts) so the update prompt can be deferred.
       injectRegister: false,
+      // The PNG icons are precached by the glob below; no second entry for each.
+      includeManifestIcons: false,
       manifest: {
+        id: '/',
         name: 'Forge',
         short_name: 'Forge',
         description: 'Plan, focus and finish your degree.',
+        categories: ['productivity', 'education'],
         start_url: '/',
         scope: '/',
         display: 'standalone',
+        // Both are the light theme's page background: the splash screen and the title bar then match
+        // the first paint. Dark mode is handled at runtime by the two media-specific <meta
+        // name="theme-color"> tags in index.html, which win over this member once the page is open.
+        // (The logo's #111111 tile is the icon background, not a UI colour.)
         background_color: '#FFFFFF',
-        theme_color: '#111111',
+        theme_color: '#FFFFFF',
+        icons: [
+          { src: '/icons/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          {
+            src: '/icons/maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+          {
+            src: '/icons/monochrome-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'monochrome',
+          },
+        ],
+        // Long-press / right-click the installed icon. `/focus` has no `?start=1`: a session needs a
+        // task or a mode chosen first, so it opens the Focus page. `?quickadd=1` is handled by
+        // src/app/pwa/LaunchActions.tsx.
+        shortcuts: [
+          { name: 'Today', short_name: 'Today', url: '/' },
+          { name: 'Start focus', short_name: 'Focus', url: '/focus' },
+          { name: 'Quick add', short_name: 'Add task', url: '/?quickadd=1' },
+        ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        // The app shell, every JS/CSS chunk, fonts, SVG and the PNG icons (also used by notifications).
+        globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
         // The static 404 page is only for missing /assets/* files (see netlify.toml); never serve it from the precache.
         // pdf.js (~430 KB) and its worker (~1.2 MB, a .mjs the glob above never matches) are only for the
         // planner's "upload a PDF"; they are cached the first time they are used instead of at install.
-        globIgnores: ['404.html', '**/pdf-*.js'],
+        // The /design component gallery is a developer page, so its chunk is not worth installing.
+        globIgnores: ['404.html', '**/pdf-*.js', '**/DesignPage-*'],
+        cleanupOutdatedCaches: true,
+        // The first install takes over the page that registered it, so it works offline without a
+        // reload. Updates still wait (skipWaiting stays off): see registerType.
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => /\/assets\/pdf[.-][^/]*\.m?js$/.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'forge-pdf', expiration: { maxEntries: 4 } },
           },
+          {
+            // Blocker favicons (img-src allows this origin). Cross-origin <img> is a no-cors request, so
+            // the responses are opaque (status 0) and must be allowed into the cache explicitly.
+            urlPattern: ({ url }) => url.origin === 'https://icons.duckduckgo.com',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'forge-favicons',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+                purgeOnQuotaError: true,
+              },
+            },
+          },
         ],
         navigateFallback: '/index.html',
+        // Never answer these navigations with the app shell: hashed assets (a missing one must stay a
+        // 404, see netlify.toml) and the extension zip download.
+        navigateFallbackDenylist: [/^\/assets\//, /\.zip$/, /^\/404\.html$/],
       },
     }),
     securityHeadersFile(),

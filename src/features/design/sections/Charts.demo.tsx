@@ -10,7 +10,13 @@ import {
   tasksCompletedByWeek,
   yearHeatmap,
 } from '@/logic/stats'
-import { dayBars, durationText, minutesTick, weekBars } from '@/logic/statsLabels'
+import {
+  accuracySentence,
+  dayBars,
+  durationText,
+  minutesTick,
+  weekBars,
+} from '@/logic/statsLabels'
 import {
   AccuracyScatter,
   BarChart,
@@ -62,7 +68,7 @@ function ChartsDemo() {
   const { days, weeks, heat, hours, courses, accuracy } = useSample()
   return (
     <div className={styles.stack}>
-      <Block caption="Year heatmap: shade = focused minutes (quartiles of the days shown), ❄ = a streak freeze. Arrow keys: ←/→ change week, ↑/↓ change day, Esc hides the tooltip">
+      <Block caption="Year heatmap: shade = focused minutes (quartiles of the days shown, five steps that read by lightness alone), ❄ = a streak freeze, drawn in neutral ink. Arrow keys: ←/→ change week, ↑/↓ change day, Esc hides the tooltip">
         <Heatmap
           weeks={heat.weeks}
           weekStartsOn={1}
@@ -72,7 +78,7 @@ function ChartsDemo() {
         />
       </Block>
 
-      <Block caption="Bar chart: focus minutes per day, today in the full accent. Focus the chart and use ←/→">
+      <Block caption="Bar chart: focus minutes per day, today in the strong accent (darker in light, lighter in dark). Focus the chart and use ←/→">
         <BarChart
           data={dayBars(days)}
           title="Focus minutes"
@@ -100,7 +106,7 @@ function ChartsDemo() {
         />
       </Block>
 
-      <Block caption="Hour histogram: the busiest hour is the full accent">
+      <Block caption="Hour histogram: the busiest hour is the strong accent">
         <HourHistogram
           minutes={hours}
           title="Best time of day"
@@ -127,10 +133,11 @@ function ChartsDemo() {
         />
       </Block>
 
-      <Block caption="Scatter: filled = within ±20% of the estimate, open ring = outside; never red">
+      <Block caption="Scatter: filled = within ±20% of the estimate, open ring = outside; never red. The takeaway sits under the title">
         <AccuracyScatter
           title="Estimate accuracy"
           subtitle="Planned against actual pomodoros"
+          lede={accuracySentence(accuracy)}
           points={accuracy.points.map((p) => ({
             id: p.taskId,
             label: p.taskId,

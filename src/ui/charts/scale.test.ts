@@ -14,6 +14,7 @@ import {
   niceTimeTicks,
   showsTick,
   tickStep,
+  visibleTicks,
   truncateLabel,
 } from './scale'
 
@@ -188,6 +189,22 @@ describe('axis label thinning', () => {
     const shown = Array.from({ length: 30 }, (_, i) => i).filter((i) => showsTick(i, 30, 7))
     expect(shown).toEqual([1, 8, 15, 22, 29])
     expect(showsTick(29, 30, 1)).toBe(true)
+  })
+
+  it('thins labels on every bar the same way, anchored at the last', () => {
+    const all = Array.from({ length: 30 }, (_, i) => i)
+    expect([...visibleTicks(all, 10, 60)].sort((a, b) => a - b)).toEqual([1, 8, 15, 22, 29])
+  })
+
+  it('spaces sparse labels by the distance between them, so the hour axis keeps 12a, 6a, 12p, 6p', () => {
+    // 24 bars about 13px apart (a phone), labelled every sixth: two bars' room would drop them all
+    // if the step were counted over every bar and anchored at bar 23.
+    const hours = [0, 6, 12, 18]
+    expect([...visibleTicks(hours, 13, 22)].sort((a, b) => a - b)).toEqual([0, 6, 12, 18])
+    // Squeezed hard, every other one goes, still counted back from the last label.
+    expect([...visibleTicks(hours, 4, 22)].sort((a, b) => a - b)).toEqual([6, 18])
+    expect([...visibleTicks([5], 4, 22)]).toEqual([5])
+    expect(visibleTicks([], 4, 22).size).toBe(0)
   })
 })
 

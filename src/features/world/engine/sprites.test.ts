@@ -44,11 +44,12 @@ describe('every sprite', () => {
           expect(r.base.length).toBeGreaterThan(0)
           expect(all(r.base)).toBe(true)
           expect(all(r.lights)).toBe(true)
-          for (const rect of [...r.base, ...r.lights]) {
-            expect(rect.w).toBeGreaterThan(0)
-            expect(rect.h).toBeGreaterThan(0)
-            expect(rect.color).toMatch(COLOUR)
-          }
+          // One assertion per sprite, not three per rect: a castle has thousands of rects, and per-rect
+          // expects made this sweep take seconds (it timed out on a loaded machine).
+          const bad = [...r.base, ...r.lights].filter(
+            (rect) => !(rect.w > 0 && rect.h > 0 && COLOUR.test(rect.color)),
+          )
+          expect(bad).toEqual([])
           expect(r.bounds.x1).toBeGreaterThan(r.bounds.x0)
           expect(r.bounds.y1).toBeGreaterThan(r.bounds.y0)
         }

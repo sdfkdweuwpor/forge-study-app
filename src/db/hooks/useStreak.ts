@@ -1,4 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useState } from 'react'
+import { valueSharer } from '@/logic/share'
 import type { StreakDayStatus, StreakResult } from '@/logic/streaks'
 import { loadStreak } from '../repos/progress'
 import type { ISODate } from '../types'
@@ -26,12 +28,14 @@ export interface StreakState extends StreakResult {
  * loading; a failed read throws to the nearest error boundary, like every live query.
  */
 export function useStreak(today: ISODate): StreakState | undefined {
+  // Shared structurally: a row rewritten with the same values leaves the result, and its 400 days, as is.
+  const [share] = useState(valueSharer<StreakState>)
   return useLiveQuery(async () => {
     const streak = await loadStreak(today)
-    return {
+    return share({
       ...streak,
       todayStatus: streak.days.find((d) => d.day === today)?.status ?? 'today-open',
       freezeAvailable: streak.freezeAvailableThisWeek,
-    }
-  }, [today])
+    })
+  }, [today, share])
 }

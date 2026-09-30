@@ -1,5 +1,6 @@
 import { buildRegistry, validateManifests, type Registry } from './registry'
 import { paletteManifest } from '../palette/manifest'
+import { pwaManifest } from '../pwa/manifest'
 import { builtins } from './builtins'
 import type { FeatureManifest } from './types'
 
@@ -16,6 +17,7 @@ export const discovered: readonly (readonly [string, FeatureManifest])[] = Objec
 export const manifests: readonly FeatureManifest[] = [
   builtins,
   paletteManifest,
+  pwaManifest,
   ...discovered.map(([, m]) => m),
 ]
 

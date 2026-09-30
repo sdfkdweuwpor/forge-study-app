@@ -7,8 +7,7 @@ import {
   estimateTextWidth,
   linearScale,
   niceTicks,
-  showsTick,
-  tickStep,
+  visibleTicks,
 } from './scale'
 import styles from './BarChart.module.css'
 
@@ -142,7 +141,8 @@ export function BarChart({
         )
         // A last label wider than its bar is pulled back inside the chart, so the ones before it need the
         // extra room too.
-        const step = tickStep(
+        const shownTicks = visibleTicks(
+          data.flatMap((d, i) => (d.tick ? [i] : [])),
           layout.pitch,
           Math.max(labelWidth, labelWidth * 1.5 - layout.pitch / 2),
         )
@@ -230,7 +230,7 @@ export function BarChart({
                 )
               })}
               {data.map((d, i) => {
-                if (!d.tick || !showsTick(i, data.length, step)) return null
+                if (!d.tick || !shownTicks.has(i)) return null
                 const overflows =
                   i === data.length - 1 && estimateTextWidth(d.tick, LABEL_FONT) > layout.pitch
                 return (

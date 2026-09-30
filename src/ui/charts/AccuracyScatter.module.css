@@ -45,10 +45,11 @@
   stroke-width: 2;
 }
 
+/* The active dot: a 2px ring in text ink, clear of the dot by its own page-coloured edge. */
 .ring {
   fill: none;
   stroke: var(--text);
-  stroke-width: 1.5;
+  stroke-width: 2;
   pointer-events: none;
 }
 

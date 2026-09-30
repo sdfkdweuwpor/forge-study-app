@@ -33,6 +33,7 @@ import { planGoal } from './plan'
 import { buildSchedule } from './schedule'
 import { orderCourses } from './topo'
 import type { PlannedChunk, ScheduleInput, ScheduleResult } from './types'
+import { medianCpuMs } from '@/test/timing'
 
 const ok = (inp: ScheduleInput): ScheduleResult => {
   const res = buildSchedule(inp)
@@ -885,28 +886,23 @@ describe('planGoal (rows → plan)', () => {
 })
 
 describe('performance', () => {
+  // CPU time, median of five runs after a warm-up (`@/test/timing`), so a busy machine cannot fail it.
   it('schedules a 12-course, one-year WGU plan in under 50 ms', () => {
     const inp = wguYearPlan()
-    buildSchedule(inp) // warm-up
-    const t0 = performance.now()
     const res = buildSchedule(inp)
-    const ms = performance.now() - t0
     expect(checkInvariants(inp, res)).toEqual([])
     expect(res.feasible).toBe(true)
     expect(res.projectedEnd! > '2027-07-01').toBe(true)
     expect(res.chunks.length).toBeGreaterThan(250)
-    expect(ms).toBeLessThan(50)
+    expect(medianCpuMs(() => buildSchedule(inp))).toBeLessThan(50)
   })
 
   it('plans with catch-up in under 50 ms when the target is missed', () => {
     const inp = { ...wguYearPlan(), targetDate: '2027-06-30' }
-    suggestCatchUp(inp)
-    const t0 = performance.now()
     const res = buildSchedule(inp)
     const cu = suggestCatchUp(inp, res)
-    const ms = performance.now() - t0
     expect(res.feasible).toBe(false)
     expect(cu?.extraMinutesPerStudyDay).toBeTypeOf('number')
-    expect(ms).toBeLessThan(50)
+    expect(medianCpuMs(() => suggestCatchUp(inp, buildSchedule(inp)))).toBeLessThan(50)
   })
 })

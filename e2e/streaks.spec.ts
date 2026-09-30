@@ -51,7 +51,7 @@ test.describe('Streaks', () => {
     // Today is still open: the run through yesterday stands, and the Today stat agrees.
     await expect(page.getByText('day streak').locator('..')).toContainText('6')
     await flame(page).hover()
-    await expect(page.getByRole('tooltip')).toHaveText('Best: 6 · Freeze ready ❄️')
+    await expect(page.getByRole('tooltip')).toHaveText('Your best yet · Freeze ready ❄️')
     // Crediting old history is quiet: no toast, and no 7-day XP yet.
     await expect(toasts(page)).not.toContainText('streak')
   })
@@ -95,11 +95,12 @@ test.describe('Streaks', () => {
 
     const frozen = heatmap(page).locator('[data-frozen]')
     await expect(frozen).toHaveCount(1)
-    await expect(frozen).toHaveText('❄️')
+    // A drawn snowflake (lucide), not an emoji: it stays crisp and legible on the quiet cell.
+    await expect(frozen.locator('svg')).toHaveCount(1)
     await expect(frozen).toHaveAttribute('aria-label', /Sun, Sep 27: streak freeze/)
     // This week's own freeze is still there, and the heatmap explains the snowflake.
     await flame(page).hover()
-    await expect(page.getByRole('tooltip')).toHaveText('Best: 3 · Freeze ready ❄️')
+    await expect(page.getByRole('tooltip')).toHaveText('Your best yet · Freeze ready ❄️')
     await expect(heatmap(page)).toContainText('Streak freeze')
     await expect(heatmap(page)).not.toContainText(/lost|broke|miss/i)
   })
@@ -130,7 +131,7 @@ test.describe('Streaks', () => {
       /Wed, Sep 23: streak freeze/,
     )
     await flame(page).hover()
-    await expect(page.getByRole('tooltip')).toHaveText('Best: 3 · Freeze ready ❄️')
+    await expect(page.getByRole('tooltip')).toHaveText('Your best yet · Freeze ready ❄️')
     await expect(page.locator('body')).not.toContainText(/lost|broke|missed/i)
   })
 

@@ -14,6 +14,8 @@ export interface AccuracyScatterProps {
   subtitle?: string
   titleAs?: 'h2' | 'h3' | 'span'
   actions?: ReactNode
+  /** The takeaway sentence under the title. */
+  lede?: ReactNode
   height?: number
   emptyText?: string
   empty?: ReactNode
@@ -44,6 +46,7 @@ export function AccuracyScatter({
   subtitle,
   titleAs,
   actions,
+  lede,
   height = 240,
   emptyText,
   empty,
@@ -68,6 +71,7 @@ export function AccuracyScatter({
       subtitle={subtitle}
       titleAs={titleAs}
       actions={actions}
+      lede={lede}
       isEmpty={points.length === 0}
       emptyText={emptyText}
       empty={empty}
@@ -137,9 +141,11 @@ export function AccuracyScatter({
         const activeCenter = nav.active === null ? undefined : centers[nav.active]
         if (active && activeCenter) {
           const many = active.points.length > 1
+          const r = 5 + Math.min(3, active.points.length - 1)
           tip = {
             x: activeCenter[0],
-            y: activeCenter[1] - (many ? 8 : 5),
+            y: activeCenter[1] - r - 4,
+            bottom: activeCenter[1] + r + 4,
             content: {
               value: many ? `${active.points.length} tasks` : (active.points[0]?.label ?? 'Task'),
               label: `Planned ${num(active.planned)}, actual ${num(active.actual)}`,

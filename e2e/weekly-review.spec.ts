@@ -42,12 +42,12 @@ test.describe('Weekly review: the page', () => {
 
     const wins = page.locator('[data-section="wins"] li')
     await expect(wins).toHaveText([
-      '4 tasks done',
+      'You finished 4 tasks',
       '4 h 35 min of focus',
       'On a 5-day streak',
       'You showed up on 5 days',
-      'Longest session: 1 h 40 min',
-      'Best day: Saturday, 1 h 40 min',
+      'A 1 h 40 min session, your longest this week',
+      'Saturday was your best day, with 1 h 40 min',
     ])
 
     const numbers = page.locator('[data-section="numbers"]')
@@ -102,7 +102,7 @@ test.describe('Weekly review: the page', () => {
     await expect(range(page)).toHaveText('Sep 14 – 20, 2026')
     // Last week held one session and one task.
     await expect(page.locator('[data-section="wins"] li')).toContainText([
-      '1 task done',
+      'You finished 1 task',
       '25 min of focus',
     ])
     await expect(page.getByRole('button', { name: 'Next week' })).toBeEnabled()
@@ -180,7 +180,7 @@ test.describe('Weekly review: the note and finishing', () => {
     const row = (await reviewRows(page)).find((r) => r.id === REVIEW_WEEK)
     expect(row?.completedAt).not.toBeNull()
     expect(row?.blockers).toBe('Slow Tuesday.')
-    expect(row?.wins).toContain('4 tasks done')
+    expect(row?.wins).toContain('You finished 4 tasks')
 
     // A reload, and writing more afterwards, change nothing about it.
     await page.reload()

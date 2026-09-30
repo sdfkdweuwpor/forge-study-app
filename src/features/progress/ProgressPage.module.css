@@ -49,6 +49,8 @@
   .grid {
     display: flex;
     flex-direction: column;
+    /* The two-column grid's `align-items: start` would shrink each section to its content here. */
+    align-items: stretch;
     gap: var(--space-12);
   }
 

@@ -108,7 +108,7 @@ view follows and `onHover` fires with `via: 'keyboard'`; Escape or Tab leaves.
   lights are spread evenly, no tower is left dark by bad luck, and a window lit at one streak level stays lit
   at every higher one.
 - **Lights are a second layer drawn after the night overlay**, so they stay bright. The overlay is
-  `rgba(20, 26, 38, 0.45 * ambient)` in light theme and `0.32` in dark, which is already dark.
+  `rgba(20, 26, 38, 0.4 * ambient)` in light theme and `0.28` in dark, which is already dark (8B).
 - **People are 1x3 px** and, being on the dynamic layer, are painted over again by any building nearer the
   viewer that overlaps them (clipped to their few pixels), so they walk behind houses.
 - **The fountain** stands at the right-hand edge of the first landmark's or monument's plaza. Fireworks

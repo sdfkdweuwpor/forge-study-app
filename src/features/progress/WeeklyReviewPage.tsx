@@ -108,6 +108,13 @@ function Figure({ label, children, hint }: { label: string; children: string; hi
   )
 }
 
+/** Under the streak: the best when this run is shorter, otherwise a kind word. */
+function streakHint(streak: WeeklyReview['streak']): string | undefined {
+  if (streak.best > streak.current)
+    return `Best: ${streak.best} ${streak.best === 1 ? 'day' : 'days'}`
+  return streak.best > 0 ? 'Your best yet' : undefined
+}
+
 function Numbers({ review }: { review: WeeklyReview }) {
   const { streak } = review
   return (
@@ -121,10 +128,7 @@ function Numbers({ review }: { review: WeeklyReview }) {
         <Figure label="Freezes used">
           {review.freezesUsed > 0 ? `❄️ ${review.freezesUsed}` : '0'}
         </Figure>
-        <Figure
-          label="Streak"
-          hint={streak.best > streak.current ? `Best: ${streak.best}` : streak.best > 0 ? 'Your best' : undefined}
-        >
+        <Figure label="Streak" hint={streakHint(streak)}>
           {`${streak.current} ${streak.current === 1 ? 'day' : 'days'}`}
         </Figure>
       </dl>

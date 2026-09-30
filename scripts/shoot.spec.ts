@@ -35,7 +35,14 @@ for (const { feature, shots } of lists) {
     for (const colorScheme of themes) {
       for (const viewport of viewports) {
         test.describe(`${feature}/${shot.name}`, () => {
-          test.use({ colorScheme, viewport, timezoneId: TIME_ZONE, locale: 'en-US' })
+          test.use({
+            colorScheme,
+            viewport,
+            timezoneId: TIME_ZONE,
+            locale: 'en-US',
+            // A close-up is taken at 2x so single pixels (a snowflake, a ring) can be judged.
+            deviceScaleFactor: shot.element ? 2 : 1,
+          })
 
           test(`${colorScheme} ${viewport.width}`, async ({ page }) => {
             await page.goto(shot.path)
@@ -51,12 +58,20 @@ for (const { feature, shots } of lists) {
               outDir,
               `${feature}-${shot.name}-${colorScheme}-${viewport.width}.png`,
             )
-            await page.screenshot({
-              path: file,
-              fullPage: shot.fullPage ?? false,
-              animations: 'disabled',
-              caret: 'hide',
-            })
+            if (shot.element) {
+              await page.locator(shot.element).first().screenshot({
+                path: file,
+                animations: 'disabled',
+                caret: 'hide',
+              })
+            } else {
+              await page.screenshot({
+                path: file,
+                fullPage: shot.fullPage ?? false,
+                animations: 'disabled',
+                caret: 'hide',
+              })
+            }
             expect(file).toBeTruthy()
           })
         })

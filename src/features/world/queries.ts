@@ -8,16 +8,21 @@
  * nearest error boundary like any live query.
  */
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { recordError } from '@/app/reportError'
 import { useStreak } from '@/db/hooks/useStreak'
-import { ensureWorldSeed, loadWorldRows } from '@/db/repos/world'
+import { ensureWorldSeed, loadWorldRows, type WorldRows } from '@/db/repos/world'
 import type { ISODate } from '@/db/types'
+import { valueSharer } from '@/logic/share'
 import { buildWorld, type WorldInput, type WorldModel } from '@/logic/world'
 
 /** The input for `buildWorld`, live. `undefined` while the history, the streak or the seed load. */
 export function useWorldInput(today: ISODate): WorldInput | undefined {
-  const rows = useLiveQuery(loadWorldRows)
+  // Many writes re-run this read without changing the city (settings, a goal re-planned, a session
+  // starting). Sharing keeps the same rows then, so the model is not rebuilt and the engine is not
+  // updated, which would also put away a tooltip the person is reading.
+  const [share] = useState(valueSharer<WorldRows>)
+  const rows = useLiveQuery(async () => share(await loadWorldRows()), [share])
   const streak = useStreak(today)
   const seeded = rows !== undefined && rows.seed > 0
 

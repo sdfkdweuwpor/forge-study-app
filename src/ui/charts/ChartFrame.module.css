@@ -39,6 +39,16 @@
   line-height: 1.4;
 }
 
+/* The takeaway: body text right under the caption, a little closer to it than the plot is. */
+.lede {
+  margin: calc(var(--space-1) * -1) 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
 .actions {
   display: flex;
   flex: none;

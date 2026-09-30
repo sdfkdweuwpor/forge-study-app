@@ -12,6 +12,8 @@ export interface Shot {
   prepare?: (page: Page) => Promise<void>
   /** Capture the full scrollable page instead of the viewport. */
   fullPage?: boolean
+  /** Capture only this element (a close-up), e.g. `figure:has(#heat)`. Taken at 2x device pixels. */
+  element?: string
 }
 
 /** Default export of every `scripts/shots/<feature>.ts`. */

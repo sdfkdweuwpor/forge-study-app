@@ -37,11 +37,27 @@ const list: ShotList = {
         await page.getByTestId('chart-tooltip').waitFor()
       },
     },
+    // A close-up of the year heatmap at 2x: the five levels, the snowflakes and the active-day ring.
+    {
+      name: 'heatmap',
+      path: '/progress?seed=wgu',
+      waitFor: 'h1',
+      element: 'section[data-section="heatmap"]',
+      prepare: async (page) => {
+        await withHistory(page)
+        const heat = page.getByRole('img', { name: 'Focus, past year' })
+        await heat.focus()
+        for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowLeft')
+        await page.keyboard.press('ArrowDown')
+        await page.getByTestId('chart-tooltip').waitFor()
+      },
+    },
     { name: 'empty', path: '/progress?seed=empty', waitFor: 'h1' },
     // The chart specimens on /design, scrolled through in three screens.
     ...[0, 1, 2].map((n) => ({
       name: `design-charts-${n + 1}`,
-      path: '/design#charts',
+      // Seeded, so a fresh database does not open on onboarding instead.
+      path: '/design?seed=empty#charts',
       waitFor: '#charts',
       prepare: async (page: Page) => {
         await page.locator('#charts').scrollIntoViewIfNeeded()

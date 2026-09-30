@@ -50,7 +50,19 @@ The site is deployed to Netlify as `forge-study-app`.
 
 ## Install the app on your phone (PWA)
 
-Coming in Phase 10. The app will be installable as a progressive web app for offline use on iOS and Android.
+Forge is a progressive web app: it installs like an app (own icon, own window, no browser bars) and, after the first visit, opens and works with no connection at all. Open the live site once while you are online, let it finish loading, then install it:
+
+- **iPhone or iPad (Safari):** tap **Share** → **Add to Home Screen** → **Add**. It has to be done from Safari.
+- **Android (Chrome):** tap **⋮** → **Install app** (older versions call it **Add to Home screen**).
+- **Desktop (Chrome or Edge):** click the install icon at the right end of the address bar, or **⋮** → **Install Forge**.
+
+Press and hold (Android) or right-click (desktop) the installed icon for the shortcuts: **Today**, **Start focus** and **Quick add**.
+
+**Offline.** A small "Offline" pill appears in the sidebar (at the top of the screen on a phone) and nothing else changes: your tasks, timer, goals and history are stored on the device, so everything keeps working. Two things need to have been used once while online: the site icons on the Blocker page and the PDF reader in the plan import.
+
+**Updates.** When a new version is ready, an "Update ready" toast with a **Reload** button appears. Forge never reloads by itself, and it holds the toast back while a focus session is running.
+
+**Your data lives on each device separately** until cloud sync (optional, planned for later) is set up: the phone and the laptop do not see each other's tasks. To move data across, export it on one device and import it on the other (see [Backup & restore](#backup--restore)). On iPhone, install the app rather than keeping a Safari tab: Safari can clear a website's stored data after about a week without a visit, and an installed app is exempt.
 
 ## Chrome extension (site blocker)
 

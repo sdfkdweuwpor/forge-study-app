@@ -127,7 +127,7 @@
 
 .cell,
 .swatch {
-  --_fill: var(--bg-hover);
+  --_fill: var(--chart-heat-0);
   display: block;
   border-radius: var(--radius-sm);
   background: var(--_fill);
@@ -137,18 +137,27 @@
   aspect-ratio: 1;
 }
 
-/* A day the weekly streak freeze covered: a neutral cell (one step darker, so the pale snowflake reads)
-   that carries the snowflake. Never a warning colour. */
+/* A day the weekly streak freeze covered: the quiet level-0 cell with a snowflake in neutral ink (never
+   the heat colour, so it cannot read as a level, and never a warning colour). */
 .cell[data-frozen] {
-  --_fill: var(--bg-active);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-muted);
 }
 
 .snow {
-  font-size: var(--fs-14);
-  line-height: 1;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.noteSnow {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--space-1);
+  vertical-align: -2px;
 }
 
 .note {
@@ -163,24 +172,25 @@
   outline-offset: 1px;
 }
 
+/* The same five steps as the Progress heatmap (tokens.css --chart-heat-*). */
 .cell[data-level='1'],
 .swatch[data-level='1'] {
-  --_fill: color-mix(in srgb, var(--accent) 24%, transparent);
+  --_fill: var(--chart-heat-1);
 }
 
 .cell[data-level='2'],
 .swatch[data-level='2'] {
-  --_fill: color-mix(in srgb, var(--accent) 46%, transparent);
+  --_fill: var(--chart-heat-2);
 }
 
 .cell[data-level='3'],
 .swatch[data-level='3'] {
-  --_fill: color-mix(in srgb, var(--accent) 72%, transparent);
+  --_fill: var(--chart-heat-3);
 }
 
 .cell[data-level='4'],
 .swatch[data-level='4'] {
-  --_fill: var(--accent);
+  --_fill: var(--chart-heat-4);
 }
 
 .cellSkeleton {

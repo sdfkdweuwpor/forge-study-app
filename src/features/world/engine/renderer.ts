@@ -6,7 +6,7 @@
  *  2. the **static layer**: ground, roads, shrubs and every earned sprite, painted once onto an
  *     off-screen canvas and only blitted at the new offset while the view pans;
  *  3. the **dynamic layer**: people, the fountain, birds and the hover outline;
- *  4. the night overlay (`rgba(20, 26, 38, 0.45 * ambient)`);
+ *  4. the night overlay (`rgba(20, 26, 38, 0.4 * ambient)`, 0.28 in the dark theme);
  *  5. the **lights**: lit windows and lamp heads from a second cached layer, lamp glows and fireworks,
  *     drawn after the overlay so they stay bright.
  *
@@ -578,7 +578,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   }
 
   const overlayColour = (theme: Theme, ambient: number): string =>
-    `rgba(20, 26, 38, ${((theme === 'dark' ? 0.32 : 0.45) * ambient).toFixed(3)})`
+    `rgba(20, 26, 38, ${((theme === 'dark' ? 0.28 : 0.4) * ambient).toFixed(3)})`
 
   const skyFor = (frame: Frame): Sky => skyAt(localMinutes(frame.nowMs), frame.theme)
 

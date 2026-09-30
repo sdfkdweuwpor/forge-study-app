@@ -5,6 +5,7 @@
  * without touching the markup.
  */
 import { format } from 'date-fns'
+import { Snowflake } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useToday } from '@/app/hooks/useToday'
 import { Link } from '@/app/router'
@@ -165,11 +166,7 @@ export function MiniHeatmap() {
                       role="img"
                       aria-label={label}
                     >
-                      {day.frozen ? (
-                        <span className={styles.snow} aria-hidden="true">
-                          ❄️
-                        </span>
-                      ) : null}
+                      {day.frozen ? <Snowflake className={styles.snow} aria-hidden="true" /> : null}
                     </span>
                   </Tooltip>
                 </li>
@@ -188,7 +185,8 @@ export function MiniHeatmap() {
           </p>
           {map.days.some((d) => d.frozen) ? (
             <p className={styles.note}>
-              <span aria-hidden="true">❄️</span> Streak freeze
+              <Snowflake className={styles.noteSnow} aria-hidden="true" />
+              Streak freeze
             </p>
           ) : null}
         </>

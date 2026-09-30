@@ -821,7 +821,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Sunday prompt in `today.aside`.
   - Done: `logic/weeklyReview.ts` (`buildWeeklyReview`, `isReviewDay`, `resolveReviewWeek`; 36 tests incl. New York weekdays, both DST Sundays and the badge window), `db/repos/reviews.ts` (`saveReviewNote`, idempotent `completeWeeklyReview` +10 XP under `review:<weekStart>`, `loadReviewInput`; 17 tests on fake-indexeddb), `features/progress/{WeeklyReview.feature.ts, WeeklyReviewPage, WeeklyReviewNote (autosave), WeeklyReviewNextWeek, WeeklyReviewPrompt (`today.aside`), WeeklyReviewData/States}`, `e2e/weekly-review.spec.ts` (+ `reviewWeek.ts` seed), `scripts/shots/review.ts`, `screenshots/7c/`. Route `/review/:weekStart?`; palette "Weekly review"; `g v` (`g w` is My World's), `[` / `]` and `shift+d` on the page.
   - Integration fixes (same pass): the daily-goal toast e2e flake (the seeding page's start-up paid the goal; test now writes while the app is closed), one celebration queue (`logic/celebrations.ts`, `app/celebrate.ts`: streak XP + badge are one toast, nothing shows over the level-up moment), the More-sheet Esc flake (`pinned` drawer scope), and the extension specs out of the main Playwright config.
-- [ ] **7D [D] Review** of charts and heatmap visuals in both themes.
+- [x] **7D [D] Review** of charts and heatmap visuals in both themes.
+  - Done: one heat ramp as tokens (`--chart-heat-0..4`, `--chart-bar*`, per-theme knobs; ≥ 1.35:1 per step in every accent, checked in `contrast.test.ts`) shared by the year and 14-day heatmaps; 3:1 bars; the hour axis labels restored (`visibleTicks`); a drawn snowflake in neutral ink; tooltips stay out of the chart title; 2px datum ring; the estimate takeaway under its title in counts; phone sections stretch; warmer wins; flame tooltip "Your best yet". Screenshots in `screenshots/7d/` (incl. a 2x heatmap close-up). Decisions in DECISIONS.md "Chart and Progress review (7D)".
 
 ### Phase 8 — My World
 - [x] **8A [B] World.** Owns `src/logic/world/**` and tests, and `src/features/world/**`.
@@ -832,7 +833,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Isometric canvas renderer (DPR-aware), day/night from real time, hover/tap tooltip (what and when), PNG export, reduced-motion.
   - Tests: determinism, and append-stability.
   - Done: `logic/world/` (`types`, `prng`, `hash`, `spiral`, `layout`, `iso`, `sky`, `palette`, `camera`, `nav`, `ambient`, `text`; 11 test files, incl. the spec vectors, the 300-input no-overlap property test, order independence, append-stability, iso round-trip, depth sort); `features/world/engine/` (`sprites`, `canvasKit`, `renderer`, `input`, `mount`, README; sprite tests); `features/world/{WorldPage, WorldTooltip, LegendPopover, queries, feature}`; `db/repos/world.ts` (`ensureWorldSeed`, `loadWorldRows`, tests) with `settings.world.seed`; `e2e/world.spec.ts` (+ `worldHook.d.ts`), `scripts/shots/world.ts`, `screenshots/8a/`. 2,000 tasks and a 100-day streak: loads in under 2 s and pans at frame rate. Shell edits: `Shell.module.css` (full-bleed `world` route), scope `world`, `lib/download.ts` (`downloadBlob`), `playwright.shoot.config.ts` (`E2E_PORT`/`E2E_OUT`). Shortcuts `=` `-` `0` `e` on the page; palette "Zoom in / Zoom out / Fit / Export My World as PNG". Decisions in DECISIONS.md "My World".
-- [ ] **8B [D] Art direction** review and palette pass (tokens only).
+- [x] **8B [D] Art direction** review and palette pass (tokens only).
+  - Done: a calm dark-theme day and dusk sky, a lighter dark soil edge and walls, a gentler night overlay, AA tooltip date. Screenshots in `screenshots/8b/`. Open: phone "Fit" cannot show a grown city whole (integer zoom; see DECISIONS.md "Art direction pass (8B)").
 
 ### Phase 9 — Chrome extension + Blocker
 - [ ] **9A [A] Protocol** (first, small). Owns `extension/src/shared/{protocol,config}.ts`: message types, guards, `APP_ORIGIN`, `DEFAULT_EXTENSION_ID`.
@@ -858,13 +860,14 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **9E [B] e2e.** Try `launchPersistentContext` with `--load-extension=extension/dist`: instagram.com redirects to blocked.html offline, and `ping` from `localhost:4173` works. If extensions can't load headless here, record that in DECISIONS and rely on unit tests plus manual steps.
 
 ### Phase 10 — Onboarding, empty states, settings, data, PWA
-- [ ] **10A [B] Onboarding** (∥ 10B, 10C). Owns `src/features/onboarding/**` and `src/data/sample/**`.
+- [x] **10A [B] Onboarding** (∥ 10B, 10C). Owns `src/features/onboarding/**` and `src/data/sample/**`.
   - 4 skippable steps: name + daily goal → distracting sites → optional first goal (WGU sample) → install extension.
   - Ends on Today with 3 starter tasks. Gate: `settings.onboardedAt`.
-- [ ] **10B [B] Settings & data** (∥). Owns `src/features/settings/**`, `src/logic/backup.ts` and test, and `src/db/repos/backup.ts` with a fake-indexeddb round-trip test.
+- [x] **10B [B] Settings & data** (∥). Owns `src/features/settings/**`, `src/logic/backup.ts` and test, and `src/db/repos/backup.ts` with a fake-indexeddb round-trip test.
   - Sections: theme, accent (6), timers, daily goal, week start, sounds and volume, notifications, reduced motion.
   - Data: export JSON; import (validate → pre-import snapshot → migrate → replace); reset with typed confirmation; weekly backup reminder toast.
-- [ ] **10C [B] PWA** (∥). Owns the `vite-plugin-pwa` block in `vite.config.ts`, `scripts/icons.mjs`, `public/icons/**` and `e2e/offline.spec.ts`.
+  - Done: `features/settings/` (page with sticky section nav and `/settings/<slug>` deep links; Appearance with accent swatches and live preview, Focus, Calendar, Data, Blocker link; `SettingsHost` runs palette/`o b` exports, the import toast and the weekly reminder), `logic/backup.ts` (file format, validation, migration path, base64 files, reminder rules; 42 tests), `db/repos/backup.ts` (one-transaction export and replace, safety copy, reset; fake-indexeddb round trip and rollback tests), `e2e/settings.spec.ts`, `scripts/shots/settings.ts`. New: `settings.backup.lastRemindedAt`. Shortcuts `o b`, `o r`. Decisions in DECISIONS.md "Settings & data". Phase 11c adds its Snapshots list as slot contribution `safety.snapshots`.
+- [x] **10C [B] PWA** (∥). Owns the `vite-plugin-pwa` block in `vite.config.ts`, `scripts/icons.mjs`, `public/icons/**` and `e2e/offline.spec.ts`.
   - `registerType: 'prompt'` with an "Update ready — reload" toast (never auto-reload mid-session).
   - Precache the app shell and fonts; `navigateFallback: '/index.html'`.
   - Manifest: `start_url: '/'`, standalone, theme colors.

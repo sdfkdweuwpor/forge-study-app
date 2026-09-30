@@ -73,7 +73,8 @@ const DARK: WorldPalette = {
   },
   grassA: '#23302a',
   grassB: '#1f2b25',
-  soil: '#2c3029',
+  // A step lighter than the grass, so the island's edge reads against the dark slate sky.
+  soil: '#3b3a33',
   road: '#3a3936',
   roadDash: '#55534f',
   gold: '#be8226',

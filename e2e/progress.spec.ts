@@ -52,11 +52,11 @@ test.describe('Progress page', () => {
     await expect(heat).toContainText('More')
     await expect(heat).toContainText('Streak freeze')
     for (const label of ['Mon', 'Wed', 'Fri', 'Sep'])
-      await expect(heat.locator('svg')).toContainText(label)
+      await expect(heat.getByRole('img', { name: 'Focus, past year' })).toContainText(label)
 
     // The sentence under the estimate chart.
     await expect(
-      page.getByText(/You finish \d+% of tasks within ±20% of your estimate/),
+      page.getByText(/\d+ of \d+ finished tasks took about as long as you planned/),
     ).toBeVisible()
   })
 

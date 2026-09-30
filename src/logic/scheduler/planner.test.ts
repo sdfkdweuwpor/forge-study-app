@@ -17,6 +17,7 @@ import {
 } from './plannerFixtures'
 import type { DayWindows, PlanItem, PlannerInput, PlannerResult } from './plannerTypes'
 import { shiftCycle, SHIFT_PRESETS } from './windows'
+import { medianCpuMs } from '@/test/timing'
 
 const ok = (inp: PlannerInput, order?: string[]): PlannerResult => {
   const res = planStudy(inp)
@@ -523,24 +524,20 @@ describe('planStudy: weekly milestones', () => {
 })
 
 describe('performance', () => {
+  // CPU time, median of five runs after a warm-up (`@/test/timing`): a wall-clock check of one run
+  // failed under load (232–470 ms measured while other agents built). Typical: 10–16 ms paced, 3–5 ASAP.
   it('plans a 12-course year with slots, reviews and milestones in under 50 ms', () => {
     const inp = wguPlannerInput()
-    planStudy(inp) // warm-up
-    const t0 = performance.now()
     const res = planStudy(inp)
-    const ms = performance.now() - t0
     expect(checkPlan(inp, res)).toEqual([])
     expect(res.fits).toBe(true)
     expect(of(res, 'study').length).toBeGreaterThan(500)
     expect(of(res, 'assessment')).toHaveLength(12)
-    expect(ms).toBeLessThan(50)
+    expect(medianCpuMs(() => planStudy(inp))).toBeLessThan(50)
   })
 
   it('plans the same year ASAP in under 50 ms', () => {
     const inp = { ...wguPlannerInput(), targetDate: null }
-    planStudy(inp)
-    const t0 = performance.now()
-    planStudy(inp)
-    expect(performance.now() - t0).toBeLessThan(50)
+    expect(medianCpuMs(() => planStudy(inp))).toBeLessThan(50)
   })
 })

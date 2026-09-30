@@ -6,7 +6,7 @@ import { setFatal } from './fatal'
 import { recordError } from './reportError'
 import type { Registry } from './registry'
 
-export type SeedKind = 'wgu' | 'empty'
+export type SeedKind = 'wgu' | 'wgu-year' | 'empty'
 type SeedModule = { applySeed: (kind: SeedKind) => Promise<void> }
 
 /**
@@ -25,7 +25,7 @@ const seedModules: Record<string, () => Promise<SeedModule>> = SEED_ENABLED
 export function seedRequest(search: string, enabled: boolean): SeedKind | null {
   if (!enabled) return null
   const kind = new URLSearchParams(search).get('seed')
-  return kind === 'wgu' || kind === 'empty' ? kind : null
+  return kind === 'wgu' || kind === 'wgu-year' || kind === 'empty' ? kind : null
 }
 
 async function applySeedFromUrl(): Promise<void> {

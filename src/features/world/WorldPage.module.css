@@ -140,8 +140,11 @@
   text-decoration: none;
 }
 
-.emptyLink:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .emptyLink:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 /* ── Tooltip ───────────────────────────────────────────────────────────────────── */
@@ -179,7 +182,7 @@
 }
 
 .tipDate {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
 }

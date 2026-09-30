@@ -115,9 +115,12 @@ function ink(theme: Theme, color: string): string {
   return theme === 'dark' ? shade(color, -28) : mixHex(shade(color, -26), '#7d776d', 0.45)
 }
 
-/** In the dark theme the walls' base colours are already dark, and the right face is darker still: lift them a little. */
+/**
+ * In the dark theme the walls' base colours are already dark, and the right face is darker still: lift
+ * them enough that a building reads as a lit mass on the dark ground at zoom 1, not a hole in it.
+ */
 function wallOf(theme: Theme, color: string): string {
-  return theme === 'dark' ? shade(color, 5) : color
+  return theme === 'dark' ? shade(color, 9) : color
 }
 
 interface Faces {

@@ -25,7 +25,11 @@ interface SkyColours {
   night: Stop
 }
 
-/** Calm colours, no neon. The dark theme uses deeper variants of each. */
+/**
+ * Calm colours, no neon. The dark theme uses deeper variants of each: its day is a muted slate that
+ * settles into the page colour at the bottom (a bright sky would glare beside the dark app), dusk a
+ * low warm grey, night a deep navy, so the city stays the lightest thing on screen.
+ */
 const COLOURS: Record<Theme, SkyColours> = {
   light: {
     day: { top: '#dcebf5', bottom: '#f4f1ea' },
@@ -33,8 +37,8 @@ const COLOURS: Record<Theme, SkyColours> = {
     night: { top: '#141a26', bottom: '#2a2f3a' },
   },
   dark: {
-    day: { top: '#7f9bb1', bottom: '#b4b3ab' },
-    mid: { top: '#a08669', bottom: '#b4a58f' },
+    day: { top: '#394856', bottom: '#24272b' },
+    mid: { top: '#4a4038', bottom: '#28262a' },
     night: { top: '#0c1119', bottom: '#1c202a' },
   },
 }

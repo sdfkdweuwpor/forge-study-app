@@ -1,11 +1,12 @@
-/* Five steps from "nothing" to "most": accent mixed into the page colour, so it follows the theme and
-   the chosen accent. Level 0 is the quiet hover tone, not a colour. */
+/* Five steps from "nothing" to "most", from the theme's chart ramp (tokens.css): accent mixed into the
+   page colour, so it follows the theme and the chosen accent, monotone in lightness so the levels read
+   without colour. Level 0 is the quiet hover tone, not a colour. */
 .root {
-  --heat-0: var(--bg-hover);
-  --heat-1: color-mix(in srgb, var(--accent) 24%, var(--bg));
-  --heat-2: color-mix(in srgb, var(--accent) 44%, var(--bg));
-  --heat-3: color-mix(in srgb, var(--accent) 68%, var(--bg));
-  --heat-4: color-mix(in srgb, var(--accent) 92%, var(--bg));
+  --heat-0: var(--chart-heat-0);
+  --heat-1: var(--chart-heat-1);
+  --heat-2: var(--chart-heat-2);
+  --heat-3: var(--chart-heat-3);
+  --heat-4: var(--chart-heat-4);
 }
 
 .label {
@@ -39,16 +40,28 @@
   stroke-width: 1;
 }
 
-/* Text, not colour alone: a frozen day has no focus time, so the glyph sits on the quiet level-0 tone. */
+/* Shape, not colour alone: a frozen day has no focus time, so a six-spoke snowflake is drawn on the quiet
+   level-0 tone in neutral ink (never the heat colour, so it cannot read as a level). */
 .glyph {
-  fill: var(--accent-text);
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+/* The active day: a 2px ring in text ink with a hairline of page colour inside, so it reads on every
+   level (an accent ring would vanish on the accent cells). */
+.halo {
+  fill: none;
+  stroke: var(--bg);
+  stroke-width: 1;
   pointer-events: none;
 }
 
 .ring {
   fill: none;
   stroke: var(--text);
-  stroke-width: 1.5;
+  stroke-width: 2;
   pointer-events: none;
 }
 
@@ -87,7 +100,8 @@
 }
 
 .legendGlyph {
-  color: var(--accent-text);
+  display: block;
+  flex: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {

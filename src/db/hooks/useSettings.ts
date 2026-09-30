@@ -1,4 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useState } from 'react'
+import { valueSharer } from '@/logic/share'
 import { getSettings } from '../repos/settings'
 import type { Settings } from '../types'
 
@@ -8,5 +10,8 @@ import type { Settings } from '../types'
  * from `@/db/repos/settings`.
  */
 export function useSettings(): Settings | undefined {
-  return useLiveQuery(getSettings)
+  // Shared structurally: a write that changes one section (the daily run's `scheduling`, the timer)
+  // leaves every other section, such as `tagColors`, the same object, so what depends on it stays put.
+  const [share] = useState(valueSharer<Settings>)
+  return useLiveQuery(async () => share(await getSettings()), [share])
 }

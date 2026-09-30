@@ -151,13 +151,14 @@ export function HBarList({
                     data-active={i === nav.active ? '' : undefined}
                     data-color={item.color}
                   >
+                    {/* 4px past the text on each side: inside the chart's focus ring, never through it. */}
                     <rect
                       className={styles.wash}
-                      x={-8}
+                      x={-4}
                       y={y}
-                      width={width + 16}
+                      width={width + 8}
                       height={ROW - 4}
-                      rx={6}
+                      rx={4}
                     />
                     <text className={styles.label} x={0} y={y + 16} fontSize={LABEL_FONT}>
                       {truncateLabel(item.label, labelRoom, LABEL_FONT)}

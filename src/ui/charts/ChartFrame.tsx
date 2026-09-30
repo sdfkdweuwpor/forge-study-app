@@ -25,6 +25,8 @@ export interface ChartTooltipState {
   /** Anchor in plot pixels (the point the tooltip hangs above, or below with `placement: 'below'`). */
   x: number
   y: number
+  /** The anchor's lower edge, where the tooltip hangs when it goes below (a cell's bottom). Default `y`. */
+  bottom?: number
   /** Default `above`. A list whose rows sit under each other puts it `below`, so it never covers the heading. */
   placement?: 'above' | 'below'
   content: ChartTooltipContent
@@ -53,6 +55,8 @@ export interface ChartFrameProps {
   titleAs?: 'h2' | 'h3' | 'span'
   /** Controls beside the title (a segmented toggle). */
   actions?: ReactNode
+  /** One sentence under the title that says what the chart shows (its takeaway). Hidden when empty. */
+  lede?: ReactNode
   /** True for no data (or all zeros): the frame shows the empty state instead of a chart. */
   isEmpty: boolean
   /** The calm one-liner of the empty state. */
@@ -87,9 +91,11 @@ export function ChartTooltip({
   const ref = useRef<HTMLDivElement | null>(null)
   const x = state?.x ?? 0
   const y = state?.y ?? 0
+  const bottom = state?.bottom ?? y
   const content = state?.content
   // Measured after render and written straight to the element (no state), so it never flashes at the
-  // wrong place: centred over the anchor, kept inside the plot, above it unless there is no room.
+  // wrong place: centred over the anchor and kept inside the plot's width, above the anchor unless that
+  // would lift it out of the plot, where it would cover the chart's own title; then it hangs below.
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -97,10 +103,10 @@ export function ChartTooltip({
     const h = el.offsetHeight
     const left = clamp(x - w / 2, 0, Math.max(0, plotWidth - w))
     const above = y - h - TOOLTIP_GAP
-    const top = state?.placement === 'below' || above < -h ? y + TOOLTIP_GAP : above
+    const top = state?.placement === 'below' || above < 0 ? bottom + TOOLTIP_GAP : above
     el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`
     el.style.visibility = 'visible'
-  }, [x, y, plotWidth, content, state?.placement])
+  }, [x, y, bottom, plotWidth, content, state?.placement])
   if (!content) return null
   return (
     <div ref={ref} className={styles.tooltip} aria-hidden="true" data-testid="chart-tooltip">
@@ -131,6 +137,7 @@ export function ChartFrame({
   subtitle,
   titleAs: Title = 'span',
   actions,
+  lede,
   isEmpty,
   emptyText = 'Nothing here yet',
   empty,
@@ -170,6 +177,7 @@ export function ChartFrame({
         </div>
         {actions && <div className={styles.actions}>{actions}</div>}
       </figcaption>
+      {lede && !isEmpty && <p className={styles.lede}>{lede}</p>}
 
       {isEmpty ? (
         <div className={styles.empty}>

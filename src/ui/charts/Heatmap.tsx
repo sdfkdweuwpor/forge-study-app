@@ -47,8 +47,38 @@ const dayLabel = (day: string): string => formatDate(fromISODate(day), 'EEE, MMM
 
 function cellText(cell: YearHeatmapCell, format: (minutes: number) => string) {
   if (cell.minutes > 0) return { value: format(cell.minutes), note: undefined }
-  if (cell.frozen) return { value: '❄ Streak freeze', note: 'Your streak kept going' }
+  if (cell.frozen) return { value: 'Streak freeze', note: 'Your streak carried on' }
   return { value: 'No focus time', note: undefined }
+}
+
+/**
+ * The streak-freeze mark: a six-spoke snowflake stroked in neutral ink, centred on a cell, with a small
+ * V near the end of each spoke once the cell is big enough to show it. Drawn rather than set as a ❄
+ * character, which at 10-14px falls back to whatever font has it and blurs into a dot.
+ */
+function FreezeGlyph({ cx, cy, size }: { cx: number; cy: number; size: number }) {
+  const r = size * 0.36
+  const w = size >= 13 ? 1.2 : 1.1
+  const n = (v: number) => v.toFixed(2)
+  const d: string[] = []
+  for (const deg of [90, 30, -30, -90, -150, 150]) {
+    const a = (deg * Math.PI) / 180
+    const ux = Math.cos(a)
+    const uy = -Math.sin(a)
+    d.push(`M${n(cx)},${n(cy)}L${n(cx + ux * r)},${n(cy + uy * r)}`)
+    if (size >= 12) {
+      // The V: from a point 60% out, two short strokes angled 45° outward either side of the spoke.
+      const bx = cx + ux * r * 0.6
+      const by = cy + uy * r * 0.6
+      const t = r * 0.34
+      for (const turn of [Math.PI / 4, -Math.PI / 4]) {
+        const vx = ux * Math.cos(turn) - uy * Math.sin(turn)
+        const vy = ux * Math.sin(turn) + uy * Math.cos(turn)
+        d.push(`M${n(bx)},${n(by)}L${n(bx + vx * t)},${n(by + vy * t)}`)
+      }
+    }
+  }
+  return <path className={styles.glyph} d={d.join('')} strokeWidth={w} />
 }
 
 /**
@@ -112,9 +142,16 @@ export function Heatmap({
               More
             </span>
             <span className={styles.key}>
-              <span className={styles.legendGlyph} aria-hidden="true">
-                ❄
-              </span>
+              <svg
+                className={styles.legendGlyph}
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <rect className={styles.cell} data-level={0} width="12" height="12" rx="2" />
+                <FreezeGlyph cx={6} cy={6} size={12} />
+              </svg>
               Streak freeze
             </span>
           </>
@@ -179,7 +216,8 @@ function HeatmapGrid({ width, svgProps, svgText, weeks, weekStartsOn, format }: 
     const text = cellText(activeCell, format)
     tip = {
       x: x + cell / 2,
-      y,
+      y: y - 2,
+      bottom: y + cell + 2,
       content: { value: text.value, label: dayLabel(activeCell.day), note: text.note },
     }
     spoken = `${dayLabel(activeCell.day)}: ${text.value}`
@@ -263,30 +301,29 @@ function HeatmapGrid({ width, svgProps, svgText, weeks, weekStartsOn, format }: 
                 height={cell}
                 rx={2}
               />
-              {c.frozen && (
-                <text
-                  className={styles.glyph}
-                  x={x + cell / 2}
-                  y={y + cell / 2}
-                  fontSize={Math.round(cell * 0.85)}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                >
-                  ❄
-                </text>
-              )}
+              {c.frozen && <FreezeGlyph cx={x + cell / 2} cy={y + cell / 2} size={cell} />}
             </g>
           )
         })}
         {ring && (
-          <rect
-            className={styles.ring}
-            x={ring.x - 1.5}
-            y={ring.y - 1.5}
-            width={cell + 3}
-            height={cell + 3}
-            rx={3}
-          />
+          <>
+            <rect
+              className={styles.halo}
+              x={ring.x - 0.5}
+              y={ring.y - 0.5}
+              width={cell + 1}
+              height={cell + 1}
+              rx={2.5}
+            />
+            <rect
+              className={styles.ring}
+              x={ring.x - 2}
+              y={ring.y - 2}
+              width={cell + 4}
+              height={cell + 4}
+              rx={3.5}
+            />
+          </>
         )}
       </svg>
       <ChartTooltip state={tip} plotWidth={width} />

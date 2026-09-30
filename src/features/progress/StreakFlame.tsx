@@ -1,7 +1,8 @@
 /**
  * The streak flame in the sidebar footer (`sidebar.footer`, BRIEF §5.7): one quiet line under the level
  * meter, "🔥 12 days". Hovering or focusing it says what the number is not: the best streak and
- * whether this week's automatic freeze is still there ("Best: 30 · Freeze ready ❄️"). With no streak
+ * whether this week's automatic freeze is still there ("Best: 30 days · Freeze ready ❄️", or "Your
+ * best yet" while the current run is the longest). With no streak
  * running it is a neutral, unlit flame and the tooltip only invites: "Start a streak today". There is no
  * red, no countdown and no "lost" anywhere. Clicking opens Progress. Like the level meter it shows in
  * the desktop sidebar and the tablet drawer; a phone has no sidebar footer.
@@ -19,7 +20,11 @@ export function streakTooltip(
   streak: Pick<StreakState, 'current' | 'best' | 'freezeAvailable'>,
 ): string {
   if (streak.current === 0) return 'Start a streak today'
-  return `Best: ${streak.best} · ${streak.freezeAvailable ? 'Freeze ready ❄️' : 'Freeze used this week'}`
+  const best =
+    streak.current >= streak.best
+      ? 'Your best yet'
+      : `Best: ${streak.best} ${streak.best === 1 ? 'day' : 'days'}`
+  return `${best} · ${streak.freezeAvailable ? 'Freeze ready ❄️' : 'Freeze used this week'}`
 }
 
 function FlameSkeleton() {

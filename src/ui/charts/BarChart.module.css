@@ -20,13 +20,15 @@
   fill: var(--bg-hover);
 }
 
+/* Plain bars are a 3:1 graphic on the page (tokens.css --chart-bar); the highlighted one (today, the
+   busiest hour, the active bar) is --accent-text: darker in light, lighter in dark. */
 .bar {
-  fill: color-mix(in srgb, var(--accent) 52%, var(--bg));
+  fill: var(--chart-bar);
   transition: fill var(--dur-1) var(--ease);
 }
 
 .bar[data-highlight] {
-  fill: var(--accent);
+  fill: var(--chart-bar-strong);
 }
 
 /* A day with no time is a hairline on the baseline, not a gap. */

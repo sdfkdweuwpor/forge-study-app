@@ -235,12 +235,12 @@ describe('buildWeeklyReview: a full week', () => {
 
   it('lists specific, positive wins, best first, at most six', () => {
     expect(review.wins).toEqual([
-      '3 tasks done',
+      'You finished 3 tasks',
       '3 h 45 min of focus',
       'On a 5-day streak',
       'You showed up on 4 days',
-      'Longest session: 1 h 40 min',
-      'Best day: Saturday, 1 h 40 min',
+      'A 1 h 40 min session, your longest this week',
+      'Saturday was your best day, with 1 h 40 min',
     ])
     expect(review.wins.length).toBeLessThanOrEqual(6)
   })
@@ -260,10 +260,10 @@ describe('buildWeeklyReview: the words', () => {
     expect(review.comparedToLastWeek.focusMinutesDelta).toBe(-175)
     expect(review.comparedToLastWeek.tasksDelta).toBe(-1)
     expect(review.wins).toEqual([
-      '1 task done',
+      'You finished 1 task',
       '25 min of focus',
       'You showed up on 1 day',
-      'Longest session: 25 min',
+      'A 25 min session, your longest this week',
     ])
     for (const win of review.wins) expect(win).not.toMatch(never)
   })
@@ -287,7 +287,7 @@ describe('buildWeeklyReview: the words', () => {
     expect(review.wins).toEqual([
       '50 min of focus',
       'You showed up on 2 days',
-      'Longest session: 25 min',
+      'A 25 min session, your longest this week',
     ])
   })
 
@@ -369,7 +369,7 @@ describe('buildWeeklyReview: the words', () => {
 
   it('does not name a best day when only one day had focus', () => {
     const review = buildWeeklyReview(input({ sessions: [session('a', '2026-09-22', 30)] }))
-    expect(review.wins.some((w) => w.startsWith('Best day'))).toBe(false)
+    expect(review.wins.some((w) => w.includes('best day'))).toBe(false)
     expect(review.bestDay).toEqual({ day: '2026-09-22', minutes: 30 })
   })
 
@@ -378,7 +378,7 @@ describe('buildWeeklyReview: the words', () => {
       input({ sessions: [session('b', '2026-09-24', 40), session('a', '2026-09-22', 40)] }),
     )
     expect(review.bestDay?.day).toBe('2026-09-22')
-    expect(review.wins.some((w) => w.startsWith('Best day'))).toBe(false)
+    expect(review.wins.some((w) => w.includes('best day'))).toBe(false)
   })
 })
 

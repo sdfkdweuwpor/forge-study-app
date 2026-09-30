@@ -140,8 +140,9 @@
   list-style: disc;
 }
 
+/* Quiet bullets: the accent is kept for actions and progress. */
 .wins li::marker {
-  color: var(--accent);
+  color: var(--text-faint);
 }
 
 /* ── Numbers ─────────────────────────────────────────────────────────────── */
@@ -275,12 +276,18 @@
     display: grid;
     grid-template-columns: 4.5rem minmax(0, 1fr) auto;
     align-items: baseline;
-    gap: var(--space-3);
+    gap: var(--space-1) var(--space-3);
     padding-block: var(--space-3);
   }
 
+  /* The bar sits under the time, not under the day's name, and a day with no planned time (free or
+     flexible) has none: one hairline per row (the divider) instead of two. */
   .dayBar {
-    grid-column: 1 / -1;
+    grid-column: 2 / -1;
+  }
+
+  .day[data-untimed] .dayBar {
+    display: none;
   }
 
   .dayItems {

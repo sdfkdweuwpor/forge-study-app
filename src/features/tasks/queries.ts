@@ -3,10 +3,12 @@
  * use, and palette search. This is the one file in the feature that may import the Dexie instance.
  */
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo, useState } from 'react'
 import { db } from '@/db/db'
 import { proposeAutoSlots } from '@/db/repos/autoslot'
 import type { ID } from '@/db/types'
 import type { AutoSlotProposal } from '@/logic/everydaySlots'
+import { valueSharer } from '@/logic/share'
 import { normalizeTag } from '@/logic/tagColor'
 import { searchTasksIn, type TaskHit } from '@/logic/taskSearch'
 import type { ProjectRef } from '@/logic/taskQuery'
@@ -35,7 +37,9 @@ export interface ProjectIndex {
   courseById: ReadonlyMap<ID, CourseInfo>
 }
 
-async function loadProjectIndex(): Promise<ProjectIndex> {
+type ProjectRows = Pick<ProjectIndex, 'goals' | 'courses'>
+
+async function loadProjectRows(): Promise<ProjectRows> {
   const [goals, milestones] = await Promise.all([
     db.goals.orderBy('order').toArray(),
     db.milestones.toArray(),
@@ -57,17 +61,27 @@ async function loadProjectIndex(): Promise<ProjectIndex> {
       label: [m.code, m.title].filter(Boolean).join(' '),
     }))
   const goalInfos = goals.map<GoalInfo>((g) => ({ id: g.id, title: g.title, icon: g.icon }))
-  return {
-    goals: goalInfos,
-    courses,
-    goalById: new Map(goalInfos.map((g) => [g.id, g])),
-    courseById: new Map(courses.map((c) => [c.id, c])),
-  }
+  return { goals: goalInfos, courses }
 }
 
-/** Live goals and their courses, for the "Goal / course" picker, course chips and grouping by project. */
+/**
+ * Live goals and their courses, for the "Goal / course" picker, course chips and grouping by project.
+ * A re-plan rewrites goals and courses (their projected dates) without changing any of this, so the
+ * rows are shared structurally and the index keeps its identity; every task row reads it.
+ */
 export function useProjectIndex(): ProjectIndex | undefined {
-  return useLiveQuery(loadProjectIndex)
+  const [share] = useState(valueSharer<ProjectRows>)
+  const rows = useLiveQuery(async () => share(await loadProjectRows()), [share])
+  return useMemo(
+    () =>
+      rows && {
+        goals: rows.goals,
+        courses: rows.courses,
+        goalById: new Map(rows.goals.map((g) => [g.id, g])),
+        courseById: new Map(rows.courses.map((c) => [c.id, c])),
+      },
+    [rows],
+  )
 }
 
 /** The projects a list can be grouped by, in display order: each goal, then its courses. */
@@ -80,16 +94,19 @@ export function projectRefsOf(index: ProjectIndex): ProjectRef[] {
   ])
 }
 
-/** Every distinct tag on any task, alphabetically, keeping the first spelling seen. */
+/**
+ * Every distinct tag on any task, alphabetically, one spelling per tag (the first in index order).
+ * Read from the multi-entry `tags` index, not the rows: it reads only the tags, and the live query
+ * re-runs only when a tag is added or removed, not on every task write.
+ */
 export function useTagList(): string[] | undefined {
   return useLiveQuery(async () => {
     const seen = new Map<string, string>()
-    await db.tasks.each((task) => {
-      for (const tag of task.tags) {
-        const key = normalizeTag(tag)
-        if (!seen.has(key)) seen.set(key, tag)
-      }
-    })
+    for (const key of await db.tasks.orderBy('tags').uniqueKeys()) {
+      if (typeof key !== 'string') continue
+      const norm = normalizeTag(key)
+      if (!seen.has(norm)) seen.set(norm, key)
+    }
     return [...seen.values()].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
   })
 }

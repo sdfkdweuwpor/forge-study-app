@@ -15,7 +15,10 @@ const csp = [
   "media-src 'self' blob: data:",
   // Workers are built as separate files (new Worker(new URL(...))); nothing uses blob: workers.
   "worker-src 'self'",
-  "connect-src 'self'",
+  // The favicon lookup origin is here too, though the page only loads those icons as <img> (img-src).
+  // The service worker caches them (vite.config.ts, runtime caching), and a fetch() made inside a worker
+  // is checked against the worker script's own connect-src, whatever the request was for.
+  "connect-src 'self' https://icons.duckduckgo.com",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",

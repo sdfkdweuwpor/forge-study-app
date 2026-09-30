@@ -80,19 +80,31 @@ describe('minutes text', () => {
 })
 
 describe('accuracySentence', () => {
-  it('states the share, neutrally', () => {
-    expect(
-      accuracySentence({
-        share: 0.62,
-        points: Array.from({ length: 16 }, (_, i) => ({ taskId: `t${i}`, planned: 1, actual: 1 })),
-      }),
-    ).toBe('You finish 62% of tasks within ±20% of your estimate (16 finished tasks).')
+  const points = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ taskId: `t${i}`, planned: 1, actual: 1 }))
+
+  it('states how many landed within the band, in counts', () => {
+    expect(accuracySentence({ share: 0.625, points: points(16) })).toBe(
+      '10 of 16 finished tasks took about as long as you planned.',
+    )
+    expect(accuracySentence({ share: 1, points: points(3) })).toBe(
+      'All 3 finished tasks took about as long as you planned.',
+    )
+  })
+
+  it('stays neutral when none did', () => {
+    expect(accuracySentence({ share: 0, points: points(4) })).toBe(
+      'Your 4 finished tasks ran longer or shorter than planned. The dots show which way.',
+    )
   })
 
   it('says nothing without data, and handles one task', () => {
     expect(accuracySentence({ share: null, points: [] })).toBeNull()
-    expect(accuracySentence({ share: 1, points: [{ taskId: 'a', planned: 1, actual: 1 }] })).toBe(
-      'You finish 100% of tasks within ±20% of your estimate (1 finished task).',
+    expect(accuracySentence({ share: 1, points: points(1) })).toBe(
+      'Your finished task took about as long as you planned.',
+    )
+    expect(accuracySentence({ share: 0, points: points(1) })).toBe(
+      'Your finished task ran longer or shorter than planned. The dot shows which way.',
     )
   })
 })

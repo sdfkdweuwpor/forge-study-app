@@ -1,0 +1,137 @@
+/*
+ * Shared by every built-in section. It matches the sections other features contribute (sound, export,
+ * everyday hours): a small muted heading over a hairline, then rows of label and control. No cards.
+ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  scroll-margin-top: var(--space-8);
+}
+
+.heading {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.intro {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-wrap: pretty;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-height: var(--tap-min);
+  padding: var(--space-2) 0;
+}
+
+.text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.help {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-wrap: pretty;
+}
+
+.control {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.select {
+  flex: none;
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+  font-size: var(--fs-14);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.select:hover {
+  background: var(--bg-hover);
+}
+
+.status {
+  min-height: 1.5em;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.status[data-tone='error'] {
+  color: var(--danger-text);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-md);
+  color: var(--accent-text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (pointer: coarse) {
+  .select,
+  .link {
+    min-height: var(--tap-min);
+  }
+}
+
+@media (max-width: 639px) {
+  .select {
+    min-height: var(--tap-min);
+  }
+}

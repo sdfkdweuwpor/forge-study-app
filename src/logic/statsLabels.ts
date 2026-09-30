@@ -71,14 +71,23 @@ export function hoursText(minutes: number): string {
 }
 
 /**
- * The sentence under the estimate chart: "You finish 62% of tasks within ±20% of your estimate."
- * `null` with nothing to say. Neutral either way; a low share is not a problem, just a fact.
+ * The estimate chart's takeaway, in counts rather than a percentage: "43 of 72 finished tasks took about
+ * as long as you planned." (within ±20 %, which the chart's key says). `null` with nothing to say.
+ * Neutral either way: tasks outside the band "ran longer or shorter", never "missed" or "wrong".
  */
 export function accuracySentence(
   accuracy: Pick<EstimateAccuracy, 'share' | 'points'>,
 ): string | null {
   if (accuracy.share === null) return null
-  const pct = Math.round(accuracy.share * 100)
   const n = accuracy.points.length
-  return `You finish ${pct}% of tasks within ±20% of your estimate (${n} finished ${n === 1 ? 'task' : 'tasks'}).`
+  const within = Math.round(accuracy.share * n)
+  if (n === 1) {
+    return within === 1
+      ? 'Your finished task took about as long as you planned.'
+      : 'Your finished task ran longer or shorter than planned. The dot shows which way.'
+  }
+  if (within === 0)
+    return `Your ${n} finished tasks ran longer or shorter than planned. The dots show which way.`
+  if (within === n) return `All ${n} finished tasks took about as long as you planned.`
+  return `${within.toLocaleString('en-US')} of ${n.toLocaleString('en-US')} finished tasks took about as long as you planned.`
 }

@@ -9,7 +9,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import { db } from '@/db/db'
 import { useStreak as useStreakState } from '@/db/hooks/useStreak'
-import { useTasks } from '@/db/hooks/useTasks'
+import { useOpenTasks } from '@/db/hooks/useTasks'
 import { loadStreak } from '@/db/repos/progress'
 import type { ID, ISODate, Task } from '@/db/types'
 import { addDays, startOfWeekISO } from '@/logic/dates'
@@ -120,7 +120,9 @@ export function useUpcomingTargets(today: ISODate, limit = 3): Countdown[] | und
  * `@/features/today` index.
  */
 export function useNowTask(): Task | null | undefined {
-  const tasks = useTasks()
+  // Only open tasks can be next (`pickNow` drops the rest), and this runs on every page (the Start focus
+  // hotkey): reading every task ever finished on each write would be wasted work.
+  const tasks = useOpenTasks()
   const today = useToday()
   return useMemo(() => (tasks ? pickNow(tasks, { today }) : undefined), [tasks, today])
 }

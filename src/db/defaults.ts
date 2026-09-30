@@ -61,7 +61,7 @@ export function defaultSettingsData(): SettingsData {
       lastDailyRunDay: null,
       taskWindows: defaultTaskWindows(),
     },
-    backup: { lastExportAt: null, remindWeekly: true },
+    backup: { lastExportAt: null, remindWeekly: true, lastRemindedAt: null },
     tagColors: {},
     // 0 = not set yet: the level watcher records the current level at first start, without celebrating.
     lastCelebratedLevel: 0,

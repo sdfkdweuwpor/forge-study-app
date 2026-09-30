@@ -343,6 +343,76 @@ describe.each<ThemeName>(['light', 'dark'])('WCAG AA, %s theme', (theme) => {
   })
 })
 
+/*
+ * Chart colours (7D). The heat levels are `color-mix(in srgb, var(--accent) <knob>, var(--bg))`, so the
+ * test mixes the same way: every level must be a step lighter (dark) or darker (light) than the one
+ * before, far enough apart to tell by lightness alone (colour-blind readers, grayscale print), and a
+ * plain bar is a 3:1 graphic on the page.
+ */
+const HEAT_STEP = 1.35
+
+function mixSrgb(a: Rgba, b: Rgba, share: number): Rgba {
+  const ch = (i: 0 | 1 | 2) => a[i] * share + b[i] * (1 - share)
+  return [ch(0), ch(1), ch(2), 1]
+}
+
+function knob(scope: Map<string, string>, name: string): number {
+  const value = scope.get(name)
+  const m = value === undefined ? null : /^(\d+(?:\.\d+)?)%$/.exec(value)
+  if (!m?.[1]) throw new Error(`${name} must be a percentage, got ${value}`)
+  return Number(m[1]) / 100
+}
+
+describe('chart colour shorthands', () => {
+  const shorthands = block(tokenRules, [':root', '[data-theme]'])
+  it.each([1, 2, 3])('--chart-heat-%i mixes its knob into --bg', (n) => {
+    expect(shorthands.get(`--chart-heat-${n}`)).toBe(
+      `color-mix(in srgb, var(--accent) var(--chart-mix-heat-${n}), var(--bg))`,
+    )
+  })
+  it('level 0 is the hover tone, level 4 and the strong bar are --accent-text', () => {
+    expect(shorthands.get('--chart-heat-0')).toBe('var(--bg-hover)')
+    expect(shorthands.get('--chart-heat-4')).toBe('var(--accent-text)')
+    expect(shorthands.get('--chart-bar')).toBe(
+      'color-mix(in srgb, var(--accent) var(--chart-mix-bar), var(--bg))',
+    )
+    expect(shorthands.get('--chart-bar-strong')).toBe('var(--accent-text)')
+  })
+})
+
+describe.each<ThemeName>(['light', 'dark'])('chart colours, %s theme', (theme) => {
+  describe.each(ACCENTS)('accent %s', (accent) => {
+    const s = themeScope(theme, accent)
+    const bg = colorOf(s, '--bg')
+    const acc = colorOf(s, '--accent')
+    const heat = [
+      over(colorOf(s, '--bg-hover'), bg),
+      ...[1, 2, 3].map((n) => mixSrgb(acc, bg, knob(s, `--chart-mix-heat-${n}`))),
+      over(colorOf(s, '--accent-text'), bg),
+    ]
+
+    it(`the five heat levels step ${theme === 'light' ? 'darker' : 'lighter'}, ${HEAT_STEP}:1 apart`, () => {
+      const problems: string[] = []
+      heat.forEach((level, i) => {
+        const prev = heat[i - 1]
+        if (!prev) return
+        const lighter = luminance(level) > luminance(prev)
+        if (lighter !== (theme === 'dark')) problems.push(`level ${i} does not step the right way`)
+        const ratio = contrast(level, prev)
+        if (ratio < HEAT_STEP) problems.push(`level ${i} vs ${i - 1}: ${ratio.toFixed(2)}`)
+      })
+      expect(problems).toEqual([])
+    })
+
+    it('a plain bar reaches 3:1 on --bg, and the highlighted bar stands apart from it', () => {
+      const bar = mixSrgb(acc, bg, knob(s, '--chart-mix-bar'))
+      const strong = over(colorOf(s, '--accent-text'), bg)
+      expect(contrast(bar, bg)).toBeGreaterThanOrEqual(AA_LARGE_OR_UI)
+      expect(contrast(strong, bar)).toBeGreaterThanOrEqual(HEAT_STEP)
+    })
+  })
+})
+
 describe('custom property references', () => {
   it('every var(--x) used in src resolves to a declared custom property', () => {
     const files = readdirSync(SRC, { recursive: true, encoding: 'utf8' })

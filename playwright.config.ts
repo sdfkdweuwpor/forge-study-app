@@ -24,6 +24,9 @@ export default defineConfig({
     timezoneId: 'America/New_York',
     locale: 'en-US',
     trace: 'retain-on-failure',
+    // The PWA worker would answer requests the specs stub with `page.route` (favicons) and keep a cache
+    // between navigations. Only `offline.spec.ts` needs it, and turns it back on with `test.use`.
+    serviceWorkers: 'block',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   // Serves the production build with the production CSP/headers (vite preview).

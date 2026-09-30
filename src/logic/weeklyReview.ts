@@ -250,18 +250,20 @@ function winsFor(args: {
     wins.push(`Unlocked ${metas.length} badges: ${metas.map((m) => m.title).join(', ')}`)
   }
 
-  if (now.tasks > 0) wins.push(`${plural(now.tasks, 'task')} done`)
+  if (now.tasks > 0) wins.push(`You finished ${plural(now.tasks, 'task')}`)
   if (now.minutes > 0) wins.push(`${durationText(now.minutes)} of focus`)
   if (args.streakCurrent >= 3) wins.push(`On a ${args.streakCurrent}-day streak`)
   if (args.qualifiedDays > 0) wins.push(`You showed up on ${plural(args.qualifiedDays, 'day')}`)
-  if (now.longest > 0) wins.push(`Longest session: ${durationText(now.longest)}`)
+  if (now.longest > 0) wins.push(`A ${durationText(now.longest)} session, your longest this week`)
   // A best day is only worth a line when it stands out: two days of the same length have no best.
   const bestIsClear =
     args.bestDay !== null &&
     now.byDay.size > 1 &&
     [...now.byDay.values()].filter((m) => Math.round(m) === args.bestDay?.minutes).length === 1
   if (args.bestDay && bestIsClear) {
-    wins.push(`Best day: ${weekdayName(args.bestDay.day)}, ${durationText(args.bestDay.minutes)}`)
+    wins.push(
+      `${weekdayName(args.bestDay.day)} was your best day, with ${durationText(args.bestDay.minutes)}`,
+    )
   }
   // Only a gain is a win. Less is not a fact worth a line.
   const gain = Math.round(now.minutes - before.minutes)

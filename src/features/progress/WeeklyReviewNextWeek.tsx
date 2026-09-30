@@ -67,6 +67,7 @@ export function WeeklyReviewNextWeek({ days }: { days: readonly NextWeekDay[] })
             key={d.day}
             className={styles.day}
             data-empty={d.items === 0 || undefined}
+            data-untimed={d.minutes === 0 || undefined}
             data-testid={`review-next-${d.day}`}
           >
             <span className={styles.dayName}>

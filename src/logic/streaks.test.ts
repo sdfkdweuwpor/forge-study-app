@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ISODate } from '@/db/types'
+import { medianCpuMs } from '@/test/timing'
 import { addDays } from './dates'
 import {
   SCAN_DAYS,
@@ -413,11 +414,9 @@ describe('computeStreak: the scan window', () => {
       const off = i % 3 === 2 || i % 50 > 46
       if (!off) records.push({ day: addDays(today, -i), qualified: true })
     }
-    computeStreak(records, today, MON) // warm up
-    const t0 = performance.now()
     const r = computeStreak(records, today, MON)
-    const elapsed = performance.now() - t0
     expect(r.days.length).toBeGreaterThan(SCAN_DAYS)
-    expect(elapsed).toBeLessThan(20)
+    // CPU time, median of five runs (`@/test/timing`), so a busy machine cannot fail it.
+    expect(medianCpuMs(() => computeStreak(records, today, MON))).toBeLessThan(20)
   })
 })

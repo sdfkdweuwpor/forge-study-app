@@ -117,6 +117,29 @@ export function showsTick(index: number, length: number, step: number): boolean 
   return (length - 1 - index) % step === 0
 }
 
+/**
+ * The indices, out of the labelled bars `labelled` (ascending), whose labels are shown: every `n`-th
+ * labelled bar counted back from the last one, with `n` large enough that labels of `labelPx` do not
+ * touch. Bars without a label are skipped, not counted, so sparse labels (the hour chart labels every
+ * sixth bar) are spaced by the distance between them and never all thinned away.
+ */
+export function visibleTicks(
+  labelled: readonly number[],
+  pitchPx: number,
+  labelPx: number,
+  gapPx = 10,
+): Set<number> {
+  let stride = Infinity
+  for (let k = 1; k < labelled.length; k++) {
+    const prev = labelled[k - 1]
+    const cur = labelled[k]
+    if (prev !== undefined && cur !== undefined) stride = Math.min(stride, cur - prev)
+  }
+  const step = Number.isFinite(stride) ? tickStep(stride * pitchPx, labelPx, gapPx) : 1
+  const last = labelled.length - 1
+  return new Set(labelled.filter((_, k) => (last - k) % step === 0))
+}
+
 export interface BandLayout {
   /** Distance between bar starts. */
   pitch: number

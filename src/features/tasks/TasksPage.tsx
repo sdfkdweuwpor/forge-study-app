@@ -69,7 +69,7 @@ import { FilterBar } from './FilterBar'
 import { SavedViewActions, SaveViewButton } from './SavedViewsActions'
 import { SavedViewsMenu } from './SavedViewsMenu'
 import { SavedViewLoading, SavedViewMissing } from './SavedViewsStates'
-import { TaskActionsProvider, useTaskEnv, useTaskMotion } from './TaskActions'
+import { TaskActionsProvider, useTaskEnv, useTaskMotionSelector } from './TaskActions'
 import { TaskList } from './TaskList'
 import { TaskPeek } from './TaskPeek'
 import { ListEmpty, ListError, ListFilteredEmpty, ListSkeleton } from './states'
@@ -107,7 +107,6 @@ interface TasksBodyProps {
 function TasksBody({ list, saved }: TasksBodyProps) {
   const query = useQuery()
   const env = useTaskEnv()
-  const motion = useTaskMotion()
   const toast = useToast()
   const overlays = useOverlays()
   const tasks = useTasks()
@@ -146,12 +145,25 @@ function TasksBody({ list, saved }: TasksBodyProps) {
     [projects],
   )
 
+  const taskById = useMemo(() => new Map<ID, Task>((tasks ?? []).map((t) => [t.id, t])), [tasks])
+  // Rows completing right now stay on screen, drawn as still open, until their motion ends. Only the
+  // rows that would otherwise leave the list (done, or not in it) change what it holds, so a click
+  // and each step of the motion do not re-query every task.
+  const heldKey = useTaskMotionSelector((motion) =>
+    [...motion.keys()]
+      .filter((id) => {
+        const t = taskById.get(id)
+        return t !== undefined && (t.status === 'done' || !inList(t, list, { today }))
+      })
+      .sort()
+      .join(' '),
+  )
   const result = useMemo(() => {
     if (!tasks) return undefined
-    // Rows completing right now stay on screen, drawn as still open, until their motion ends.
+    const held = new Set(heldKey === '' ? [] : heldKey.split(' '))
     const pool = tasks
-      .filter((t) => inList(t, list, { today }) || motion.has(t.id))
-      .map((t) => (motion.has(t.id) && t.status === 'done' ? { ...t, status: 'todo' as const } : t))
+      .filter((t) => inList(t, list, { today }) || held.has(t.id))
+      .map((t) => (held.has(t.id) && t.status === 'done' ? { ...t, status: 'todo' as const } : t))
     const queried = queryTasks(
       pool,
       { filter: view.filter, sort: view.sort, groupBy: view.groupBy },
@@ -165,7 +177,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
       return t.status !== 'done' && day !== null && diffDays(day, today) < 0
     }).length
     return { total: pool.length, shown: counted.length, tasks: queried.tasks, groups, overdue }
-  }, [tasks, list, saved, view, today, weekStartsOn, projectRefs, motion])
+  }, [tasks, list, saved, view, today, weekStartsOn, projectRefs, heldKey])
 
   const board = useMemo(
     () =>
@@ -205,8 +217,6 @@ function TasksBody({ list, saved }: TasksBodyProps) {
           null),
     [result, tasks, selected],
   )
-  const taskById = useMemo(() => new Map<ID, Task>((tasks ?? []).map((t) => [t.id, t])), [tasks])
-
   const reorderable = canReorder(list, view)
   const boardReorder = boardReorderable(view.sort)
 
@@ -557,6 +567,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         <ListFilteredEmpty onClear={() => setView(clearFilters(view))} />
       ) : (
         <TaskList
+          key={saved ? `view:${saved.id}` : list}
           groups={result.groups}
           reorderable={reorderable}
           selectedId={selected}

@@ -664,7 +664,11 @@ export interface Settings extends Base {
     /** When everyday tasks may be auto-slotted, per weekday (index 0 = Sunday). v2. */
     taskWindows: TimeWindow[][]
   }
-  backup: { lastExportAt: Millis | null; remindWeekly: boolean }
+  /**
+   * `lastExportAt`: when a full backup file was last saved. `remindWeekly`: the gentle weekly nudge is on.
+   * `lastRemindedAt`: when the nudge last showed, so it never shows twice in a week.
+   */
+  backup: { lastExportAt: Millis | null; remindWeekly: boolean; lastRemindedAt: Millis | null }
   tagColors: Record<string, TagColor>
   /** Highest level the level-up moment has shown. 0 = not set yet (first start): initialised silently. */
   lastCelebratedLevel: number

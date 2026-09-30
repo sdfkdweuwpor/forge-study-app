@@ -11,6 +11,10 @@ async function withWrittenReview(page: Page): Promise<void> {
   await openSeededReview(page)
   await page.getByRole('textbox', { name: 'What got in the way?' }).fill(NOTE)
   await expect(page.getByTestId('review-note-status')).toHaveText('Saved')
+  // At rest, from the top: typing scrolled the page, and a full-page capture of a scrolled page draws
+  // the fixed parts (the skip link, the phone tab bar) part-way down.
+  await page.getByRole('textbox', { name: 'What got in the way?' }).blur()
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.evaluate(() => document.fonts.ready)
   await page.mouse.move(0, 0)
 }

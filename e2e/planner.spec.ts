@@ -333,8 +333,8 @@ test.describe('templates and other ways in', () => {
     page,
   }) => {
     await gotoApp(page, '/goals/new', 'empty')
-    await page.getByRole('tab', { name: 'Upload a photo' }).click()
-    await expect(page.getByText(/Photos can’t be read offline/)).toBeVisible()
+    await page.getByRole('tab', { name: 'Photo (via Claude)' }).click()
+    await expect(page.getByText(/Forge doesn’t read photos/)).toBeVisible()
     await page.getByRole('button', { name: 'Copy prompt' }).click()
     await expect(toasts(page).getByText('Prompt copied')).toBeVisible()
     const reply = page.getByRole('textbox', { name: 'Claude’s JSON reply' })
@@ -450,5 +450,220 @@ test.describe('the goal page', () => {
     ).toBeVisible()
     await input.fill('proposals')
     await expect(page.getByRole('option', { name: /Review plan proposals/ })).toBeVisible()
+  })
+})
+
+const steps = (page: Page) => page.getByRole('navigation', { name: 'Steps' })
+const isoPlus = (iso: string, days: number): string => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+test.describe('number fields keep what is being typed', () => {
+  test('hours per CU and CUs take "12.", can be emptied, and accept "0.5"', async ({ page }) => {
+    await gotoApp(page, '/goals/new', 'empty')
+    await pasteAndRead(page)
+    await next(page)
+    await next(page)
+    await next(page)
+    await expect(heading(page, 'Effort')).toBeVisible()
+
+    const multiplier = page.getByRole('textbox', { name: 'Hours per competency unit' })
+    await expect(multiplier).toHaveValue('15')
+    // Emptied while typing: nothing snaps back under the cursor.
+    await multiplier.clear()
+    await expect(multiplier).toHaveValue('')
+    // "12." stays "12." until the field is left, then reads as 12.
+    await multiplier.pressSequentially('12.')
+    await expect(multiplier).toHaveValue('12.')
+    await multiplier.press('Enter')
+    await expect(multiplier).toHaveValue('12')
+    await expect(page.getByText('4 CUs × 12 h = 48 h')).toBeVisible()
+    // "0.5" gets through "0" on the way.
+    await multiplier.clear()
+    await multiplier.pressSequentially('0.5')
+    await expect(multiplier).toHaveValue('0.5')
+    await multiplier.blur()
+    await expect(multiplier).toHaveValue('0.5')
+    await expect(page.getByText('4 CUs × 0.5 h = 2 h')).toBeVisible()
+    // Left empty, it goes back to the last good number; junk is called out and not saved.
+    await multiplier.clear()
+    await multiplier.blur()
+    await expect(multiplier).toHaveValue('0.5')
+    await multiplier.fill('lots')
+    await multiplier.blur()
+    await expect(page.getByText('Try 12 or 7.5')).toBeVisible()
+    await multiplier.fill('15')
+    await multiplier.blur()
+    await expect(page.getByText('4 CUs × 15 h = 60 h')).toBeVisible()
+
+    // The same for a course's CUs: it can be emptied and retyped.
+    const cus = page.getByRole('textbox', { name: 'Competency units of C182 Introduction to IT' })
+    await expect(cus).toHaveValue('4')
+    await cus.clear()
+    await expect(cus).toHaveValue('')
+    await cus.pressSequentially('4.5')
+    await expect(cus).toHaveValue('4.5')
+    await cus.blur()
+    await expect(page.getByText('4.5 CUs × 15 h = 67.5 h')).toBeVisible()
+  })
+
+  test('plan settings take a typed multiplier too', async ({ page }) => {
+    await gotoApp(page, '/goals/goal-wgu-bscs', 'wgu')
+    await page.getByRole('button', { name: /Plan settings/ }).click()
+    const dialog = page.getByRole('dialog', { name: 'Plan settings' })
+    const multiplier = dialog.getByRole('textbox', { name: 'Hours per competency unit' })
+    await multiplier.clear()
+    await multiplier.pressSequentially('0.5')
+    await expect(multiplier).toHaveValue('0.5')
+    await multiplier.press('Enter')
+    await expect(multiplier).toHaveValue('0.5')
+    await expect(dialog.getByText('A 3-CU course is about 2 h.')).toBeVisible()
+  })
+})
+
+test.describe('replacing what was reviewed', () => {
+  async function reviewedOutline(page: Page): Promise<void> {
+    await gotoApp(page, '/goals/new', 'empty')
+    await pasteAndRead(page)
+    await next(page)
+    await next(page)
+    await next(page)
+    await expect(heading(page, 'Effort')).toBeVisible()
+    // A reviewed edit: C182 is already known.
+    await page.getByRole('radio', { name: 'Know it' }).first().click()
+    await steps(page).getByRole('button', { name: 'Start' }).click()
+    await expect(heading(page, 'What are you planning?')).toBeVisible()
+  }
+
+  test('touching the text and pressing Continue asks before replacing the reviewed outline', async ({
+    page,
+  }) => {
+    await reviewedOutline(page)
+    const text = page.getByRole('textbox', { name: 'Syllabus or course list' })
+    // Whitespace is not an edit: no question, and the outline stays.
+    await text.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type('   ')
+    await next(page)
+    await expect(heading(page, 'When')).toBeVisible()
+    await steps(page).getByRole('button', { name: 'Start' }).click()
+
+    // A real edit asks first. "Keep my outline" carries on with what was reviewed.
+    await text.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type('\nD999 Elective Seminar (3 CUs)')
+    await next(page)
+    const ask = page.getByRole('dialog', {
+      name: 'Replace your reviewed outline with the new text?',
+    })
+    await expect(ask).toBeVisible()
+    await ask.getByRole('button', { name: 'Keep my outline' }).click()
+    await expect(heading(page, 'When')).toBeVisible()
+    await steps(page).getByRole('button', { name: 'Start' }).click()
+    await expect(page.getByText('Found: 3 courses, 9 units, 3 assessments')).toBeVisible()
+    await steps(page).getByRole('button', { name: 'Effort' }).click()
+    await expect(page.getByRole('radio', { name: 'Know it' }).first()).toBeChecked()
+    await steps(page).getByRole('button', { name: 'Start' }).click()
+
+    // Editing again and choosing "Replace outline" reads the text again, with an Undo.
+    await text.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type('\nD998 Capstone (4 CUs)')
+    await next(page)
+    await expect(ask).toBeVisible()
+    await ask.getByRole('button', { name: 'Replace outline' }).click()
+    await expect(heading(page, 'When')).toBeVisible()
+    await expect(toasts(page).getByText('Read the text again')).toBeVisible()
+    await steps(page).getByRole('button', { name: 'Start' }).click()
+    await expect(page.getByText(/Found: 5 courses/)).toBeVisible()
+    await toasts(page).getByRole('button', { name: 'Undo' }).click()
+    await expect(page.getByText('Found: 3 courses, 9 units, 3 assessments')).toBeVisible()
+  })
+
+  test('reading a PDF over an outline says so and can be undone', async ({ page }) => {
+    await gotoApp(page, '/goals/new', 'empty')
+    await pasteAndRead(page)
+    await page.getByRole('tab', { name: 'Upload a PDF' }).click()
+    await page.getByLabel('Choose a PDF file').setInputFiles({
+      name: 'other.pdf',
+      mimeType: 'application/pdf',
+      buffer: makePdf(['D335 Introduction to Programming in Python - 3 CUs OA']),
+    })
+    await expect(page.getByText('Found: 1 course')).toBeVisible()
+    await expect(toasts(page).getByText('Read the PDF')).toBeVisible()
+    await toasts(page).getByRole('button', { name: 'Undo' }).click()
+    await expect(page.getByText('Found: 3 courses, 9 units, 3 assessments')).toBeVisible()
+  })
+})
+
+test.describe('the review screen', () => {
+  test('Undo puts back exactly the deleted unit, and focus moves on', async ({ page }) => {
+    await gotoApp(page, '/goals/new', 'empty')
+    await pasteAndRead(page)
+    for (let i = 0; i < 4; i++) await next(page)
+    await expect(heading(page, 'Review the plan')).toBeVisible()
+
+    // Delete the second unit of C182; focus lands on the unit that took its place.
+    await page.getByRole('button', { name: 'Delete Networks and the internet' }).click()
+    const second = page.getByRole('textbox', { name: 'Title of unit 2 of C182 Introduction to IT' })
+    await expect(second).toHaveValue('Cloud and virtualization')
+    await expect(second).toBeFocused()
+
+    // A sibling is edited after the delete...
+    const cloud = page.getByRole('textbox', { name: 'Hours for Cloud and virtualization' })
+    await cloud.fill('12')
+    await cloud.press('Enter')
+    // ...and Undo brings back only the deleted unit, leaving that edit alone.
+    await toasts(page).getByRole('button', { name: 'Undo' }).click()
+    await expect(
+      page.getByRole('textbox', { name: 'Title of unit 2 of C182 Introduction to IT' }),
+    ).toHaveValue('Networks and the internet')
+    await expect(
+      page.getByRole('textbox', { name: 'Hours for Cloud and virtualization' }),
+    ).toHaveValue('12')
+  })
+
+  test('after deleting the last course, focus goes to the heading', async ({ page }) => {
+    await gotoApp(page, '/goals/new', 'empty')
+    await pasteAndRead(page)
+    for (let i = 0; i < 4; i++) await next(page)
+    await page
+      .getByRole('button', { name: 'Delete D278 Scripting and Programming Foundations' })
+      .click()
+    await expect(heading(page, 'Review the plan')).toBeFocused()
+    await expect(page.getByRole('textbox', { name: /^Code of / })).toHaveCount(2)
+    // One main landmark: the page shell's.
+    await expect(page.getByRole('main')).toHaveCount(1)
+  })
+})
+
+test.describe('a template and its dates', () => {
+  test('changing the start offers to shift the template dates, and blocks Continue until they fit', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/goals/new', 'empty')
+    await page.getByRole('button', { name: /Semester course/ }).click()
+    await next(page)
+    await expect(heading(page, 'When')).toBeVisible()
+    const target = page.getByLabel('Target finish date')
+    const was = await target.inputValue()
+
+    await page.getByLabel('Start date').fill('2026-12-01')
+    // Exam dates from the template are now before the start: said inline, and Continue stays put.
+    await expect(page.getByText(/dated before your start date/)).toBeVisible()
+    await next(page)
+    await expect(heading(page, 'When')).toBeVisible()
+
+    const shift = page.getByRole('button', { name: 'Shift template dates by 63 days' })
+    await expect(shift).toBeVisible()
+    await shift.click()
+    await expect(target).toHaveValue(isoPlus(was, 63))
+    await expect(page.getByText(/dated before your start date/)).toHaveCount(0)
+    await expect(shift).toHaveCount(0)
+    await expect(toasts(page).getByText(/Moved the template’s dates 63 days later/)).toBeVisible()
+    await next(page)
+    await expect(heading(page, 'Availability')).toBeVisible()
   })
 })

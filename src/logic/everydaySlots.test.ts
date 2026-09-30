@@ -9,6 +9,7 @@ import {
   describeNoRoom,
   describeSuggestion,
   everydayWindowsOf,
+  slotConflicts,
   slotMinutesOf,
   suggestAutoSlots,
 } from './everydaySlots'
@@ -166,5 +167,36 @@ describe('suggestAutoSlots', () => {
 
   it('is empty with no candidates', () => {
     expect(suggestAutoSlots([task()], undefined, [], NOW)).toEqual({ suggestions: [], noRoom: [] })
+  })
+})
+
+describe('slotConflicts', () => {
+  const slot = { taskId: 'a', doDate: '2026-09-29', startTime: '18:00', minutes: 30 }
+  const block = (date: string, start: string, durationMinutes: number, id = 'b') => ({
+    date,
+    start,
+    durationMinutes,
+    id,
+  })
+
+  it('is free when nothing else holds that time', () => {
+    expect(slotConflicts(slot, [])).toBe(false)
+    expect(slotConflicts(slot, [block('2026-09-29', '19:00', 60)])).toBe(false)
+    expect(slotConflicts(slot, [block('2026-09-30', '18:00', 60)])).toBe(false)
+  })
+
+  it('conflicts with any overlap, but not with time that only touches an edge', () => {
+    expect(slotConflicts(slot, [block('2026-09-29', '17:45', 30)])).toBe(true)
+    expect(slotConflicts(slot, [block('2026-09-29', '18:15', 60)])).toBe(true)
+    expect(slotConflicts(slot, [block('2026-09-29', '17:00', 120)])).toBe(true)
+    expect(slotConflicts(slot, [block('2026-09-29', '17:00', 60)])).toBe(false)
+    expect(slotConflicts(slot, [block('2026-09-29', '18:30', 60)])).toBe(false)
+  })
+
+  it('ignores the task’s own block and sees a block that ran past midnight', () => {
+    expect(slotConflicts(slot, [block('2026-09-29', '18:00', 30, 'a')])).toBe(false)
+    const early = { ...slot, startTime: '00:30' }
+    expect(slotConflicts(early, [block('2026-09-28', '23:00', 120)])).toBe(true)
+    expect(slotConflicts(early, [block('2026-09-28', '23:00', 60)])).toBe(false)
   })
 })

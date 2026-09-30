@@ -13,9 +13,11 @@ import { navigate, setQuery } from '@/app/router'
 import { dayOf } from '@/logic/dates'
 import { relativeDay } from '@/logic/taskDisplay'
 import { listFromParam, type TaskListId } from '@/logic/taskLists'
+import { EverydayHoursSection } from './EverydayHours'
 import { searchTasks } from './queries'
 import { SavedViewsNav } from './SavedViewsNav'
 import { taskShortcuts } from './shortcuts'
+import { isSuggestionsCardMounted, openSuggestionsCard } from './suggestionsCard'
 import { rememberLayout } from './views/LayoutSwitch'
 import { viewShortcuts } from './views/viewShortcuts'
 import { canSaveView, type TaskLayout } from '@/logic/taskViews'
@@ -153,18 +155,25 @@ const manifest: FeatureManifest = {
       icon: CalendarClock,
       keywords: ['auto', 'schedule', 'slot', 'suggest', 'deadline'],
       shortcutId: 'tasks.acceptSlots',
-      // The suggestions card owns the handler; away from it, open Upcoming where the card sits.
+      // The suggestions card owns the handler. Wherever it is mounted (Inbox, Upcoming, Today) it accepts;
+      // anywhere else the command takes the person to Upcoming and brings the card into view.
       run: (c) => {
-        const path = window.location.pathname
-        if (onTasksPage() || path === '/' || path.startsWith('/today'))
-          c.invoke('tasks.acceptSlots')
-        else c.navigate('tasks', { list: 'upcoming' })
+        if (isSuggestionsCardMounted()) c.invoke('tasks.acceptSlots')
+        else openSuggestionsCard(() => c.navigate('tasks', { list: 'upcoming' }))
       },
     },
     ...layoutCommands,
   ],
   search: [taskSearch],
-  slots: [{ slot: 'sidebar.nav.tasks', id: 'saved-views', order: 10, component: SavedViewsNav }],
+  slots: [
+    { slot: 'sidebar.nav.tasks', id: 'saved-views', order: 10, component: SavedViewsNav },
+    {
+      slot: 'settings.sections',
+      id: 'tasks.everydayHours',
+      order: 20,
+      component: EverydayHoursSection,
+    },
+  ],
 }
 
 export default manifest

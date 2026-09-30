@@ -6,6 +6,7 @@
  */
 import type { DateRange, HHmm, ISODate, Millis, Task, TimeWindow } from '@/db/types'
 import { durationOf } from './calendarWeek'
+import { diffDays, parseHHmm } from './dates'
 import { defaultTaskWindows } from './schemaV2'
 import { autoSlotTasks } from './scheduler/autoSlot'
 import type { AvailabilityV2, BusyBlock, WeekWindows } from './scheduler/plannerTypes'
@@ -61,6 +62,28 @@ export function busyBlocksOf(tasks: readonly Task[]): BusyBlock[] {
         ]
       : [],
   )
+}
+
+/**
+ * Whether a slot overlaps time another task now holds. A suggestion is computed from the tasks as they
+ * were; before it is applied this asks again, because something may have taken the time meanwhile. The
+ * task's own block does not count against it, and neither does time that only touches the slot's edge.
+ */
+export function slotConflicts(
+  slot: Pick<SlotSuggestion, 'taskId' | 'doDate' | 'startTime' | 'minutes'>,
+  busy: readonly BusyBlock[],
+): boolean {
+  const start = parseHHmm(slot.startTime)
+  if (start === null) return true
+  const end = start + slot.minutes
+  return busy.some((b) => {
+    if (b.id === slot.taskId) return false
+    const from = parseHHmm(b.start)
+    if (from === null) return false
+    // Minutes from the slot's midnight; a block from last night may run into this morning.
+    const offset = diffDays(b.date, slot.doDate) * 24 * 60
+    return offset + from < end && offset + from + b.durationMinutes > start
+  })
 }
 
 /** Tasks that may be suggested a time: opted in, with a deadline and no day of their own. */

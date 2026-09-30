@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { addDays } from './dates'
 import { parsePlanText } from './planParse'
 import { checkFeasibility } from './scheduler'
 import { templateById } from './goalTemplates'
@@ -6,16 +7,25 @@ import {
   applyParse,
   applyPlanDraft,
   applyTemplate,
+  assessmentsBeforeStart,
+  courseRemovalUndo,
   coursesWithoutEffort,
   draftEffort,
   emptyPlannerDraft,
   fillBlankUnits,
   firstInvalidStep,
+  hasReviewEdits,
   initialPlannerState,
   plannerReducer,
   plannerRows,
   planStats,
+  prerequisiteLossesByOrder,
   previewPlanner,
+  readSourceText,
+  shiftTemplateDates,
+  sourceChanged,
+  templateShiftDays,
+  unitRemovalUndo,
   validatePlannerStep,
   withAddedTime,
   withoutUnitKeys,
@@ -26,6 +36,7 @@ import {
 import { serializePlanner, restorePlanner } from './plannerPersist'
 
 const TODAY = '2026-09-29'
+const shiftDate = (d: string, days: number) => addDays(d, days)
 const keys = () => {
   let n = 0
   return () => `k${++n}`
@@ -187,18 +198,123 @@ describe('reducer', () => {
     expect(next.draft.courses[0]?.units[0]?.title).toBe('Chapter one')
   })
 
-  it('setting a course rating applies to its units', () => {
+  it('setting a course rating changes the units that follow it and keeps the ones rated on their own', () => {
     let s = base()
     const c = s.draft.courses[0]
+    const [own, following] = c?.units ?? []
     s = run(s, {
       type: 'patchUnit',
       courseKey: c?.key ?? '',
-      key: c?.units[0]?.key ?? '',
+      key: own?.key ?? '',
       patch: { rating: 'know' },
     })
+    const before = draftEffort(s.draft).courses[0]?.units
     s = run(s, { type: 'setCourseRating', courseKey: c?.key ?? '', rating: 'somewhat' })
-    expect(s.draft.courses[0]?.units.every((u) => u.rating === null)).toBe(true)
-    expect(s.draft.courses[0]?.rating).toBe('somewhat')
+    const course = s.draft.courses[0]
+    expect(course?.rating).toBe('somewhat')
+    // The unit rated 'know' by hand keeps it; the others still follow the course.
+    expect(course?.units[0]?.rating).toBe('know')
+    expect(course?.units.slice(1).every((u) => u.rating === null)).toBe(true)
+    const after = draftEffort(s.draft).courses[0]?.units
+    expect(after?.[0]?.minutes).toBe(before?.[0]?.minutes)
+    expect(after?.[1]?.minutes).toBeLessThan(before?.[1]?.minutes ?? 0)
+    expect(following?.key).toBe(course?.units[1]?.key)
+  })
+
+  it('Undo of a unit delete brings back exactly that unit and leaves edits to its siblings', () => {
+    let s = base()
+    const c = s.draft.courses[0]
+    const [first, second, third] = c?.units ?? []
+    const undo = unitRemovalUndo(s.draft, c?.key ?? '', second?.key ?? '')
+    expect(undo?.index).toBe(1)
+    s = run(s, { type: 'removeUnit', courseKey: c?.key ?? '', key: second?.key ?? '' })
+    expect(draftEffort(s.draft).courses[0]?.totalMinutes).toBe(2000)
+    // An edit to a sibling after the delete...
+    s = run(s, {
+      type: 'patchUnit',
+      courseKey: c?.key ?? '',
+      key: third?.key ?? '',
+      patch: { title: 'Renamed later', minutes: 90 },
+    })
+    s = run(s, {
+      type: 'insertUnit',
+      courseKey: c?.key ?? '',
+      index: undo?.index ?? 0,
+      unit: undo?.unit ?? second!,
+      ...(undo ? { thaw: undo.thaw } : {}),
+    })
+    const units = s.draft.courses[0]?.units ?? []
+    expect(units.map((u) => u.key).slice(0, 3)).toEqual([first?.key, second?.key, third?.key])
+    // ...is kept, and the untouched siblings share the budget again as they did.
+    expect(units[2]).toMatchObject({ title: 'Renamed later', minutes: 90 })
+    expect(units[0]?.minutes).toBeNull()
+    expect(units[1]).toEqual(second)
+    // Undoing twice does not duplicate it.
+    const again = run(s, {
+      type: 'insertUnit',
+      courseKey: c?.key ?? '',
+      index: 1,
+      unit: second!,
+    })
+    expect(again.draft.courses[0]?.units).toHaveLength(units.length)
+  })
+
+  it('Undo of an assessment delete restores it in place', () => {
+    let s = base()
+    const c = s.draft.courses[0]
+    const a = c?.assessments[0]
+    expect(a).toBeDefined()
+    s = run(s, { type: 'removeAssessment', courseKey: c?.key ?? '', key: a?.key ?? '' })
+    expect(s.draft.courses[0]?.assessments).toHaveLength((c?.assessments.length ?? 1) - 1)
+    s = run(s, { type: 'insertAssessment', courseKey: c?.key ?? '', index: 0, assessment: a! })
+    expect(s.draft.courses[0]?.assessments[0]).toEqual(a)
+  })
+
+  it('Undo of a course delete also brings back the requirements pruned from other courses', () => {
+    let s = base()
+    const initialKeys = s.draft.courses.map((c) => c.key)
+    // In the WGU template the 7th course requires the 3rd.
+    const [, , third, , , , seventh] = s.draft.courses
+    expect(seventh?.prerequisiteKeys).toEqual([third?.key])
+    const undo = courseRemovalUndo(s.draft.courses, third?.key ?? '')
+    expect(undo).toMatchObject({ index: 2, dependents: [seventh?.key] })
+    s = run(s, { type: 'removeCourse', key: third?.key ?? '' })
+    expect(s.draft.courses).toHaveLength(6)
+    expect(s.draft.courses[5]?.prerequisiteKeys).toEqual([])
+    s = run(s, {
+      type: 'insertCourse',
+      index: undo?.index ?? 0,
+      course: undo?.course ?? third!,
+      dependents: undo?.dependents ?? [],
+    })
+    expect(s.draft.courses.map((c) => c.key)).toEqual(initialKeys)
+    expect(s.draft.courses[2]?.key).toBe(third?.key)
+    expect(s.draft.courses[6]?.prerequisiteKeys).toEqual([third?.key])
+  })
+
+  it('a reorder that would drop a requirement says so, and Undo puts the order and the links back', () => {
+    let s = base()
+    const keysBefore = s.draft.courses.map((c) => c.key)
+    const [, , third, , , , seventh] = s.draft.courses
+    // Move the 7th course above the 3rd, which it requires.
+    const moved = [
+      ...keysBefore.filter((k) => k !== seventh?.key).slice(0, 2),
+      seventh?.key ?? '',
+      ...keysBefore.filter((k) => k !== seventh?.key).slice(2),
+    ]
+    const losses = prerequisiteLossesByOrder(s.draft.courses, moved)
+    expect(losses).toEqual([{ courseKey: seventh?.key, before: [third?.key], lost: [third?.key] }])
+    expect(prerequisiteLossesByOrder(s.draft.courses, keysBefore)).toEqual([])
+    s = run(s, { type: 'reorderCourses', keys: moved })
+    expect(s.draft.courses.map((c) => c.key)).toEqual(moved)
+    expect(s.draft.courses[2]?.prerequisiteKeys).toEqual([])
+    s = run(s, {
+      type: 'reorderCourses',
+      keys: keysBefore,
+      prerequisites: { [seventh?.key ?? '']: [third?.key ?? ''] },
+    })
+    expect(s.draft.courses.map((c) => c.key)).toEqual(keysBefore)
+    expect(s.draft.courses[6]?.prerequisiteKeys).toEqual([third?.key])
   })
 
   it('tracks the furthest step reached', () => {
@@ -376,6 +492,104 @@ describe('when it does not fit', () => {
   })
 })
 
+describe('reading the text again', () => {
+  const read = (text = WGU_LIST): PlannerDraft =>
+    readSourceText(emptyPlannerDraft(TODAY), text, {
+      source: 'paste',
+      newKey: keys(),
+      today: TODAY,
+    })
+
+  it('only counts a real edit of the text as a change', () => {
+    const d = read()
+    expect(sourceChanged(d)).toBe(false)
+    expect(sourceChanged({ ...d, sourceText: `${d.sourceText}\n\n  ` })).toBe(false)
+    expect(sourceChanged({ ...d, sourceText: d.sourceText.replace(/\n/g, '\r\n') })).toBe(false)
+    expect(sourceChanged({ ...d, sourceText: `${d.sourceText}D999 Extra – 3 CUs` })).toBe(true)
+    // An emptied box is not a request to read nothing, and a typed goal has no text to reread.
+    expect(sourceChanged({ ...d, sourceText: '   ' })).toBe(false)
+    expect(sourceChanged({ ...d, source: 'typed', sourceText: 'other' })).toBe(false)
+  })
+
+  it('knows when the outline was edited after it was read', () => {
+    const d = read()
+    expect(hasReviewEdits(d, TODAY)).toBe(false)
+    const [a, b, c] = d.courses
+    const edit = (courses: PlannerDraft['courses']) => hasReviewEdits({ ...d, courses }, TODAY)
+    expect(edit([{ ...a!, hours: 99 }, b!, c!])).toBe(true)
+    expect(edit([{ ...a!, effortBy: 'hours' }, b!, c!])).toBe(true)
+    expect(edit([{ ...a!, rating: 'know' }, b!, c!])).toBe(true)
+    expect(edit([b!, a!, c!])).toBe(true)
+    expect(edit([a!, b!])).toBe(true)
+    expect(
+      edit([
+        {
+          ...a!,
+          units: [{ key: 'u', title: 'New', minutes: null, rating: null, optional: false }],
+        },
+        b!,
+        c!,
+      ]),
+    ).toBe(true)
+    expect(hasReviewEdits({ ...d, title: 'My degree' }, TODAY)).toBe(true)
+    // The same content under fresh keys is not an edit.
+    expect(hasReviewEdits(read(), TODAY)).toBe(false)
+  })
+})
+
+describe('a template and the start date', () => {
+  const tpl = (start = TODAY) =>
+    applyTemplate(
+      { ...emptyPlannerDraft(TODAY), startDate: start },
+      templateById('semester-course'),
+      { newKey: keys(), today: TODAY },
+    )
+  const dates = (d: PlannerDraft) => d.courses.flatMap((c) => c.assessments.map((a) => a.date))
+
+  it('remembers the start its dates were worked out from', () => {
+    const d = tpl()
+    expect(d.templateStart).toBe(TODAY)
+    expect(templateShiftDays(d)).toBe(0)
+    // Pasting something else is no longer a template.
+    const pasted = readSourceText(d, WGU_LIST, { source: 'paste', newKey: keys(), today: TODAY })
+    expect(pasted.templateStart).toBeNull()
+  })
+
+  it('offers to shift by the days the start moved, and moves the target and every assessment date', () => {
+    const d = tpl()
+    expect(dates(d).filter((x) => x !== null).length).toBeGreaterThan(0)
+    const moved = { ...d, startDate: '2026-10-13' }
+    expect(templateShiftDays(moved)).toBe(14)
+    const shifted = shiftTemplateDates(moved)
+    expect(dates(shifted)).toEqual(dates(d).map((x) => (x === null ? null : shiftDate(x, 14))))
+    expect(shifted.targetDate).toBe(shiftDate(d.targetDate as string, 14))
+    expect(shifted.templateStart).toBe('2026-10-13')
+    // The offer is gone once it is taken.
+    expect(templateShiftDays(shifted)).toBe(0)
+    // Nothing to shift: the draft comes back as it is.
+    expect(shiftTemplateDates(d)).toBe(d)
+    // A start moved earlier shifts earlier.
+    expect(templateShiftDays({ ...tpl('2026-10-13'), startDate: TODAY })).toBe(-14)
+  })
+
+  it('does not touch a draft that did not come from a template', () => {
+    expect(templateShiftDays({ ...parsed(), startDate: '2026-10-13' })).toBe(0)
+  })
+
+  it('blocks When while an assessment is dated before the start', () => {
+    const d = tpl()
+    expect(assessmentsBeforeStart(d)).toEqual([])
+    expect(validatePlannerStep(d, 1, TODAY)).toEqual({})
+    const moved = { ...d, startDate: '2026-12-01', targetDate: '2027-03-01' }
+    const early = assessmentsBeforeStart(moved)
+    expect(early.length).toBeGreaterThan(0)
+    expect(early.map((e) => e.date)).toEqual([...early.map((e) => e.date)].sort())
+    expect(validatePlannerStep(moved, 1, TODAY).assessmentDates).toMatch(/dated before your start/)
+    // Moving the template's dates along with the start clears it.
+    expect(validatePlannerStep(shiftTemplateDates(moved), 1, TODAY)).toEqual({})
+  })
+})
+
 describe('persistence', () => {
   it('round-trips a draft, and drops damaged or foreign text', () => {
     const d = applyTemplate(emptyPlannerDraft(TODAY), templateById('certification'), {
@@ -391,6 +605,21 @@ describe('persistence', () => {
     expect(
       restorePlanner(JSON.stringify({ draft: { v: 2 }, step: 0, reached: 0 }), TODAY),
     ).toBeNull()
+  })
+
+  it('reads a draft saved before templates remembered their start', () => {
+    const d = applyTemplate(emptyPlannerDraft(TODAY), templateById('certification'), {
+      newKey: keys(),
+      today: TODAY,
+    })
+    const saved = JSON.parse(serializePlanner({ draft: d, step: 1, reached: 1, attempted: false }))
+    delete saved.draft.templateStart
+    const back = restorePlanner(JSON.stringify(saved), TODAY)
+    expect(back?.draft.templateStart).toBeNull()
+    expect(
+      restorePlanner(serializePlanner({ draft: d, step: 1, reached: 1, attempted: false }), TODAY)
+        ?.draft.templateStart,
+    ).toBe(TODAY)
   })
 
   it('moves an old start date to today', () => {

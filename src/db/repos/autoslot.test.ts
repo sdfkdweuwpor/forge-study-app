@@ -73,6 +73,49 @@ describe('acceptAutoSlots', () => {
   })
 })
 
+describe('acceptAutoSlots re-checks that the time is still free', () => {
+  it('skips a suggestion whose time was taken since, and reports it', async () => {
+    const t = await bill()
+    const { suggestions } = await proposeAutoSlots({ now: NOW })
+    // Something else moves into 18:00 after the suggestion was worked out.
+    await createTask(
+      { title: 'Dinner with Sam', doDate: '2026-09-29', doTime: '18:00', durationMinutes: 60 },
+      { now: NOW },
+    )
+    const result = await acceptAutoSlots(suggestions, { now: NOW })
+    expect(result.applied).toBe(0)
+    expect(result.conflicts.map((c) => c.taskId)).toEqual([t.id])
+    expect(await db.tasks.get(t.id)).toMatchObject({ doDate: null, doTime: null, autoSlot: true })
+    // Asking again offers the next free time, after dinner.
+    const again = await proposeAutoSlots({ now: NOW })
+    expect(again.suggestions[0]).toMatchObject({ taskId: t.id, startTime: '19:00' })
+  })
+
+  it('applies the free ones and skips only the taken one', async () => {
+    const a = await bill({ title: 'A', dueDate: '2026-09-29' })
+    const b = await bill({ title: 'B', dueDate: '2026-10-02' })
+    const { suggestions } = await proposeAutoSlots({ now: NOW })
+    expect(suggestions).toHaveLength(2)
+    const [first, second] = suggestions
+    // Take exactly the second suggestion's time.
+    await createTask(
+      {
+        title: 'Call',
+        doDate: second?.doDate as string,
+        doTime: second?.startTime as string,
+        durationMinutes: 30,
+      },
+      { now: NOW },
+    )
+    const result = await acceptAutoSlots(suggestions, { now: NOW })
+    expect(result.applied).toBe(1)
+    expect(result.appliedSlots.map((s) => s.taskId)).toEqual([first?.taskId])
+    expect(result.conflicts.map((s) => s.taskId)).toEqual([second?.taskId])
+    const rows = await db.tasks.bulkGet([a.id, b.id])
+    expect(rows.filter((r) => r?.doDate !== null)).toHaveLength(1)
+  })
+})
+
 describe('dismissAutoSlots', () => {
   it('turns auto-schedule off, and Undo turns it back on', async () => {
     const t = await bill()

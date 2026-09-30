@@ -1,10 +1,12 @@
 import { CalendarClock } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNow } from '@/app/hooks/useNow'
 import { recordError } from '@/app/reportError'
+import { Link } from '@/app/router'
 import { useShortcutHandler } from '@/app/shortcuts'
 import { acceptAutoSlots, dismissAutoSlots } from '@/db/repos/autoslot'
 import { dayOf } from '@/logic/dates'
+import { plural } from '@/logic/goalDisplay'
 import {
   describeNoRoom,
   suggestionWhen,
@@ -14,7 +16,13 @@ import {
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
 import { useToast } from '@/ui/Toast'
+import { EVERYDAY_HOURS_SECTION } from './EverydayHours'
 import { useAutoSlotProposal } from './queries'
+import {
+  onSuggestionsRequest,
+  registerSuggestionsCard,
+  takePendingRequest,
+} from './suggestionsCard'
 import { openTask } from './taskUrls'
 import styles from './AutoSlotSuggestions.module.css'
 
@@ -42,17 +50,35 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
       setBusy(true)
       try {
         const result = await acceptAutoSlots(slots)
-        toast.show({
-          variant: 'success',
-          title:
-            slots.length === 1 && slots[0]
-              ? `Scheduled “${slots[0].title}”`
-              : `Scheduled ${result.applied} tasks`,
-          ...(slots.length === 1 && slots[0]
-            ? { description: suggestionWhen(slots[0], today) }
-            : {}),
-          undo: result.undo,
-        })
+        const taken =
+          result.conflicts.length > 0
+            ? `${plural(result.conflicts.length, 'time')} got taken while you looked, so Forge found new ${result.conflicts.length === 1 ? 'one' : 'ones'}.`
+            : null
+        const [only] = result.appliedSlots
+        if (result.applied === 0) {
+          toast.show({
+            title: taken ? 'Those times were just taken' : 'Nothing was scheduled',
+            description:
+              taken ??
+              'Those tasks changed since the suggestions were made, so they were left alone.',
+          })
+        } else {
+          toast.show({
+            variant: 'success',
+            title:
+              result.applied === 1 && only
+                ? `Scheduled “${only.title}”`
+                : `Scheduled ${plural(result.applied, 'task')}`,
+            ...(result.applied === 1 && only
+              ? { description: [suggestionWhen(only, today), taken].filter(Boolean).join('. ') }
+              : taken
+                ? { description: taken }
+                : {}),
+            undo: result.undo,
+          })
+        }
+        // A time that was taken is worked out again from what is free now.
+        if (result.conflicts.length > 0) setAttempt((n) => n + 1)
       } catch (error) {
         recordError(error, 'acceptAutoSlots')
         toast.error('Couldn’t schedule that', { description: 'Nothing was changed. Try again.' })
@@ -85,12 +111,41 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
     [busy, toast],
   )
 
-  useShortcutHandler('tasks.acceptSlots', () => void accept(suggestions), suggestions.length > 0)
+  // The command "Accept suggested times" asks the card to show itself when it is not on the page yet.
+  const card = useRef<HTMLElement | null>(null)
+  const ready = state.status !== 'loading'
+  const reveal = useCallback(() => {
+    if (card.current) {
+      card.current.scrollIntoView({ block: 'center' })
+      card.current.focus()
+    } else {
+      toast.show({
+        title: 'No suggested times right now',
+        description: 'Tasks with a deadline and Auto-schedule on show up here.',
+      })
+    }
+  }, [toast])
+
+  // Bound while the card is on the page, even with nothing to accept, so the key says so instead of doing nothing.
+  useShortcutHandler('tasks.acceptSlots', () => {
+    if (suggestions.length > 0) void accept(suggestions)
+    else reveal()
+  })
+  useEffect(() => registerSuggestionsCard(), [])
+  useEffect(() => onSuggestionsRequest(reveal), [reveal])
+  useEffect(() => {
+    if (ready && takePendingRequest()) reveal()
+  }, [ready, reveal])
 
   if (state.status === 'loading') return null
   if (state.status === 'error') {
     return (
-      <section className={`${styles.card} ${className ?? ''}`} aria-label="Suggested times">
+      <section
+        ref={card}
+        tabIndex={-1}
+        className={`${styles.card} ${className ?? ''}`}
+        aria-label="Suggested times"
+      >
         <p className={styles.quiet}>Couldn’t work out suggested times.</p>
         <Button variant="ghost" size="sm" onClick={() => setAttempt((n) => n + 1)}>
           Try again
@@ -101,7 +156,12 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
   if (suggestions.length === 0 && noRoom.length === 0) return null
 
   return (
-    <section className={`${styles.card} ${className ?? ''}`} aria-labelledby="autoslot-heading">
+    <section
+      ref={card}
+      tabIndex={-1}
+      className={`${styles.card} ${className ?? ''}`}
+      aria-labelledby="autoslot-heading"
+    >
       <header className={styles.head}>
         <div className={styles.headText}>
           <h2 className={styles.title} id="autoslot-heading">
@@ -157,6 +217,15 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
             <span className={styles.text}>
               <span className={styles.name}>{n.title}</span>
               <span className={styles.note}>{describeNoRoom(n, today)}</span>
+              {n.reason === 'noRoom' ? (
+                <Link
+                  to="settings"
+                  params={{ section: EVERYDAY_HOURS_SECTION }}
+                  className={styles.hint}
+                >
+                  Adjust your everyday hours
+                </Link>
+              ) : null}
             </span>
             <span className={styles.actions}>
               <Button variant="ghost" size="sm" onClick={() => openTask(n.taskId)}>

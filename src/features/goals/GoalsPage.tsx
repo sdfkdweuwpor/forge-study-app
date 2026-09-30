@@ -1,13 +1,13 @@
 /**
- * `/goals` and `/goals/new`: the goals list (BRIEF §5.4) with the new-goal flow open over it on the
- * second route, so a refresh on `/goals/new` keeps the dialog. One row per goal: icon, title, how much
- * of the work is done, the projected finish against the target, and CUs this term.
+ * `/goals`: the goals list (BRIEF §5.4). One row per goal: icon, title, how much of the work is done, the
+ * projected finish against the target, and CUs this term. Creating a goal is the planner's page,
+ * `/goals/new` (see `newGoal.ts`).
  */
 import { MoreHorizontal, ExternalLink, Trash2 } from 'lucide-react'
 import { useMemo } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
-import { Link, navigate, useRoute } from '@/app/router'
+import { Link, navigate } from '@/app/router'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import { DEFAULT_ICON } from '@/logic/goalDraft'
 import { percent, plural, summarizeFinish, termProgress } from '@/logic/goalDisplay'
@@ -22,7 +22,6 @@ import { NewGoalButton } from './NewGoalButton'
 import { openNewGoalFlow } from './newGoal'
 import { useGoalOverviews, type GoalOverview } from './queries'
 import { GoalsEmpty, GoalsError, GoalsSkeleton } from './states'
-import { NewGoalFlow } from './wizard/NewGoalFlow'
 import styles from './GoalsPage.module.css'
 
 function GoalRow({ overview, today }: { overview: GoalOverview; today: string }) {
@@ -109,12 +108,10 @@ function GoalRow({ overview, today }: { overview: GoalOverview; today: string })
 }
 
 function GoalsScreen() {
-  const route = useRoute()
   const today = useToday()
   const overviews = useGoalOverviews()
-  const creating = route.name === 'goalNew'
 
-  // The list's own keys: `n` starts a goal. The dialog blocks it while open (its scope is on top).
+  // The list's own keys: `n` starts a goal (the planner, at /goals/new).
   useShortcutScope('goal')
   useShortcutHandler('goals.new', () => openNewGoalFlow())
 
@@ -143,7 +140,6 @@ function GoalsScreen() {
         ) : null}
       </header>
       {body}
-      <NewGoalFlow open={creating} onClose={() => navigate('goals')} />
     </div>
   )
 }

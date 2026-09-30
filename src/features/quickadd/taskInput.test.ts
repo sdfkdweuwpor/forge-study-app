@@ -64,3 +64,14 @@ describe('toTaskInput', () => {
     expect(input.milestoneId).toBeUndefined()
   })
 })
+
+describe('toTaskInput lengths', () => {
+  it('carries a typed length as the slot length', () => {
+    const parsed = parseQuickAdd('call mom sat 30m', { now: NOW })
+    expect(toTaskInput(parsed, undefined)).toMatchObject({
+      title: 'call mom',
+      doDate: '2026-10-03',
+      durationMinutes: 30,
+    })
+  })
+})

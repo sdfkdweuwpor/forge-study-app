@@ -7,7 +7,7 @@ import { Skeleton } from '@/ui/Skeleton'
 import { ImportGoalButton } from './import'
 import styles from './states.module.css'
 
-/** No goals yet: the one action is the wizard, and it can start from a WGU template. */
+/** No goals yet: the one action is the planner, which can start from a template. */
 export function GoalsEmpty() {
   return (
     <EmptyState

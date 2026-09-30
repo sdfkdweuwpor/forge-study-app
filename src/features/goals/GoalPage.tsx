@@ -4,7 +4,7 @@
  * "CUs completed this term"; and free-form notes with the slash menu. Other features add to it through
  * the `goal.header` and `goal.panels` slots.
  */
-import { CalendarCog, MoreHorizontal, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
@@ -13,7 +13,6 @@ import { href, navigate, useParams, usePageTitle } from '@/app/router'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import { formatHours, percent, plural, summarizeFinish, termProgress } from '@/logic/goalDisplay'
 import { Breadcrumbs } from '@/ui/Breadcrumbs'
-import { Button } from '@/ui/Button'
 import { Dropdown, type MenuEntry } from '@/ui/Dropdown'
 import { IconButton } from '@/ui/IconButton'
 import { PageHeader, type PageCover } from '@/ui/PageHeader'
@@ -25,7 +24,6 @@ import { FinishLine } from './FinishLine'
 import { GoalTimeline } from './GoalTimeline'
 import { NotesEditor } from './NotesEditor'
 import { useCoverValue, useGoalData, type GoalData } from './queries'
-import { ScheduleSettings } from './ScheduleSettings'
 import { GoalsError, NotFoundState, PageSkeleton } from './states'
 import { TermProgressBar } from './TermProgressBar'
 import styles from './GoalPage.module.css'
@@ -36,7 +34,6 @@ function GoalBody({ data }: { data: GoalData }) {
   const actions = useGoalActions()
   const cover = useCoverValue(goal.cover)
   const [addRequest, setAddRequest] = useState(0)
-  const [schedule, setSchedule] = useState({ open: false, session: 0 })
 
   useShortcutScope('goal')
   useShortcutHandler('goals.addCourse', () => setAddRequest((n) => n + 1))
@@ -79,13 +76,6 @@ function GoalBody({ data }: { data: GoalData }) {
           items={[{ label: 'Goals', href: href('goals') }, { label: goal.title }]}
         />
         <div className={styles.topActions}>
-          <Button
-            size="sm"
-            iconLeft={<CalendarCog />}
-            onClick={() => setSchedule((s) => ({ open: true, session: s.session + 1 }))}
-          >
-            Schedule
-          </Button>
           <Dropdown
             label={`Actions for ${goal.title}`}
             align="end"
@@ -170,14 +160,6 @@ function GoalBody({ data }: { data: GoalData }) {
         />
       </section>
 
-      {schedule.session > 0 ? (
-        <ScheduleSettings
-          key={schedule.session}
-          goal={goal}
-          open={schedule.open}
-          onClose={() => setSchedule((s) => ({ ...s, open: false }))}
-        />
-      ) : null}
     </div>
   )
 }

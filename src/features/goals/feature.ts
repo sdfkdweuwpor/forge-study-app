@@ -38,7 +38,7 @@ const commands: CommandDef[] = [
     title: 'New goal',
     group: 'Create',
     icon: Plus,
-    keywords: ['create', 'degree', 'wgu', 'plan', 'wizard', 'add goal'],
+    keywords: ['create', 'degree', 'wgu', 'plan', 'planner', 'add goal'],
     shortcutId: 'goals.new',
     run: () => openNewGoalFlow(),
   },
@@ -75,7 +75,7 @@ const commands: CommandDef[] = [
 ]
 
 /**
- * Goals (Phase 5B): the goals list, goal page and course page, the new-goal flow over the list, the
+ * Goals (Phase 5B): the goals list, goal page and course page, the new-goal route (the planner), the
  * sidebar tree, palette search and commands. "Go to Goals" already exists in the app's own commands.
  * Other features add to a goal or course page through the `goal.header`, `goal.panels` and
  * `course.panels` slots; the import panel (5C) registers its `goal.panels` contribution in `slots` below.
@@ -84,9 +84,9 @@ const commands: CommandDef[] = [
 const manifest: FeatureManifest = {
   id: 'goals',
   routes: {
-    // `/goals/new` is the list with the flow open over it: one page component for both routes.
     goals: lazy(() => import('./GoalsPage')),
-    goalNew: lazy(() => import('./GoalsPage')),
+    // The new-goal flow is the goal breakdown planner (its index.ts default-exports the page).
+    goalNew: lazy(() => import('@/features/planner')),
     goal: lazy(() => import('./GoalPage')),
     course: lazy(() => import('./CoursePage')),
   },

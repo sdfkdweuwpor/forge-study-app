@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/db/db'
-import { defaultSettings } from '@/db/defaults'
+import { defaultSettings, defaultSyncState } from '@/db/defaults'
 import { BACKUP_CONTEXT } from '@/db/repos/backup'
 import { FILES_EMBED_LIMIT_BYTES, parseBackup, serializeBackup } from '@/logic/backup'
 import { buildRawDump } from './exportData'
@@ -36,10 +36,28 @@ describe('buildRawDump', () => {
       status: 'open',
       taskId: null,
     })
+    await db.syncState.put({
+      ...defaultSyncState({
+        url: 'https://abcdefghijklmnopqrst.supabase.co',
+        anonKey: 'anon-key-value',
+        email: 'me@example.com',
+      }),
+      enabled: true,
+      session: {
+        accessToken: 'ACCESS-TOKEN-MUST-NOT-LEAK',
+        refreshToken: 'REFRESH-TOKEN-MUST-NOT-LEAK',
+        expiresAt: NOW + 3_600_000,
+        userId: 'user-1',
+        email: 'me@example.com',
+      },
+    })
     const { dump, rows } = await buildRawDump(NOW)
-    // The safety copies stay on the device: a backup never carries them.
-    expect(Object.keys(dump.tables)).toHaveLength(db.tables.length - 1)
+    // The safety copies stay on the device, and so does the sync bookkeeping with its tokens.
+    expect(Object.keys(dump.tables)).toHaveLength(db.tables.length - 3)
     expect(dump.tables.snapshots).toBeUndefined()
+    expect(dump.tables.syncState ?? []).toHaveLength(0)
+    expect(dump.tables.syncOutbox ?? []).toHaveLength(0)
+    expect(JSON.stringify(dump)).not.toMatch(/MUST-NOT-LEAK|anon-key-value/)
     expect(dump).toMatchObject({
       app: 'forge',
       format: 1,

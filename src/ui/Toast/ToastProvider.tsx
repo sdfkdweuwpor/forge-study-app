@@ -179,6 +179,8 @@ export function ToastProvider({
 }: ToastProviderProps) {
   const [state, dispatch] = useReducer(toastReducer, maxVisible, createToastState)
   const viewport = useRef<HTMLDivElement>(null)
+  /** What had focus when F8 took it into the stack: it gets it back when the toast it was on goes away. */
+  const returnTo = useRef<HTMLElement | null>(null)
 
   const api = useMemo<ToastApi>(() => {
     const show = (options: ToastOptions): string => {
@@ -220,11 +222,26 @@ export function ToastProvider({
       const target = root ? getFocusable(root)[0] : undefined
       if (!target) return
       e.preventDefault()
+      const from = document.activeElement
+      // Pressing F8 again from inside the stack keeps the place it first came from.
+      if (from instanceof HTMLElement && !root?.contains(from)) returnTo.current = from
       target.focus({ preventScroll: true })
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [inline])
+
+  // A toast that has focus goes away (Undo done, Esc, time up): focus must not fall to the page body,
+  // so it goes back to where F8 came from. If focus went somewhere else on purpose, that stands.
+  useEffect(() => {
+    const back = returnTo.current
+    if (!back) return
+    const active = document.activeElement
+    if (active && active !== document.body && viewport.current?.contains(active)) return
+    returnTo.current = null
+    if ((!active || active === document.body) && back.isConnected)
+      back.focus({ preventScroll: true })
+  }, [state])
 
   const { visible } = partitionToasts(state)
   const errors = visible.filter((item) => item.variant === 'error')

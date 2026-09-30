@@ -127,6 +127,13 @@ export default defineConfig({
       '@': resolve(root, 'src'),
     },
   },
+  build: {
+    rolldownOptions: {
+      treeshake: {
+        moduleSideEffects: [{ test: /[\\/]src[\\/].*\.tsx?$/, sideEffects: false }],
+      },
+    },
+  },
   server: { port: 5173 },
   preview: { port: 4173, strictPort: true, headers: securityHeaders },
 })

@@ -58,15 +58,17 @@ export async function fetchServerTime(
 
 /**
  * The `SyncServer` the sync engine talks to. `getSession` is read on every call, so a refreshed token is
- * used at once; it holds no state of its own.
+ * used at once; it holds no state of its own. `keepalive` makes every push outlive the page, for the
+ * flush when it is hidden (the engine keeps the batch under 60 KB).
  */
 export function createSyncServer(
   send: Send,
   config: TransportConfig,
   getSession: () => SessionAuth,
+  opts: { keepalive?: boolean } = {},
 ): SyncServer {
   return {
-    push: (rows) => pushRows(send, config, getSession(), rows),
+    push: (rows) => pushRows(send, config, getSession(), rows, opts),
     pull: (afterSeq, limit) => pullRows(send, config, getSession(), afterSeq, limit),
     serverTime: () => fetchServerTime(send, config, getSession()),
   }

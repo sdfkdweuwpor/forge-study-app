@@ -61,6 +61,26 @@ interface Options {
   keepalive?: boolean
 }
 
+/**
+ * Postgres `jsonb` refuses a string holding a lone UTF-16 surrogate (`JSON.stringify` writes one as
+ * `\ud83d`) or U+0000, and then refuses the whole batch, not just that row. Forge cuts text by code unit
+ * (`slice(0, MAX)`), which can split an emoji, so a body is made well-formed before it is sent: a lone
+ * surrogate becomes U+FFFD, NUL is dropped, and a valid pair is left alone. Same input, same bytes.
+ */
+const LONE_SURROGATE = /[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g
+const wellFormed = (s: string): string =>
+  s.replace(LONE_SURROGATE, (m) => (m.length === 2 ? m : '\uFFFD')).replaceAll('\0', '')
+
+/** A `JSON.stringify` replacer that applies `wellFormed` to every string, object keys included. */
+function scrub(_key: string, value: unknown): unknown {
+  if (typeof value === 'string') return wellFormed(value)
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
+  const entries = Object.entries(value)
+  return entries.some(([k]) => wellFormed(k) !== k)
+    ? Object.fromEntries(entries.map(([k, v]) => [wellFormed(k), v]))
+    : value
+}
+
 function build(
   op: RequestOp,
   method: 'GET' | 'POST',
@@ -81,7 +101,7 @@ function build(
     method,
     url: config.url.replace(/\/+$/, '') + path,
     headers,
-    body: opts.body === undefined ? null : JSON.stringify(opts.body),
+    body: opts.body === undefined ? null : JSON.stringify(opts.body, scrub),
     keepalive: opts.keepalive ?? false,
     session: opts.session !== undefined,
   }

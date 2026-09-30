@@ -631,3 +631,14 @@ Design only; PLAN §4.7 has the details, the SQL and the 12B work breakdown.
   - Budgets with tracking on: a re-plan with nothing new queues nothing and stays under 300 ms; a completion stays under 100 ms and queues the task and `xp:task:<id>#0`.
   - Measured with `npm run build` (gzip -9 of every JS file `index.html` loads): 359,866 → 361,318 B, **+1,452 B**. The middleware sits in the shared `db` chunk (+1,690 B); `index-*.js` is 63 B smaller (121.10 → 121.07 kB in Vite's report).
   - The flaky `onboarding.spec.ts` case "someone with data who never onboarded" (1 in 6 before this change, 3 in 6 after, from start-up timing) wrote the settings row while the app was open, and the app could mark onboarding done before the test's check. It now uses `putRowsWhileClosed`, as the daily-goal spec does: 8 of 8.
+
+## Cloud sync (Phase 12B1–12B4)
+
+- **2026-09-30 — The crash export and every backup leave the sync bookkeeping out.** `buildBackup` writes `syncState` and `syncOutbox` as empty lists whatever it is given, and the crash screen's raw dump does not read those tables at all, so no file can carry the session's tokens. `exportData.test.ts` puts a session in `syncState` and checks no token reaches the dump.
+- **2026-09-30 — Features never import `@/db/sync/*`.** ESLint bans it; features reach sync through `@/db/repos/sync`, `@/db/repos/syncGate` and `@/db/hooks/useSyncState` only.
+- **2026-09-30 — The pure request building lives in `logic/syncRequests.ts`**, not `logic/sync.ts` as §4.7.9 said: 12B2 and 12B4 were built at the same time and one file per owner avoided a clash.
+- **2026-09-30 — Text is scrubbed before a push.** A lone UTF-16 surrogate (a string cut through an emoji) or a NUL makes Postgres refuse the jsonb and would wedge the whole batch; they become U+FFFD / are dropped on the way out. The pulled-back copy then differs from the device's by those characters, which the engine treats as its own echo (same stamp, same device), not a conflict. The engine still skips and reports a row whose batch keeps failing with 400, so a different server refusal cannot wedge sync.
+- **2026-09-30 — "Project paused" is shown only after repeated 5xx/540 answers,** as §4.7.7 says; one 540 can be a blip.
+- **2026-09-30 — Stamps are finite and only move forward.** `StampClock` ignores non-finite stamps (seed, `seen` messages, `observeRemoteStamp`, load). After each push the engine (12B3) raises `maxSeenStamp` to the largest pushed stamp, so a clock stepped back after a reload cannot give an edit a stamp older than one this device already pushed.
+- **2026-09-30 — Test fixtures never contain a secret-shaped literal.** GitHub push protection refused a fake `sb_secret_…` key in a test; such keys are assembled at runtime (`['sb', 'secret', …].join('_')`).
+

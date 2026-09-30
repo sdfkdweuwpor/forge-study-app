@@ -13,7 +13,14 @@ import {
   type HttpRequest,
   type TransportConfig,
 } from '@/logic/syncRequests'
-import { createHttp, SupabaseError, type FailureReason, type FetchLike } from './http'
+import {
+  createHttp,
+  PAUSED_MESSAGE,
+  SupabaseError,
+  suggestsPaused,
+  type FailureReason,
+  type FetchLike,
+} from './http'
 
 const KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2lnbmF0dXJl'
 const ACCESS = 'access.token.SECRET-ACCESS'
@@ -418,7 +425,7 @@ describe('createHttp: mapping failures', () => {
       res: reply(520),
       reason: 'unavailable',
       kind: 'server',
-      text: /paused/,
+      text: /isn't answering/,
     },
     {
       name: '522',
@@ -426,7 +433,7 @@ describe('createHttp: mapping failures', () => {
       res: reply(522),
       reason: 'unavailable',
       kind: 'server',
-      text: /paused/,
+      text: /isn't answering/,
     },
     {
       name: '540 paused project',
@@ -434,7 +441,7 @@ describe('createHttp: mapping failures', () => {
       res: reply(540, 'Project paused'),
       reason: 'unavailable',
       kind: 'server',
-      text: /paused/,
+      text: /isn't answering/,
     },
     // an answer that cannot be used
     {
@@ -460,12 +467,35 @@ describe('createHttp: mapping failures', () => {
     })
   }
 
-  it('keeps calm, distinct wording for a bad key, a paused project and a plain outage', async () => {
+  it('keeps calm, distinct wording for a bad key and a plain outage', async () => {
     const badKey = await failure(R.settings, reply(401))
-    const paused = await failure(R.pull, reply(540))
     const down = await failure(R.pull, reply(503))
-    expect(new Set([badKey.message, paused.message, down.message]).size).toBe(3)
-    expect(paused.message).toContain('Supabase dashboard')
+    expect(badKey.message).not.toBe(down.message)
+  })
+
+  it('never calls a project paused on one answer: 520 to 540 read like any outage', async () => {
+    // One 52x is also what a short origin hiccup looks like (PLAN 4.7.7 says "repeated 5xx").
+    const plain = (await failure(R.pull, reply(503))).message
+    for (const status of [520, 522, 526, 540]) {
+      const error = await failure(R.pull, reply(status))
+      expect(error.message, String(status)).toBe(plain)
+      expect(error.message, String(status)).not.toBe(PAUSED_MESSAGE)
+      expect(error.status).toBe(status)
+    }
+  })
+
+  it('marks the outages that fit a paused project, for the engine to count', async () => {
+    expect(PAUSED_MESSAGE).toContain('Supabase dashboard')
+    for (const status of [520, 522, 526, 540]) {
+      expect(suggestsPaused(await failure(R.pull, reply(status))), String(status)).toBe(true)
+    }
+    for (const status of [500, 502, 503, 504]) {
+      expect(suggestsPaused(await failure(R.pull, reply(status))), String(status)).toBe(false)
+    }
+    // Not an outage, or no answer at all.
+    expect(suggestsPaused(await failure(R.pull, reply(401)))).toBe(false)
+    expect(suggestsPaused(await failure(R.pull, reply(429)))).toBe(false)
+    expect(suggestsPaused(await failure(R.pull, new TypeError('Failed to fetch')))).toBe(false)
   })
 
   it('never mistakes a server-supplied code for a message key (constructor, __proto__, toString)', async () => {

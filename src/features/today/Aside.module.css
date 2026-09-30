@@ -125,6 +125,11 @@
   .moreRow {
     align-items: center;
   }
+
+  /* A course code is only four characters wide: the whole row up to the days is the target. */
+  .moreRow > .link {
+    flex: 1;
+  }
 }
 
 /* ── Heatmap ─────────────────────────────────────────────────────────────── */

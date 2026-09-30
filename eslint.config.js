@@ -67,6 +67,10 @@ const logicRules = {
 
 const featureBans = [
   ban(
+    ['@/db/sync', '@/db/sync/*'],
+    'Features reach sync only through @/db/repos/sync, @/db/repos/syncGate and @/db/hooks/useSyncState (PLAN §4.7.9).',
+  ),
+  ban(
     ['@/features/*/*', '@/features/*/**'],
     'Import other features only through their index.ts: @/features/<name>.',
   ),

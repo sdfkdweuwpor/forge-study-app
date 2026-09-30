@@ -11,7 +11,7 @@
  * | reason        | from                                                                    | kind        |
  * |---------------|-------------------------------------------------------------------------|-------------|
  * | offline       | fetch rejected (no network, wrong address)                              | offline     |
- * | unavailable   | 5xx (520 and up: a paused free project), a timeout                      | server      |
+ * | unavailable   | 5xx (520 and up may be a paused free project: `suggestsPaused`), a timeout | server   |
  * | unauthorized  | 401 on a session; 403 or any 401 from sign-in calls; a refused refresh  | signedOut   |
  * | badKey        | 401 that names the API key, or any 401 before there is a session        | signedOut   |
  * | rateLimited   | 429, GoTrue rate-limit codes (`retryAfterMs` from `Retry-After`)        | rateLimited |
@@ -64,7 +64,12 @@ const MESSAGES: Readonly<Record<FailureReason, string>> = {
   rejected: 'Supabase refused the request.',
 }
 const TIMEOUT_MESSAGE = 'Supabase took too long to answer. Forge will try again.'
-const PAUSED_MESSAGE =
+/**
+ * The sentence for a paused free project (PLAN §4.7.7: after repeated 5xx). One 520 to 526 is also what a
+ * short origin hiccup looks like, so `failure` never uses this on a single answer; the engine counts
+ * consecutive `suggestsPaused` failures and shows it once they repeat.
+ */
+export const PAUSED_MESSAGE =
   'Your Supabase project may be paused. Free projects pause after a week without use; restore it from the Supabase dashboard.'
 
 /** GoTrue codes the sign-in forms meet, with a sentence each; anything else gets its reason's message. */
@@ -79,6 +84,10 @@ const CODE_MESSAGES: Readonly<Record<string, string>> = {
   over_email_send_rate_limit:
     'Supabase limits how many sign-in emails it sends. Wait a little, then try again.',
 }
+
+/** An outage whose status (520 and up, 540 being a paused project) fits a paused project. One is not proof. */
+export const suggestsPaused = (e: SupabaseError): boolean =>
+  e.reason === 'unavailable' && e.status !== null && e.status >= 520
 
 /** An answer that arrived but cannot be used (not JSON, not the shape the call promises). */
 export function badAnswer(status: number | null = null): SupabaseError {
@@ -134,9 +143,7 @@ function failure(req: HttpRequest, f: Failure): SupabaseError {
       ? MESSAGES[reason]
       : f.timedOut === true
         ? TIMEOUT_MESSAGE
-        : status !== null && status >= 520
-          ? PAUSED_MESSAGE
-          : MESSAGES.unavailable)
+        : MESSAGES.unavailable)
   return new SupabaseError(reason, kind, message, { status, code, retryAfterMs: f.retryAfterMs })
 }
 

@@ -12,7 +12,7 @@ import {
   signInWithCode,
   signOut,
 } from './auth'
-import { createHttp, SupabaseError, type FetchLike } from './http'
+import { createHttp, SupabaseError, suggestsPaused, type FetchLike } from './http'
 
 const URL_OK = 'https://abcdefghijklmnopqrst.supabase.co'
 const ANON_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2lnbmF0dXJl'
@@ -108,12 +108,11 @@ describe('checkProject', () => {
     })
   })
 
-  it('reports a paused project and a page that is not a Supabase answer', async () => {
+  it('reports a 540 as an outage that may be a paused project, and a page that is not a Supabase answer', async () => {
     const paused = harness(() => json(540))
-    expect(await rejection(checkProject(paused.send, cfg('anonJwt')))).toMatchObject({
-      reason: 'unavailable',
-      status: 540,
-    })
+    const error = await rejection(checkProject(paused.send, cfg('anonJwt')))
+    expect(error).toMatchObject({ reason: 'unavailable', status: 540 })
+    expect(suggestsPaused(error)).toBe(true)
     for (const body of ['<html>parked domain</html>', '{}', '[]']) {
       const odd = harness(() => new Response(body, { status: 200 }))
       expect(await rejection(checkProject(odd.send, cfg('anonJwt')))).toMatchObject({

@@ -102,6 +102,9 @@ function project() {
 
     if (u.searchParams.get('on_conflict') !== 'user_id,tbl,id') return reply(409, { code: '23505' })
     if (!(headers.Prefer ?? '').includes('resolution=merge-duplicates')) return reply(409)
+    if (jsonbRefuses(String(init.body))) {
+      return reply(400, { code: '22P02', message: 'invalid input syntax for type json' })
+    }
     const batch = JSON.parse(String(init.body)) as Omit<Stored, 'seq'>[]
     const shape = Object.keys(batch[0] ?? {}).join()
     if (batch.some((r) => Object.keys(r).join() !== shape)) {
@@ -123,6 +126,31 @@ function project() {
 
   const fetchLike: FetchLike = (url, init) => handle(url, init)
   return { rows, calls, tokens, state, fetch: fetchLike }
+}
+
+/**
+ * What Postgres `jsonb` does with a body: a string or key holding a lone surrogate or U+0000 refuses the
+ * whole batch (SQLSTATE 22P02 or 22P05), not just that row.
+ */
+function jsonbRefuses(text: string): boolean {
+  const bad = (s: string): boolean => {
+    if (s.includes('\0')) return true
+    try {
+      encodeURIComponent(s) // throws on a lone surrogate
+      return false
+    } catch {
+      return true
+    }
+  }
+  const walk = (v: unknown): boolean =>
+    typeof v === 'string'
+      ? bad(v)
+      : Array.isArray(v)
+        ? v.some(walk)
+        : typeof v === 'object' && v !== null
+          ? Object.entries(v).some(([k, x]) => bad(k) || walk(x))
+          : false
+  return walk(JSON.parse(text))
 }
 
 const row = (n: number, over: Partial<PushRow> = {}): PushRow => ({
@@ -177,6 +205,30 @@ describe('pushRows and pullRows', () => {
     await pushRows(createHttp({ fetch: p.fetch }), config, session, [row(1)], { keepalive: true })
     expect(p.calls[0]?.keepalive).toBe(true)
     expect(p.rows.size).toBe(1)
+  })
+
+  it('does not let one row with broken text wedge the batch (lone surrogate, NUL)', async () => {
+    // A title cut by `slice(0, MAX)` through an emoji ends in a lone surrogate; Postgres refuses the body.
+    const split = '\u{1F3AF} Pass C182'.slice(0, 1)
+    const poison = [
+      row(1),
+      row(2, { data: { id: 'task-2', title: `Pass C${split}` } }),
+      row(3, { data: { id: 'task-3', title: 'a\0b', [`k${split}`]: 1 } }),
+      row(4, { data: { id: 'task-4', title: 'Reach \u{1F3AF} by Friday' } }),
+    ]
+    // The same bytes, unscrubbed, are what the server used to get.
+    expect(jsonbRefuses(JSON.stringify(poison.map((r) => r.data)))).toBe(true)
+
+    const p = project()
+    const send = createHttp({ fetch: p.fetch })
+    await pushRows(send, config, session, poison)
+    await pushRows(send, config, session, poison) // a retry is the same request, and as harmless
+    const page = await pullRows(send, config, session, 0, 500)
+    expect(page.map((r) => r.id)).toEqual(['task-1', 'task-2', 'task-3', 'task-4'])
+    expect(page[1]?.data).toEqual({ id: 'task-2', title: 'Pass C\uFFFD' })
+    expect(page[2]?.data).toEqual({ id: 'task-3', title: 'ab', 'k\uFFFD': 1 })
+    expect(page[3]?.data).toEqual({ id: 'task-4', title: 'Reach \u{1F3AF} by Friday' })
+    expect(p.calls[0]?.body).toBe(p.calls[1]?.body)
   })
 
   it('is accepted by a server that enforces the bulk-upsert rules', async () => {
@@ -329,6 +381,17 @@ describe('createSyncServer', () => {
     await server.push([row(1), row(2)])
     expect((await server.pull(0, 500)).map((r) => r.id)).toEqual(['task-1', 'task-2'])
     expect(await server.serverTime()).toBe(p.state.now)
+  })
+
+  it('pushes with keepalive only when asked, for the flush on hide', async () => {
+    const p = project()
+    const session0 = () => session
+    await createSyncServer(createHttp({ fetch: p.fetch }), config, session0).push([row(1)])
+    await createSyncServer(createHttp({ fetch: p.fetch }), config, session0, {
+      keepalive: true,
+    }).push([row(2)])
+    expect(p.calls.map((c) => c.keepalive)).toEqual([false, true])
+    expect(p.rows.size).toBe(2)
   })
 
   it('reads the session on every call, so a refreshed token is used at once', async () => {

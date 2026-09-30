@@ -344,6 +344,66 @@ describe('PostgREST requests', () => {
     expect(pullRequest(c, SESSION, 0, 500).keepalive).toBe(false)
   })
 
+  it('makes the text well-formed: a lone surrogate or NUL never reaches Postgres jsonb', () => {
+    // `slice(0, n)` through an emoji leaves half of a pair; JSON.stringify would write it as \ud83d.
+    const pair = '\u{1F3AF}'
+    const high = pair.slice(0, 1)
+    const low = pair.slice(1)
+    const rows = [
+      row({ id: 'ok', data: { id: 'ok', title: `Goal ${pair} C182` } }),
+      row({ id: 'cut', data: { id: 'cut', title: `Pass C${high}`, note: `${low}x` } }),
+      row({ id: 'nul', data: { id: 'nul', title: 'a\0b', nested: [{ t: `${low}${high}` }] } }),
+      row({ id: 'key', data: { id: 'key', [`k${high}`]: 1, [`${pair}\0`]: 2 } }),
+    ]
+    const r = pushRequest(c, SESSION, rows)
+    const text = r.body ?? ''
+    expect(text).not.toMatch(/\\u[dD][89a-fA-F]\w\w/) // no surrogate escape of any kind
+    expect(text).not.toContain('\\u0000')
+    const sent = JSON.parse(text) as { id: string; data: Record<string, unknown> }[]
+    const wellFormed = (s: string): boolean => {
+      try {
+        encodeURIComponent(s)
+        return true
+      } catch {
+        return false
+      }
+    }
+    const strings: string[] = []
+    const collect = (v: unknown): void => {
+      if (typeof v === 'string') strings.push(v)
+      else if (Array.isArray(v)) v.forEach(collect)
+      else if (typeof v === 'object' && v !== null)
+        Object.entries(v).forEach(([k, x]) => {
+          strings.push(k)
+          collect(x)
+        })
+    }
+    collect(sent)
+    expect(strings.length).toBeGreaterThan(20)
+    expect(strings.every(wellFormed)).toBe(true)
+    expect(strings.some((s) => s.includes('\0'))).toBe(false)
+    // A valid pair stays; a lone half becomes U+FFFD; NUL goes; the rest of the batch is untouched.
+    expect(sent[0]?.data.title).toBe(`Goal ${pair} C182`)
+    expect(sent[1]?.data).toEqual({ id: 'cut', title: 'Pass C\uFFFD', note: '\uFFFDx' })
+    expect(sent[2]?.data).toEqual({ id: 'nul', title: 'ab', nested: [{ t: '\uFFFD\uFFFD' }] })
+    expect(sent[3]?.data).toEqual({ id: 'key', 'k\uFFFD': 1, [pair]: 2 })
+    expect(sent.map((s) => s.id)).toEqual(['ok', 'cut', 'nul', 'key'])
+  })
+
+  it('keeps the same bytes for the same broken text, and leaves its input alone', () => {
+    const rows = [row({ data: { id: 'task-1', title: `Pass C${'\u{1F3AF}'.slice(0, 1)}\0` } })]
+    const before = JSON.stringify(rows)
+    const first = pushRequest(c, SESSION, rows)
+    expect(
+      pushRequest(
+        c,
+        SESSION,
+        rows.map((r) => ({ ...r })),
+      ),
+    ).toEqual(first)
+    expect(JSON.stringify(rows)).toBe(before)
+  })
+
   it('is idempotent at the request level: the same rows always make the same bytes', () => {
     const rows = [row(), row({ id: 'task-2', deleted: true, data: null })]
     const first = pushRequest(c, SESSION, rows)

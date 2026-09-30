@@ -6,6 +6,7 @@ import {
   serializeBackup,
   type BackupFile,
 } from '@/logic/backup'
+import { SYNC_BOOKKEEPING_TABLES } from '@/logic/syncTables'
 import { dayOf } from '@/logic/dates'
 
 export interface ExportResult {
@@ -20,7 +21,8 @@ export interface ExportResult {
  * What the crash screen exports: an ordinary backup file (the format Settings → Data imports, written by
  * the same `buildBackup` / `serializeBackup`), marked as coming from the crash screen. Every table is in
  * it except `snapshots` (the app's own safety copies, which stay on the device and are never part of a
- * backup), and its `notes` say what it leaves out.
+ * backup) and the sync bookkeeping (`syncState` holds the sign-in tokens), and its `notes` say what it
+ * leaves out.
  */
 export interface RawDump extends BackupFile {
   kind: 'raw-dump'
@@ -36,7 +38,11 @@ export async function buildRawDump(
   embedLimitBytes: number = FILES_EMBED_LIMIT_BYTES,
 ): Promise<{ dump: RawDump; rows: number }> {
   const tables: Record<string, unknown[]> = {}
-  const readable = db.tables.filter((t) => t.name !== 'snapshots')
+  // The safety copies stay on the device, and the sync bookkeeping (which holds the sign-in tokens)
+  // never leaves it: neither is read at all.
+  const readable = db.tables.filter(
+    (t) => t.name !== 'snapshots' && !(SYNC_BOOKKEEPING_TABLES as readonly string[]).includes(t.name),
+  )
   await db.transaction('r', readable, async () => {
     for (const table of readable) tables[table.name] = await table.toArray()
   })

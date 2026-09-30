@@ -685,6 +685,12 @@ export interface Settings extends Base {
    * then never changed, so the same history always grows the same city.
    */
   world: { seed: number }
+  /**
+   * Daily rituals (Phase 11g). `prompts`: Today may offer the morning plan and the evening shutdown
+   * (a gentle card, dismissible for the day). The morning card shows until `morningUntil`, the evening
+   * one from `eveningFrom`, both local `'HH:mm'`.
+   */
+  rituals: { prompts: boolean; morningUntil: HHmm; eveningFrom: HHmm }
 }
 /** Settings without the row bookkeeping (`id`, timestamps). */
 export type SettingsData = Omit<Settings, keyof Base>

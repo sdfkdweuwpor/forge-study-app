@@ -130,12 +130,15 @@ export function titleFromNote(body: string): string {
   return first === undefined ? 'Untitled note' : truncate(first)
 }
 
-/** A short one-line look at a note's body for its row: the first line, cut to `max`. */
-export function notePreview(body: string, max = 140): string {
+/**
+ * A short one-line look at a note's body for its row: the first line, cut to `max`. A line equal to
+ * `exclude` (the title, when it was made from the body) is skipped, so the row does not say it twice.
+ */
+export function notePreview(body: string, max = 140, exclude?: string): string {
   const first = body
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .find((line) => line !== '')
+    .find((line) => line !== '' && line !== exclude?.trim())
   return first === undefined ? '' : truncate(first, max)
 }
 
@@ -181,6 +184,20 @@ export function pdfProblemMessage(problem: PdfProblem, file: Pick<FileFacts, 'na
     case 'tooBig':
       return `${name} is ${formatBytes(file.size)}. PDFs up to ${formatBytes(MAX_PDF_BYTES)} can be added. A smaller copy, or a link to it, works too.`
   }
+}
+
+/** Splits offered files into those that can be stored and a sentence for each that cannot. */
+export function partitionPdfs<T extends FileFacts>(
+  files: readonly T[],
+): { accepted: T[]; problems: string[] } {
+  const accepted: T[] = []
+  const problems: string[] = []
+  for (const file of files) {
+    const problem = pdfProblem(file)
+    if (problem === null) accepted.push(file)
+    else problems.push(pdfProblemMessage(problem, file))
+  }
+  return { accepted, problems }
 }
 
 /**

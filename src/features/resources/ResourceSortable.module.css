@@ -1,0 +1,67 @@
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  position: relative;
+  list-style: none;
+}
+
+.row[data-dragging] {
+  z-index: var(--z-raised);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+}
+
+/* The `⋮⋮` handle: shown on hover and focus, always on touch (where it is also a 44px target). */
+.grip {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+  transition:
+    opacity var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+.row:hover .grip,
+.row:focus-within .grip,
+.row[data-dragging] .grip,
+.grip:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .grip:hover {
+    background: var(--bg-active);
+    color: var(--text);
+  }
+}
+
+@media (hover: none) {
+  .grip {
+    opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  .grip {
+    width: 32px;
+    height: var(--tap-min);
+  }
+}

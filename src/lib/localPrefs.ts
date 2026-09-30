@@ -31,6 +31,8 @@ export const PREF_KEYS = {
   roadmapZoom: 'forge:roadmap:zoom',
   /** Local day ('YYYY-MM-DD') the Trash was last purged of expired items; written by the safety feature at app start. */
   trashPurgedDay: 'forge:trash:purged-day',
+  /** JSON `{ day, kinds }`: the ritual prompts on Today dismissed for that local day; written by the rituals feature. */
+  ritualPromptsDismissed: 'forge:rituals:dismissed',
   /** '1' makes the first-launch gate stand aside. Only read in builds with VITE_ENABLE_SEED (e2e, dev); written by e2e/fixtures.ts. */
   skipOnboarding: 'forge:onboarding:skip',
 } as const

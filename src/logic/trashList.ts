@@ -79,6 +79,12 @@ const PARENT_FIELDS: Partial<Record<TableName, readonly (readonly [string, Paren
     ['goalId', 'goals'],
     ['milestoneId', 'milestones'],
   ],
+  // A resource deleted before its course lives in an entry of its own (with its file); restoring it from
+  // the Trash brings the course back first, so it is never written into a course that is not there.
+  resources: [
+    ['goalId', 'goals'],
+    ['milestoneId', 'milestones'],
+  ],
 }
 
 /** The fields of a row of `table` that name a container, and what each names (an empty list for a top-level thing). */

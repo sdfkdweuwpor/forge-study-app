@@ -1,0 +1,175 @@
+/*
+ * The Rituals and Routines sections of Settings. They match the other sections (a small muted heading over
+ * a hairline, then rows of text and controls; no cards) and keep their own copy of the few rules, because a
+ * feature never imports another feature's styles.
+ */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  scroll-margin-top: var(--space-8);
+}
+
+.heading {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.intro {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-wrap: pretty;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-height: var(--tap-min);
+  padding: var(--space-2) 0;
+}
+
+.text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-wrap: pretty;
+}
+
+.control {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.time {
+  width: 9.5rem;
+}
+
+.status {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.status[data-tone='error'] {
+  color: var(--danger-text);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.subhead {
+  margin: var(--space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2) 0;
+}
+
+.item + .item {
+  border-top: 1px solid var(--border);
+}
+
+.icon {
+  flex: none;
+  width: 28px;
+  font-size: var(--fs-20);
+  line-height: 1;
+  text-align: center;
+}
+
+.itemText {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+.rename {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-3) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 639px) {
+  .actions {
+    margin-inline-start: 0;
+  }
+}

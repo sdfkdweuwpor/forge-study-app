@@ -1,0 +1,309 @@
+/*
+ * Shared by the morning plan and the evening shutdown. No boxes: hierarchy comes from type and spacing,
+ * with hairlines between rows.
+ */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ── Step header ─────────────────────────────────────────────────────────── */
+.stepHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stepper {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.dot {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  transition: background-color var(--dur-2) var(--ease);
+}
+
+.dot[data-state='done'],
+.dot[data-state='current'] {
+  background: var(--accent);
+}
+
+.dot[data-state='done'] {
+  opacity: 0.45;
+}
+
+.stepLabel {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 1.4;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-snug);
+  text-wrap: balance;
+}
+
+.stepTitle:focus-visible {
+  outline: none;
+}
+
+.lede {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* ── Lists ───────────────────────────────────────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-block: var(--space-2);
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.rowMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: var(--fs-14);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.rowTitle[data-done='true'] {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-faint);
+}
+
+.rowMeta {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.rank {
+  flex: none;
+  min-width: 1.5em;
+  color: var(--accent-text);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.pick {
+  flex: 1;
+  min-width: 0;
+}
+
+.pickLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The row is the click target: the whole line toggles the box. */
+.pickRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.tick {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--success-text);
+}
+
+/* ── Inline add and menus ────────────────────────────────────────────────── */
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.addField {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.notice {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+/* ── Status line (what just moved, with its Undo) ───────────────────────── */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.status[data-tone='done'] {
+  color: var(--success-text);
+}
+
+/* ── Goal stepper ────────────────────────────────────────────────────────── */
+.goal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.goalValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 9ch;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.goalNumber {
+  color: var(--text);
+  font-size: var(--fs-32);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-title);
+  line-height: 1;
+}
+
+/* ── Evening rows: one line of controls under each title ─────────────────── */
+.moveRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  min-width: 0;
+}
+
+.moveRow + .moveRow {
+  border-top: 1px solid var(--border);
+}
+
+.moveHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+.moveActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: calc(-1 * var(--space-2));
+}
+
+.moveState {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.moveState[data-tone='moved'] {
+  color: var(--success-text);
+}
+
+.datePick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ── Loading and empty ───────────────────────────────────────────────────── */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.quiet {
+  margin: 0;
+  padding-block: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+/* A plain text link inside a row ("Open"). */
+.linkAction {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--accent-text);
+  font-size: var(--fs-14);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .linkAction:hover {
+    background: var(--bg-hover);
+  }
+}
+
+@media (pointer: coarse) {
+  .linkAction {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+}

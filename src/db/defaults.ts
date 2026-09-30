@@ -68,6 +68,7 @@ export function defaultSettingsData(): SettingsData {
     rewardsSeeded: false,
     sync: { enabled: false, url: null, anonKey: null, lastSyncAt: null },
     world: { seed: 0 },
+    rituals: { prompts: true, morningUntil: '12:00', eveningFrom: '17:00' },
   }
 }
 

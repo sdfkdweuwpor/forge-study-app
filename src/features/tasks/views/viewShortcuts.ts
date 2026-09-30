@@ -6,8 +6,20 @@ import type { ShortcutDef } from '@/app/registry'
  * (`t` = due today, Alt+↑/↓ = reorder) keep working in the other layouts.
  */
 export const viewShortcuts: ShortcutDef[] = [
-  { id: 'tasks.layoutList', keys: 'v l', description: 'Show as a list', group: 'Tasks', scope: 'tasks' },
-  { id: 'tasks.layoutBoard', keys: 'v b', description: 'Show as a board', group: 'Tasks', scope: 'tasks' },
+  {
+    id: 'tasks.layoutList',
+    keys: 'v l',
+    description: 'Show as a list',
+    group: 'Tasks',
+    scope: 'tasks',
+  },
+  {
+    id: 'tasks.layoutBoard',
+    keys: 'v b',
+    description: 'Show as a board',
+    group: 'Tasks',
+    scope: 'tasks',
+  },
   {
     id: 'tasks.layoutCalendar',
     keys: 'v c',
@@ -15,7 +27,13 @@ export const viewShortcuts: ShortcutDef[] = [
     group: 'Tasks',
     scope: 'tasks',
   },
-  { id: 'tasks.saveView', keys: 'v s', description: 'Save this view', group: 'Tasks', scope: 'tasks' },
+  {
+    id: 'tasks.saveView',
+    keys: 'v s',
+    description: 'Save this view',
+    group: 'Tasks',
+    scope: 'tasks',
+  },
   {
     id: 'board.moveLeft',
     keys: 'alt+left',
@@ -30,9 +48,27 @@ export const viewShortcuts: ShortcutDef[] = [
     group: 'Board',
     scope: 'tasks',
   },
-  { id: 'calendar.prev', keys: 'left', description: 'Previous week', group: 'Calendar', scope: 'calendar' },
-  { id: 'calendar.next', keys: 'right', description: 'Next week', group: 'Calendar', scope: 'calendar' },
-  { id: 'calendar.today', keys: 't', description: 'Jump to this week', group: 'Calendar', scope: 'calendar' },
+  {
+    id: 'calendar.prev',
+    keys: 'left',
+    description: 'Previous week',
+    group: 'Calendar',
+    scope: 'calendar',
+  },
+  {
+    id: 'calendar.next',
+    keys: 'right',
+    description: 'Next week',
+    group: 'Calendar',
+    scope: 'calendar',
+  },
+  {
+    id: 'calendar.today',
+    keys: 't',
+    description: 'Jump to this week',
+    group: 'Calendar',
+    scope: 'calendar',
+  },
   {
     id: 'calendar.dayBack',
     keys: 'alt+left',

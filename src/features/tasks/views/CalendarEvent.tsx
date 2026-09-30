@@ -1,5 +1,10 @@
 import { useDraggable } from '@dnd-kit/core'
-import { useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { ID, ISODate, Task } from '@/db/types'
 import { resizedMinutes } from '@/logic/calendarWeek'
 import { toHHmm } from '@/logic/dates'
@@ -83,7 +88,10 @@ export function CalendarEventFace({
   // Quiet colour by goal: a plan session (or anything filed under a goal or course) takes its course's or
   // goal's colour. Everyday tasks stay neutral, however they are tagged.
   const colorKey = course?.code ?? goal?.title ?? null
-  const color = colorKey && (task.kind !== 'task' || task.goalId !== null || course) ? tagColor(colorKey, tagColors) : 'gray'
+  const color =
+    colorKey && (task.kind !== 'task' || task.goalId !== null || course)
+      ? tagColor(colorKey, tagColors)
+      : 'gray'
   const showTime = variant === 'block' && span !== undefined
   const minutes = span ? span.end - span.start : 0
   const long = minutes >= TWO_LINES_MIN_MINUTES
@@ -152,7 +160,15 @@ interface DraggableEventProps extends Omit<EventFaceProps, 'preview'> {
 }
 
 /** The bottom-edge grip: drag to change the length. It never starts a move (mouse and touch are stopped here). */
-function ResizeGrip({ resize, task, span }: { resize: ResizeProps; task: Task; span: { start: number; end: number } }) {
+function ResizeGrip({
+  resize,
+  task,
+  span,
+}: {
+  resize: ResizeProps
+  task: Task
+  span: { start: number; end: number }
+}) {
   const drag = useRef<{ y: number; base: number; ppm: number; last: number } | null>(null)
   const base = span.end - span.start
 
@@ -161,7 +177,9 @@ function ResizeGrip({ resize, task, span }: { resize: ResizeProps; task: Task; s
     e.preventDefault()
     e.stopPropagation()
     const column = e.currentTarget.closest('[data-timed-day]')
-    const hourPx = column ? Number.parseFloat(getComputedStyle(column).getPropertyValue('--hour-h')) : 64
+    const hourPx = column
+      ? Number.parseFloat(getComputedStyle(column).getPropertyValue('--hour-h'))
+      : 64
     drag.current = {
       y: e.clientY,
       base,
@@ -226,7 +244,9 @@ export function DraggableEvent({ className, style, resize, ...face }: DraggableE
       {...listeners}
     >
       <CalendarEventFace {...face} />
-      {resize && face.span ? <ResizeGrip resize={resize} task={face.task} span={face.span} /> : null}
+      {resize && face.span ? (
+        <ResizeGrip resize={resize} task={face.task} span={face.span} />
+      ) : null}
     </li>
   )
 }

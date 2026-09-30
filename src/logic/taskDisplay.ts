@@ -146,7 +146,8 @@ export interface EstimateLabel {
 
 /** The estimate chip: pomodoros first, minutes when that is all the task has. */
 export function estimateLabel(
-  task: Pick<Task, 'estimatePomodoros' | 'estimateMinutes'> & Partial<Pick<Task, 'durationMinutes'>>,
+  task: Pick<Task, 'estimatePomodoros' | 'estimateMinutes'> &
+    Partial<Pick<Task, 'durationMinutes'>>,
 ): EstimateLabel | null {
   const { estimatePomodoros: pomodoros } = task
   const minutes = task.estimateMinutes ?? task.durationMinutes ?? null

@@ -294,7 +294,10 @@ export function resizedMinutes(
  * time, on the quarter-hour grid), or `null` when nothing changes or the task has no time.
  */
 export function nudgeLength(
-  task: Pick<Task, 'doDate' | 'doTime' | 'durationMinutes' | 'estimateMinutes' | 'estimatePomodoros'>,
+  task: Pick<
+    Task,
+    'doDate' | 'doTime' | 'durationMinutes' | 'estimateMinutes' | 'estimatePomodoros'
+  >,
   minutes: number,
 ): number | null {
   const start = startMinutesOf(task)
@@ -303,7 +306,10 @@ export function nudgeLength(
   const step = Math.abs(minutes)
   const target =
     minutes > 0 ? Math.floor(current / step) * step + step : Math.ceil(current / step) * step - step
-  const clamped = Math.min(Math.max(MIN_BLOCK_MINUTES, 24 * 60 - start), Math.max(MIN_BLOCK_MINUTES, target))
+  const clamped = Math.min(
+    Math.max(MIN_BLOCK_MINUTES, 24 * 60 - start),
+    Math.max(MIN_BLOCK_MINUTES, target),
+  )
   return clamped === current ? null : clamped
 }
 
@@ -313,13 +319,18 @@ export function nudgeLength(
  * Open everyday tasks whose deadline falls on each visible day, for the markers in the day header.
  * Planner items are left out: their deadlines are assessment dates, which have their own markers.
  */
-export function deadlinesByDay(tasks: readonly Task[], days: readonly ISODate[]): Map<ISODate, Task[]> {
+export function deadlinesByDay(
+  tasks: readonly Task[],
+  days: readonly ISODate[],
+): Map<ISODate, Task[]> {
   const byDay = new Map<ISODate, Task[]>(days.map((d) => [d, []]))
   for (const task of tasks) {
     if (task.kind !== 'task' || task.status === 'done' || task.dueDate === null) continue
     byDay.get(task.dueDate)?.push(task)
   }
   for (const list of byDay.values())
-    list.sort((a, b) => (a.dueTime ?? '24:00').localeCompare(b.dueTime ?? '24:00') || a.order - b.order)
+    list.sort(
+      (a, b) => (a.dueTime ?? '24:00').localeCompare(b.dueTime ?? '24:00') || a.order - b.order,
+    )
   return byDay
 }

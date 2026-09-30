@@ -347,7 +347,8 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
   )
 
   const setAutoSlot = useCallback(
-    (id: ID, autoSlot: boolean) => guard('change auto-schedule', () => updateTask(id, { autoSlot })),
+    (id: ID, autoSlot: boolean) =>
+      guard('change auto-schedule', () => updateTask(id, { autoSlot })),
     [guard],
   )
 

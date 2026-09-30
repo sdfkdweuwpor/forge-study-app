@@ -80,7 +80,8 @@ const boardCoordinates: KeyboardCoordinateGetter = (event, args) => {
     const rect = droppableRects.get(container.id)
     if (!rect) continue
     const distance = Math.abs(rect.top + rect.height / 2 - middle)
-    if (best === null || distance < best.distance) best = { left: rect.left, top: rect.top, distance }
+    if (best === null || distance < best.distance)
+      best = { left: rect.left, top: rect.top, distance }
   }
   if (best) return { x: best.left, y: best.top }
   const column = droppableRects.get(columnKey(to))
@@ -112,7 +113,8 @@ export function BoardView({
   const modelIds = useMemo(() => boardIds(model), [model])
   const tasksById = useMemo(() => {
     const map = new Map<ID, Task>()
-    for (const column of BOARD_COLUMN_IDS) for (const task of model.columns[column]) map.set(task.id, task)
+    for (const column of BOARD_COLUMN_IDS)
+      for (const task of model.columns[column]) map.set(task.id, task)
     return map
   }, [model])
 
@@ -235,9 +237,12 @@ export function BoardView({
       below: now.below,
       reorder: reorderable && now.column !== 'done',
     }).then((ok) => {
-      window.setTimeout(() => {
-        if (settle.current === token) setHeld(null)
-      }, ok ? SETTLE_MS : 0)
+      window.setTimeout(
+        () => {
+          if (settle.current === token) setHeld(null)
+        },
+        ok ? SETTLE_MS : 0,
+      )
     })
   }
 

@@ -3,7 +3,7 @@ import type { ISODate } from '@/db/types'
 import { addDays, addMonths } from '@/logic/dates'
 import { termEndFor } from '@/logic/goalDraft'
 import { formatDay } from '@/logic/goalDisplay'
-import type { DraftErrors, PlannerAction, PlannerDraft } from '@/logic/plannerDraft'
+import type { DraftErrors, DraftPatch, PlannerAction, PlannerDraft } from '@/logic/plannerDraft'
 import { DatePicker } from '@/ui/DatePicker'
 import { SegmentedControl } from '@/ui/SegmentedControl'
 import { Tag } from '@/ui/Tag'
@@ -19,8 +19,7 @@ export interface WhenStepProps {
 }
 
 export function WhenStep({ draft, dispatch, errors, today }: WhenStepProps) {
-  const patch = (p: Parameters<typeof dispatch>[0] extends { type: 'patch'; patch: infer P } ? P : never) =>
-    dispatch({ type: 'patch', patch: p })
+  const patch = (p: DraftPatch) => dispatch({ type: 'patch', patch: p })
   const quick: Array<{ label: string; date: ISODate }> = [
     { label: 'In 3 months', date: addDays(addMonths(draft.startDate, 3), -1) },
     { label: 'In 6 months (a WGU term)', date: termEndFor(draft.startDate) },

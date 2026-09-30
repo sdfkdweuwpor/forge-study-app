@@ -182,7 +182,7 @@ test.describe('quick add', () => {
     await gotoApp(page, '/', 'empty')
     await page.keyboard.press('q')
     await quickAddField(page).fill('tomorrow')
-    await expect(parsedChips(page)).toHaveText(['Tomorrow'])
+    await expect(parsedChips(page)).toHaveText(['Do: Tomorrow'])
     await page.keyboard.press('Enter')
     await expect(quickAdd(page).getByRole('alert')).toHaveText('Give the task a title first.')
     await expect(quickAdd(page)).toBeVisible()

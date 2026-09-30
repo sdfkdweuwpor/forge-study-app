@@ -69,7 +69,9 @@ export function autoSlotCandidates(tasks: readonly Task[]): Task[] {
 }
 
 /** How long a task's suggested slot is: its slot length, else its estimate, else 30 minutes. */
-export function slotMinutesOf(task: Pick<Task, 'durationMinutes' | 'estimateMinutes' | 'estimatePomodoros'>): number {
+export function slotMinutesOf(
+  task: Pick<Task, 'durationMinutes' | 'estimateMinutes' | 'estimatePomodoros'>,
+): number {
   const explicit =
     (task.durationMinutes ?? 0) > 0 ||
     (task.estimateMinutes ?? 0) > 0 ||
@@ -126,7 +128,12 @@ export function suggestAutoSlots(
     const r = results[i]
     if (!r) return
     if ('reason' in r)
-      noRoom.push({ taskId: task.id, title: task.title, dueDate: task.dueDate as ISODate, reason: r.reason })
+      noRoom.push({
+        taskId: task.id,
+        title: task.title,
+        dueDate: task.dueDate as ISODate,
+        reason: r.reason,
+      })
     else
       suggestions.push({
         taskId: task.id,
@@ -137,15 +144,19 @@ export function suggestAutoSlots(
         dueDate: task.dueDate as ISODate,
       })
   })
-  suggestions.sort(
-    (a, b) => (a.doDate < b.doDate ? -1 : a.doDate > b.doDate ? 1 : a.startTime < b.startTime ? -1 : 1),
+  suggestions.sort((a, b) =>
+    a.doDate < b.doDate ? -1 : a.doDate > b.doDate ? 1 : a.startTime < b.startTime ? -1 : 1,
   )
   return { suggestions, noRoom }
 }
 
 /** "Thu 7 PM" (or "Today 7 PM") for a suggestion's time. */
-export function suggestionWhen(s: Pick<SlotSuggestion, 'doDate' | 'startTime'>, today: ISODate): string {
-  const day = s.doDate === today ? 'Today' : (formatDayLong(s.doDate, today).split(',')[0] ?? s.doDate)
+export function suggestionWhen(
+  s: Pick<SlotSuggestion, 'doDate' | 'startTime'>,
+  today: ISODate,
+): string {
+  const day =
+    s.doDate === today ? 'Today' : (formatDayLong(s.doDate, today).split(',')[0] ?? s.doDate)
   return `${day} ${formatTimeOfDay(s.startTime)}`
 }
 
@@ -161,4 +172,3 @@ export function describeNoRoom(n: NoRoom, today: ISODate): string {
     n.dueDate === today ? 'today' : (formatDayLong(n.dueDate, today).split(',')[0] ?? n.dueDate)
   return `No open time before ${day} — pick a time`
 }
-

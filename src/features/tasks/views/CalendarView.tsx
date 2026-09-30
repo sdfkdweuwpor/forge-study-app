@@ -218,11 +218,7 @@ function DayColumn({
         />
       ))}
       {line !== null ? (
-        <li
-          className={styles.now}
-          aria-hidden="true"
-          style={customProps({ '--now': line / 60 })}
-        />
+        <li className={styles.now} aria-hidden="true" style={customProps({ '--now': line / 60 })} />
       ) : null}
     </ul>
   )
@@ -244,7 +240,12 @@ function DeadlineMarkers({
   return (
     <ul className={styles.deadlines} aria-label={`Deadlines on ${formatDayLong(day, today)}`}>
       {shown.map((t) => (
-        <li key={t.id} className={styles.deadline} data-today={day === today || undefined} title={`Due: ${t.title}${t.dueTime ? `, ${formatTimeOfDay(t.dueTime)}` : ''}`}>
+        <li
+          key={t.id}
+          className={styles.deadline}
+          data-today={day === today || undefined}
+          title={`Due: ${t.title}${t.dueTime ? `, ${formatTimeOfDay(t.dueTime)}` : ''}`}
+        >
           Due: {t.title}
         </li>
       ))}
@@ -350,9 +351,12 @@ export function CalendarView({
     const token = (settle.current += 1)
     setSizing({ id, minutes })
     void onResize(task, minutes).then((ok) => {
-      window.setTimeout(() => {
-        if (settle.current === token) setSizing(null)
-      }, ok ? SETTLE_MS : 0)
+      window.setTimeout(
+        () => {
+          if (settle.current === token) setSizing(null)
+        },
+        ok ? SETTLE_MS : 0,
+      )
     })
   }
 
@@ -367,9 +371,7 @@ export function CalendarView({
 
   function onDragMove(event: DragMoveEvent) {
     const next = targetOf(event)
-    setTarget((prev) =>
-      prev?.day === next?.day && prev?.time === next?.time ? prev : next,
-    )
+    setTarget((prev) => (prev?.day === next?.day && prev?.time === next?.time ? prev : next))
   }
 
   function finish() {
@@ -391,9 +393,12 @@ export function CalendarView({
     const token = (settle.current += 1)
     setPending({ id: task.id, slot })
     void onReschedule(task, slot).then((ok) => {
-      window.setTimeout(() => {
-        if (settle.current === token) setPending(null)
-      }, ok ? SETTLE_MS : 0)
+      window.setTimeout(
+        () => {
+          if (settle.current === token) setPending(null)
+        },
+        ok ? SETTLE_MS : 0,
+      )
     })
   }
 
@@ -403,7 +408,9 @@ export function CalendarView({
     onDragOver: () => undefined,
     onDragEnd: ({ active }) => {
       const title = tasksById.get(String(active.id))?.title ?? 'task'
-      return target ? `Moved ${title} to ${describeTarget(target)}.` : `${title} dropped. Nothing changed.`
+      return target
+        ? `Moved ${title} to ${describeTarget(target)}.`
+        : `${title} dropped. Nothing changed.`
     },
     onDragCancel: ({ active }) =>
       `Move cancelled. ${tasksById.get(String(active.id))?.title ?? 'task'} is where it was.`,
@@ -538,8 +545,8 @@ export function CalendarView({
           <div className={styles.bodyWrap}>
             {!onScreen ? (
               <p className={styles.quiet}>
-                Nothing is scheduled {week ? 'this week' : 'on these days'}. Tasks with a date
-                show up here.
+                Nothing is scheduled {week ? 'this week' : 'on these days'}. Tasks with a date show
+                up here.
               </p>
             ) : null}
             <div className={`${styles.row} ${styles.body}`}>

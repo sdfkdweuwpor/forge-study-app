@@ -48,7 +48,9 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
             slots.length === 1 && slots[0]
               ? `Scheduled “${slots[0].title}”`
               : `Scheduled ${result.applied} tasks`,
-          ...(slots.length === 1 && slots[0] ? { description: suggestionWhen(slots[0], today) } : {}),
+          ...(slots.length === 1 && slots[0]
+            ? { description: suggestionWhen(slots[0], today) }
+            : {}),
           undo: result.undo,
         })
       } catch (error) {
@@ -68,7 +70,8 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
       try {
         const { undo } = await dismissAutoSlots(ids)
         toast.show({
-          title: ids.length === 1 ? 'Okay, you’ll pick a time' : `Okay, you’ll pick ${ids.length} times`,
+          title:
+            ids.length === 1 ? 'Okay, you’ll pick a time' : `Okay, you’ll pick ${ids.length} times`,
           description: 'Auto-schedule is off for that task.',
           undo,
         })
@@ -122,8 +125,7 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
         {suggestions.map((s) => (
           <div key={s.taskId} className={styles.item}>
             <span className={styles.text}>
-              <span className={styles.name}>{s.title}</span>{' '}
-              <span className={styles.arrow}>→</span>{' '}
+              <span className={styles.name}>{s.title}</span> <span className={styles.arrow}>→</span>{' '}
               <span className={styles.when}>
                 {suggestionWhen(s, today)} ({s.minutes} min)
               </span>

@@ -150,6 +150,48 @@ const list: ShotList = {
       waitFor: 'main h1',
       prepare: settle,
     },
+
+    // Everyday tasks and the Week time-block view (5H).
+    {
+      // The calm "Suggested times" card above Upcoming: Accept / Dismiss / Accept all.
+      name: 'suggested-times',
+      path: '/tasks/upcoming?seed=wgu',
+      waitFor: '[aria-labelledby="autoslot-heading"]',
+      prepare: settle,
+    },
+    {
+      // Do date, time and length, a deadline, and the auto-schedule switch on one task.
+      name: 'do-and-deadline',
+      path: '/task/task-phone-bill?seed=wgu',
+      waitFor: 'main h1',
+      prepare: settle,
+    },
+    {
+      // Blocks sized by length, deadline markers under the dates, the untimed strip on top.
+      name: 'week-blocks',
+      path: '/tasks/all?seed=wgu&layout=calendar',
+      waitFor: CALENDAR_EVENTS,
+      prepare: async (page) => {
+        await page.locator(CALENDAR_EVENTS).first().hover()
+        await settle(page)
+      },
+    },
+    {
+      // A block picked up with the mouse: the ghost shows where it lands, snapped to a quarter hour.
+      name: 'week-blocks-drag',
+      path: '/tasks/all?seed=wgu&layout=calendar',
+      waitFor: CALENDAR_EVENTS,
+      prepare: async (page) => {
+        const block = page.locator('[data-calendar-face][data-variant="block"]').first()
+        const box = await block.boundingBox()
+        if (!box) return
+        await page.mouse.move(box.x + box.width / 2, box.y + 8)
+        await page.mouse.down()
+        await page.mouse.move(box.x + box.width / 2 + 12, box.y + 30, { steps: 4 })
+        await page.mouse.move(box.x + box.width / 2 + 80, box.y + 70, { steps: 8 })
+        await page.waitForTimeout(150)
+      },
+    },
     {
       name: 'save-view-popover',
       path: '/tasks/all?seed=wgu&priority=3,4',

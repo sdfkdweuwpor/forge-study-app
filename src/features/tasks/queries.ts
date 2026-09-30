@@ -123,9 +123,7 @@ export function useTaskXpMap(enabled: boolean): ReadonlyMap<ID, number> | undefi
 }
 
 export type AutoSlotState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; proposal: AutoSlotProposal }
+  { status: 'loading' } | { status: 'error' } | { status: 'ready'; proposal: AutoSlotProposal }
 
 type AutoSlotRead = { ok: true; proposal: AutoSlotProposal } | { ok: false }
 

@@ -96,7 +96,9 @@ export function useResize(): (task: Task, minutes: number) => Promise<boolean> {
           id: RESIZE_TOAST_ID,
           title: `“${shorten(task.title)}” is now ${durationLabel(result.task.durationMinutes ?? minutes)}`,
           description:
-            task.source === 'schedule' ? 'Pinned: a rebalance will keep this length.' : 'Length changed.',
+            task.source === 'schedule'
+              ? 'Pinned: a rebalance will keep this length.'
+              : 'Length changed.',
           undo: async () => {
             for (const undo of [...undos].reverse()) await undo()
             series.current = null

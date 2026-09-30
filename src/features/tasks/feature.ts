@@ -37,8 +37,8 @@ const taskSearch: SearchProvider = {
             : task.dueDate
               ? `Due ${relativeDay(task.dueDate, dayOf(Date.now()))}`
               : where === 'title'
-              ? 'No date'
-              : `Matches in ${where === 'subtask' ? 'a subtask' : where}`,
+                ? 'No date'
+                : `Matches in ${where === 'subtask' ? 'a subtask' : where}`,
       icon: task.status === 'done' ? CircleCheckBig : ListChecks,
       run: (c) => c.navigate('task', { taskId: task.id }),
     }))
@@ -156,7 +156,8 @@ const manifest: FeatureManifest = {
       // The suggestions card owns the handler; away from it, open Upcoming where the card sits.
       run: (c) => {
         const path = window.location.pathname
-        if (onTasksPage() || path === '/' || path.startsWith('/today')) c.invoke('tasks.acceptSlots')
+        if (onTasksPage() || path === '/' || path.startsWith('/today'))
+          c.invoke('tasks.acceptSlots')
         else c.navigate('tasks', { list: 'upcoming' })
       },
     },

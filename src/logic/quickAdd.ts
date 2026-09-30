@@ -486,7 +486,8 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
       const timeFollows = w.trailing === '' && clockAt(k + 1, false, true) !== null
       // "call mom sat 30m": a length right after it is an unmistakable sign of a plan.
       const nextWordAfter = w.trailing === '' ? wordAt(k + 1) : undefined
-      const lengthFollows = nextWordAfter !== undefined && parseDuration(nextWordAfter.lower) !== null
+      const lengthFollows =
+        nextWordAfter !== undefined && parseDuration(nextWordAfter.lower) !== null
       if (!(connector || timeFollows || lengthFollows)) return null
     }
     return dateMatch(weekdayAfterToday(abbr), 1)

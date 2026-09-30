@@ -100,9 +100,15 @@ describe('candidates and busy time', () => {
   })
 
   it('uses the slot length, else the estimate, else 30 minutes', () => {
-    expect(slotMinutesOf({ durationMinutes: 45, estimateMinutes: null, estimatePomodoros: null })).toBe(45)
-    expect(slotMinutesOf({ durationMinutes: null, estimateMinutes: null, estimatePomodoros: 2 })).toBe(50)
-    expect(slotMinutesOf({ durationMinutes: null, estimateMinutes: null, estimatePomodoros: null })).toBe(30)
+    expect(
+      slotMinutesOf({ durationMinutes: 45, estimateMinutes: null, estimatePomodoros: null }),
+    ).toBe(45)
+    expect(
+      slotMinutesOf({ durationMinutes: null, estimateMinutes: null, estimatePomodoros: 2 }),
+    ).toBe(50)
+    expect(
+      slotMinutesOf({ durationMinutes: null, estimateMinutes: null, estimatePomodoros: null }),
+    ).toBe(30)
   })
 })
 
@@ -120,7 +126,9 @@ describe('suggestAutoSlots', () => {
         dueDate: '2026-10-02',
       },
     ])
-    expect(describeSuggestion(r.suggestions[0]!, TODAY)).toBe('Pay phone bill → Today 6 PM (30 min)')
+    expect(describeSuggestion(r.suggestions[0]!, TODAY)).toBe(
+      'Pay phone bill → Today 6 PM (30 min)',
+    )
   })
 
   it('plans around timed tasks (and goal sessions)', () => {

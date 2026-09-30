@@ -43,7 +43,9 @@ const manifest: FeatureManifest = {
       run: openQuickAdd,
     },
   ],
-  slots: [{ slot: 'global.overlays', id: 'quickadd.overlay', order: 10, component: QuickAddOverlay }],
+  slots: [
+    { slot: 'global.overlays', id: 'quickadd.overlay', order: 10, component: QuickAddOverlay },
+  ],
 }
 
 export default manifest

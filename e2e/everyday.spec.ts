@@ -120,9 +120,7 @@ test.describe('everyday tasks', () => {
     await expect.poll(async () => (await byTitle(page, 'pay phone bill'))?.doDate).toBeNull()
     await expect(card).toBeVisible()
     await card.getByRole('button', { name: 'Accept: pay phone bill' }).click()
-    await expect
-      .poll(async () => (await byTitle(page, 'pay phone bill'))?.doTime)
-      .toBe('18:00')
+    await expect.poll(async () => (await byTitle(page, 'pay phone bill'))?.doTime).toBe('18:00')
     expect(await byTitle(page, 'pay phone bill')).toMatchObject({
       doDate: '2026-09-29',
       dueDate: '2026-10-02',
@@ -132,7 +130,9 @@ test.describe('everyday tasks', () => {
     await expect(card).toBeHidden()
 
     await page.goto('/tasks/all?layout=calendar')
-    await expect(page.getByRole('button', { name: /^Open pay phone bill, 6 – 6:30 PM/ })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /^Open pay phone bill, 6 – 6:30 PM/ }),
+    ).toBeVisible()
     // The deadline is a marker in Friday's header.
     await expect(page.getByRole('list', { name: 'Deadlines on Fri, Oct 2' })).toContainText(
       'Due: pay phone bill',

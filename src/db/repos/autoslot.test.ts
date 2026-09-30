@@ -11,7 +11,9 @@ beforeEach(async () => {
   await db.open()
 })
 
-async function bill(patch: Parameters<typeof createTask>[0] extends infer T ? Partial<T> : never = {}) {
+async function bill(
+  patch: Parameters<typeof createTask>[0] extends infer T ? Partial<T> : never = {},
+) {
   return createTask(
     { title: 'Pay phone bill', dueDate: '2026-10-02', autoSlot: true, ...patch },
     { now: NOW },

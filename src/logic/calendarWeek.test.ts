@@ -110,9 +110,7 @@ describe('durationOf', () => {
     expect(durationOf({ estimateMinutes: null, estimatePomodoros: null })).toBe(30)
     expect(durationOf({ estimateMinutes: 10, estimatePomodoros: null })).toBe(15)
     expect(durationOf({ estimateMinutes: 0, estimatePomodoros: 0 })).toBe(30)
-    expect(
-      durationOf({ durationMinutes: 90, estimateMinutes: 45, estimatePomodoros: 2 }),
-    ).toBe(90)
+    expect(durationOf({ durationMinutes: 90, estimateMinutes: 45, estimatePomodoros: 2 })).toBe(90)
   })
 })
 

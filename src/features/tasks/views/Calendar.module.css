@@ -121,7 +121,7 @@
 .deadline {
   overflow: hidden;
   padding: 1px 4px;
-  border-top: 2px solid var(--border-strong, var(--border));
+  border-top: 2px solid var(--border-strong);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background: var(--bg-hover);
   color: var(--text-muted);
@@ -527,6 +527,12 @@
 
   .hint {
     display: none;
+  }
+
+  .gutterLabel {
+    padding-right: 4px;
+    font-size: 10px;
+    letter-spacing: -0.01em;
   }
 
   .face {

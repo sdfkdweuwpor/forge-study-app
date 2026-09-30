@@ -1,0 +1,1241 @@
+# ==============================================================================
+# FORGE CHROME EXTENSION (STANDALONE) - ALL FILES
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# FILE: package.json (Add these two entries to "scripts")
+# ------------------------------------------------------------------------------
+/*
+  "build:ext": "node scripts/build-extension.mjs",
+  "zip:ext": "npm run build:ext && node -e \"require('child_process').execSync('cd extension/dist && zip -r ../../forge-extension.zip .')\""
+*/
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/tsconfig.json
+# ------------------------------------------------------------------------------
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "types": ["chrome"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "moduleResolution": "Node",
+    "outDir": "dist/js"
+  },
+  "include": ["src/**/*"]
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/manifest.json
+# ------------------------------------------------------------------------------
+{
+  "manifest_version": 3,
+  "name": "Forge Focus",
+  "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtzlniRJfA7SNvBCwMwTedIzTiprS7b3UoM+HTo3Og9aDBYycXih7YNq1Jfr1282dFEO2R7R9qaGX99aXijiVf6XaxkGcjCb4o3jF60EX3d8+WtID8EJ8wGhkyAXKvHfeEC8kEIsefGdcsSx8ypG/M/FIuvhg5xoZHQ32mIfn7CNHkKSPGFFJuZRZiselXkMiJ3uizEUsGKdOG0WvZ3jt026PyhuRD5974Hpxl3pYZQ24/CX5FFIlVu7MdemdFwJ2HuUGJWmy7S6vXNjA+O6hGyl0UOq00NEHcdxvPgQf06WcAXTDYlccvdwffG7AUKc1EsZC+a4JIGsr538LEb26ZwIDAQAB",
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "js/background/sw.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "blocked.html",
+        "tokens.css",
+        "fonts/InterVariable-subset.woff2",
+        "js/blocked/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://forge-study-app.netlify.app/*",
+      "http://localhost/*",
+      "http://127.0.0.1/*"
+    ]
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/shared/protocol.ts
+# ------------------------------------------------------------------------------
+export const PROTOCOL_VERSION = 1;
+
+export interface ScheduleWindow {
+  days: number[]; // 0=Sun
+  start: string;  // 'HH:mm'
+  end: string;    // 'HH:mm'
+}
+
+export interface BlockerConfig {
+  mode: 'focus' | 'schedule' | 'always';
+  blocklist: string[];
+  allowlist: string[];
+  schedule: ScheduleWindow[];
+  motivation: string[];
+}
+
+export interface SessionState {
+  active: boolean;
+  endsAt: number | null;
+  taskTitle: string | null;
+}
+
+export interface BlockEvent {
+  id: string;
+  at: number;
+  kind: 'blocked' | 'unlock';
+  domain: string;
+  unlockMinutes?: number;
+}
+
+export type AppMessage =
+  | { v: 1; type: 'ping' }
+  | { v: 1; type: 'sync'; config: BlockerConfig }
+  | { v: 1; type: 'session'; session: SessionState | null }
+  | { v: 1; type: 'getEvents'; since: number };
+
+export type AppResponse =
+  | { ok: true; version?: string; events?: BlockEvent[]; cursor?: number }
+  | { ok: false; error: string };
+
+export function isAppMessage(x: unknown): x is AppMessage {
+  if (typeof x !== 'object' || x === null) return false;
+  const msg = x as Record<string, unknown>;
+  if (msg['v'] !== PROTOCOL_VERSION) return false;
+  return (
+    msg['type'] === 'ping' ||
+    msg['type'] === 'sync' ||
+    msg['type'] === 'session' ||
+    msg['type'] === 'getEvents'
+  );
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/shared/protocol.test.ts
+# ------------------------------------------------------------------------------
+import { describe, it, expect } from 'vitest';
+import { isAppMessage, PROTOCOL_VERSION } from './protocol.js';
+
+describe('Protocol runtime guards', () => {
+  it('validates a correct ping message', () => {
+    expect(isAppMessage({ v: PROTOCOL_VERSION, type: 'ping' })).toBe(true);
+  });
+
+  it('validates a sync message', () => {
+    expect(
+      isAppMessage({
+        v: 1,
+        type: 'sync',
+        config: {
+          mode: 'focus',
+          blocklist: ['x.com'],
+          allowlist: [],
+          schedule: [],
+          motivation: []
+        }
+      })
+    ).toBe(true);
+  });
+
+  it('rejects wrong protocol version', () => {
+    expect(isAppMessage({ v: 2, type: 'ping' })).toBe(false);
+  });
+
+  it('rejects unknown message type', () => {
+    expect(isAppMessage({ v: 1, type: 'unknown_type' })).toBe(false);
+  });
+
+  it('rejects null or non-object payloads', () => {
+    expect(isAppMessage(null)).toBe(false);
+    expect(isAppMessage('ping')).toBe(false);
+    expect(isAppMessage(123)).toBe(false);
+  });
+});
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/background/state.ts
+# ------------------------------------------------------------------------------
+import { BlockerConfig, SessionState, BlockEvent } from '../shared/protocol.js';
+
+export interface Unlock {
+  domain: string;
+  until: number;
+}
+
+export interface ExtensionState {
+  config: BlockerConfig;
+  session: SessionState | null;
+  unlocks: Unlock[];
+  events: BlockEvent[];
+  dailyAttempts: { date: string; count: number };
+}
+
+export const DEFAULT_STATE: ExtensionState = {
+  config: {
+    mode: 'always',
+    blocklist: [
+      'instagram.com',
+      'tiktok.com',
+      'youtube.com',
+      'x.com',
+      'twitter.com',
+      'reddit.com',
+      'facebook.com',
+      'snapchat.com',
+      'netflix.com',
+      'twitch.tv',
+      'pinterest.com'
+    ],
+    allowlist: [],
+    schedule: [],
+    motivation: ['Get back to work.', 'Stay focused on what matters.']
+  },
+  session: null,
+  unlocks: [],
+  events: [],
+  dailyAttempts: {
+    date: new Date().toISOString().split('T')[0] ?? '',
+    count: 0
+  }
+};
+
+export async function getState(): Promise<ExtensionState> {
+  const data = await chrome.storage.local.get(null);
+  return {
+    ...DEFAULT_STATE,
+    ...data,
+    config: {
+      ...DEFAULT_STATE.config,
+      ...((data['config'] as Partial<BlockerConfig>) || {})
+    },
+    dailyAttempts: {
+      ...DEFAULT_STATE.dailyAttempts,
+      ...((data['dailyAttempts'] as { date: string; count: number }) || {})
+    }
+  } as ExtensionState;
+}
+
+export async function setState(updates: Partial<ExtensionState>): Promise<void> {
+  await chrome.storage.local.set(updates);
+}
+
+export async function addEvent(event: BlockEvent): Promise<void> {
+  const state = await getState();
+  const events = [...state.events, event].slice(-5000);
+
+  const today = new Date().toISOString().split('T')[0] ?? '';
+  let dailyAttempts = { ...state.dailyAttempts };
+
+  if (dailyAttempts.date !== today) {
+    dailyAttempts = { date: today, count: 0 };
+  }
+  if (event.kind === 'blocked') {
+    dailyAttempts.count += 1;
+  }
+
+  await setState({ events, dailyAttempts });
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/background/rules.ts
+# ------------------------------------------------------------------------------
+import { ExtensionState } from './state.js';
+
+export function isScheduleActive(
+  schedule: ExtensionState['config']['schedule'],
+  nowMs: number
+): boolean {
+  if (schedule.length === 0) return false;
+  const d = new Date(nowMs);
+  const day = d.getDay();
+  const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+  return schedule.some((window) => {
+    if (!window.days.includes(day)) return false;
+    if (window.start <= window.end) {
+      return hhmm >= window.start && hhmm < window.end;
+    }
+    // Overnight window (e.g. 22:00 -> 06:00)
+    return hhmm >= window.start || hhmm < window.end;
+  });
+}
+
+export function buildRules(
+  state: ExtensionState,
+  nowMs: number,
+  extensionUrl: string
+): chrome.declarativeNetRequest.Rule[] {
+  const { config, session, unlocks } = state;
+  let shouldBlock = false;
+
+  if (config.mode === 'always') {
+    shouldBlock = true;
+  } else if (config.mode === 'focus') {
+    shouldBlock = Boolean(session?.active);
+  } else if (config.mode === 'schedule') {
+    shouldBlock = isScheduleActive(config.schedule, nowMs);
+  }
+
+  if (!shouldBlock) return [];
+
+  let nextId = 1;
+  const rules: chrome.declarativeNetRequest.Rule[] = [];
+
+  // 1. Block Rules
+  for (const rawDomain of config.blocklist) {
+    const domain = rawDomain.trim().toLowerCase();
+    if (!domain) continue;
+
+    const activeUnlock = unlocks.find((u) => u.domain === domain && u.until > nowMs);
+    if (activeUnlock) continue;
+
+    const escapedDomain = domain.replace(/\./g, '\\.');
+    rules.push({
+      id: nextId++,
+      priority: 1,
+      action: {
+        type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+        redirect: {
+          regexSubstitution: `${extensionUrl}blocked.html?site=${encodeURIComponent(domain)}&url=\\0`
+        }
+      },
+      condition: {
+        regexFilter: `^https?://([^/]+\\.)?${escapedDomain}/.*`,
+        resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
+      }
+    });
+  }
+
+  // 2. Allowlist Rules (Higher Priority)
+  for (const rawPrefix of config.allowlist) {
+    const prefix = rawPrefix.trim();
+    if (!prefix) continue;
+
+    rules.push({
+      id: nextId++,
+      priority: 2,
+      action: {
+        type: chrome.declarativeNetRequest.RuleActionType.ALLOW
+      },
+      condition: {
+        urlFilter: `||${prefix}`,
+        resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
+      }
+    });
+  }
+
+  return rules;
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/background/rules.test.ts
+# ------------------------------------------------------------------------------
+import { describe, it, expect } from 'vitest';
+import { buildRules, isScheduleActive } from './rules.js';
+import { ExtensionState } from './state.js';
+
+describe('buildRules and Schedule Matching', () => {
+  const baseConfig: ExtensionState['config'] = {
+    mode: 'always',
+    blocklist: ['x.com', 'reddit.com'],
+    allowlist: ['reddit.com/r/productivity'],
+    schedule: [],
+    motivation: []
+  };
+
+  const baseState: ExtensionState = {
+    config: baseConfig,
+    session: null,
+    unlocks: [],
+    events: [],
+    dailyAttempts: { date: '2026-09-29', count: 0 }
+  };
+
+  const extUrl = 'chrome-extension://gpinhblnpebjbiodblihfpjbffacipbd/';
+
+  it('builds block and allow rules in always mode', () => {
+    const rules = buildRules(baseState, Date.now(), extUrl);
+    expect(rules).toHaveLength(3); // 2 block, 1 allow
+
+    const allowRule = rules.find((r) => r.priority === 2);
+    expect(allowRule).toBeDefined();
+    expect(allowRule?.condition.urlFilter).toBe('||reddit.com/r/productivity');
+
+    const xRule = rules.find(
+      (r) => r.condition.regexFilter?.includes('x\\.com') && r.priority === 1
+    );
+    expect(xRule).toBeDefined();
+    expect(xRule?.action.redirect?.regexSubstitution).toContain('site=x.com');
+  });
+
+  it('does not produce rules in focus mode when inactive', () => {
+    const state: ExtensionState = {
+      ...baseState,
+      config: { ...baseConfig, mode: 'focus' },
+      session: { active: false, endsAt: null, taskTitle: null }
+    };
+    expect(buildRules(state, Date.now(), extUrl)).toHaveLength(0);
+  });
+
+  it('produces rules in focus mode when session is active', () => {
+    const state: ExtensionState = {
+      ...baseState,
+      config: { ...baseConfig, mode: 'focus' },
+      session: { active: true, endsAt: Date.now() + 60000, taskTitle: 'Work' }
+    };
+    expect(buildRules(state, Date.now(), extUrl).length).toBeGreaterThan(0);
+  });
+
+  it('skips blocked domains that have an active unlock', () => {
+    const now = Date.now();
+    const state: ExtensionState = {
+      ...baseState,
+      unlocks: [{ domain: 'x.com', until: now + 5000 }]
+    };
+    const rules = buildRules(state, now, extUrl);
+    const xRule = rules.find((r) => r.condition.regexFilter?.includes('x\\.com'));
+    expect(xRule).toBeUndefined();
+  });
+
+  it('handles standard daytime schedule windows', () => {
+    const wednesdayNoon = new Date('2026-09-30T12:00:00').getTime(); // Day 3
+    const schedule = [{ days: [3], start: '09:00', end: '17:00' }];
+    expect(isScheduleActive(schedule, wednesdayNoon)).toBe(true);
+
+    const wednesdayEvening = new Date('2026-09-30T18:00:00').getTime();
+    expect(isScheduleActive(schedule, wednesdayEvening)).toBe(false);
+  });
+
+  it('handles overnight schedule windows', () => {
+    const schedule = [{ days: [3], start: '22:00', end: '06:00' }];
+    const nightTime = new Date('2026-09-30T23:30:00').getTime();
+    const earlyMorning = new Date('2026-09-30T04:30:00').getTime();
+    const afternoon = new Date('2026-09-30T14:00:00').getTime();
+
+    expect(isScheduleActive(schedule, nightTime)).toBe(true);
+    expect(isScheduleActive(schedule, earlyMorning)).toBe(true);
+    expect(isScheduleActive(schedule, afternoon)).toBe(false);
+  });
+});
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/background/sw.ts
+# ------------------------------------------------------------------------------
+import { isAppMessage } from '../shared/protocol.js';
+import { getState, setState, ExtensionState } from './state.js';
+import { buildRules } from './rules.js';
+
+const ALLOWED_ORIGINS = [
+  'https://forge-study-app.netlify.app',
+  'http://localhost',
+  'http://127.0.0.1'
+];
+
+function isAllowedOrigin(url: string | undefined): boolean {
+  if (!url) return false;
+  return ALLOWED_ORIGINS.some((allowed) => url.startsWith(allowed));
+}
+
+export async function refreshDynamicRules(): Promise<void> {
+  const state = await getState();
+  const extUrl = `chrome-extension://${chrome.runtime.id}/`;
+  const now = Date.now();
+  const rules = buildRules(state, now, extUrl);
+
+  const currentRules = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeRuleIds = currentRules.map((r) => r.id);
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds,
+    addRules: rules
+  });
+
+  await scheduleNextAlarm(state, now);
+}
+
+async function scheduleNextAlarm(state: ExtensionState, now: number): Promise<void> {
+  await chrome.alarms.clearAll();
+  let nextAlarmTime: number | null = null;
+
+  for (const unlock of state.unlocks) {
+    if (unlock.until > now) {
+      if (nextAlarmTime === null || unlock.until < nextAlarmTime) {
+        nextAlarmTime = unlock.until;
+      }
+    }
+  }
+
+  if (state.session?.active && state.session.endsAt && state.session.endsAt > now) {
+    if (nextAlarmTime === null || state.session.endsAt < nextAlarmTime) {
+      nextAlarmTime = state.session.endsAt;
+    }
+  }
+
+  // Periodic alarm fallback for schedule transitions
+  if (state.config.mode === 'schedule') {
+    const oneMinuteLater = now + 60 * 1000;
+    if (nextAlarmTime === null || oneMinuteLater < nextAlarmTime) {
+      nextAlarmTime = oneMinuteLater;
+    }
+  }
+
+  if (nextAlarmTime !== null) {
+    chrome.alarms.create('forge-refresh', { when: nextAlarmTime });
+  }
+}
+
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  if (!isAllowedOrigin(sender.url)) {
+    sendResponse({ ok: false, error: 'Unauthorized origin' });
+    return;
+  }
+
+  if (!isAppMessage(msg)) {
+    sendResponse({ ok: false, error: 'Malformed or invalid message protocol' });
+    return;
+  }
+
+  (async () => {
+    try {
+      if (msg.type === 'ping') {
+        const manifest = chrome.runtime.getManifest();
+        sendResponse({ ok: true, version: manifest.version });
+        return;
+      }
+
+      if (msg.type === 'sync') {
+        await setState({ config: msg.config });
+        await refreshDynamicRules();
+        sendResponse({ ok: true });
+        return;
+      }
+
+      if (msg.type === 'session') {
+        await setState({ session: msg.session });
+        await refreshDynamicRules();
+        sendResponse({ ok: true });
+        return;
+      }
+
+      if (msg.type === 'getEvents') {
+        const state = await getState();
+        const filtered = state.events.filter((e) => e.at > msg.since);
+        sendResponse({ ok: true, events: filtered, cursor: Date.now() });
+        return;
+      }
+
+      sendResponse({ ok: false, error: 'Unsupported message type' });
+    } catch (err) {
+      sendResponse({ ok: false, error: String(err) });
+    }
+  })();
+
+  return true;
+});
+
+chrome.alarms.onAlarm.addListener(() => {
+  void refreshDynamicRules();
+});
+
+chrome.storage.onChanged.addListener((_changes, area) => {
+  if (area === 'local') {
+    void refreshDynamicRules();
+  }
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  void refreshDynamicRules();
+});
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/blocked/blocked.html
+# ------------------------------------------------------------------------------
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forge Focus</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="js/blocked/blocked.css">
+</head>
+<body>
+  <div class="card">
+    <div id="view-blocked" class="view active">
+      <p id="task-badge" class="badge faint"></p>
+      <h1 id="site-title">Site Blocked</h1>
+      <div id="session-timer" class="timer"></div>
+      <p id="motivation-text" class="quote"></p>
+      
+      <div class="actions">
+        <button id="btn-back" class="btn primary">Back to work</button>
+        <button id="btn-request-access" class="link-btn faint">I need access</button>
+      </div>
+    </div>
+
+    <div id="view-countdown" class="view">
+      <h2>Take a breath</h2>
+      <p class="faint">Pause and consider if this aligns with your intent.</p>
+      <div id="countdown-val" class="timer">60</div>
+    </div>
+
+    <div id="view-override" class="view">
+      <h2>Emergency Access</h2>
+      <p class="faint">Type this phrase to unlock 5 minutes:</p>
+      <p class="phrase">I choose distraction over my goals</p>
+      <input type="text" id="override-input" autocomplete="off" spellcheck="false" placeholder="Type phrase exactly..." />
+    </div>
+  </div>
+  <script type="module" src="js/blocked/blocked.js"></script>
+</body>
+</html>
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/blocked/blocked.css
+# ------------------------------------------------------------------------------
+@font-face {
+  font-family: 'Inter Variable';
+  src: url('fonts/InterVariable-subset.woff2') format('woff2');
+  font-weight: 100 900;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg, #ffffff);
+  color: var(--text, #111111);
+  font-family: 'Inter Variable', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  line-height: var(--lh-body, 1.5);
+  box-sizing: border-box;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  padding: var(--space-8, 32px);
+  text-align: center;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1, h2 {
+  font-size: var(--fs-24, 24px);
+  font-weight: var(--fw-semibold, 600);
+  line-height: var(--lh-heading, 1.2);
+  margin: var(--space-2, 8px) 0;
+}
+
+.badge {
+  font-size: var(--fs-12, 12px);
+  letter-spacing: var(--tracking-title, 0.02em);
+  text-transform: uppercase;
+  margin-bottom: var(--space-2, 8px);
+}
+
+.faint {
+  color: var(--text-faint, #767676);
+}
+
+.timer {
+  font-size: var(--fs-40, 40px);
+  font-weight: var(--fw-bold, 700);
+  margin: var(--space-6, 24px) 0;
+  letter-spacing: -0.02em;
+}
+
+.quote {
+  font-size: var(--fs-14, 14px);
+  color: var(--text-muted, #555555);
+  font-style: italic;
+  margin-bottom: var(--space-8, 32px);
+}
+
+.phrase {
+  font-size: var(--fs-14, 14px);
+  font-weight: var(--fw-semibold, 600);
+  margin: var(--space-4, 16px) 0;
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  background: var(--bg-elevated, #f4f4f4);
+  border-radius: var(--radius-md, 6px);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4, 16px);
+  width: 100%;
+}
+
+.btn {
+  background: var(--accent, #111111);
+  color: var(--accent-contrast, #ffffff);
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  height: var(--control-h-md, 40px);
+  padding: 0 var(--space-6, 24px);
+  font-size: var(--fs-14, 14px);
+  font-weight: var(--fw-medium, 500);
+  cursor: pointer;
+  transition: opacity var(--dur-1, 150ms) var(--ease, ease);
+}
+
+.btn:hover {
+  opacity: 0.85;
+}
+
+.link-btn {
+  background: transparent;
+  border: none;
+  font-size: var(--fs-12, 12px);
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--text, #111111);
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  height: var(--control-h-md, 40px);
+  padding: 0 var(--space-3, 12px);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--bg, #ffffff);
+  color: var(--text, #111111);
+  font-family: inherit;
+  font-size: var(--fs-14, 14px);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--focus-ring, #111111);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .link-btn {
+    transition: none;
+  }
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/blocked/blocked.ts
+# ------------------------------------------------------------------------------
+import { getState, setState, addEvent } from '../background/state.js';
+
+const REQUIRED_PHRASE = 'I choose distraction over my goals';
+
+const params = new URLSearchParams(window.location.search);
+const blockedSite = params.get('site') ?? 'Distracting site';
+const originalUrl = params.get('url') ?? '';
+
+const siteTitleEl = document.getElementById('site-title');
+if (siteTitleEl) {
+  siteTitleEl.innerText = `${blockedSite} is blocked`;
+}
+
+const views = {
+  blocked: document.getElementById('view-blocked'),
+  countdown: document.getElementById('view-countdown'),
+  override: document.getElementById('view-override')
+};
+
+function activateView(viewKey: keyof typeof views) {
+  Object.values(views).forEach((v) => v?.classList.remove('active'));
+  views[viewKey]?.classList.add('active');
+}
+
+document.getElementById('btn-back')?.addEventListener('click', () => {
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    window.close();
+  }
+});
+
+document.getElementById('btn-request-access')?.addEventListener('click', () => {
+  activateView('countdown');
+  let secondsRemaining = 60;
+  const countEl = document.getElementById('countdown-val');
+
+  const timer = setInterval(() => {
+    secondsRemaining -= 1;
+    if (countEl) countEl.innerText = String(secondsRemaining);
+
+    if (secondsRemaining <= 0) {
+      clearInterval(timer);
+      activateView('override');
+      const input = document.getElementById('override-input') as HTMLInputElement | null;
+      input?.focus();
+    }
+  }, 1000);
+});
+
+const overrideInput = document.getElementById('override-input') as HTMLInputElement | null;
+overrideInput?.addEventListener('input', async () => {
+  if (overrideInput.value.trim() === REQUIRED_PHRASE) {
+    overrideInput.disabled = true;
+    const now = Date.now();
+    const unlockDurationMs = 5 * 60 * 1000;
+    const state = await getState();
+
+    const filteredUnlocks = state.unlocks.filter((u) => u.domain !== blockedSite);
+    filteredUnlocks.push({ domain: blockedSite, until: now + unlockDurationMs });
+
+    await setState({ unlocks: filteredUnlocks });
+    await addEvent({
+      id: crypto.randomUUID(),
+      at: now,
+      kind: 'unlock',
+      domain: blockedSite,
+      unlockMinutes: 5
+    });
+
+    window.location.href = originalUrl || `https://${blockedSite}`;
+  }
+});
+
+async function initPage(): Promise<void> {
+  const state = await getState();
+
+  await addEvent({
+    id: crypto.randomUUID(),
+    at: Date.now(),
+    kind: 'blocked',
+    domain: blockedSite
+  });
+
+  const taskBadge = document.getElementById('task-badge');
+  if (taskBadge && state.session?.taskTitle) {
+    taskBadge.innerText = `Focus Task: ${state.session.taskTitle}`;
+  }
+
+  const quoteEl = document.getElementById('motivation-text');
+  if (quoteEl && state.config.motivation.length > 0) {
+    const list = state.config.motivation;
+    const randomIndex = Math.floor(Math.random() * list.length);
+    const chosenQuote = list[randomIndex];
+    if (chosenQuote) {
+      quoteEl.innerText = `"${chosenQuote}"`;
+    }
+  }
+
+  const timerEl = document.getElementById('session-timer');
+  if (timerEl && state.session?.active && state.session.endsAt) {
+    const renderClock = () => {
+      const remainingMs = Math.max(0, state.session!.endsAt! - Date.now());
+      const mins = Math.floor(remainingMs / 60000);
+      const secs = Math.floor((remainingMs % 60000) / 1000);
+      timerEl.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+    renderClock();
+    setInterval(renderClock, 1000);
+  }
+}
+
+void initPage();
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/popup/popup.html
+# ------------------------------------------------------------------------------
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Forge Focus</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="js/popup/popup.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="header">
+      <img src="icons/32.png" width="20" height="20" alt="Forge mark" />
+      <span class="title">Forge Focus</span>
+    </div>
+    
+    <div class="section">
+      <div id="stat-attempts" class="stat-highlight">0 wins today</div>
+      <div id="mode-label" class="subtle">Mode: Always</div>
+    </div>
+
+    <div id="session-box" class="section session hidden">
+      <div class="subtle">Current Task</div>
+      <div id="session-task" class="session-title"></div>
+      <div id="session-time" class="session-clock"></div>
+    </div>
+
+    <button id="btn-open-app" class="btn primary">Open Forge</button>
+  </div>
+  <script type="module" src="js/popup/popup.js"></script>
+</body>
+</html>
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/popup/popup.css
+# ------------------------------------------------------------------------------
+@font-face {
+  font-family: 'Inter Variable';
+  src: url('fonts/InterVariable-subset.woff2') format('woff2');
+  font-weight: 100 900;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  width: 260px;
+  background: var(--bg, #ffffff);
+  color: var(--text, #111111);
+  font-family: 'Inter Variable', ui-sans-serif, -apple-system, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  font-size: var(--fs-14, 14px);
+  line-height: var(--lh-body, 1.4);
+}
+
+.popup {
+  padding: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.title {
+  font-weight: var(--fw-semibold, 600);
+  font-size: var(--fs-16, 16px);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.stat-highlight {
+  font-size: var(--fs-20, 20px);
+  font-weight: var(--fw-bold, 700);
+}
+
+.subtle {
+  color: var(--text-faint, #767676);
+  font-size: var(--fs-12, 12px);
+}
+
+.session {
+  background: var(--bg-elevated, #f7f7f7);
+  padding: var(--space-3, 12px);
+  border-radius: var(--radius-md, 6px);
+}
+
+.session-title {
+  font-weight: var(--fw-medium, 500);
+}
+
+.session-clock {
+  font-size: var(--fs-16, 16px);
+  font-weight: var(--fw-bold, 700);
+  margin-top: var(--space-1, 4px);
+}
+
+.hidden {
+  display: none;
+}
+
+.btn {
+  background: var(--accent, #111111);
+  color: var(--accent-contrast, #ffffff);
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  height: var(--control-h-md, 36px);
+  font-size: var(--fs-14, 14px);
+  font-weight: var(--fw-medium, 500);
+  cursor: pointer;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/popup/popup.ts
+# ------------------------------------------------------------------------------
+import { APP_URL } from '../shared/config.js';
+import { getState } from '../background/state.js';
+
+document.getElementById('btn-open-app')?.addEventListener('click', () => {
+  void chrome.tabs.create({ url: APP_URL });
+});
+
+async function initPopup(): Promise<void> {
+  const state = await getState();
+  const today = new Date().toISOString().split('T')[0] ?? '';
+
+  const winsCount = state.dailyAttempts.date === today ? state.dailyAttempts.count : 0;
+  const attemptsEl = document.getElementById('stat-attempts');
+  if (attemptsEl) {
+    attemptsEl.innerText = `${winsCount} win${winsCount === 1 ? '' : 's'} today`;
+  }
+
+  const modeLabel = document.getElementById('mode-label');
+  if (modeLabel) {
+    const rawMode = state.config.mode;
+    const formatted = rawMode.charAt(0).toUpperCase() + rawMode.slice(1);
+    modeLabel.innerText = `Mode: ${formatted}`;
+  }
+
+  if (state.session?.active) {
+    const sessionBox = document.getElementById('session-box');
+    sessionBox?.classList.remove('hidden');
+
+    const taskEl = document.getElementById('session-task');
+    if (taskEl) {
+      taskEl.innerText = state.session.taskTitle ?? 'Focused session';
+    }
+
+    const clockEl = document.getElementById('session-time');
+    if (clockEl && state.session.endsAt) {
+      const updateClock = () => {
+        const leftMs = Math.max(0, state.session!.endsAt! - Date.now());
+        const mins = Math.floor(leftMs / 60000);
+        const secs = Math.floor((leftMs % 60000) / 1000);
+        clockEl.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      };
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+  }
+}
+
+void initPopup();
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/icons/icon.svg
+# ------------------------------------------------------------------------------
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#111111" />
+  <path d="M32 10 50 28 44 34 32 22 20 34 14 28Z" fill="#ffffff" />
+  <path d="M12 42h16l-4 8H12zM36 42h16v8H40z" fill="#ffffff" />
+</svg>
+
+
+# ------------------------------------------------------------------------------
+# FILE: scripts/build-extension.mjs
+# ------------------------------------------------------------------------------
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import { chromium } from 'playwright';
+
+const distDir = path.resolve('extension/dist');
+
+// 1. Wipe and re-create destination folders
+fs.rmSync(distDir, { recursive: true, force: true });
+fs.mkdirSync(path.join(distDir, 'icons'), { recursive: true });
+fs.mkdirSync(path.join(distDir, 'fonts'), { recursive: true });
+fs.mkdirSync(path.join(distDir, 'js/blocked'), { recursive: true });
+fs.mkdirSync(path.join(distDir, 'js/popup'), { recursive: true });
+
+// 2. Compile TypeScript
+execSync('npx tsc -p extension/tsconfig.json', { stdio: 'inherit' });
+
+// 3. Copy manifests, templates, and styles
+fs.copyFileSync('extension/manifest.json', path.join(distDir, 'manifest.json'));
+fs.copyFileSync('extension/src/blocked/blocked.html', path.join(distDir, 'blocked.html'));
+fs.copyFileSync('extension/src/blocked/blocked.css', path.join(distDir, 'js/blocked/blocked.css'));
+fs.copyFileSync('extension/src/popup/popup.html', path.join(distDir, 'popup.html'));
+fs.copyFileSync('extension/src/popup/popup.css', path.join(distDir, 'js/popup/popup.css'));
+fs.copyFileSync('src/styles/tokens.css', path.join(distDir, 'tokens.css'));
+fs.copyFileSync(
+  'node_modules/inter-ui/variable-latin/InterVariable-subset.woff2',
+  path.join(distDir, 'fonts/InterVariable-subset.woff2')
+);
+
+// 4. Rasterize icons using Playwright
+(async () => {
+  const svgPath = path.resolve('extension/icons/icon.svg');
+  const svgContent = fs.readFileSync(svgPath, 'utf8');
+
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+
+  for (const size of [16, 32, 48, 128]) {
+    await page.setContent(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { margin: 0; padding: 0; background: transparent; }
+            #container { width: ${size}px; height: ${size}px; display: inline-block; }
+            svg { width: 100%; height: 100%; display: block; }
+          </style>
+        </head>
+        <body>
+          <div id="container">${svgContent}</div>
+        </body>
+      </html>
+    `);
+
+    const element = await page.$('#container');
+    if (element) {
+      await element.screenshot({
+        path: path.join(distDir, `icons/${size}.png`),
+        omitBackground: true
+      });
+    }
+  }
+
+  await browser.close();
+})();
+
+
+# ------------------------------------------------------------------------------
+# FILE: scripts/extension-id.mjs
+# ------------------------------------------------------------------------------
+import crypto from 'crypto';
+
+export function deriveExtensionId(manifestKey) {
+  const binaryKey = Buffer.from(manifestKey, 'base64');
+  const hash = crypto.createHash('sha256').update(binaryKey).digest('hex');
+  const first32 = hash.slice(0, 32);
+
+  return first32
+    .split('')
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      // hex 0-9 -> charCode 48-57 maps to a-j (code + 49)
+      // hex a-f -> charCode 97-102 maps to k-p (code + 10)
+      return String.fromCharCode(code >= 97 ? code + 10 : code + 49);
+    })
+    .join('');
+}
+
+const key =
+  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtzlniRJfA7SNvBCwMwTedIzTiprS7b3UoM+HTo3Og9aDBYycXih7YNq1Jfr1282dFEO2R7R9qaGX99aXijiVf6XaxkGcjCb4o3jF60EX3d8+WtID8EJ8wGhkyAXKvHfeEC8kEIsefGdcsSx8ypG/M/FIuvhg5xoZHQ32mIfn7CNHkKSPGFFJuZRZiselXkMiJ3uizEUsGKdOG0WvZ3jt026PyhuRD5974Hpxl3pYZQ24/CX5FFIlVu7MdemdFwJ2HuUGJWmy7S6vXNjA+O6hGyl0UOq00NEHcdxvPgQf06WcAXTDYlccvdwffG7AUKc1EsZC+a4JIGsr538LEb26ZwIDAQAB';
+
+if (process.argv[1]?.endsWith('extension-id.mjs')) {
+  process.stdout.write(deriveExtensionId(key) + '\n');
+}
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/src/shared/extension-id.test.ts
+# ------------------------------------------------------------------------------
+import { describe, it, expect } from 'vitest';
+import { deriveExtensionId } from '../../../scripts/extension-id.mjs';
+import { DEFAULT_EXTENSION_ID } from './config.js';
+
+describe('Extension ID derivation', () => {
+  it('correctly maps manifest RSA key to the expected stable extension ID', () => {
+    const key =
+      'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtzlniRJfA7SNvBCwMwTedIzTiprS7b3UoM+HTo3Og9aDBYycXih7YNq1Jfr1282dFEO2R7R9qaGX99aXijiVf6XaxkGcjCb4o3jF60EX3d8+WtID8EJ8wGhkyAXKvHfeEC8kEIsefGdcsSx8ypG/M/FIuvhg5xoZHQ32mIfn7CNHkKSPGFFJuZRZiselXkMiJ3uizEUsGKdOG0WvZ3jt026PyhuRD5974Hpxl3pYZQ24/CX5FFIlVu7MdemdFwJ2HuUGJWmy7S6vXNjA+O6hGyl0UOq00NEHcdxvPgQf06WcAXTDYlccvdwffG7AUKc1EsZC+a4JIGsr538LEb26ZwIDAQAB';
+
+    const derived = deriveExtensionId(key);
+    expect(derived).toBe(DEFAULT_EXTENSION_ID);
+  });
+});
+
+
+# ------------------------------------------------------------------------------
+# FILE: extension/README.md
+# ------------------------------------------------------------------------------
+# Forge Focus Chrome Extension
+
+A calm, Manifest V3 site blocker built for the Forge study application.
+
+## Development & Build
+
+1. **Build the extension**:
+   ```bash
+   npm run build:ext
+   ```
+   This compiles TypeScript via `tsc -p extension/tsconfig.json`, mirrors styling tokens and the Inter font, and rasterizes `extension/icons/icon.svg` into PNG assets at 16, 32, 48, and 128 px using Playwright. Output is placed in `extension/dist/`.
+
+2. **Package zip for release**:
+   ```bash
+   npm run zip:ext
+   ```
+   Produces `forge-extension.zip` at the repository root.
+
+3. **Run unit tests**:
+   ```bash
+   npm test -- --run
+   ```
+
+4. **Load unpacked into Chrome**:
+   - Go to `chrome://extensions`
+   - Enable "Developer mode" (top right)
+   - Click "Load unpacked" and select `extension/dist`
+   - Confirm the extension ID shows: `gpinhblnpebjbiodblihfpjbffacipbd`
+
+## Message Protocol (App <-> Extension)
+
+The extension accepts external connections only from:
+- `https://forge-study-app.netlify.app/*`
+- `http://localhost/*`
+- `http://127.0.0.1/*`
+
+All messages carry `v: 1` as defined in `extension/src/shared/protocol.ts`.
+```typescript
+chrome.runtime.sendMessage(EXTENSION_ID, { v: 1, type: 'ping' });
+```

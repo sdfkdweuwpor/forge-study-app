@@ -122,6 +122,32 @@ export function sortRedemptions<T extends Pick<Redemption, 'id' | 'at' | 'create
   )
 }
 
+export interface RedemptionMonth<T> {
+  /** `'YYYY-MM'`. */
+  month: string
+  items: T[]
+  /** XP spent in the month, refunds excluded. */
+  spent: number
+}
+
+/** Newest-first redemptions cut into calendar months (by the local day they were bought). */
+export function groupRedemptionsByMonth<T extends Pick<Redemption, 'price' | 'day' | 'refundedAt'>>(
+  sorted: readonly T[],
+): RedemptionMonth<T>[] {
+  const months: RedemptionMonth<T>[] = []
+  for (const item of sorted) {
+    const month = item.day.slice(0, 7)
+    let group = months.at(-1)
+    if (group?.month !== month) {
+      group = { month, items: [], spent: 0 }
+      months.push(group)
+    }
+    group.items.push(item)
+    if (item.refundedAt === null) group.spent += item.price
+  }
+  return months
+}
+
 export interface RedemptionTotals {
   /** XP spent in the month of `today`, refunds excluded. */
   spentThisMonth: number

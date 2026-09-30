@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { Priority } from '@/db/types'
 import {
   balance,
+  decideLevelCelebration,
   isSessionCounted,
   levelFromLifetimeXp,
+  levelsToCelebrate,
   lifetimeXp,
   spentXp,
   STREAK_MILESTONES,
@@ -175,6 +177,61 @@ describe('levels', () => {
     const big = levelFromLifetimeXp(50_000_000)
     expect(big.level).toBeGreaterThan(50)
     expect(xpToReachLevel(big.level) + big.intoLevel).toBe(50_000_000)
+  })
+})
+
+describe('levelsToCelebrate', () => {
+  it('is empty when the level did not go up', () => {
+    expect(levelsToCelebrate(7, 7)).toEqual([])
+    expect(levelsToCelebrate(7, 6)).toEqual([])
+    expect(levelsToCelebrate(1, 1)).toEqual([])
+  })
+
+  it('lists one level for one step up', () => {
+    expect(levelsToCelebrate(7, 8)).toEqual([8])
+  })
+
+  it('lists every level crossed at once, ascending', () => {
+    expect(levelsToCelebrate(2, 5)).toEqual([3, 4, 5])
+  })
+
+  it('treats a bad "previous" as nothing celebrated and a bad current as no level', () => {
+    expect(levelsToCelebrate(NaN, 2)).toEqual([1, 2])
+    expect(levelsToCelebrate(-3, 2)).toEqual([1, 2])
+    expect(levelsToCelebrate(3, NaN)).toEqual([])
+    expect(levelsToCelebrate(3.9, 5.2)).toEqual([4, 5])
+  })
+})
+
+describe('decideLevelCelebration', () => {
+  it('remembers the current level silently when nothing was ever celebrated', () => {
+    expect(decideLevelCelebration(0, 5)).toEqual({ kind: 'init', level: 5 })
+    expect(decideLevelCelebration(NaN, 3)).toEqual({ kind: 'init', level: 3 })
+    expect(decideLevelCelebration(-1, 1)).toEqual({ kind: 'init', level: 1 })
+  })
+
+  it('celebrates a level above the last one celebrated', () => {
+    expect(decideLevelCelebration(7, 8)).toEqual({ kind: 'celebrate', level: 8, levels: [8] })
+  })
+
+  it('celebrates once, at the highest level, when several were crossed together', () => {
+    expect(decideLevelCelebration(2, 5)).toEqual({
+      kind: 'celebrate',
+      level: 5,
+      levels: [3, 4, 5],
+    })
+  })
+
+  it('stays quiet at the same level and after falling back (an undo), and again on re-earning it', () => {
+    expect(decideLevelCelebration(8, 8)).toEqual({ kind: 'none' })
+    expect(decideLevelCelebration(8, 7)).toEqual({ kind: 'none' })
+    // Level 8 was celebrated before the undo, so earning it again is not news.
+    expect(decideLevelCelebration(8, 8)).toEqual({ kind: 'none' })
+  })
+
+  it('does nothing without a valid level', () => {
+    expect(decideLevelCelebration(3, NaN)).toEqual({ kind: 'none' })
+    expect(decideLevelCelebration(3, 0)).toEqual({ kind: 'none' })
   })
 })
 

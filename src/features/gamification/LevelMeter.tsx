@@ -1,0 +1,129 @@
+/**
+ * The level meter in the sidebar footer (`sidebar.footer`, BRIEF §5.5): "Level 7", a thin gold bar and
+ * "1,240 / 1,852 XP". Hovering or focusing it shows lifetime XP and the spendable balance; clicking
+ * goes to the rewards page. It shows in the desktop sidebar and the tablet drawer. A phone has no
+ * sidebar and the More sheet has no footer slot, so there it is simply not drawn (the level is still on
+ * the rewards page); a collapsed sidebar takes it with it.
+ */
+import { useEffect, useRef, useState } from 'react'
+import { ErrorBoundary } from '@/app/ErrorBoundary'
+import { Link } from '@/app/router'
+import { useXp } from '@/db/hooks/useXp'
+import { onDomainEvent } from '@/db/events'
+import { dayOf } from '@/logic/dates'
+import { ProgressBar } from '@/ui/ProgressBar'
+import { Skeleton } from '@/ui/Skeleton'
+import { Tooltip } from '@/ui/Tooltip'
+import styles from './LevelMeter.module.css'
+import { XpFloat } from './XpFloat'
+
+const NUMBER = new Intl.NumberFormat('en-US')
+
+/** `1240` → `"1,240"`. */
+export function formatCount(n: number): string {
+  return NUMBER.format(Math.round(n))
+}
+
+interface Float {
+  id: number
+  amount: number
+}
+
+/**
+ * XP that did not come from finishing a task (a task already floats its own "+15 XP" from its row):
+ * a focus session, the daily goal, a course, a streak. They float up from the meter for a moment.
+ */
+function useXpFloats(): { floats: Float[]; remove: (id: number) => void } {
+  const [floats, setFloats] = useState<Float[]>([])
+  const nextId = useRef(0)
+  useEffect(
+    () =>
+      onDomainEvent('xp.changed', (e) => {
+        if (e.amount <= 0 || e.source === 'task' || e.source === 'adjustment') return
+        if (e.day !== dayOf(Date.now())) return
+        nextId.current += 1
+        const item = { id: nextId.current, amount: e.amount }
+        setFloats((cur) => [...cur.slice(-2), item])
+      }),
+    [],
+  )
+  return { floats, remove: (id) => setFloats((cur) => cur.filter((f) => f.id !== id)) }
+}
+
+function MeterSkeleton() {
+  return (
+    <div
+      className={styles.meter}
+      data-loading=""
+      aria-busy="true"
+      data-testid="level-meter-loading"
+    >
+      <Skeleton width={56} />
+      <Skeleton variant="block" height={4} />
+      <Skeleton width={96} />
+    </div>
+  )
+}
+
+function Meter() {
+  const xp = useXp()
+  const { floats, remove } = useXpFloats()
+  if (xp === undefined) return <MeterSkeleton />
+
+  const { level, intoLevel, needed } = xp.level
+  const progress = `${formatCount(intoLevel)} / ${formatCount(needed)} XP`
+  return (
+    <Tooltip
+      side="right"
+      describe={false}
+      content={
+        <span className={styles.tip}>
+          <span>Lifetime XP: {formatCount(xp.lifetime)}</span>
+          <span>Balance: {formatCount(xp.balance)} XP</span>
+        </span>
+      }
+    >
+      <Link
+        to="rewards"
+        className={styles.meter}
+        data-testid="level-meter"
+        aria-label={`Level ${level}, ${progress}. Open rewards`}
+      >
+        <span className={styles.level}>Level {level}</span>
+        <ProgressBar
+          tone="xp"
+          size="sm"
+          label="Progress to the next level"
+          value={intoLevel}
+          max={needed}
+          valueText={progress}
+          aria-hidden="true"
+        />
+        <span className={styles.numbers}>{progress}</span>
+        {floats.map((f) => (
+          <XpFloat
+            key={f.id}
+            amount={f.amount}
+            className={styles.float}
+            onDone={() => remove(f.id)}
+          />
+        ))}
+      </Link>
+    </Tooltip>
+  )
+}
+
+/** Slot `sidebar.footer`. */
+export function LevelMeter() {
+  return (
+    <ErrorBoundary
+      fallback={(_error, reset) => (
+        <button type="button" className={styles.error} onClick={reset}>
+          Level unavailable. Try again
+        </button>
+      )}
+    >
+      <Meter />
+    </ErrorBoundary>
+  )
+}

@@ -32,6 +32,7 @@ export const SCOPE_LABELS: Record<ScopeId, string> = {
   course: 'Course',
   review: 'Review',
   cards: 'Flashcards',
+  rewards: 'Rewards',
   modal: 'Dialogs',
   menu: 'Menus',
   palette: 'Command palette',

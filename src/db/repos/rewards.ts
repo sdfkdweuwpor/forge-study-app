@@ -197,7 +197,10 @@ async function setArchived(id: ID, archived: boolean, now: Millis): Promise<Rewa
  * the positions the moved ones held, so archived rewards stay where they were and only rewards that
  * moved are written.
  */
-export async function reorderRewards(orderedIds: readonly ID[], opts: RepoOptions = {}): Promise<void> {
+export async function reorderRewards(
+  orderedIds: readonly ID[],
+  opts: RepoOptions = {},
+): Promise<void> {
   const now = opts.now ?? Date.now()
   await db.transaction('rw', db.rewards, async () => {
     const changes = reorderPlan(await db.rewards.toArray(), orderedIds)

@@ -6,6 +6,7 @@ import {
   cleanRewardTitle,
   formatPrice,
   formatXpNumber,
+  groupRedemptionsByMonth,
   nextRewardOrder,
   parseRewardPrice,
   redemptionTotals,
@@ -52,7 +53,16 @@ describe('parseRewardPrice', () => {
   })
 
   it('refuses anything that is not a whole number of XP from 1 up', () => {
-    for (const bad of ['', '0', '-5', '12.5', 'abc', '3e3', '1,5,00x', String(MAX_REWARD_PRICE + 1)]) {
+    for (const bad of [
+      '',
+      '0',
+      '-5',
+      '12.5',
+      'abc',
+      '3e3',
+      '1,5,00x',
+      String(MAX_REWARD_PRICE + 1),
+    ]) {
       expect(parseRewardPrice(bad), bad).toBeNull()
     }
     expect(parseRewardPrice(String(MAX_REWARD_PRICE))).toBe(MAX_REWARD_PRICE)
@@ -144,7 +154,11 @@ describe('reorderPlan', () => {
 
 describe('sortRedemptions', () => {
   it('puts the newest first', () => {
-    const list = [redemption('old', { at: 10 }), redemption('new', { at: 30 }), redemption('mid', { at: 20 })]
+    const list = [
+      redemption('old', { at: 10 }),
+      redemption('new', { at: 30 }),
+      redemption('mid', { at: 20 }),
+    ]
     expect(sortRedemptions(list).map((r) => r.id)).toEqual(['new', 'mid', 'old'])
   })
 })
@@ -177,5 +191,28 @@ describe('redemptionTotals', () => {
   it('does not mix the same month of another year', () => {
     const list = [redemption('a', { price: 300, day: '2025-09-29' })]
     expect(redemptionTotals(list, '2026-09-30').spentThisMonth).toBe(0)
+  })
+})
+
+describe('groupRedemptionsByMonth', () => {
+  it('cuts a newest-first list into months and totals what stands', () => {
+    const list = [
+      redemption('a', { price: 300, day: '2026-09-29' }),
+      redemption('b', { price: 500, day: '2026-09-02', refundedAt: 5 }),
+      redemption('c', { price: 1500, day: '2026-08-30' }),
+      redemption('d', { price: 300, day: '2026-08-01' }),
+      redemption('e', { price: 300, day: '2025-12-25' }),
+    ]
+    expect(
+      groupRedemptionsByMonth(list).map((g) => [g.month, g.items.map((i) => i.id), g.spent]),
+    ).toEqual([
+      ['2026-09', ['a', 'b'], 300],
+      ['2026-08', ['c', 'd'], 1800],
+      ['2025-12', ['e'], 300],
+    ])
+  })
+
+  it('is empty for no redemptions', () => {
+    expect(groupRedemptionsByMonth([])).toEqual([])
   })
 })

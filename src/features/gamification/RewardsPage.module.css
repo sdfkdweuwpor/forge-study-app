@@ -1,0 +1,31 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.panel {
+  padding-top: var(--space-6);
+}
+
+@media (max-width: 639px) {
+  .heading {
+    font-size: var(--fs-32);
+  }
+}

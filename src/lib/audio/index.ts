@@ -2,10 +2,10 @@
  * Generated sound for Forge: a soft chime and three ambient beds, all synthesised with the Web
  * Audio API (no audio files). Nothing runs on import; the AudioContext is created on first use.
  *
- * Phase 6 adds `playLevelUp()`: put it in its own file next to `chime.ts`, build it from the same
- * `getContext()` / `outputNode()` / `bellCurve()` pieces, and export it here.
+ * `playLevelUp()` (Phase 6) is a warm rising arpeggio for the level-up moment, built from the same pieces.
  */
 export { playChime, DEFAULT_CHIME_VOLUME } from './chime'
+export { playLevelUp, DEFAULT_LEVEL_UP_VOLUME } from './levelUp'
 export {
   startAmbient,
   setAmbientVolume,

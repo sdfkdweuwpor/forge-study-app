@@ -116,6 +116,39 @@ export function levelFromLifetimeXp(total: number): LevelInfo {
   return { level, intoLevel: remaining, needed, progress: remaining / needed }
 }
 
+/** Levels `prev` (a level already celebrated) to `current` (from lifetime XP) crossed, ascending. Empty unless `current` is higher. */
+export function levelsToCelebrate(prev: number, current: number): number[] {
+  const from = Number.isFinite(prev) ? Math.max(0, Math.floor(prev)) : 0
+  const to = Number.isFinite(current) ? Math.floor(current) : 0
+  const levels: number[] = []
+  for (let level = from + 1; level <= to; level++) levels.push(level)
+  return levels
+}
+
+/** What the level-up watcher does with the level in lifetime XP and the last one celebrated. */
+export type LevelCelebration =
+  | { kind: 'none' }
+  /** Nothing has ever been celebrated (first install, or a restored backup): remember `level` without a fuss. */
+  | { kind: 'init'; level: number }
+  /** Celebrate once, at the highest level reached; `levels` is every level crossed, for the record. */
+  | { kind: 'celebrate'; level: number; levels: number[] }
+
+/**
+ * `lastCelebrated` below 1 means "not set yet" (the default is 0): levels earned before the app first
+ * ran, from sample or imported data, are not a moment. Otherwise a level above the last celebrated one
+ * is celebrated once, however many were crossed at once. Falling back a level (an undo) and earning it
+ * again does not celebrate twice: only exceeding `lastCelebrated` does.
+ */
+export function decideLevelCelebration(lastCelebrated: number, current: number): LevelCelebration {
+  if (!Number.isFinite(current) || current < 1) return { kind: 'none' }
+  if (!Number.isFinite(lastCelebrated) || lastCelebrated < 1) {
+    return { kind: 'init', level: Math.floor(current) }
+  }
+  const levels = levelsToCelebrate(lastCelebrated, current)
+  const level = levels.at(-1)
+  return level === undefined ? { kind: 'none' } : { kind: 'celebrate', level, levels }
+}
+
 // ─── Balance ────────────────────────────────────────────────────────────────
 
 /** `lifetimeXp = Σ amount` over the whole log (reversals are negative events, so they net out). */

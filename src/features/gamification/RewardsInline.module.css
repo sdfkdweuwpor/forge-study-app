@@ -1,0 +1,78 @@
+.display,
+.input {
+  min-width: 0;
+  /* The -6px margins pull the hover fill outside the text; the limit grows by the same 12px. */
+  max-width: calc(100% + 12px);
+  margin: 0 -6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: start;
+}
+
+.display {
+  background: none;
+  color: inherit;
+  cursor: text;
+  overflow-wrap: anywhere;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .display:hover {
+    background: var(--bg-hover);
+  }
+}
+
+@media (pointer: coarse) {
+  .display {
+    min-height: var(--tap-min);
+  }
+}
+
+.editor {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.editor[data-fill] {
+  display: flex;
+}
+
+.line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.input {
+  flex: 1;
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--text);
+  outline: none;
+}
+
+.input[aria-invalid='true'] {
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+.suffix {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.error {
+  color: var(--danger-text);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-regular);
+  line-height: 1.4;
+}

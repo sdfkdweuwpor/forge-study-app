@@ -664,6 +664,7 @@ export interface Settings extends Base {
   }
   backup: { lastExportAt: Millis | null; remindWeekly: boolean }
   tagColors: Record<string, TagColor>
+  /** Highest level the level-up moment has shown. 0 = not set yet (first start): initialised silently. */
   lastCelebratedLevel: number
   /** The three starter rewards were offered once (or the shop already had rewards); never seed again. */
   rewardsSeeded: boolean

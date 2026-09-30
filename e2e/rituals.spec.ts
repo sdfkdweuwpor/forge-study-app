@@ -186,7 +186,9 @@ test.describe('Morning plan', () => {
     )
 
     // Check one off from the card: the usual completion, with its XP toast.
-    await card.getByRole('checkbox', { name: `Done: ${ADDED}` }).check()
+    // The box follows the database, which answers a moment after the click: click, then wait for it.
+    await card.getByRole('checkbox', { name: `Done: ${ADDED}` }).click()
+    await expect(card.getByRole('checkbox', { name: `Done: ${ADDED}` })).toBeChecked()
     await expect(card).toContainText('1 of 3 done')
     await expect(toasts(page)).toContainText('+10 XP')
     await expect

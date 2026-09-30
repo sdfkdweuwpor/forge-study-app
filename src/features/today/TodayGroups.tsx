@@ -10,7 +10,7 @@ import styles from './TodayGroups.module.css'
 /** One row of a group: the task, and words to show in place of its due date. */
 export interface GroupItem {
   task: Task
-  /** "3 days overdue" for a rolled-over task. */
+  /** "from Tue" for a carried-over task. */
   dueText?: string
 }
 
@@ -48,7 +48,7 @@ function Rows({ items, selectedId, onSelect, reveal, xpByTask }: RowsProps) {
 }
 
 interface GroupProps extends RowsProps {
-  id: 'fromGoals' | 'yours' | 'rolledOver'
+  id: 'fromGoals' | 'yours' | 'carriedOver'
   label: string
 }
 
@@ -66,21 +66,24 @@ export function TaskGroup({ id, label, items, ...rest }: GroupProps) {
   )
 }
 
-interface RolledOverProps extends RowsProps {
+interface CarriedOverProps extends RowsProps {
   onMoveAll: () => void
 }
 
-/** Tasks that slipped from earlier days: amber header, days overdue on each row, one-click "Move all to today". */
-export function RolledOverGroup({ items, onMoveAll, ...rest }: RolledOverProps) {
+/**
+ * Work planned for an earlier day that is still open. No guilt: a plain header, each row says the day
+ * it came from ("from Tue") rather than how late it is, and one click moves them all to today.
+ */
+export function CarriedOverGroup({ items, onMoveAll, ...rest }: CarriedOverProps) {
   const headingId = useId()
   return (
-    <section className={styles.group} data-group="rolledOver" aria-labelledby={headingId}>
+    <section className={styles.group} data-group="carriedOver" aria-labelledby={headingId}>
       <div className={styles.headerRow}>
         <h2 className={styles.header} id={headingId}>
-          <span>Rolled over</span>
+          <span>Carried over</span>
           <span className={styles.count}>{items.length}</span>
         </h2>
-        <Tooltip content="Move every rolled-over task to today" shortcut="shift+t">
+        <Tooltip content="Move every carried-over task to today" shortcut="shift+t">
           <Button
             variant="ghost"
             size="sm"

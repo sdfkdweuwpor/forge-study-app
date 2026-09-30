@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  deadlineLabel,
   dueLabel,
   estimateLabel,
   formatDay,
@@ -56,37 +57,65 @@ describe('relativeDay', () => {
   })
 })
 
-describe('dueLabel', () => {
-  it('is null without a due date', () => {
-    expect(dueLabel({ dueDate: null, dueTime: null, status: 'todo' }, TODAY)).toBeNull()
+describe('dueLabel (the day a task is planned for)', () => {
+  it('is null without a do date, even with a deadline', () => {
+    expect(dueLabel({ doDate: null, doTime: null, status: 'todo' }, TODAY)).toBeNull()
   })
 
-  it('flags open overdue tasks', () => {
-    const label = dueLabel({ dueDate: '2026-09-25', dueTime: '10:00', status: 'todo' }, TODAY)
+  it('says a past day was carried over, without calling it overdue', () => {
+    const label = dueLabel({ doDate: '2026-09-25', doTime: '10:00', status: 'todo' }, TODAY)
     expect(label).toEqual({
       text: '4 days ago',
-      tone: 'overdue',
-      description: 'Overdue, due Fri, Sep 25, 10 AM',
+      tone: 'carried',
+      description: 'Carried over from Fri, Sep 25, 10 AM',
     })
   })
 
   it('adds the time of day for today and later', () => {
-    expect(dueLabel({ dueDate: TODAY, dueTime: '14:00', status: 'todo' }, TODAY)).toEqual({
+    expect(dueLabel({ doDate: TODAY, doTime: '14:00', status: 'todo' }, TODAY)).toEqual({
       text: 'Today, 2 PM',
       tone: 'today',
-      description: 'Due Tue, Sep 29, 2 PM',
+      description: 'Planned for Tue, Sep 29, 2 PM',
     })
-    expect(dueLabel({ dueDate: '2026-09-30', dueTime: null, status: 'doing' }, TODAY)).toEqual({
+    expect(dueLabel({ doDate: '2026-09-30', doTime: null, status: 'doing' }, TODAY)).toEqual({
       text: 'Tomorrow',
       tone: 'upcoming',
-      description: 'Due Wed, Sep 30',
+      description: 'Planned for Wed, Sep 30',
     })
   })
 
-  it('is quiet for finished tasks, even past due', () => {
-    const label = dueLabel({ dueDate: '2026-09-25', dueTime: null, status: 'done' }, TODAY)
+  it('is quiet for finished tasks', () => {
+    const label = dueLabel({ doDate: '2026-09-25', doTime: null, status: 'done' }, TODAY)
     expect(label?.tone).toBe('done')
-    expect(label?.description).toBe('Was due Fri, Sep 25')
+    expect(label?.description).toBe('Was planned for Fri, Sep 25')
+  })
+})
+
+describe('deadlineLabel (a calm "Due Fri" chip)', () => {
+  const deadline = (dueDate: string | null, dueTime: string | null = null, status = 'todo') =>
+    deadlineLabel({ dueDate, dueTime, status: status as 'todo' | 'doing' | 'done' }, TODAY)
+
+  it('is null without a deadline, and once the task is done', () => {
+    expect(deadline(null)).toBeNull()
+    expect(deadline('2026-10-02', null, 'done')).toBeNull()
+  })
+
+  it('is amber only on the day it is due', () => {
+    expect(deadline(TODAY)).toMatchObject({ text: 'Due today', tone: 'dueToday' })
+    expect(deadline(TODAY, '17:00')).toMatchObject({ text: 'Due today, 5 PM', tone: 'dueToday' })
+    expect(deadline('2026-09-30')).toMatchObject({ text: 'Due tomorrow', tone: 'calm' })
+    expect(deadline('2026-10-02')).toEqual({
+      text: 'Due Fri',
+      tone: 'calm',
+      description: 'Due Fri, Oct 2',
+    })
+    expect(deadline('2026-10-20')).toMatchObject({ text: 'Due Oct 20', tone: 'calm' })
+  })
+
+  it('stays calm after the day has passed: never red, never "overdue"', () => {
+    const past = deadline('2026-09-25', '10:00')
+    expect(past).toMatchObject({ text: 'Due Sep 25', tone: 'calm' })
+    expect(past?.text).not.toMatch(/overdue/i)
   })
 })
 

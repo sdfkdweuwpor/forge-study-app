@@ -352,14 +352,17 @@ describe('previewPlan', () => {
     const draft: DraftGoal = {
       ...emptyDraft(TODAY),
       title: 'Small goal',
-      // 10 h of work at 1 h/day Mon–Fri: ten study days from Tue 29 Sep (Wed 30, Thu 1 …).
+      // 10 h of work in one-hour windows Mon–Fri, one 50-min session a day: twelve study days from
+      // Tue 29 Sep (the last on Wed 14 Oct).
       courses: [course('a', { hours: '10' })],
     }
     const plan = previewPlan(draft, TODAY)
-    expect(plan.result.totalMinutes).toBe(600)
-    expect(plan.result.projectedEnd).toBe('2026-10-12')
-    expect(plan.result.feasible).toBe(true)
+    expect(plan.result.totals.study).toBe(600)
+    expect(plan.result.projectedEnd).toBe('2026-10-14')
+    expect(plan.projection.feasible).toBe(true)
     expect(plan.diff.insert.length).toBeGreaterThan(0)
+    // Slots start at the study start (09:00 by default) on each study day.
+    expect(plan.diff.insert[0]).toMatchObject({ doDate: TODAY, doTime: '09:00', kind: 'study' })
   })
 
   it('warns when the target is out of reach, and says what would work', () => {
@@ -370,8 +373,8 @@ describe('previewPlan', () => {
       courses: [course('a', { hours: '30' })],
     }
     const plan = previewPlan(draft, TODAY)
-    expect(plan.result.feasible).toBe(false)
-    expect(plan.result.slipDays).toBeGreaterThan(0)
+    expect(plan.projection.feasible).toBe(false)
+    expect(plan.projection.slipDays).toBeGreaterThan(0)
     expect(plan.catchUp?.requiredMinutesPerStudyDay ?? 0).toBeGreaterThan(60)
   })
 
@@ -427,10 +430,10 @@ describe('emptyCourse and the WGU template', () => {
   it('fits in its own six-month term', () => {
     const draft = wguTemplate(TODAY, keys())
     const plan = previewPlan(draft, TODAY)
-    expect(plan.result.feasible).toBe(true)
+    expect(plan.projection.feasible).toBe(true)
     expect(plan.result.projectedEnd && plan.result.projectedEnd <= '2027-03-28').toBe(true)
     // Every unit of every course becomes work, in order, with C867 after D278.
-    const windows = new Map(plan.result.windows.map((w) => [w.courseId, w]))
+    const windows = new Map(plan.result.courseWindows.map((w) => [w.courseId, w]))
     expect(windows.size).toBe(7)
     const idOf = (code: string): string => plan.input.courses.find((c) => c.code === code)?.id ?? ''
     expect(

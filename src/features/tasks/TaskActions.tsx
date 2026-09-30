@@ -98,10 +98,17 @@ export interface TaskActions {
   checkAnimationEnd(id: ID): void
   rename(id: ID, title: string): Promise<void>
   setPriority(id: ID, priority: Priority): Promise<void>
-  setDue(id: ID, dueDate: ISODate | null, dueTime?: HHmm | null): Promise<void>
-  /** Sets or clears only the time of day, leaving the date alone. */
-  setDueTime(id: ID, dueTime: HHmm | null): Promise<void>
+  /** Sets or clears the day a task is planned for (its do date), and optionally its time. */
+  setDate(id: ID, doDate: ISODate | null, doTime?: HHmm | null): Promise<void>
+  /** Sets or clears only the planned time of day, leaving the date alone. */
+  setTime(id: ID, doTime: HHmm | null): Promise<void>
+  /** Sets or clears the hard deadline (and optionally its time). */
+  setDeadline(id: ID, dueDate: ISODate | null, dueTime?: HHmm | null): Promise<void>
+  /** Sets or clears only the deadline's time. */
+  setDeadlineTime(id: ID, dueTime: HHmm | null): Promise<void>
+  /** Plans the task for today (`t`). */
   dueToday(id: ID): Promise<void>
+  /** Plans the task for tomorrow (`m`). */
   dueTomorrow(id: ID): Promise<void>
   skip(task: Task): void
   duplicate(id: ID): Promise<void>
@@ -234,7 +241,7 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
         undos.current.set(id, result.undo)
         const parts = [
           result.xp > 0 ? formatXp(result.xp) : null,
-          result.next?.dueDate ? `Next: ${relativeDay(result.next.dueDate, today)}` : null,
+          result.next?.doDate ? `Next: ${relativeDay(result.next.doDate, today)}` : null,
         ].filter((part): part is string => part !== null)
         toast.show({
           title: `Completed “${shorten(task.title)}”`,
@@ -296,9 +303,25 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
     [guard],
   )
 
-  const setDue = useCallback(
-    (id: ID, dueDate: ISODate | null, dueTime?: HHmm | null) =>
+  const setDate = useCallback(
+    (id: ID, doDate: ISODate | null, doTime?: HHmm | null) =>
       guard('change the date', () =>
+        updateTask(id, {
+          doDate,
+          ...(doDate === null ? { doTime: null } : doTime !== undefined ? { doTime } : {}),
+        }),
+      ),
+    [guard],
+  )
+
+  const setTime = useCallback(
+    (id: ID, doTime: HHmm | null) => guard('change the time', () => updateTask(id, { doTime })),
+    [guard],
+  )
+
+  const setDeadline = useCallback(
+    (id: ID, dueDate: ISODate | null, dueTime?: HHmm | null) =>
+      guard('change the deadline', () =>
         updateTask(id, {
           dueDate,
           ...(dueDate === null ? { dueTime: null } : dueTime !== undefined ? { dueTime } : {}),
@@ -307,13 +330,14 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
     [guard],
   )
 
-  const setDueTime = useCallback(
-    (id: ID, dueTime: HHmm | null) => guard('change the time', () => updateTask(id, { dueTime })),
+  const setDeadlineTime = useCallback(
+    (id: ID, dueTime: HHmm | null) =>
+      guard('change the deadline', () => updateTask(id, { dueTime })),
     [guard],
   )
 
-  const dueToday = useCallback((id: ID) => setDue(id, today), [setDue, today])
-  const dueTomorrow = useCallback((id: ID) => setDue(id, addDays(today, 1)), [setDue, today])
+  const dueToday = useCallback((id: ID) => setDate(id, today), [setDate, today])
+  const dueTomorrow = useCallback((id: ID) => setDate(id, addDays(today, 1)), [setDate, today])
 
   const skip = useCallback(
     (task: Task) => {
@@ -369,8 +393,10 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
       checkAnimationEnd: (id) => void advance(id),
       rename,
       setPriority,
-      setDue,
-      setDueTime,
+      setDate,
+      setTime,
+      setDeadline,
+      setDeadlineTime,
       dueToday,
       dueTomorrow,
       skip,
@@ -388,9 +414,11 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
       rename,
       registerRow,
       requestRow,
-      setDue,
-      setDueTime,
+      setDate,
+      setDeadline,
+      setDeadlineTime,
       setPriority,
+      setTime,
       skip,
       toggleComplete,
       trash,

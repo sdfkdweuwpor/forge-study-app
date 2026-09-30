@@ -1,6 +1,11 @@
 /**
  * Natural-language quick add (pure): `Read chapter 4 tomorrow 2p #C182 !high ~2` →
- * title "Read chapter 4", due tomorrow 14:00, tag/course C182, high priority, 2 pomodoros.
+ * title "Read chapter 4", planned for tomorrow 14:00, tag/course C182, high priority, 2 pomodoros.
+ *
+ * Dates (schema v2): a plain date or time is when to do it (`when` → `doDate`/`doTime`); a date after
+ * `due`, `by` or `deadline` is a hard deadline (`deadline` → `dueDate`/`dueTime`): "pay bill Fri" is
+ * planned for Friday, "pay bill due Fri" must be done by Friday. A time right after a deadline date, or
+ * after `by`/`due`, belongs to the deadline ("due Fri 5pm", "by 5pm").
  *
  * The parser scans whitespace-separated words left to right and tries a fixed list of matchers at
  * each one (quoted literal, tag, priority, estimate, recurrence, date, time). It is deliberately
@@ -16,12 +21,13 @@
  *  - Dates: today, `tod` (lowercase), tonight, tomorrow, tmr, weekday names (the next one *after*
  *    today), `next week` (first day of next week), `next <weekday>` (that day of next week),
  *    `in N days|weeks`, `sep 30`, `9/30` (also `9/30/2026`), `2026-10-03`. Month-day and M/D dates that
- *    already passed this year roll to next year. A leading `on`/`by`/`due` is absorbed.
+ *    already passed this year roll to next year. A leading `on` is absorbed; a leading `due`, `by` or
+ *    `deadline` is absorbed and makes it the deadline.
  *  - Times: `2p`, `2pm`, `2 pm`, `2:30pm`, `14:00`, `noon`, `at 9`, `@9`. Without am/pm, hours 1–6 read
  *    as PM (`at 3`, `3:30` → 15:xx), 7–11 as AM, 12–23 as typed; write `03:30` for 3 AM. `Na` (no "m")
  *    only counts after `at`/`@` or a date word, so "Problem 2a" stays a title. A bare `at N` only
  *    counts at the end of the title or before another token ("Look at 9 examples" is left alone).
- *    A leading `by` is absorbed (`by 5pm`).
+ *    A leading `by`/`due` is absorbed and makes it the deadline's time (`by 5pm`).
  *  - Recurrence: every day, every weekday, every week, every monday (also `every mon, wed and fri`),
  *    every 2 days|weeks, every other day|week. The bare words daily, everyday, weekdays and weekly
  *    are ordinary words too, so they only count after at least one title word and when nothing but
@@ -31,8 +37,9 @@
  *    sat`, `by wed`, `sun 2pm`); `may` and the other months only count with a day number after.
  *  - `M/D` is a date unless "of" follows, so "read 1/2 of the chapter" stays a title.
  *
- * Only the first date, time, priority, estimate and recurrence count; later ones stay in the title.
- * A time with no date is due today. Token spans are offsets into the original input.
+ * Only the first date, time, deadline, priority, estimate and recurrence count; later ones stay in the
+ * title. A time with no date is for today (a deadline time with no deadline date is on the do date,
+ * else today). Token spans are offsets into the original input.
  */
 import { format } from 'date-fns'
 import type { HHmm, ISODate, Priority, RecurrenceRule } from '@/db/types'
@@ -51,7 +58,7 @@ import { normalizeTag } from './tagColor'
 import { PRIORITY_LABELS } from './taskQuery'
 
 export type QuickAddTokenKind =
-  'date' | 'time' | 'tag' | 'priority' | 'estimate' | 'recurrence' | 'literal'
+  'date' | 'time' | 'deadline' | 'tag' | 'priority' | 'estimate' | 'recurrence' | 'literal'
 
 export interface QuickAddToken {
   kind: QuickAddTokenKind
@@ -60,7 +67,7 @@ export interface QuickAddToken {
   end: number
   /** `input.slice(start, end)`. */
   text: string
-  /** What a chip shows: "Tomorrow", "2:00 PM", "#C182", "High priority", "2 pomodoros", "Every weekday". */
+  /** What a chip shows: "Tomorrow", "2:00 PM", "Due Fri", "#C182", "High priority", "2 pomodoros". */
   label: string
 }
 
@@ -78,7 +85,10 @@ export interface QuickAddContext {
 export interface QuickAddResult {
   /** The input minus recognised tokens, whitespace collapsed. May be empty. */
   title: string
-  due?: { date: ISODate; time?: HHmm }
+  /** When to do it: the task's `doDate`/`doTime`. */
+  when?: { date: ISODate; time?: HHmm }
+  /** A hard deadline: the task's `dueDate`/`dueTime`. */
+  deadline?: { date: ISODate; time?: HHmm }
   tags: string[]
   priority?: Priority
   /** Pomodoros. */
@@ -225,8 +235,10 @@ const PRIORITY_WORDS = new Map<string, Priority>([
   ['4', 4],
 ])
 
-const DATE_CONNECTORS = new Set(['on', 'by', 'due'])
-const TIME_CONNECTORS = new Set(['by'])
+const DATE_CONNECTORS = new Set(['on', 'by', 'due', 'deadline'])
+const TIME_CONNECTORS = new Set(['by', 'due'])
+/** Connectors that make the date or time after them a deadline. */
+const DEADLINE_CONNECTORS = new Set(['by', 'due', 'deadline'])
 const DURATION_UNITS = new Set([
   'min',
   'mins',
@@ -254,8 +266,8 @@ const pad2 = (n: number): string => String(n).padStart(2, '0')
 // ─── Internal token model ───────────────────────────────────────────────────
 
 type Payload =
-  | { kind: 'date'; date: ISODate }
-  | { kind: 'time'; time: HHmm }
+  | { kind: 'date'; date: ISODate; deadline?: boolean }
+  | { kind: 'time'; time: HHmm; deadline?: boolean }
   | { kind: 'tag'; tag: string }
   | { kind: 'priority'; priority: Priority }
   | { kind: 'estimate'; pomodoros: number }
@@ -296,7 +308,15 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   const words = tokenize(input)
   const owner: number[] = words.map(() => -1)
   const found: Found[] = []
-  const taken = { date: false, time: false, priority: false, estimate: false, recurrence: false }
+  const taken = {
+    date: false,
+    time: false,
+    deadlineDate: false,
+    deadlineTime: false,
+    priority: false,
+    estimate: false,
+    recurrence: false,
+  }
 
   const canonicalTag = new Map<string, string>()
   for (const known of [...(ctx.knownCourseCodes ?? []), ...(ctx.knownTags ?? [])]) {
@@ -341,6 +361,24 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   const prevIsDate = (i: number): boolean => {
     const o = owner[i - 1]
     return o !== undefined && o >= 0 && found[o]?.payload.kind === 'date'
+  }
+  /** The date just before `i` is a deadline ("due Fri" then "5pm"). */
+  const prevIsDeadlineDate = (i: number): boolean => {
+    const o = owner[i - 1]
+    const p = o !== undefined && o >= 0 ? found[o]?.payload : undefined
+    return p?.kind === 'date' && p.deadline === true
+  }
+  /** The word before `i` is a free `due`/`by`/`deadline` that the token at `i` would absorb. */
+  const deadlineWordBefore = (i: number): boolean => {
+    const before = words[i - 1]
+    return (
+      i > 0 &&
+      before !== undefined &&
+      !before.quoted &&
+      owner[i - 1] === -1 &&
+      before.trailing === '' &&
+      DEADLINE_CONNECTORS.has(before.lower)
+    )
   }
 
   // ── time ──
@@ -392,16 +430,18 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   /** A bare "at 9" only counts when nothing ordinary follows it ("Look at 9 examples" stays a title). */
   const timeMatch = (k: number, clock: Clock, count: number, viaAt: boolean): Match | null => {
     if (clock.weak && k + count < words.length && !startsToken(k + count)) return null
+    const deadline = prevIsDeadlineDate(k) || (!viaAt && deadlineWordBefore(k))
+    if (deadline ? taken.deadlineTime : taken.time) return null
     return {
-      payload: { kind: 'time', time: toHHmm(clock.minutes) },
-      label: timeLabel(clock.minutes),
+      payload: { kind: 'time', time: toHHmm(clock.minutes), ...(deadline ? { deadline } : {}) },
+      label: deadline ? `Due by ${timeLabel(clock.minutes)}` : timeLabel(clock.minutes),
       count,
       viaAt,
     }
   }
 
   const matchTime = (k: number): Match | null => {
-    if (taken.time) return null
+    if (taken.time && taken.deadlineTime) return null
     const w = wordAt(k)
     if (!w) return null
     if (w.lower === 'at' && w.trailing === '') {
@@ -437,7 +477,19 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   }
 
   const matchDate = (k: number): Match | null => {
-    if (taken.date) return null
+    const deadline = deadlineWordBefore(k)
+    if (deadline ? taken.deadlineDate : taken.date) return null
+    const hit = matchDateWords(k)
+    if (!hit || hit.payload.kind !== 'date') return hit
+    if (!deadline) return hit
+    return {
+      ...hit,
+      payload: { ...hit.payload, deadline: true },
+      label: `Due ${/^(Today|Tonight|Tomorrow)$/.test(hit.label) ? hit.label.toLowerCase() : hit.label}`,
+    }
+  }
+
+  const matchDateWords = (k: number): Match | null => {
     const w = wordAt(k)
     if (!w) return null
     const l = w.lower
@@ -688,8 +740,10 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
       lastWord: last,
     })
     for (let i = first; i <= last; i++) owner[i] = index
-    const kind = match.payload.kind
-    if (kind !== 'tag' && kind !== 'literal') taken[kind] = true
+    const p = match.payload
+    if (p.kind === 'date') taken[p.deadline ? 'deadlineDate' : 'date'] = true
+    else if (p.kind === 'time') taken[p.deadline ? 'deadlineTime' : 'time'] = true
+    else if (p.kind !== 'tag' && p.kind !== 'literal') taken[p.kind] = true
   }
 
   const matchAny = (k: number): Match | null =>
@@ -723,6 +777,8 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
 
   let dateToken: string | undefined
   let timeToken: HHmm | undefined
+  let deadlineDateToken: ISODate | undefined
+  let deadlineTimeToken: HHmm | undefined
   let priority: Priority | undefined
   let estimate: number | undefined
   let recurrence: RecurrenceRule | undefined
@@ -730,8 +786,13 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   const seenTags = new Set<string>()
   for (const f of found) {
     const p = f.payload
-    if (p.kind === 'date') dateToken = p.date
-    else if (p.kind === 'time') timeToken = p.time
+    if (p.kind === 'date') {
+      if (p.deadline) deadlineDateToken = p.date
+      else dateToken = p.date
+    } else if (p.kind === 'time') {
+      if (p.deadline) deadlineTimeToken = p.time
+      else timeToken = p.time
+    }
     else if (p.kind === 'priority') priority = p.priority
     else if (p.kind === 'estimate') estimate = p.pomodoros
     else if (p.kind === 'recurrence') recurrence = p.rule
@@ -755,8 +816,15 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
 
   const date =
     dateToken ?? (recurrence ? firstOccurrence(recurrence, today) : timeToken ? today : undefined)
-  const due =
+  const when =
     date === undefined ? undefined : timeToken === undefined ? { date } : { date, time: timeToken }
+  const deadlineDate = deadlineDateToken ?? (deadlineTimeToken ? (date ?? today) : undefined)
+  const deadline =
+    deadlineDate === undefined
+      ? undefined
+      : deadlineTimeToken === undefined
+        ? { date: deadlineDate }
+        : { date: deadlineDate, time: deadlineTimeToken }
 
   // Title: everything outside the tokens; quoted literals keep their text without the quotes.
   let title = ''
@@ -774,14 +842,18 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     title,
     tags,
     tokens: found.map((f) => ({
-      kind: f.payload.kind,
+      kind:
+        (f.payload.kind === 'date' || f.payload.kind === 'time') && f.payload.deadline
+          ? ('deadline' as const)
+          : f.payload.kind,
       start: f.start,
       end: f.end,
       text: input.slice(f.start, f.end),
       label: f.label,
     })),
   }
-  if (due) result.due = due
+  if (when) result.when = when
+  if (deadline) result.deadline = deadline
   if (priority !== undefined) result.priority = priority
   if (estimate !== undefined) result.estimate = estimate
   if (recurrence) result.recurrence = recurrence
@@ -798,7 +870,10 @@ function timeLabel(minutes: number): string {
 
 // ─── Presentation helpers ───────────────────────────────────────────────────
 
-/** Where a new task shows up first: Today (due today or earlier), Upcoming (due later) or Inbox (no date). */
+/**
+ * Where a new task shows up first, by the day it is planned for (the do date, else the deadline): Today
+ * (today or earlier), Upcoming (later) or Inbox (no date).
+ */
 export type QuickAddDestination = 'today' | 'upcoming' | 'inbox'
 
 export const QUICK_ADD_DESTINATION_LABELS: Record<QuickAddDestination, string> = {
@@ -808,11 +883,12 @@ export const QUICK_ADD_DESTINATION_LABELS: Record<QuickAddDestination, string> =
 }
 
 export function quickAddDestination(
-  result: Pick<QuickAddResult, 'due'>,
+  result: Pick<QuickAddResult, 'when' | 'deadline'>,
   today: ISODate,
 ): QuickAddDestination {
-  if (!result.due) return 'inbox'
-  return result.due.date <= today ? 'today' : 'upcoming'
+  const day = result.when?.date ?? result.deadline?.date
+  if (day === undefined) return 'inbox'
+  return day <= today ? 'today' : 'upcoming'
 }
 
 export interface InputSegment {

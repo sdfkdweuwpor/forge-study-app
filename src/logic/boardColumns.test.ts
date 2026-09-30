@@ -33,8 +33,8 @@ function task(overrides: Partial<Task> = {}): Task {
     notes: [],
     status: 'todo',
     priority: 0,
-    dueDate: null,
-    dueTime: null,
+    doDate: null,
+    doTime: null,
     estimatePomodoros: null,
     estimateMinutes: null,
     tags: [],
@@ -54,6 +54,13 @@ function task(overrides: Partial<Task> = {}): Task {
     startedAt: null,
     completedAt: null,
     completedDay: null,
+    durationMinutes: null,
+    autoSlot: false,
+    kind: 'task',
+    assessmentId: null,
+    sync: null,
+    dueDate: null,
+    dueTime: null,
     ...overrides,
   }
 }
@@ -72,13 +79,13 @@ describe('inLayoutList', () => {
   it('follows the list rule without its status test', () => {
     const own = task()
     const chunk = task({ goalId: 'g', milestoneId: 'c' })
-    const later = task({ dueDate: '2026-10-02' })
-    const finishedEarly = done('2026-09-28', { dueDate: '2026-10-02' })
+    const later = task({ doDate: '2026-10-02' })
+    const finishedEarly = done('2026-09-28', { doDate: '2026-10-02' })
     expect(inLayoutList(own, 'inbox', ctx)).toBe(true)
     expect(inLayoutList(chunk, 'inbox', ctx)).toBe(false)
     expect(inLayoutList(chunk, 'all', ctx)).toBe(true)
     expect(inLayoutList(later, 'upcoming', ctx)).toBe(true)
-    expect(inLayoutList(task({ dueDate: TODAY }), 'upcoming', ctx)).toBe(false)
+    expect(inLayoutList(task({ doDate: TODAY }), 'upcoming', ctx)).toBe(false)
     expect(inLayoutList(finishedEarly, 'upcoming', ctx)).toBe(true)
   })
 })

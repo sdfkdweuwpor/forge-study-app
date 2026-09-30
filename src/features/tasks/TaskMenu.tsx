@@ -43,7 +43,7 @@ function mergeRefs(...refs: Array<RefCallback<HTMLElement> | Ref<HTMLElement> | 
 }
 
 /**
- * The `…` menu of a task row: Edit, Due date, Priority, Move to…, Duplicate, Delete. Due date, Priority
+ * The `…` menu of a task row: Edit, Date, Priority, Move to…, Duplicate, Delete. Date, Priority
  * and Move to… open a small picker anchored to the same button.
  */
 export function TaskMenu({ task, panel, onPanelChange, onEdit, className }: TaskMenuProps) {
@@ -62,7 +62,7 @@ export function TaskMenu({ task, panel, onPanelChange, onEdit, className }: Task
     { type: 'separator', id: 'sep-edit' },
     {
       id: 'due',
-      label: 'Due date…',
+      label: 'Date…',
       icon: <CalendarDays />,
       shortcut: 'd',
       onSelect: () => onPanelChange('due'),
@@ -117,7 +117,7 @@ export function TaskMenu({ task, panel, onPanelChange, onEdit, className }: Task
       }}
       side="bottom"
       align="end"
-      label={panel === 'due' ? 'Due date' : panel === 'priority' ? 'Priority' : 'Move to'}
+      label={panel === 'due' ? 'Date' : panel === 'priority' ? 'Priority' : 'Move to'}
       trigger={(popover) => (
         <Dropdown
           label={`Actions for ${task.title}`}

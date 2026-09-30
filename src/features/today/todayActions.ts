@@ -6,7 +6,7 @@ import { navigate } from '@/app/router'
  * Today and files a request; the page performs it as soon as its tasks have loaded (or at once when
  * it is already open), so the Undo toast and completion motion appear where the user can see them.
  */
-export type TodayAction = 'completeNow' | 'skipNow' | 'moveRolledOver'
+export type TodayAction = 'completeNow' | 'skipNow' | 'moveCarriedOver'
 
 type Listener = (action: TodayAction) => void
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BookOpen, Calendar, Clock, Flag, Repeat, Timer } from 'lucide-react'
+import { BookOpen, Calendar, CalendarClock, Clock, Flag, Repeat, Timer } from 'lucide-react'
 import { Tag } from '@/ui/Tag'
 import type { Chip, ChipKind } from './chips'
 import styles from './QuickAdd.module.css'
@@ -7,6 +7,7 @@ import styles from './QuickAdd.module.css'
 const ICONS: Record<ChipKind, ReactNode> = {
   date: <Calendar />,
   time: <Clock />,
+  deadline: <CalendarClock />,
   // The label already starts with "#".
   tag: null,
   priority: <Flag />,

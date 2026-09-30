@@ -25,7 +25,7 @@ const EMPTY_COPY: Record<TaskListId, { icon: typeof Inbox; title: string; descri
   upcoming: {
     icon: CalendarDays,
     title: 'Nothing coming up',
-    description: 'Give a task a due date and it shows up here, soonest first.',
+    description: 'Give a task a date and it shows up here, soonest first.',
   },
   all: {
     icon: ListChecks,

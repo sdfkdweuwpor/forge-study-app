@@ -1,11 +1,12 @@
 /**
  * Which open tasks the Focus page offers to link a session to, and in what order (pure). With no query
- * the list is what you would work on next: in-progress first, then what is due today or overdue, then
- * later dates, then undated. With a query it is a fuzzy search over the title and the tags (a course
+ * the list is what you would work on next: in-progress first, then what is planned for today or carried
+ * over, then later dates, then undated (by `planDay`: the do date, else the deadline). With a query it is a fuzzy search over the title and the tags (a course
  * code such as "C779" is a tag), best match first.
  */
 import type { ISODate, Task } from '@/db/types'
 import { fuzzyScore } from './fuzzy'
+import { planDay } from './taskDates'
 
 export interface FocusTaskHit {
   task: Task
@@ -16,19 +17,20 @@ export interface FocusTaskHit {
 /** A tag that matches counts a little less than the same match in the title. */
 const TAG_PENALTY = 4
 
-/** The default order: in progress, due now or overdue, due later, undated; a task skipped today goes last. */
+/** The default order: in progress, today or carried over, later, undated; a task skipped today goes last. */
 function defaultOrder(today: ISODate): (a: Task, b: Task) => number {
   const bucket = (t: Task): number => {
     if (t.skippedOn === today) return 4
     if (t.status === 'doing') return 0
-    if (t.dueDate === null) return 3
-    return t.dueDate <= today ? 1 : 2
+    const day = planDay(t)
+    if (day === null) return 3
+    return day <= today ? 1 : 2
   }
   return (a, b) => {
     const byBucket = bucket(a) - bucket(b)
     if (byBucket !== 0) return byBucket
-    const aDue = a.dueDate ?? '9999-12-31'
-    const bDue = b.dueDate ?? '9999-12-31'
+    const aDue = planDay(a) ?? '9999-12-31'
+    const bDue = planDay(b) ?? '9999-12-31'
     if (aDue !== bDue) return aDue < bDue ? -1 : 1
     if (a.orderInDay !== b.orderInDay) return a.orderInDay - b.orderInDay
     return a.order - b.order

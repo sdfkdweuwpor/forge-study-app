@@ -49,7 +49,7 @@ export function useBoardMove(): (task: Task, move: BoardMove) => Promise<boolean
             variant = result.xp > 0 ? 'xp' : 'success'
             const parts = [
               result.xp > 0 ? formatXp(result.xp) : null,
-              result.next?.dueDate ? `Next: ${relativeDay(result.next.dueDate, today)}` : null,
+              result.next?.doDate ? `Next: ${relativeDay(result.next.doDate, today)}` : null,
             ].filter((part): part is string => part !== null)
             if (parts.length > 0) description = parts.join(' · ')
           } else if (move.from === 'done') {

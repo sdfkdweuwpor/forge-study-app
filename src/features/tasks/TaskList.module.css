@@ -29,10 +29,6 @@
   font-weight: var(--fw-regular);
 }
 
-.group[data-group='overdue'] .groupHeader {
-  color: var(--warning-text);
-}
-
 .list {
   margin: 0;
   padding: 0;

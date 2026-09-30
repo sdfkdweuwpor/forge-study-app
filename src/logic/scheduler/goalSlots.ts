@@ -14,8 +14,8 @@
  * - Pinned open items keep their slots. A pin lapses when its day has passed, when it is skipped today,
  *   or when its unit is done.
  * - Time that is taken is never planned over: other tasks with a do time (everyday tasks, other goals'
- *   sessions), the slots of this goal's items finished today, and the slots of items skipped today (so a
- *   skipped session gives its time back instead of coming straight back).
+ *   sessions) and the slots of this goal's items finished today. Items skipped today take their length
+ *   off the end of today, so a skipped session moves on instead of coming straight back.
  */
 import type {
   DateRange,
@@ -51,13 +51,10 @@ import type {
 } from './plannerTypes'
 import { currentPlanItems, diffPlanTasks, isPlanTask, type PlanTaskDiff } from './planTasks'
 import type { CatchUp } from './types'
-import { averageStudyDayMinutes, capacityForDate } from './windows'
+import { averageStudyDayMinutes, capacityForDate, formatClock, parseClock } from './windows'
 
 export interface SlotGoalRows {
-  goal: Pick<
-    Goal,
-    'id' | 'startDate' | 'targetDate' | 'baselineEnd' | 'availability' | 'planning'
-  >
+  goal: Pick<Goal, 'id' | 'startDate' | 'targetDate' | 'baselineEnd' | 'availability' | 'planning'>
   milestones: readonly Milestone[]
   units: readonly Unit[]
   /** The goal's tasks; its plan items are the `source: 'schedule'` ones with a key. */
@@ -98,9 +95,8 @@ export function goalAvailability(
   globalDaysOff: readonly DateRange[] = [],
 ): AvailabilityV2 {
   const p = goal.planning
-  const weekly = Array.from(
-    { length: 7 },
-    (_, d): DayWindows => (p.weekly[d] ?? []).map((w) => ({ start: w.start, end: w.end })),
+  const weekly = Array.from({ length: 7 }, (_, d): DayWindows =>
+    (p.weekly[d] ?? []).map((w) => ({ start: w.start, end: w.end })),
   ) as unknown as WeekWindows
   return {
     weekly,
@@ -119,13 +115,26 @@ export function goalAvailability(
 function blockOf(t: Task, date: ISODate, av: AvailabilityV2): BusyBlock | null {
   const minutes = t.durationMinutes ?? (taskMinutes(t) || 25)
   if (minutes <= 0) return null
-  const start = t.doDate === date && t.doTime !== null ? t.doTime : capacityForDate(av, date)[0]?.start
+  const start =
+    t.doDate === date && t.doTime !== null ? t.doTime : capacityForDate(av, date)[0]?.start
   if (start === undefined) return null
   return { date, start, durationMinutes: minutes, source: 'task', id: t.id }
 }
 
-/** Plans a goal from its rows as of `today`. Equal rows give deep-equal plans. */
-export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
+/** The planner input for a goal, and what the caller needs to reconcile the result with its tasks. */
+export interface GoalInput {
+  input: PlannerInput
+  /** Open plan tasks that keep their slot. */
+  pinnedIds: ReadonlySet<ID>
+  /** The goal's plan tasks (v1 chunks and v2 items). */
+  planTasks: Task[]
+  doneStudy: Task[]
+  courseOfUnit: ReadonlyMap<string, ID>
+  asap: boolean
+}
+
+/** The planner input for a goal's rows as of `today` (see the file comment). */
+export function goalPlannerInput(rows: SlotGoalRows, today: ISODate): GoalInput {
   const { goal } = rows
   const av = goalAvailability(goal, rows.globalDaysOff ?? [])
   const courses = courseUnits(rows.milestones, rows.units, GRAIN)
@@ -141,6 +150,7 @@ export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
   const pinned: PinnedPlanItem[] = []
   const completedKeys: string[] = []
   const blocked: BusyBlock[] = []
+  const skipped: Task[] = []
 
   for (const t of planTasks) {
     const key = t.scheduleKey as string
@@ -168,10 +178,31 @@ export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
         startTime: t.doTime,
         durationMinutes: minutes,
       })
-    } else if (t.skippedOn === today && t.doDate === today) {
-      // Skipped today: its slot is given back to the day, so the session moves on.
-      const b = blockOf(t, today, av)
-      if (b) blocked.push(b)
+    } else if (t.skippedOn === today) {
+      skipped.push(t)
+    }
+  }
+  // Skipped today: the day gives up that much time at its end (stacked back from the last window's
+  // end), so the session moves on and today holds one session less. Where it sat does not matter, so
+  // the next run (after it moved to a later day) reserves exactly the same time.
+  const lastEnd = capacityForDate(av, today).reduce<number | null>((m, w) => {
+    const e = parseClock(w.end)
+    return e !== null && (m === null || e > m) ? e : m
+  }, null)
+  if (lastEnd !== null) {
+    let cursor = lastEnd
+    for (const t of skipped.sort((a, b) => cmpStr(a.id, b.id))) {
+      const minutes = t.durationMinutes ?? (taskMinutes(t) || 25)
+      const start = Math.max(0, cursor - minutes)
+      if (cursor - start <= 0) break
+      blocked.push({
+        date: today,
+        start: formatClock(start),
+        durationMinutes: cursor - start,
+        source: 'task',
+        id: t.id,
+      })
+      cursor = start
     }
   }
   for (const t of rows.busy ?? []) {
@@ -250,6 +281,37 @@ export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
     completedKeys,
     settings: { bufferPct: goal.planning.bufferPct, weekStartsOn: rows.weekStartsOn ?? 1 },
   }
+  return { input, pinnedIds, planTasks, doneStudy, courseOfUnit, asap }
+}
+
+/**
+ * The stored plan as a live plan for `rollForward` / `replanWeek`, without running the planner unless
+ * the goal has no accepted pace yet (then the pace a fresh plan would choose).
+ */
+export function goalLivePlan(
+  rows: SlotGoalRows,
+  today: ISODate,
+): GoalInput & { live: LivePlanInput } {
+  const g = goalPlannerInput(rows, today)
+  const stored = rows.goal.planning.paceMinutesPerStudyDay
+  const pace = g.asap ? null : (stored ?? planStudy(g.input).pace.minutesPerStudyDay)
+  return {
+    ...g,
+    live: {
+      ...g.input,
+      current: currentPlanItems(rows.tasks, today),
+      paceMinutesPerStudyDay: pace,
+    },
+  }
+}
+
+/** Plans a goal from its rows as of `today`. Equal rows give deep-equal plans. */
+export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
+  const { goal } = rows
+  const { input, pinnedIds, planTasks, doneStudy, courseOfUnit, asap } = goalPlannerInput(
+    rows,
+    today,
+  )
   const result = planStudy(input)
 
   // Projection: the finish, measured against the target (else the accepted end).
@@ -261,7 +323,10 @@ export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
     result.fits &&
     (goal.targetDate === null || bufferedEnd === null || bufferedEnd <= goal.targetDate)
   const late = !feasible || (goal.targetDate === null && slipDays !== null && slipDays > 0)
-  const catchUp = late && reference !== null ? catchUpFor(input, av, reference, today, result) : null
+  const catchUp =
+    late && reference !== null
+      ? catchUpFor(input, input.availability, reference, today, result)
+      : null
   const issueCodes: string[] = []
   for (const i of result.issues) if (!issueCodes.includes(i.code)) issueCodes.push(i.code)
   const projection: Omit<GoalProjection, 'computedAt'> = {
@@ -294,7 +359,9 @@ export function planGoalSlots(rows: SlotGoalRows, today: ISODate): SlotPlan {
   const live: LivePlanInput = {
     ...input,
     current: currentPlanItems(rows.tasks, today),
-    paceMinutesPerStudyDay: asap ? null : (goal.planning.paceMinutesPerStudyDay ?? result.pace.minutesPerStudyDay),
+    paceMinutesPerStudyDay: asap
+      ? null
+      : (goal.planning.paceMinutesPerStudyDay ?? result.pace.minutesPerStudyDay),
   }
   return {
     input,

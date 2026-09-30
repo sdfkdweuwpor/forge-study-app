@@ -39,9 +39,9 @@ describe('diffSchedule', () => {
     const tasks = [
       open(was[0]!, { id: 'done', status: 'done' }),
       open(was[1]!, { id: 'moved' }),
-      open(was[2]!, { id: 'pinned', schedulePinned: true, dueDate: '2026-10-09' }),
+      open(was[2]!, { id: 'pinned', schedulePinned: true, doDate: '2026-10-09' }),
       open(chunk('gone', 1, TODAY), { id: 'stale' }),
-      taskRow('mine', { source: 'user', dueDate: TODAY }),
+      taskRow('mine', { source: 'user', doDate: TODAY }),
     ]
     const now = [chunk('u', 2, TOMORROW, 45), chunk('v', 1, TOMORROW, 30, { orderInDay: 1 })]
     const diff = diffSchedule(tasks, now, { today: TODAY })
@@ -50,7 +50,7 @@ describe('diffSchedule', () => {
       {
         id: 'moved',
         chunk: now[0],
-        changes: { dueDate: TOMORROW, estimateMinutes: 45 },
+        changes: { doDate: TOMORROW, estimateMinutes: 45 },
       },
     ])
     expect(diff.remove).toEqual(['stale'])
@@ -70,21 +70,21 @@ describe('diffSchedule', () => {
 
   it('returns an expired pin to the pool and clears the pin', () => {
     const c = chunk('u', 1, TODAY)
-    const t = open(c, { id: 'old-pin', schedulePinned: true, dueDate: '2026-10-01' })
+    const t = open(c, { id: 'old-pin', schedulePinned: true, doDate: '2026-10-01' })
     expect(isActivePin(t, TODAY)).toBe(false)
     const diff = diffSchedule([t], [c], { today: TODAY })
     expect(diff.update).toEqual([
-      { id: 'old-pin', chunk: c, changes: { dueDate: TODAY, schedulePinned: false } },
+      { id: 'old-pin', chunk: c, changes: { doDate: TODAY, schedulePinned: false } },
     ])
   })
 
   it('honours an explicit pinned set over the default rule', () => {
     const c = chunk('u', 1, TODAY)
-    const t = open(c, { id: 'p', schedulePinned: true, dueDate: TOMORROW })
+    const t = open(c, { id: 'p', schedulePinned: true, doDate: TOMORROW })
     expect(
       diffSchedule([t], [c], { today: TODAY, pinnedIds: new Set() }).update[0]?.changes,
     ).toEqual({
-      dueDate: TODAY,
+      doDate: TODAY,
       schedulePinned: false,
     })
     expect(diffSchedule([t], [], { today: TODAY }).keep).toEqual(['p'])
@@ -142,7 +142,7 @@ describe('diffSchedule', () => {
       notes: [{ id: 'b', type: 'p', text: 'notes' }],
     })
     const diff = diffSchedule([t], [chunk('u', 1, TOMORROW)], { today: TODAY })
-    expect(diff.update[0]?.changes).toMatchObject({ scheduleKey: 'u:1', dueDate: TOMORROW })
+    expect(diff.update[0]?.changes).toMatchObject({ scheduleKey: 'u:1', doDate: TOMORROW })
     expect(diff.trash).toEqual([])
     expect(diff.insert).toEqual([])
   })

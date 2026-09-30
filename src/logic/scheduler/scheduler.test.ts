@@ -163,7 +163,7 @@ describe('missed day', () => {
     expect(next.diff.remove).toEqual([])
     expect(next.diff.trash).toEqual([])
     expect(next.diff.update.length).toBeGreaterThan(0)
-    expect(applyDiff(tasks, next.diff).every((t) => (t.dueDate as string) >= '2026-10-06')).toBe(
+    expect(applyDiff(tasks, next.diff).every((t) => (t.doDate as string) >= '2026-10-06')).toBe(
       true,
     )
     expect(
@@ -798,7 +798,7 @@ describe('planGoal (rows → plan)', () => {
   it('keeps today stable when a chunk is finished today, and moves a skipped one off today', () => {
     const first = planGoal(rows(), MONDAY)
     let tasks = applyDiff([], first.diff)
-    const today = tasks.filter((t) => t.dueDate === MONDAY)
+    const today = tasks.filter((t) => t.doDate === MONDAY)
     expect(today).toHaveLength(1) // a1 90 fills Monday's 90
     tasks = completeTasks(tasks, [today[0]!.id], MONDAY)
     const afterDone = planGoal({ ...rows(), tasks }, MONDAY)
@@ -808,17 +808,17 @@ describe('planGoal (rows → plan)', () => {
     const tue = '2026-10-06'
     const onTue = planGoal({ ...rows(), tasks }, tue)
     tasks = applyDiff(tasks, onTue.diff)
-    const tuesday = tasks.filter((t) => t.dueDate === tue && t.status !== 'done')
+    const tuesday = tasks.filter((t) => t.doDate === tue && t.status !== 'done')
     expect(tuesday.length).toBeGreaterThan(0)
     const skipped = tuesday[0]!
     tasks = tasks.map((t) => (t.id === skipped.id ? { ...t, skippedOn: tue } : t))
     const afterSkip = planGoal({ ...rows(), tasks }, tue)
     tasks = applyDiff(tasks, afterSkip.diff)
     const moved = tasks.find((t) => t.id === skipped.id)
-    expect(moved?.dueDate).not.toBe(tue)
-    expect((moved?.dueDate as string) > tue).toBe(true)
+    expect(moved?.doDate).not.toBe(tue)
+    expect((moved?.doDate as string) > tue).toBe(true)
     const tueLoad = tasks.filter(
-      (t) => t.dueDate === tue && t.status !== 'done' && t.skippedOn !== tue,
+      (t) => t.doDate === tue && t.status !== 'done' && t.skippedOn !== tue,
     )
     expect(tueLoad.reduce((s, t) => s + (t.estimateMinutes ?? 0), 0)).toBeLessThanOrEqual(
       90 - (skipped.estimateMinutes ?? 0),
@@ -830,14 +830,14 @@ describe('planGoal (rows → plan)', () => {
   it('leaves a pinned task alone, uses its day, and releases the pin once its day has passed', () => {
     const first = planGoal(rows(), MONDAY)
     let tasks = applyDiff([], first.diff)
-    const target = tasks.find((t) => t.dueDate === '2026-10-06')!
+    const target = tasks.find((t) => t.doDate === '2026-10-06')!
     tasks = tasks.map((t) =>
-      t.id === target.id ? { ...t, dueDate: '2026-10-09', schedulePinned: true } : t,
+      t.id === target.id ? { ...t, doDate: '2026-10-09', schedulePinned: true } : t,
     )
     const pinnedPlan = planGoal({ ...rows(), tasks }, MONDAY)
     expect(pinnedPlan.diff.keep).toContain(target.id)
     tasks = applyDiff(tasks, pinnedPlan.diff)
-    const fri = tasks.filter((t) => t.dueDate === '2026-10-09')
+    const fri = tasks.filter((t) => t.doDate === '2026-10-09')
     expect(fri.reduce((s, t) => s + (t.estimateMinutes ?? 0), 0)).toBeLessThanOrEqual(90)
     expect(isDiffEmpty(planGoal({ ...rows(), tasks }, MONDAY).diff)).toBe(true)
 
@@ -873,7 +873,7 @@ describe('planGoal (rows → plan)', () => {
         unitId: 'a1',
         milestoneId: 'a',
         estimateMinutes: 45,
-        dueDate: '2026-10-02',
+        doDate: '2026-10-02',
       }),
     ]
     const plan = planGoal({ ...rows(), tasks }, MONDAY)

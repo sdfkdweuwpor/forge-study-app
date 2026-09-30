@@ -1,7 +1,7 @@
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ForgeDB, db } from '@/db/db'
-import { DB_NAME, SCHEMA_VERSION, STORES_V1, TABLE_NAMES } from '@/db/schema'
+import { DB_NAME, SCHEMA_VERSION, STORES, TABLE_NAMES } from '@/db/schema'
 import type { Reward, Task } from '@/db/types'
 
 let clockNow = 1_000
@@ -32,17 +32,17 @@ const reward = (
   ...over,
 })
 
-describe('schema v1', () => {
-  it('opens every table at version 1 with the planned primary key and indexes', async () => {
-    expect(SCHEMA_VERSION).toBe(1)
-    expect(TABLE_NAMES).toHaveLength(26)
-    expect(testDb.verno).toBe(1)
+describe('schema (v2)', () => {
+  it('opens every table at the current version with the planned primary key and indexes', async () => {
+    expect(SCHEMA_VERSION).toBe(2)
+    expect(TABLE_NAMES).toHaveLength(31)
+    expect(testDb.verno).toBe(2)
     expect(testDb.tables.map((t) => t.name).sort()).toEqual([...TABLE_NAMES].sort())
     for (const name of TABLE_NAMES) {
       const table = testDb.table(name)
       expect(table.schema.primKey.keyPath).toBe('id')
       expect(await table.count()).toBe(0)
-      const declared = STORES_V1[name]
+      const declared = STORES[name]
         .split(',')
         .slice(1)
         .map((s) => s.trim().replace(/^\*/, ''))
@@ -65,7 +65,7 @@ describe('schema v1', () => {
 
   it('uses the app database name for the singleton', () => {
     expect(db.name).toBe(DB_NAME)
-    expect(db.verno).toBe(1)
+    expect(db.verno).toBe(2)
   })
 
   it('supports the compound and multi-entry indexes repos rely on', async () => {
@@ -91,6 +91,12 @@ describe('schema v1', () => {
       startedAt: null,
       completedAt: null,
       completedDay: null,
+      doTime: null,
+      durationMinutes: null,
+      autoSlot: false,
+      kind: 'task',
+      assessmentId: null,
+      sync: null,
     } satisfies Partial<Task>
     await testDb.tasks.bulkAdd([
       {
@@ -98,11 +104,28 @@ describe('schema v1', () => {
         id: 't1',
         title: 'Read ch. 4',
         status: 'todo',
-        dueDate: '2026-09-29',
+        doDate: '2026-09-29',
+        dueDate: '2026-10-02',
         tags: ['C182'],
       },
-      { ...base, id: 't2', title: 'Quiz', status: 'todo', dueDate: null, tags: ['C182', 'quiz'] },
-      { ...base, id: 't3', title: 'Done', status: 'done', dueDate: '2026-09-28', tags: [] },
+      {
+        ...base,
+        id: 't2',
+        title: 'Quiz',
+        status: 'todo',
+        doDate: null,
+        dueDate: null,
+        tags: ['C182', 'quiz'],
+      },
+      {
+        ...base,
+        id: 't3',
+        title: 'Done',
+        status: 'done',
+        doDate: '2026-09-28',
+        dueDate: null,
+        tags: [],
+      },
     ])
     expect(await testDb.tasks.where('tags').equals('C182').primaryKeys()).toEqual(['t1', 't2'])
     expect(
@@ -111,6 +134,16 @@ describe('schema v1', () => {
         .between(['todo', Dexie.minKey], ['todo', Dexie.maxKey])
         .primaryKeys(),
     ).toEqual(['t1']) // null dueDate drops out of the index
+    expect(
+      await testDb.tasks
+        .where('[status+doDate]')
+        .between(['todo', Dexie.minKey], ['todo', Dexie.maxKey])
+        .primaryKeys(),
+    ).toEqual(['t1'])
+    expect(await testDb.tasks.where('doDate').aboveOrEqual('2026-09-28').primaryKeys()).toEqual([
+      't3',
+      't1',
+    ])
     expect(
       await testDb.tasks.where('[goalId+status]').equals(['g1', 'done']).primaryKeys(),
     ).toEqual(['t3'])

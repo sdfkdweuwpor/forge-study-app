@@ -84,8 +84,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.optionMeta[data-tone='overdue'] {
-  color: var(--danger-text);
+.optionMeta[data-tone='carried'] {
+  color: var(--text-muted);
 }
 
 .optionMeta[data-tone='today'] {

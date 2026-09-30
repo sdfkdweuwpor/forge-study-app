@@ -202,7 +202,9 @@ export function diffPlanTasks(
   }
   // 3. Skipped study still unmatched takes a later session of its unit, from an unskipped task if need be.
   const bumped: PlanTask[] = []
-  for (const t of candidates.filter((x) => skipped(x) && isStudy(x) && !match.has(x.id)).sort(bySeq)) {
+  for (const t of candidates
+    .filter((x) => skipped(x) && isStudy(x) && !match.has(x.id))
+    .sort(bySeq)) {
     const unit = taskUnitId(t)
     const options = (unit !== null ? studyOfUnit.get(unit) : undefined) ?? []
     const free = options.find((it) => later(it) && !owner.has(it.key))
@@ -312,7 +314,8 @@ export function currentPlanItems(tasks: readonly Task[], today: ISODate): Curren
   }
   return out.sort(
     (a, b) =>
-      cmpStr(a.doDate, b.doDate) || cmpStr(a.startTime ?? '99:99', b.startTime ?? '99:99') ||
+      cmpStr(a.doDate, b.doDate) ||
+      cmpStr(a.startTime ?? '99:99', b.startTime ?? '99:99') ||
       cmpStr(a.key, b.key),
   )
 }

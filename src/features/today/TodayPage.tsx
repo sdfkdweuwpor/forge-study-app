@@ -16,7 +16,7 @@ import { useTasks } from '@/db/hooks/useTasks'
 import { moveTask } from '@/db/repos/tasks'
 import type { ID, Task } from '@/db/types'
 import { groupToday, pickNow } from '@/logic/today'
-import { greeting, overdueText } from '@/logic/todayStats'
+import { greeting, carriedFromText } from '@/logic/todayStats'
 import { useToast } from '@/ui/Toast'
 import {
   TaskActionsProvider,
@@ -29,7 +29,7 @@ import {
 import { NowCard } from './NowCard'
 import { useCourseLabels, useHasGoals, useTaskXpToday } from './queries'
 import { TodayEmpty, TodayError, TodaySkeleton } from './states'
-import { CompletedGroup, RolledOverGroup, TaskGroup, type GroupItem } from './TodayGroups'
+import { CarriedOverGroup, CompletedGroup, TaskGroup, type GroupItem } from './TodayGroups'
 import { useTodayActionRequests, type TodayAction } from './todayActions'
 import styles from './TodayPage.module.css'
 
@@ -87,9 +87,9 @@ function TodayScreen() {
       groups,
       now: pickNow(pool, { today }),
       brandNew: tasks.length === 0,
-      rolledOver: groups.rolledOver.map<GroupItem>(({ task, daysOverdue }) => ({
+      carriedOver: groups.carriedOver.map<GroupItem>(({ task, from }) => ({
         task,
-        dueText: overdueText(daysOverdue),
+        dueText: carriedFromText(from, today),
       })),
     }
   }, [tasks, motion, today])
@@ -100,7 +100,7 @@ function TodayScreen() {
     return [
       ...fromGoals,
       ...yours,
-      ...data.groups.rolledOver.map((r) => r.task),
+      ...data.groups.carriedOver.map((r) => r.task),
       ...(completedOpen ? completedToday : []),
     ].map((t) => t.id)
   }, [data, completedOpen])
@@ -117,13 +117,13 @@ function TodayScreen() {
   }, [])
 
   const nowTask = data?.now ?? null
-  const rolledOver = data?.groups.rolledOver
+  const carriedOver = data?.groups.carriedOver
 
   const moveAllToToday = useCallback(async () => {
-    if (!rolledOver || rolledOver.length === 0) return
+    if (!carriedOver || carriedOver.length === 0) return
     try {
       const results = await Promise.all(
-        rolledOver.map(({ task }) => moveTask(task.id, { dueDate: today })),
+        carriedOver.map(({ task }) => moveTask(task.id, { doDate: today })),
       )
       const undos = results.flatMap((r) => (r ? [r.undo] : []))
       toast.show({
@@ -133,10 +133,10 @@ function TodayScreen() {
         },
       })
     } catch (error) {
-      recordError(error, 'moveRolledOver')
+      recordError(error, 'moveCarriedOver')
       toast.error('Couldn’t move the tasks', { description: 'Nothing was changed. Try again.' })
     }
-  }, [rolledOver, today, toast])
+  }, [carriedOver, today, toast])
 
   const completeNow = useCallback(() => {
     if (nowTask) actions.complete(nowTask)
@@ -150,16 +150,16 @@ function TodayScreen() {
   useShortcutHandler('today.nowDone', completeNow, nowTask !== null)
   useShortcutHandler('today.nowSkip', skipNow, nowTask !== null)
   useShortcutHandler(
-    'today.moveRolledOver',
+    'today.moveCarriedOver',
     () => void moveAllToToday(),
-    (rolledOver?.length ?? 0) > 0,
+    (carriedOver?.length ?? 0) > 0,
   )
 
   useTodayActionRequests((action: TodayAction) => {
-    if (action === 'moveRolledOver') {
-      if (rolledOver && rolledOver.length > 0) void moveAllToToday()
+    if (action === 'moveCarriedOver') {
+      if (carriedOver && carriedOver.length > 0) void moveAllToToday()
       else
-        toast.show({ title: 'Nothing has rolled over', description: 'Every task is on its day.' })
+        toast.show({ title: 'Nothing carried over', description: 'Every task is on its day.' })
     } else if (nowTask) {
       if (action === 'completeNow') completeNow()
       else skipNow()
@@ -253,9 +253,9 @@ function TodayScreen() {
               {yours.length > 0 ? (
                 <TaskGroup id="yours" label="Your tasks" items={items(yours)} {...listProps} />
               ) : null}
-              {data.rolledOver.length > 0 ? (
-                <RolledOverGroup
-                  items={data.rolledOver}
+              {data.carriedOver.length > 0 ? (
+                <CarriedOverGroup
+                  items={data.carriedOver}
                   onMoveAll={() => void moveAllToToday()}
                   {...listProps}
                 />

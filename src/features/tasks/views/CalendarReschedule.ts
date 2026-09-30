@@ -29,7 +29,7 @@ export function useReschedule(): (task: Task, slot: Slot) => Promise<boolean> {
   return useCallback(
     async (task, slot) => {
       try {
-        const result = await moveTask(task.id, { dueDate: slot.dueDate, dueTime: slot.dueTime })
+        const result = await moveTask(task.id, { doDate: slot.doDate, doTime: slot.doTime })
         if (!result) {
           toast.error('Couldn’t move the task', { description: 'It no longer exists.' })
           return false
@@ -42,8 +42,8 @@ export function useReschedule(): (task: Task, slot: Slot) => Promise<boolean> {
             : [result.undo]
         series.current = { id: task.id, at: now, undos }
 
-        const when = `${formatDayLong(slot.dueDate, today)}${
-          slot.dueTime ? `, ${formatTimeOfDay(slot.dueTime)}` : ', all day'
+        const when = `${formatDayLong(slot.doDate, today)}${
+          slot.doTime ? `, ${formatTimeOfDay(slot.doTime)}` : ', all day'
         }`
         toast.show({
           id: TOAST_ID,

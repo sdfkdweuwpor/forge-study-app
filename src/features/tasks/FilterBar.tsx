@@ -16,7 +16,7 @@ import styles from './FilterBar.module.css'
 
 const SORT_LABELS: Record<TaskSortKey, string> = {
   manual: 'Manual',
-  due: 'Due date',
+  due: 'Date',
   priority: 'Priority',
   created: 'Date added',
   updated: 'Last edited',
@@ -34,7 +34,7 @@ const SORT_ORDER: readonly TaskSortKey[] = [
 ]
 
 const DUE_OPTIONS: ReadonlyArray<{ value: TaskDueFilter; label: string }> = [
-  { value: 'overdue', label: 'Overdue' },
+  { value: 'overdue', label: 'Carried over' },
   { value: 'today', label: 'Today' },
   { value: 'tomorrow', label: 'Tomorrow' },
   { value: 'week', label: 'This week' },
@@ -243,7 +243,7 @@ export function FilterBar({
       ) : null}
 
       {!completed ? (
-        <FilterPopover label="Due" count={filter.due && filter.due !== 'any' ? 1 : 0}>
+        <FilterPopover label="Date" count={filter.due && filter.due !== 'any' ? 1 : 0}>
           {DUE_OPTIONS.map((o) => (
             <Checkbox
               key={o.value}

@@ -11,7 +11,7 @@ import { useToday } from '@/app/hooks/useToday'
 import { useOpenTasks } from '@/db/hooks/useTasks'
 import type { ID } from '@/db/types'
 import { rankFocusTasks, type FocusTaskHit } from '@/logic/focusTasks'
-import { dueLabel } from '@/logic/taskDisplay'
+import { deadlineLabel, dueLabel } from '@/logic/taskDisplay'
 import { Button } from '@/ui/Button'
 import { Input } from '@/ui/Input'
 import { Popover } from '@/ui/Popover'
@@ -163,7 +163,7 @@ function PickerPanel({ taskId, onPick }: { taskId: ID | null; onPick: (id: ID | 
         className={styles.list}
       >
         {hits.map((hit, i) => {
-          const due = dueLabel(hit.task, today)
+          const due = dueLabel(hit.task, today) ?? deadlineLabel(hit.task, today)
           return (
             <button
               key={hit.task.id}

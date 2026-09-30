@@ -143,7 +143,11 @@ export function flashcardToV2<T extends object>(input: T): T {
 export function settingsToV2<T extends object>(input: T): T {
   const row: Row = { ...(input as Row) }
   const scheduling = row.scheduling
-  if (typeof scheduling === 'object' && scheduling !== null && !has(scheduling as Row, 'taskWindows'))
+  if (
+    typeof scheduling === 'object' &&
+    scheduling !== null &&
+    !has(scheduling as Row, 'taskWindows')
+  )
     row.scheduling = { ...(scheduling as Row), taskWindows: defaultTaskWindows() }
   return row as T
 }

@@ -122,8 +122,12 @@ export const WGU_TEMPLATE_COURSES: readonly CourseSpec[] = [
   },
 ]
 
-/** Monday to Friday two hours, Saturday three, Sunday off: about 13 h a week. */
-const TEMPLATE_WEEK: WeekMinutes = [0, 120, 120, 120, 120, 120, 180]
+/**
+ * Monday to Friday two and a half hours, Saturday four, Sunday off: about 16 h a week of study windows.
+ * The slot planner takes a 10-minute break between 50-minute sessions inside them, so this is about
+ * 14 h of study, which fits the 310 h in the six-month term with the buffer.
+ */
+const TEMPLATE_WEEK: WeekMinutes = [0, 150, 150, 150, 150, 150, 240]
 
 /**
  * A B.S. Computer Science draft starting `today`: seven courses (24 CUs, 310 h), one six-month term

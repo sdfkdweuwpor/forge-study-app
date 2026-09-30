@@ -246,7 +246,12 @@ describe('planToOps: merge into an existing goal', () => {
     )
     const units = existing.courses[0]?.units ?? []
     const databases = units.find((u) => u.title === 'Databases')
-    expect(o.unitsUpdate).toEqual([{ id: databases?.id, changes: { estimateMinutes: 480 } }])
+    expect(o.unitsUpdate).toEqual([
+      {
+        id: databases?.id,
+        changes: { estimateMinutes: 480, baseEstimateMinutes: 480, estimateSource: 'import' },
+      },
+    ])
     expect(o.unitsAdd).toHaveLength(1)
     expect(o.unitsAdd[0]).toMatchObject({
       title: 'Emerging topics',
@@ -322,7 +327,11 @@ describe('planToOps: merge into an existing goal', () => {
       ctx(),
     )
     expect(o.milestonesUpdate[0]?.changes).toEqual({ estimateHours: 50 })
-    expect(o.unitsUpdate[0]?.changes).toEqual({ estimateMinutes: 120 })
+    expect(o.unitsUpdate[0]?.changes).toEqual({
+      estimateMinutes: 120,
+      baseEstimateMinutes: 120,
+      estimateSource: 'import',
+    })
     expect(JSON.stringify(o)).not.toMatch(/"status"|completedAt/)
   })
 })

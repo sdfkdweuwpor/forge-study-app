@@ -11,6 +11,7 @@ import type { ID, ISODate, Task, TaskFilter, TaskSort } from '@/db/types'
 import { diffDays } from './dates'
 import { completedDayOf, type TaskListId } from './taskLists'
 import { filterTasks, sortTasks, type QueryContext } from './taskQuery'
+import { planDay } from './taskDates'
 
 export type BoardColumnId = 'todo' | 'doing' | 'done'
 
@@ -40,7 +41,7 @@ export function parseColumnKey(value: string): BoardColumnId | null {
 
 /**
  * Whether a task belongs to a list on the board and calendar, which show finished work too. Same rule
- * as the list itself, minus its status test: Inbox is your own tasks, Upcoming is dated after today.
+ * as the list itself, minus its status test: Inbox is your own tasks, Upcoming is planned after today.
  */
 export function inLayoutList(task: Task, list: TaskListId, ctx: { today: ISODate }): boolean {
   switch (list) {
@@ -49,7 +50,7 @@ export function inLayoutList(task: Task, list: TaskListId, ctx: { today: ISODate
     case 'inbox':
       return task.goalId === null && task.milestoneId === null
     case 'upcoming':
-      return task.dueDate !== null && task.dueDate > ctx.today
+      return (planDay(task) ?? '') > ctx.today
     case 'completed':
       return task.status === 'done'
   }

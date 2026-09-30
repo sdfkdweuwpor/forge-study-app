@@ -160,7 +160,15 @@ export {
 } from './reflow'
 export { diffPlanItems, isChangeEmpty } from './planDiff'
 // ─── Schema v2 wiring: rows ↔ planner, plan items ↔ tasks ───────────────────
-export { goalAvailability, planGoalSlots, type SlotGoalRows, type SlotPlan } from './goalSlots'
+export {
+  goalAvailability,
+  goalLivePlan,
+  goalPlannerInput,
+  planGoalSlots,
+  type GoalInput,
+  type SlotGoalRows,
+  type SlotPlan,
+} from './goalSlots'
 export {
   currentPlanItems,
   diffPlanTasks,

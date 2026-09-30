@@ -22,13 +22,57 @@ function span(input: string, text: string): { start: number; end: number } {
   return { start, end: start + text.length }
 }
 
+describe('do dates and deadlines (schema v2)', () => {
+  it('a plain date and time say when to do it', () => {
+    const r = parse('gym tomorrow 6am')
+    expect(r).toMatchObject({ title: 'gym', when: { date: '2026-09-30', time: '06:00' } })
+    expect(r.deadline).toBeUndefined()
+  })
+
+  it('a plain date is the do date, even for a bill', () => {
+    const r = parse('pay bill Fri')
+    expect(r).toMatchObject({ title: 'pay bill', when: { date: '2026-10-02' } })
+    expect(r.deadline).toBeUndefined()
+  })
+
+  it('"due", "by" and "deadline" make it a hard deadline', () => {
+    for (const input of ['pay bill due Fri', 'pay bill by Fri', 'pay bill deadline Fri']) {
+      const r = parse(input)
+      expect(r.title).toBe('pay bill')
+      expect(r.deadline).toEqual({ date: '2026-10-02' })
+      expect(r.when).toBeUndefined()
+      expect(r.tokens.map((t) => t.kind)).toEqual(['deadline'])
+      expect(r.tokens[0]?.label).toBe('Due Fri, Oct 2')
+    }
+  })
+
+  it('a task can have both: do it Wednesday, due Friday at 5pm', () => {
+    const r = parse('pay bill wednesday due fri 5pm')
+    expect(r).toMatchObject({
+      title: 'pay bill',
+      when: { date: '2026-09-30' },
+      deadline: { date: '2026-10-02', time: '17:00' },
+    })
+    expect(r.tokens.map((t) => t.kind)).toEqual(['date', 'deadline', 'deadline'])
+    expect(parse('essay due tomorrow').tokens[0]?.label).toBe('Due tomorrow')
+  })
+
+  it('a deadline time with no deadline date is on the do date, else today', () => {
+    expect(parse('report tomorrow by 5pm')).toMatchObject({
+      when: { date: '2026-09-30' },
+      deadline: { date: '2026-09-30', time: '17:00' },
+    })
+    expect(parse('report due 5pm').deadline).toEqual({ date: '2026-09-29', time: '17:00' })
+  })
+})
+
 describe("the brief's example", () => {
   const input = 'Read chapter 4 tomorrow 2p #C182 !high ~2'
 
   it('parses exactly', () => {
     const r = parse(input, { knownCourseCodes: ['C182', 'C779', 'D278'] })
     expect(r.title).toBe('Read chapter 4')
-    expect(r.due).toEqual({ date: '2026-09-30', time: '14:00' })
+    expect(r.when).toEqual({ date: '2026-09-30', time: '14:00' })
     expect(r.tags).toEqual(['C182'])
     expect(r.courseCode).toBe('C182')
     expect(r.priority).toBe(3)
@@ -86,7 +130,7 @@ describe('plain titles are left alone', () => {
     const r = parse(input)
     expect(r.title).toBe(input)
     expect(r.tokens).toEqual([])
-    expect(r.due).toBeUndefined()
+    expect(r.when).toBeUndefined()
     expect(r.tags).toEqual([])
   })
 
@@ -206,8 +250,11 @@ describe('estimate', () => {
 })
 
 describe('dates (today is Tue 2026-09-29)', () => {
-  const date = (input: string, ctx: Partial<QuickAddContext> = {}): string | undefined =>
-    parse(input, ctx).due?.date
+  /** The day it lands on: its do date, or its deadline when it only has one. */
+  const date = (input: string, ctx: Partial<QuickAddContext> = {}): string | undefined => {
+    const r = parse(input, ctx)
+    return r.when?.date ?? r.deadline?.date
+  }
 
   it('today, tod, tonight, tomorrow, tmr', () => {
     expect(date('x today')).toBe('2026-09-29')
@@ -245,6 +292,7 @@ describe('dates (today is Tue 2026-09-29)', () => {
   it('only takes sat/sun/wed with context', () => {
     expect(date('Go on sat')).toBe('2026-10-03')
     expect(date('Submit by wed')).toBe('2026-09-30')
+    expect(parse('Submit by wed').deadline).toEqual({ date: '2026-09-30' })
     expect(date('Essay due sun')).toBe('2026-10-04')
     expect(date('Church sun 9am')).toBe('2026-10-04')
     expect(date('Read sat')).toBeUndefined()
@@ -252,7 +300,7 @@ describe('dates (today is Tue 2026-09-29)', () => {
     expect(date('Go on Sat')).toBe('2026-10-03')
     expect(parse('Wed 3pm meeting')).toMatchObject({
       title: 'meeting',
-      due: { date: '2026-09-30', time: '15:00' },
+      when: { date: '2026-09-30', time: '15:00' },
     })
     expect(date('Go on saturday')).toBe('2026-10-03')
   })
@@ -337,9 +385,21 @@ describe('dates (today is Tue 2026-09-29)', () => {
     expect(parse('x 2026-02-30').title).toBe('x 2026-02-30')
   })
 
-  it('absorbs on / by / due before a date', () => {
-    expect(parse('Essay due friday')).toMatchObject({ title: 'Essay', due: { date: '2026-10-02' } })
-    expect(parse('Submit by tomorrow').title).toBe('Submit')
+  it('absorbs on / by / due / deadline before a date; the last three make it the deadline', () => {
+    expect(parse('Essay due friday')).toMatchObject({
+      title: 'Essay',
+      deadline: { date: '2026-10-02' },
+    })
+    expect(parse('Essay due friday').when).toBeUndefined()
+    expect(parse('Submit by tomorrow')).toMatchObject({
+      title: 'Submit',
+      deadline: { date: '2026-09-30' },
+    })
+    expect(parse('Report deadline fri')).toMatchObject({
+      title: 'Report',
+      deadline: { date: '2026-10-02' },
+    })
+    expect(parse('Meet on friday')).toMatchObject({ title: 'Meet', when: { date: '2026-10-02' } })
     expect(parse('Meet on friday').title).toBe('Meet')
     const r = parse('Meet on friday')
     expect(r.tokens[0]).toMatchObject({ text: 'on friday', start: 5 })
@@ -349,7 +409,7 @@ describe('dates (today is Tue 2026-09-29)', () => {
 
   it('keeps only the first date', () => {
     const r = parse('Read tomorrow friday')
-    expect(r.due?.date).toBe('2026-09-30')
+    expect(r.when?.date).toBe('2026-09-30')
     expect(r.title).toBe('Read friday')
   })
 
@@ -361,7 +421,7 @@ describe('dates (today is Tue 2026-09-29)', () => {
 })
 
 describe('times', () => {
-  const time = (input: string): string | undefined => parse(input).due?.time
+  const time = (input: string): string | undefined => parse(input).when?.time
 
   it('2p / 2pm / 2 pm / 2:30pm', () => {
     expect(time('x 2p')).toBe('14:00')
@@ -428,17 +488,17 @@ describe('times', () => {
     expect(parse('Look at 9 examples').tokens).toEqual([])
     expect(parse('Look at 3 chapters tomorrow')).toMatchObject({
       title: 'Look at 3 chapters',
-      due: { date: '2026-09-30' },
+      when: { date: '2026-09-30' },
     })
     expect(parse('Call at 9 tomorrow')).toMatchObject({
       title: 'Call',
-      due: { date: '2026-09-30', time: '09:00' },
+      when: { date: '2026-09-30', time: '09:00' },
     })
-    expect(parse('Call at 9 !high').due?.time).toBe('09:00')
+    expect(parse('Call at 9 !high').when?.time).toBe('09:00')
     // A rejected "at 9" does not stop a later real time from being read.
     expect(parse('Look at 9 examples at 3pm')).toMatchObject({
       title: 'Look at 9 examples',
-      due: { date: '2026-09-29', time: '15:00' },
+      when: { date: '2026-09-29', time: '15:00' },
     })
   })
 
@@ -452,18 +512,19 @@ describe('times', () => {
     expect(time('Read 2p')).toBe('14:00')
   })
 
-  it('absorbs "by" before a time', () => {
+  it('absorbs "by" before a time, as the deadline', () => {
     expect(parse('Submit essay by 5pm')).toMatchObject({
       title: 'Submit essay',
-      due: { date: '2026-09-29', time: '17:00' },
+      deadline: { date: '2026-09-29', time: '17:00' },
     })
+    expect(parse('Submit essay by 5pm').when).toBeUndefined()
     expect(parse('Stand by 5 people').tokens).toEqual([])
   })
 
   it('a time with no date is due today; a date with a time keeps it', () => {
-    expect(parse('Call mom 2p').due).toEqual({ date: '2026-09-29', time: '14:00' })
-    expect(parse('Call mom tomorrow at 2p').due).toEqual({ date: '2026-09-30', time: '14:00' })
-    expect(parse('Call mom 2p tomorrow').due).toEqual({ date: '2026-09-30', time: '14:00' })
+    expect(parse('Call mom 2p').when).toEqual({ date: '2026-09-29', time: '14:00' })
+    expect(parse('Call mom tomorrow at 2p').when).toEqual({ date: '2026-09-30', time: '14:00' })
+    expect(parse('Call mom 2p tomorrow').when).toEqual({ date: '2026-09-30', time: '14:00' })
     expect(parse('Call mom tomorrow at 2p').title).toBe('Call mom')
   })
 
@@ -476,7 +537,7 @@ describe('times', () => {
 
   it('keeps only the first time', () => {
     const r = parse('x 2p 3p')
-    expect(r.due?.time).toBe('14:00')
+    expect(r.when?.time).toBe('14:00')
     expect(r.title).toBe('x 3p')
   })
 
@@ -500,7 +561,7 @@ describe('recurrence', () => {
       const r = parse(input)
       expect(r.recurrence).toEqual({ freq: 'daily', interval: 1, byWeekday: [] })
       expect(r.title).toBe('Flashcards')
-      expect(r.due).toEqual({ date: '2026-09-29' })
+      expect(r.when).toEqual({ date: '2026-09-29' })
     }
     expect(parse('x every day').tokens[0]).toMatchObject({
       kind: 'recurrence',
@@ -514,14 +575,14 @@ describe('recurrence', () => {
       const r = parse(input)
       expect(r.recurrence).toEqual({ freq: 'weekdays', interval: 1, byWeekday: [] })
       expect(r.title).toBe('Standup')
-      expect(r.due).toEqual({ date: '2026-09-29' })
+      expect(r.when).toEqual({ date: '2026-09-29' })
     }
     expect(parse('x every weekday').tokens[0]?.label).toBe('Every weekday')
   })
 
   it('anchors a weekday rule on Monday when typed at the weekend', () => {
     const saturday = new Date(2026, 9, 3, 10, 0).getTime()
-    expect(parseQuickAdd('Standup every weekday', { now: saturday }).due).toEqual({
+    expect(parseQuickAdd('Standup every weekday', { now: saturday }).when).toEqual({
       date: '2026-10-05',
     })
   })
@@ -538,12 +599,12 @@ describe('recurrence', () => {
     const r = parse('Lab report every monday')
     expect(r.recurrence).toEqual({ freq: 'weekly', interval: 1, byWeekday: [1] })
     expect(r.title).toBe('Lab report')
-    expect(r.due).toEqual({ date: '2026-10-05' })
+    expect(r.when).toEqual({ date: '2026-10-05' })
     expect(r.tokens[0]).toMatchObject({ text: 'every monday', label: 'Every Monday' })
     expect(parse('x every Fri').recurrence?.byWeekday).toEqual([5])
     expect(parse('x every sat').recurrence?.byWeekday).toEqual([6])
     // Every Tuesday, typed on a Tuesday: due today.
-    expect(parse('x every tuesday').due).toEqual({ date: '2026-09-29' })
+    expect(parse('x every tuesday').when).toEqual({ date: '2026-09-29' })
   })
 
   it('every <weekday>, <weekday> and <weekday>', () => {
@@ -555,7 +616,7 @@ describe('recurrence', () => {
     expect(parse('x every mon, wed and fri').title).toBe('x')
     expect(parse('x every tuesday thursday').recurrence?.byWeekday).toEqual([2, 4])
     expect(parse('x every mon, wed and fri').tokens[0]?.label).toBe('Every Mon, Wed, Fri')
-    expect(parse('x every mon, wed and fri').due).toEqual({ date: '2026-09-30' })
+    expect(parse('x every mon, wed and fri').when).toEqual({ date: '2026-09-30' })
     // A dangling "and" is not swallowed.
     expect(parse('x every monday and then more').title).toBe('x and then more')
     // Monday to Friday is just weekdays.
@@ -602,9 +663,9 @@ describe('recurrence', () => {
   })
 
   it('an explicit date wins over the recurrence anchor; time is kept', () => {
-    expect(parse('x every monday tomorrow').due).toEqual({ date: '2026-09-30' })
-    expect(parse('x every monday at 9').due).toEqual({ date: '2026-10-05', time: '09:00' })
-    expect(parse('x every day 8p').due).toEqual({ date: '2026-09-29', time: '20:00' })
+    expect(parse('x every monday tomorrow').when).toEqual({ date: '2026-09-30' })
+    expect(parse('x every monday at 9').when).toEqual({ date: '2026-10-05', time: '09:00' })
+    expect(parse('x every day 8p').when).toEqual({ date: '2026-09-29', time: '20:00' })
   })
 
   it('keeps only the first recurrence', () => {
@@ -663,7 +724,7 @@ describe('bare daily / weekly / weekdays', () => {
 
     const timed = parse('Standup weekdays at 9:30 !low')
     expect(timed.recurrence?.freq).toBe('weekdays')
-    expect(timed.due).toEqual({ date: '2026-09-29', time: '09:30' })
+    expect(timed.when).toEqual({ date: '2026-09-29', time: '09:30' })
     expect(timed.priority).toBe(1)
     expect(timed.title).toBe('Standup')
 
@@ -740,7 +801,7 @@ describe('quoted literals', () => {
     const input = 'Buy "tomorrow" milk'
     const r = parse(input)
     expect(r.title).toBe('Buy tomorrow milk')
-    expect(r.due).toBeUndefined()
+    expect(r.when).toBeUndefined()
     expect(r.tokens).toEqual([
       { kind: 'literal', ...span(input, '"tomorrow"'), text: '"tomorrow"', label: 'tomorrow' },
     ])
@@ -755,7 +816,7 @@ describe('quoted literals', () => {
   it('still parses unquoted tokens around a literal', () => {
     const r = parse('Read "chapter 4 tomorrow" notes tomorrow')
     expect(r.title).toBe('Read chapter 4 tomorrow notes')
-    expect(r.due).toEqual({ date: '2026-09-30' })
+    expect(r.when).toEqual({ date: '2026-09-30' })
   })
 
   it('supports curly quotes and keeps punctuation after the closing quote', () => {
@@ -766,9 +827,9 @@ describe('quoted literals', () => {
   it('an unclosed or mid-word quote is ordinary text', () => {
     expect(parse('Fix 5" pipe tomorrow')).toMatchObject({
       title: 'Fix 5" pipe',
-      due: { date: '2026-09-30' },
+      when: { date: '2026-09-30' },
     })
-    expect(parse('Say "hello tomorrow').due?.date).toBe('2026-09-30')
+    expect(parse('Say "hello tomorrow').when?.date).toBe('2026-09-30')
     expect(parse('Cut 3" and 4" pieces').tokens).toEqual([])
   })
 })
@@ -790,7 +851,7 @@ describe('title cleanup', () => {
   it('is empty when the input is only tokens', () => {
     const r = parse('tomorrow 2p #C182 !high ~2')
     expect(r.title).toBe('')
-    expect(r.due).toEqual({ date: '2026-09-30', time: '14:00' })
+    expect(r.when).toEqual({ date: '2026-09-30', time: '14:00' })
   })
 
   it('handles tabs and newlines between words', () => {
@@ -800,8 +861,8 @@ describe('title cleanup', () => {
 
 describe('week start', () => {
   it('drives "next week" and "next <weekday>" only', () => {
-    expect(parse('x next week', { weekStartsOn: 0 }).due?.date).toBe('2026-10-04')
-    expect(parse('x friday', { weekStartsOn: 0 }).due?.date).toBe('2026-10-02')
+    expect(parse('x next week', { weekStartsOn: 0 }).when?.date).toBe('2026-10-04')
+    expect(parse('x friday', { weekStartsOn: 0 }).when?.date).toBe('2026-10-02')
   })
 })
 
@@ -809,7 +870,7 @@ describe('DST and calendar edges (America/New_York)', () => {
   const at = (y: number, m: number, d: number, h = 10, min = 0): number =>
     new Date(y, m - 1, d, h, min).getTime()
   const on = (now: number, input: string, ctx: Partial<QuickAddContext> = {}): string | undefined =>
-    parseQuickAdd(input, { now, ...ctx }).due?.date
+    parseQuickAdd(input, { now, ...ctx }).when?.date
 
   it('spring forward (Sun 2026-03-08)', () => {
     const sat = at(2026, 3, 7, 23, 30)
@@ -829,11 +890,11 @@ describe('DST and calendar edges (America/New_York)', () => {
   })
 
   it('keeps wall-clock times as typed, even inside the spring-forward gap', () => {
-    expect(parseQuickAdd('x 2:30am', { now: at(2026, 3, 8, 8) }).due).toEqual({
+    expect(parseQuickAdd('x 2:30am', { now: at(2026, 3, 8, 8) }).when).toEqual({
       date: '2026-03-08',
       time: '02:30',
     })
-    expect(parseQuickAdd('x tomorrow 2:30am', { now: at(2026, 3, 7) }).due).toEqual({
+    expect(parseQuickAdd('x tomorrow 2:30am', { now: at(2026, 3, 7) }).when).toEqual({
       date: '2026-03-08',
       time: '02:30',
     })
@@ -944,7 +1005,9 @@ describe('quickAddDestination', () => {
     expect(quickAddDestination(parse('Call at 3'), '2026-09-29')).toBe('today')
     expect(quickAddDestination(parse('Read chapter 4 tomorrow 2p'), '2026-09-29')).toBe('upcoming')
     expect(quickAddDestination(parse('Standup weekdays'), '2026-09-29')).toBe('today')
-    expect(quickAddDestination({ due: { date: '2026-09-01' } }, '2026-09-29')).toBe('today')
+    expect(quickAddDestination({ when: { date: '2026-09-01' } }, '2026-09-29')).toBe('today')
+    // A deadline alone plans the task for its day.
+    expect(quickAddDestination(parse('Pay bill due fri'), '2026-09-29')).toBe('upcoming')
   })
 })
 

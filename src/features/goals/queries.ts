@@ -114,7 +114,8 @@ export function useCourseData(
       .filter((t) => t.milestoneId === course.id)
       .sort(
         (a, b) =>
-          (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') ||
+          (a.doDate ?? '9999').localeCompare(b.doDate ?? '9999') ||
+          (a.doTime ?? '99:99').localeCompare(b.doTime ?? '99:99') ||
           a.orderInDay - b.orderInDay ||
           a.order - b.order,
       )

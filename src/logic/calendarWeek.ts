@@ -9,6 +9,7 @@
 import { format } from 'date-fns'
 import type { HHmm, ISODate, Task } from '@/db/types'
 import { addDays, fromISODate, parseHHmm, startOfWeekISO, toHHmm, type WeekStart } from './dates'
+import { planDay, planTime } from './taskDates'
 
 export const DEFAULT_START_HOUR = 7
 export const DEFAULT_END_HOUR = 23
@@ -52,20 +53,29 @@ export function windowLabel(days: readonly ISODate[]): string {
 
 // ─── Blocks ─────────────────────────────────────────────────────────────────
 
-/** How long a task's block is, in minutes (at least `MIN_BLOCK_MINUTES`). */
-export function durationOf(task: Pick<Task, 'estimateMinutes' | 'estimatePomodoros'>): number {
+/**
+ * How long a task's block is, in minutes (at least `MIN_BLOCK_MINUTES`): its planned slot length,
+ * else its estimate.
+ */
+export function durationOf(
+  task: Pick<Task, 'estimateMinutes' | 'estimatePomodoros'> &
+    Partial<Pick<Task, 'durationMinutes'>>,
+): number {
   const minutes =
-    task.estimateMinutes !== null && task.estimateMinutes > 0
-      ? task.estimateMinutes
-      : task.estimatePomodoros !== null && task.estimatePomodoros > 0
-        ? task.estimatePomodoros * POMODORO_MINUTES
-        : 0
+    task.durationMinutes != null && task.durationMinutes > 0
+      ? task.durationMinutes
+      : task.estimateMinutes !== null && task.estimateMinutes > 0
+        ? task.estimateMinutes
+        : task.estimatePomodoros !== null && task.estimatePomodoros > 0
+          ? task.estimatePomodoros * POMODORO_MINUTES
+          : 0
   return Math.max(MIN_BLOCK_MINUTES, minutes)
 }
 
-/** Minutes after midnight of a task's time, or `null` when it has none (or a malformed one). */
-export function startMinutesOf(task: Pick<Task, 'dueTime'>): number | null {
-  return task.dueTime === null ? null : parseHHmm(task.dueTime)
+/** Minutes after midnight of a task's planned time, or `null` when it has none (or a malformed one). */
+export function startMinutesOf(task: Pick<Task, 'doDate' | 'doTime'>): number | null {
+  const time = planTime(task)
+  return time === null ? null : parseHHmm(time)
 }
 
 export interface TimeRange {
@@ -148,10 +158,16 @@ export interface DayTasks {
   timed: PlacedTask[]
 }
 
-/** Splits tasks over the visible days. All-day tasks keep the order given; tasks off screen are dropped. */
+/**
+ * Splits tasks over the visible days by the day they are planned for (`planDay`). All-day tasks keep
+ * the order given; tasks off screen are dropped.
+ */
 export function tasksByDay(tasks: readonly Task[], days: readonly ISODate[]): DayTasks[] {
   const byDay = new Map<ISODate, Task[]>(days.map((d) => [d, []]))
-  for (const task of tasks) if (task.dueDate !== null) byDay.get(task.dueDate)?.push(task)
+  for (const task of tasks) {
+    const day = planDay(task)
+    if (day !== null) byDay.get(day)?.push(task)
+  }
   return days.map((day) => {
     const list = byDay.get(day) ?? []
     return {
@@ -173,7 +189,10 @@ export function calendarOrderIds(tasks: readonly Task[], days: readonly ISODate[
 /** Tasks that fall on none of the visible days but have a date (for a "nothing this week" hint). */
 export function countOnDays(tasks: readonly Task[], days: readonly ISODate[]): number {
   const set = new Set(days)
-  return tasks.filter((t) => t.dueDate !== null && set.has(t.dueDate)).length
+  return tasks.filter((t) => {
+    const day = planDay(t)
+    return day !== null && set.has(day)
+  }).length
 }
 
 // ─── Time on the grid ───────────────────────────────────────────────────────
@@ -213,37 +232,40 @@ export function hourMarks(range: TimeRange): number[] {
 // ─── Keyboard nudges ────────────────────────────────────────────────────────
 
 export interface Slot {
-  dueDate: ISODate
-  dueTime: HHmm | null
+  doDate: ISODate
+  doTime: HHmm | null
 }
 
 /**
  * Where a task goes when nudged: `days` whole days, and/or a quarter hour earlier (`minutes < 0`) or
  * later. A task with a time moves to the next quarter hour in that direction (14:10 later is 14:15). A
  * task without one is first given `DEFAULT_TIME` when nudged later, and stays put when nudged earlier.
- * Returns `null` when nothing changes (no date, or already at the edge of the day).
+ * A task with only a deadline is moved from the day it is planned for (its deadline stays). Returns
+ * `null` when nothing changes (no date, or already at the edge of the day).
  */
 export function nudgeSlot(
-  task: Pick<Task, 'dueDate' | 'dueTime'>,
+  task: Pick<Task, 'doDate' | 'doTime' | 'dueDate'>,
   change: { days?: number; minutes?: number },
 ): Slot | null {
-  if (task.dueDate === null) return null
-  const dueDate = addDays(task.dueDate, change.days ?? 0)
-  let dueTime: HHmm | null = task.dueTime
+  const day = planDay(task)
+  if (day === null) return null
+  const doDate = addDays(day, change.days ?? 0)
+  const time = planTime(task)
+  let doTime: HHmm | null = time
   const minutes = change.minutes ?? 0
   if (minutes !== 0) {
     const at = startMinutesOf(task)
     if (at === null) {
       if (minutes < 0) return null
-      dueTime = DEFAULT_TIME
+      doTime = DEFAULT_TIME
     } else {
       const step = Math.abs(minutes)
       const next =
         minutes > 0 ? Math.floor(at / step) * step + step : Math.ceil(at / step) * step - step
       const clamped = Math.min(24 * 60 - SNAP_MINUTES, Math.max(0, next))
-      dueTime = toHHmm(clamped)
+      doTime = toHHmm(clamped)
     }
   }
-  if (dueDate === task.dueDate && dueTime === task.dueTime) return null
-  return { dueDate, dueTime }
+  if (doDate === task.doDate && doTime === time) return null
+  return { doDate, doTime }
 }

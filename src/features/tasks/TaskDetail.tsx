@@ -9,7 +9,7 @@ import { Button } from '@/ui/Button'
 import { Checkbox } from '@/ui/Checkbox'
 import { Input } from '@/ui/Input'
 import { SegmentedControl } from '@/ui/SegmentedControl'
-import { DueEditor } from './DueEditor'
+import { DeadlineEditor, DueEditor } from './DueEditor'
 import { InlineTitle } from './InlineTitle'
 import { NotesField } from './NotesField'
 import { priorityLabel } from './priority'
@@ -178,8 +178,12 @@ export function TaskDetail({ task, variant, focusTagsNonce = 0, onDeleted }: Tas
           />
         </Property>
 
-        <Property label="Due">
+        <Property label="Date">
           <DueEditor id={dueId} size="sm" task={task} />
+        </Property>
+
+        <Property label="Deadline">
+          <DeadlineEditor size="sm" task={task} />
         </Property>
 
         <Property label="Priority">

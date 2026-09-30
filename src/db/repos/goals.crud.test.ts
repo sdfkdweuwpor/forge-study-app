@@ -63,10 +63,15 @@ async function seedGoal(): Promise<void> {
   ])
 }
 
+/** The goal's study sessions, in plan order (reviews and weekly markers left out). */
 const scheduled = async (): Promise<Task[]> =>
   (await db.tasks.toArray())
-    .filter((t) => t.source === 'schedule')
-    .sort((x, y) => (x.dueDate ?? '').localeCompare(y.dueDate ?? '') || x.orderInDay - y.orderInDay)
+    .filter((t) => t.source === 'schedule' && t.kind === 'study')
+    .sort(
+      (x, y) =>
+        `${x.doDate ?? ''} ${x.doTime ?? ''}`.localeCompare(`${y.doDate ?? ''} ${y.doTime ?? ''}`) ||
+        x.orderInDay - y.orderInDay,
+    )
 
 const keys = async (): Promise<string[]> => (await scheduled()).map((t) => t.scheduleKey ?? '')
 
@@ -109,9 +114,14 @@ describe('createGoalWithCourses', () => {
     const tasks = await scheduled()
     expect(tasks.length).toBeGreaterThan(0)
     expect(tasks.every((t) => t.goalId === created.goal.id)).toBe(true)
-    // 4 h + 2 h at one hour a day, Mon–Fri, from Mon 5 Oct: six study days, so it ends Mon 12 Oct.
-    expect(created.goal.projection?.end).toBe('2026-10-12')
+    // 4 h + 2 h in one-hour windows Mon–Fri, paced to finish (with the buffer) by Dec 31.
+    expect((created.goal.projection?.end ?? '') <= '2026-12-31').toBe(true)
+    expect(created.goal.planning.asap).toBe(false)
+    expect(created.goal.planning.paceMinutesPerStudyDay).toBeGreaterThan(0)
     expect(tasks.reduce((sum, t) => sum + (t.estimateMinutes ?? 0), 0)).toBe(360)
+    expect(tasks.every((t) => t.doTime !== null && t.durationMinutes === t.estimateMinutes)).toBe(
+      true,
+    )
     // The second course waits for the first.
     const [a, b] = created.milestones
     expect(b?.prerequisiteIds).toEqual([a?.id])
@@ -339,7 +349,7 @@ describe('setMilestoneStatus', () => {
     expect(result?.milestone).toMatchObject({ status: 'done', completedAt: MON })
     expect(await keys()).toEqual(['b1:1', 'b1:2', 'b1:3'])
     const first = (await scheduled())[0]
-    expect(first?.dueDate).toBe(TODAY)
+    expect(first?.doDate).toBe(TODAY)
     expect((await db.goals.get('goal-1'))?.projection?.end).not.toBe(endBefore)
     expect(types()).toContain('milestone.completed')
 

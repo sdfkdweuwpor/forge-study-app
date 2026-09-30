@@ -3,7 +3,11 @@
  * store them; this file gives them meaning. Time is injected as `today` (a local `ISODate`).
  *
  * Conventions: an empty array in a filter means "no restriction" (nothing ticked in the UI); tag
- * comparisons ignore case and a leading `#`; `null` due dates / estimates always sort last.
+ * comparisons ignore case and a leading `#`; `null` dates / estimates always sort last.
+ *
+ * Dates (schema v2): the date filter, the "date" sort and the date groups read the day a task is
+ * planned for (`planDay`: its do date, else its deadline), not the deadline. The filter and sort keep
+ * their stored names (`due`) so saved views and links still work.
  */
 import type {
   ID,
@@ -17,6 +21,7 @@ import type {
 } from '@/db/types'
 import { toPlainText } from './blocks'
 import { addDays, endOfWeekISO, type WeekStart } from './dates'
+import { planDay, planTime } from './taskDates'
 import { normalizeTag } from './tagColor'
 
 export const PRIORITY_LABELS: Readonly<Record<Priority, string>> = {
@@ -41,9 +46,10 @@ export interface QueryContext {
 // ─── Filtering ──────────────────────────────────────────────────────────────
 
 /**
- * Due-date filter semantics: `overdue` = past due and not done; `today`/`tomorrow` = exactly that day;
- * `week` = today through the end of the current week (overdue excluded); `upcoming` = after today;
- * `none` = no due date; `any` = no restriction.
+ * Date filter semantics, over the planned day (`planDay`): `overdue` = carried over (planned before
+ * today and not done); `today`/`tomorrow` = exactly that day; `week` = today through the end of the
+ * current week (carried-over work excluded); `upcoming` = after today; `none` = no date at all; `any` =
+ * no restriction.
  */
 function dueMatcher(due: TaskDueFilter, ctx: QueryContext): (task: Task) => boolean {
   const { today } = ctx
@@ -51,21 +57,30 @@ function dueMatcher(due: TaskDueFilter, ctx: QueryContext): (task: Task) => bool
     case 'any':
       return () => true
     case 'none':
-      return (t) => t.dueDate === null
+      return (t) => planDay(t) === null
     case 'overdue':
-      return (t) => t.dueDate !== null && t.dueDate < today && t.status !== 'done'
+      return (t) => {
+        const d = planDay(t)
+        return d !== null && d < today && t.status !== 'done'
+      }
     case 'today':
-      return (t) => t.dueDate === today
+      return (t) => planDay(t) === today
     case 'tomorrow': {
       const tomorrow = addDays(today, 1)
-      return (t) => t.dueDate === tomorrow
+      return (t) => planDay(t) === tomorrow
     }
     case 'week': {
       const end = endOfWeekISO(today, ctx.weekStartsOn ?? 1)
-      return (t) => t.dueDate !== null && t.dueDate >= today && t.dueDate <= end
+      return (t) => {
+        const d = planDay(t)
+        return d !== null && d >= today && d <= end
+      }
     }
     case 'upcoming':
-      return (t) => t.dueDate !== null && t.dueDate > today
+      return (t) => {
+        const d = planDay(t)
+        return d !== null && d > today
+      }
   }
 }
 
@@ -144,14 +159,16 @@ function estimateOf(task: Task): number | null {
 }
 
 function compareDue(a: Task, b: Task): number {
-  // Earlier day first; within a day, all-day (no time) before timed, then by time.
-  if (a.dueDate !== b.dueDate) {
-    return a.dueDate === null ? 1 : b.dueDate === null ? -1 : a.dueDate < b.dueDate ? -1 : 1
-  }
-  if (a.dueTime === b.dueTime) return 0
-  if (a.dueTime === null) return -1
-  if (b.dueTime === null) return 1
-  return a.dueTime < b.dueTime ? -1 : 1
+  // Earlier planned day first; within a day, all-day (no time) before timed, then by time.
+  const da = planDay(a)
+  const db = planDay(b)
+  if (da !== db) return da === null ? 1 : db === null ? -1 : da < db ? -1 : 1
+  const ta = planTime(a)
+  const tb = planTime(b)
+  if (ta === tb) return 0
+  if (ta === null) return -1
+  if (tb === null) return 1
+  return ta < tb ? -1 : 1
 }
 
 function compareStable(a: Task, b: Task): number {
@@ -173,7 +190,7 @@ export function taskComparator(sort: TaskSort): (a: Task, b: Task) => number {
         primary = m * (a.order - b.order)
         break
       case 'due': {
-        if (a.dueDate === null || b.dueDate === null) primary = compareDue(a, b)
+        if (planDay(a) === null || planDay(b) === null) primary = compareDue(a, b)
         else primary = m * compareDue(a, b)
         if (primary === 0) primary = b.priority - a.priority
         break
@@ -213,23 +230,23 @@ export function sortTasks(tasks: readonly Task[], sort: TaskSort): Task[] {
 export type DateBucketId = 'overdue' | 'today' | 'tomorrow' | 'week' | 'later' | 'none' | 'earlier'
 
 export const DATE_BUCKETS: ReadonlyArray<{ id: DateBucketId; label: string }> = [
-  { id: 'overdue', label: 'Overdue' },
+  { id: 'overdue', label: 'Carried over' },
   { id: 'today', label: 'Today' },
   { id: 'tomorrow', label: 'Tomorrow' },
   { id: 'week', label: 'This week' },
   { id: 'later', label: 'Later' },
   { id: 'none', label: 'No date' },
-  // Finished tasks whose due date has passed: not "overdue", so they get their own quiet bucket.
+  // Finished tasks planned for a past day: not carried over, so they get their own quiet bucket.
   { id: 'earlier', label: 'Earlier' },
 ]
 
 /**
- * Which date bucket a task belongs to. "This week" runs from the day after tomorrow to the end of the
- * current week (`weekStartsOn`); anything later is "Later". A done task with a past due date is
- * "Earlier", never "Overdue".
+ * Which date bucket a task belongs to, by its planned day. "This week" runs from the day after tomorrow
+ * to the end of the current week (`weekStartsOn`); anything later is "Later". Open work planned for an
+ * earlier day is "Carried over"; a done task planned for an earlier day is "Earlier".
  */
 export function dateBucketOf(task: Task, ctx: QueryContext): DateBucketId {
-  const due = task.dueDate
+  const due = planDay(task)
   if (due === null) return 'none'
   const { today } = ctx
   if (due < today) return task.status === 'done' ? 'earlier' : 'overdue'
@@ -303,7 +320,7 @@ function groupByProject(tasks: readonly Task[], projects: readonly ProjectRef[])
 
 /**
  * Splits tasks into labelled groups, keeping the input order inside each group (sort first).
- * `date`: Overdue, Today, Tomorrow, This week, Later, No date (Earlier for finished past-due work);
+ * `date`: Carried over, Today, Tomorrow, This week, Later, No date (Earlier for finished past work);
  * `project`: by course, else by goal, in the order of `ctx.projects`, then "No project";
  * `none`: a single unlabelled group. Empty groups are omitted.
  */

@@ -10,6 +10,7 @@ import {
 } from '@/db/repos/trash'
 import { createTask } from '@/db/repos/tasks'
 import type { Goal, Milestone, Resource, Unit } from '@/db/types'
+import { planningFromAvailability, wguPlannedAssessments } from '@/logic/schemaV2'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 
@@ -39,6 +40,10 @@ const goal = (id: string): Goal => ({
   startDate: '2026-08-15',
   targetDate: '2027-03-31',
   availability: { minutesByWeekday: [0, 60, 60, 60, 60, 60, 0], daysOff: [] },
+  planning: planningFromAvailability(
+    { minutesByWeekday: [0, 60, 60, 60, 60, 60, 0], daysOff: [] },
+    '2027-03-31',
+  ),
   terms: [],
   notes: [],
   order: 0,
@@ -70,6 +75,7 @@ const course = (id: string, goalId: string, code: string, title: string): Milest
   projectedStart: null,
   projectedEnd: null,
   completedAt: null,
+  selfRating: null,
 })
 
 const unit = (id: string, goalId: string, milestoneId: string): Unit => ({
@@ -84,6 +90,10 @@ const unit = (id: string, goalId: string, milestoneId: string): Unit => ({
   difficulty: 2,
   status: 'todo',
   completedAt: null,
+  selfRating: null,
+  estimateSource: 'hours',
+  baseEstimateMinutes: 90,
+  optional: false,
 })
 
 describe('moveToTrash and restoreFromTrash', () => {
@@ -225,6 +235,83 @@ describe('moveToTrash and restoreFromTrash', () => {
     expect(await db.tasks.count()).toBe(2)
     await settleDomainEvents()
     expect(events.filter((e) => e.type === 'goal.changed').length).toBeGreaterThan(0)
+  })
+
+  it('takes the v2 plan rows with a goal: planned assessments, proposals, questions, readiness', async () => {
+    await db.goals.add(goal('g1'))
+    const c = course('m1', 'g1', 'C182', 'Introduction to IT')
+    await db.milestones.add(c)
+    await db.plannedAssessments.bulkAdd(wguPlannedAssessments([c], NOW))
+    await db.planProposals.add({
+      id: 'p1',
+      goalId: 'g1',
+      kind: 'extendDate',
+      status: 'pending',
+      computedFor: '2026-09-29',
+      title: 'Move the finish date',
+      detail: '',
+      apply: { targetDate: '2027-04-30' },
+      preview: { moved: [], added: [], removed: [] },
+      baseRevision: '0-0',
+      decidedAt: null,
+    })
+    await db.practiceQuestions.add({
+      id: 'q1',
+      goalId: 'g1',
+      milestoneId: 'm1',
+      unitId: null,
+      prompt: 'What does a NIC do?',
+      choices: null,
+      answer: 'Connects a computer to a network',
+      explanation: '',
+      tags: [],
+      source: 'user',
+      noteRef: null,
+      suspended: false,
+    })
+    await db.questionAttempts.add({
+      id: 'qa1',
+      questionId: 'q1',
+      goalId: 'g1',
+      milestoneId: 'm1',
+      at: NOW,
+      day: '2026-09-29',
+      correct: false,
+      answer: 'Stores files',
+      requeueOn: '2026-09-30',
+    })
+    await db.readiness.add({
+      id: 'm1',
+      goalId: 'g1',
+      milestoneId: 'm1',
+      unitId: null,
+      score: 0.6,
+      extraReviewMinutes: 30,
+      inputs: { paPct: 60, cardRetention: null, questionAccuracy: null, unitsDonePct: 0.5 },
+      computedAt: NOW,
+    })
+
+    const result = await moveToTrash('goals', 'g1', { now: NOW })
+    expect(Object.keys(result!.item.payload).sort()).toEqual([
+      'goals',
+      'milestones',
+      'planProposals',
+      'plannedAssessments',
+      'practiceQuestions',
+      'questionAttempts',
+      'readiness',
+    ])
+    for (const t of [
+      db.plannedAssessments,
+      db.planProposals,
+      db.practiceQuestions,
+      db.questionAttempts,
+      db.readiness,
+    ])
+      expect(await t.count()).toBe(0)
+    await restoreFromTrash(result!.trashId)
+    expect(await db.plannedAssessments.get('m1:oa')).toMatchObject({ kind: 'exam', goalId: 'g1' })
+    expect(await db.questionAttempts.get('qa1')).toMatchObject({ requeueOn: '2026-09-30' })
   })
 
   it('emits task.deleted for every trashed task', async () => {

@@ -186,6 +186,7 @@
 
 .chip,
 .due,
+.deadline,
 .icon {
   display: inline-flex;
   align-items: center;
@@ -201,7 +202,23 @@
   color: var(--text);
 }
 
-.due[data-tone='overdue'] {
+/* Carried over from an earlier day: said plainly, not in a warning colour (no guilt). */
+.due[data-tone='carried'] {
+  color: var(--text-muted);
+}
+
+/* A hard deadline: a small, calm chip. Amber only on the day itself; never red. */
+.deadline {
+  height: 18px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.deadline[data-tone='dueToday'] {
+  background: var(--warning-soft);
   color: var(--warning-text);
   font-weight: var(--fw-medium);
 }

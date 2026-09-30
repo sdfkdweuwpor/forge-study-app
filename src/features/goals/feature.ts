@@ -79,6 +79,7 @@ const commands: CommandDef[] = [
  * sidebar tree, palette search and commands. "Go to Goals" already exists in the app's own commands.
  * Other features add to a goal or course page through the `goal.header`, `goal.panels` and
  * `course.panels` slots; the import panel (5C) registers its `goal.panels` contribution in `slots` below.
+ * `onAppStart` runs the daily plan roll-forward (schema v2).
  */
 const manifest: FeatureManifest = {
   id: 'goals',
@@ -93,6 +94,12 @@ const manifest: FeatureManifest = {
   commands,
   search: [goalSearch],
   slots: [{ slot: 'sidebar.nav.goals', id: 'goals.tree', order: 10, component: GoalsNav }],
+  // At the first open of a day, missed plan items roll forward (applied only when slightly behind;
+  // far behind writes proposals instead). Loaded on demand: the planner is not in the first chunk.
+  onAppStart: async ({ now }) => {
+    const { runDailyPlanning } = await import('@/db/repos/proposals')
+    await runDailyPlanning({ now })
+  },
 }
 
 export default withPlanImport(manifest)

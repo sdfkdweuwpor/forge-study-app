@@ -23,8 +23,8 @@ const task = (over: Partial<Task> = {}): Task => ({
   notes: [],
   status: 'todo',
   priority: 0,
-  dueDate: null,
-  dueTime: null,
+  doDate: null,
+  doTime: null,
   estimatePomodoros: null,
   estimateMinutes: null,
   tags: [],
@@ -44,6 +44,13 @@ const task = (over: Partial<Task> = {}): Task => ({
   startedAt: null,
   completedAt: null,
   completedDay: null,
+  durationMinutes: null,
+  autoSlot: false,
+  kind: 'task',
+  assessmentId: null,
+  sync: null,
+  dueDate: null,
+  dueTime: null,
   ...over,
 })
 
@@ -65,9 +72,9 @@ describe('inList', () => {
     source: 'schedule',
     goalId: 'g',
     milestoneId: 'm',
-    dueDate: '2026-09-29',
+    doDate: '2026-09-29',
   })
-  const future = task({ dueDate: '2026-10-02' })
+  const future = task({ doDate: '2026-10-02' })
   const done = task({ status: 'done', completedAt: 5 })
 
   it('inbox holds open tasks that are not tied to a goal or course, dated or not', () => {
@@ -80,10 +87,10 @@ describe('inList', () => {
 
   it('upcoming holds open tasks due after today', () => {
     expect(inList(future, 'upcoming', ctx)).toBe(true)
-    expect(inList(task({ dueDate: TODAY }), 'upcoming', ctx)).toBe(false)
-    expect(inList(task({ dueDate: '2026-09-20' }), 'upcoming', ctx)).toBe(false)
+    expect(inList(task({ doDate: TODAY }), 'upcoming', ctx)).toBe(false)
+    expect(inList(task({ doDate: '2026-09-20' }), 'upcoming', ctx)).toBe(false)
     expect(inList(personal, 'upcoming', ctx)).toBe(false)
-    expect(inList(task({ dueDate: '2026-10-02', status: 'done' }), 'upcoming', ctx)).toBe(false)
+    expect(inList(task({ doDate: '2026-10-02', status: 'done' }), 'upcoming', ctx)).toBe(false)
   })
 
   it('all holds every open task, including doing', () => {

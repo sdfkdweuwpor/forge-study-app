@@ -8,7 +8,8 @@
  * finished tasks). The functions take plain rows so those phases can feed them better data.
  */
 import type { Goal, ID, ISODate, Milestone, Session, StreakDay } from '@/db/types'
-import { addDays, diffDays } from './dates'
+import { format } from 'date-fns'
+import { addDays, diffDays, fromISODate } from './dates'
 
 // ─── Greeting ───────────────────────────────────────────────────────────────
 
@@ -223,10 +224,16 @@ export function countdownText(days: number): string {
   return days > 0 ? `${n} ${unit}` : `${n} ${unit} overdue`
 }
 
-/** The label a rolled-over row shows in place of its date: "1 day overdue", "5 days overdue". */
-export function overdueText(daysOverdue: number): string {
-  const n = Math.max(1, Math.round(daysOverdue))
-  return `${n} ${n === 1 ? 'day' : 'days'} overdue`
+/**
+ * What a carried-over row shows in place of its date: the day it came from, never how late it is
+ * (no guilt). "from Tue" within the last week, else "from Sep 20" (with the year when it differs).
+ */
+export function carriedFromText(from: ISODate, today: ISODate): string {
+  const days = diffDays(today, from)
+  const date = fromISODate(from)
+  if (days >= 1 && days < 7) return `from ${format(date, 'EEE')}`
+  const sameYear = date.getFullYear() === fromISODate(today).getFullYear()
+  return `from ${format(date, sameYear ? 'MMM d' : 'MMM d, yyyy')}`
 }
 
 /**

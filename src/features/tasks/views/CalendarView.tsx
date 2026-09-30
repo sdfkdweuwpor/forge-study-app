@@ -42,6 +42,7 @@ import {
   type TimeRange,
 } from '@/logic/calendarWeek'
 import { fromISODate, parseHHmm } from '@/logic/dates'
+import { planDay, planTime } from '@/logic/taskDates'
 import { formatDayLong, formatTimeOfDay } from '@/logic/taskDisplay'
 import { Button } from '@/ui/Button'
 import { IconButton } from '@/ui/IconButton'
@@ -251,7 +252,7 @@ export function CalendarView({
       pending
         ? tasks.map((t) =>
             t.id === pending.id
-              ? { ...t, dueDate: pending.slot.dueDate, dueTime: pending.slot.dueTime }
+              ? { ...t, doDate: pending.slot.doDate, doTime: pending.slot.doTime }
               : t,
           )
         : tasks,
@@ -322,8 +323,8 @@ export function CalendarView({
     const drop = targetOf(event) ?? target
     finish()
     if (!task || !drop) return
-    if (drop.day === task.dueDate && drop.time === task.dueTime) return
-    const slot: Slot = { dueDate: drop.day, dueTime: drop.time }
+    if (drop.day === task.doDate && drop.time === planTime(task)) return
+    const slot: Slot = { doDate: drop.day, doTime: drop.time }
     const token = (settle.current += 1)
     setPending({ id: task.id, slot })
     void onReschedule(task, slot).then((ok) => {
@@ -473,7 +474,7 @@ export function CalendarView({
           <div className={styles.bodyWrap}>
             {!onScreen ? (
               <p className={styles.quiet}>
-                Nothing is scheduled {week ? 'this week' : 'on these days'}. Tasks with a due date
+                Nothing is scheduled {week ? 'this week' : 'on these days'}. Tasks with a date
                 show up here.
               </p>
             ) : null}
@@ -520,7 +521,7 @@ export function CalendarView({
                 task={activeTask}
                 variant={activeSpan ? 'block' : 'chip'}
                 {...(activeSpan ? { span: activeSpan } : {})}
-                day={activeTask.dueDate ?? today}
+                day={planDay(activeTask) ?? today}
               />
             </div>
           ) : null}

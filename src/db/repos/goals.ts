@@ -698,15 +698,7 @@ export async function deleteUnit(id: ID, opts: GoalWriteOptions = {}): Promise<T
 
 /** Why a rebalance ran. `wizard` (plan accepted) also resets the goal's baseline end date. */
 export type RebalanceReason =
-  | 'daily'
-  | 'wizard'
-  | 'import'
-  | 'edit'
-  | 'complete'
-  | 'skip'
-  | 'catchUp'
-  | 'manual'
-  | 'proposal'
+  'daily' | 'wizard' | 'import' | 'edit' | 'complete' | 'skip' | 'catchUp' | 'manual' | 'proposal'
 
 export interface RebalanceOptions {
   /** Injected clock for tests; defaults to `Date.now()`. `today` is its local day. */

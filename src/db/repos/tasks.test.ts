@@ -62,7 +62,7 @@ describe('createTask', () => {
       title: 'Read chapter 4',
       status: 'todo',
       priority: 0,
-      dueDate: null,
+      doDate: null,
       tags: ['C182', 'reading'],
       source: 'user',
       order: NOW,
@@ -84,10 +84,10 @@ describe('createTask', () => {
   it('anchors a recurring task with no date to its first occurrence', async () => {
     const sundays: RecurrenceRule = { freq: 'weekly', interval: 1, byWeekday: [0] }
     const task = await createTask({ title: 'Weekly review', recurrence: sundays }, { now: NOW })
-    expect(task.dueDate).toBe('2026-10-04')
+    expect(task.doDate).toBe('2026-10-04')
     const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
     expect(
-      (await createTask({ title: 'Flashcards', recurrence: daily }, { now: NOW })).dueDate,
+      (await createTask({ title: 'Flashcards', recurrence: daily }, { now: NOW })).doDate,
     ).toBe(TODAY)
   })
 })
@@ -210,8 +210,8 @@ describe('recurring tasks', () => {
       {
         title: 'Weekly review',
         recurrence: sundays,
-        dueDate: '2026-09-27',
-        dueTime: '18:00',
+        doDate: '2026-09-27',
+        doTime: '18:00',
         priority: 2,
         tags: ['review'],
         subtasks: [{ id: 's1', title: 'Check C779 pace', done: false }],
@@ -227,8 +227,8 @@ describe('recurring tasks', () => {
     expect(result.next).toMatchObject({
       title: 'Weekly review',
       status: 'todo',
-      dueDate: '2026-10-04',
-      dueTime: '18:00',
+      doDate: '2026-10-04',
+      doTime: '18:00',
       priority: 2,
       tags: ['review'],
       seriesId: task.id,
@@ -277,7 +277,7 @@ describe('recurring tasks', () => {
     const a = await weekly()
     const first = await completeTask(a.id, { now: NOW })
     const generated = first.next
-    expect(generated?.dueDate).toBe('2026-10-04')
+    expect(generated?.doDate).toBe('2026-10-04')
     // Edit the generated instance so reopening keeps it, then reopen and finish the first one again.
     await updateTask(generated?.id ?? '', { priority: 4 }, { now: NOW + 20 })
     await db.tasks.update(generated?.id ?? '', { updatedAt: NOW + 1_000 })
@@ -285,7 +285,7 @@ describe('recurring tasks', () => {
     const again = await completeTask(a.id, { now: NOW + 40 })
     expect(again.next).toBeNull()
     const open = (await db.tasks.toArray()).filter((t) => t.status !== 'done')
-    expect(open.filter((t) => t.dueDate === '2026-10-04')).toHaveLength(1)
+    expect(open.filter((t) => t.doDate === '2026-10-04')).toHaveLength(1)
     // Undoing that second completion has nothing generated to remove: the edited one is still there.
     await again.undo()
     expect(await db.tasks.get(generated?.id ?? '')).toMatchObject({ priority: 4 })
@@ -310,11 +310,11 @@ describe('recurring tasks', () => {
   it('a task finished days late is next due after today, not in the past', async () => {
     const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
     const task = await createTask(
-      { title: 'Flashcards', recurrence: daily, dueDate: '2026-09-25' },
+      { title: 'Flashcards', recurrence: daily, doDate: '2026-09-25' },
       { now: NOW },
     )
     const result = await completeTask(task.id, { now: NOW })
-    expect(result.next?.dueDate).toBe('2026-09-30')
+    expect(result.next?.doDate).toBe('2026-09-30')
   })
 })
 
@@ -323,14 +323,14 @@ describe('updateTask', () => {
     const task = await createTask({ title: 'Read chapter 4', priority: 1 }, { now: NOW })
     const result = await updateTask(task.id, {
       priority: 3,
-      dueDate: '2026-09-30',
+      doDate: '2026-09-30',
       title: 'Read chapter 4',
     })
-    expect(result?.task).toMatchObject({ priority: 3, dueDate: '2026-09-30' })
+    expect(result?.task).toMatchObject({ priority: 3, doDate: '2026-09-30' })
     await result?.undo()
     expect(await db.tasks.get(task.id)).toMatchObject({
       priority: 1,
-      dueDate: null,
+      doDate: null,
       title: 'Read chapter 4',
     })
   })
@@ -359,7 +359,7 @@ describe('updateTask', () => {
       { recurrence: { freq: 'weekly', interval: 1, byWeekday: [0] } },
       { now: NOW },
     )
-    expect(result?.task.dueDate).toBe('2026-10-04')
+    expect(result?.task.doDate).toBe('2026-10-04')
   })
 
   it('pins a scheduled task when its date changes, but not for other edits', async () => {
@@ -367,16 +367,83 @@ describe('updateTask', () => {
       {
         title: 'C779 · Unit 3: CSS layout (45 min)',
         source: 'schedule',
-        dueDate: TODAY,
+        doDate: TODAY,
         scheduleKey: 'u3:1',
       },
       { now: NOW },
     )
     expect((await updateTask(chunk.id, { priority: 2 }))?.task.schedulePinned).toBe(false)
-    const moved = await updateTask(chunk.id, { dueDate: '2026-10-02' })
+    const moved = await updateTask(chunk.id, { doDate: '2026-10-02' })
     expect(moved?.task.schedulePinned).toBe(true)
     await moved?.undo()
-    expect(await db.tasks.get(chunk.id)).toMatchObject({ dueDate: TODAY, schedulePinned: false })
+    expect(await db.tasks.get(chunk.id)).toMatchObject({ doDate: TODAY, schedulePinned: false })
+  })
+})
+
+describe('do dates and deadlines (schema v2)', () => {
+  it('creates a task with a deadline and no do date, with the v2 defaults', async () => {
+    const task = await createTask(
+      { title: 'Pay phone bill', dueDate: '2026-10-02', dueTime: '17:00' },
+      { now: NOW },
+    )
+    expect(task).toMatchObject({
+      doDate: null,
+      doTime: null,
+      dueDate: '2026-10-02',
+      dueTime: '17:00',
+      durationMinutes: null,
+      autoSlot: false,
+      kind: 'task',
+      assessmentId: null,
+      sync: null,
+    })
+    const chunk = await createTask(
+      { title: 'C779 · Unit 3', source: 'schedule', scheduleKey: 'u3:1' },
+      { now: NOW },
+    )
+    expect(chunk.kind).toBe('study')
+  })
+
+  it('a deadline edit never pins a scheduled task; a do-date edit does', async () => {
+    const chunk = await createTask(
+      { title: 'Review for OA', source: 'schedule', doDate: TODAY, scheduleKey: 'review:a:1' },
+      { now: NOW },
+    )
+    expect((await updateTask(chunk.id, { dueDate: '2026-10-05' }))?.task.schedulePinned).toBe(false)
+    expect((await updateTask(chunk.id, { doTime: '19:00' }))?.task.schedulePinned).toBe(true)
+  })
+
+  it('moving a task changes when to do it, never its deadline', async () => {
+    const task = await createTask(
+      { title: 'Pay tuition', doDate: TODAY, dueDate: '2026-10-08' },
+      { now: NOW },
+    )
+    const moved = await moveTask(task.id, { doDate: '2026-10-01', doTime: '09:00' })
+    expect(moved?.task).toMatchObject({
+      doDate: '2026-10-01',
+      doTime: '09:00',
+      dueDate: '2026-10-08',
+    })
+  })
+
+  it('the next instance of a recurring task keeps its deadline the same distance away', async () => {
+    const weekly: RecurrenceRule = { freq: 'weekly', interval: 1, byWeekday: [2] }
+    const task = await createTask(
+      { title: 'Timesheet', recurrence: weekly, doDate: TODAY, dueDate: '2026-10-01' },
+      { now: NOW },
+    )
+    const result = await completeTask(task.id, { now: NOW })
+    expect(result.next).toMatchObject({ doDate: '2026-10-06', dueDate: '2026-10-08' })
+  })
+
+  it('skipping a recurring task moves its do date and its deadline together', async () => {
+    const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
+    const task = await createTask(
+      { title: 'Stretch', recurrence: daily, doDate: TODAY, dueDate: TODAY },
+      { now: NOW },
+    )
+    const skipped = await skipTask(task.id, { now: NOW })
+    expect(skipped?.task).toMatchObject({ doDate: '2026-09-30', dueDate: '2026-09-30' })
   })
 })
 
@@ -426,9 +493,9 @@ describe('setTaskStatus', () => {
 
 describe('skipTask', () => {
   it('hides a task for today and undo brings it back', async () => {
-    const task = await createTask({ title: 'Email mentor', dueDate: TODAY }, { now: NOW })
+    const task = await createTask({ title: 'Email mentor', doDate: TODAY }, { now: NOW })
     const result = await skipTask(task.id, { now: NOW })
-    expect(result?.task).toMatchObject({ skippedOn: TODAY, dueDate: TODAY })
+    expect(result?.task).toMatchObject({ skippedOn: TODAY, doDate: TODAY })
     await result?.undo()
     expect((await db.tasks.get(task.id))?.skippedOn).toBeNull()
   })
@@ -436,13 +503,13 @@ describe('skipTask', () => {
   it('moves a recurring task of your own to its next occurrence', async () => {
     const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
     const task = await createTask(
-      { title: 'Flashcards', recurrence: daily, dueDate: TODAY },
+      { title: 'Flashcards', recurrence: daily, doDate: TODAY },
       { now: NOW },
     )
     const result = await skipTask(task.id, { now: NOW })
-    expect(result?.task.dueDate).toBe('2026-09-30')
+    expect(result?.task.doDate).toBe('2026-09-30')
     await result?.undo()
-    expect((await db.tasks.get(task.id))?.dueDate).toBe(TODAY)
+    expect((await db.tasks.get(task.id))?.doDate).toBe(TODAY)
   })
 
   it('ignores done and missing tasks', async () => {
@@ -531,26 +598,26 @@ describe('moveTask', () => {
       {
         title: 'C779 · Unit 4: JavaScript basics (60 min)',
         source: 'schedule',
-        dueDate: TODAY,
-        dueTime: '10:00',
+        doDate: TODAY,
+        doTime: '10:00',
       },
       { now: NOW },
     )
-    const result = await moveTask(chunk.id, { dueDate: '2026-10-01', dueTime: '14:00' })
+    const result = await moveTask(chunk.id, { doDate: '2026-10-01', doTime: '14:00' })
     expect(result?.task).toMatchObject({
-      dueDate: '2026-10-01',
-      dueTime: '14:00',
+      doDate: '2026-10-01',
+      doTime: '14:00',
       schedulePinned: true,
     })
     await result?.undo()
-    expect(await db.tasks.get(chunk.id)).toMatchObject({ dueDate: TODAY, dueTime: '10:00' })
-    expect(await moveTask('nope', { dueDate: null })).toBeNull()
+    expect(await db.tasks.get(chunk.id)).toMatchObject({ doDate: TODAY, doTime: '10:00' })
+    expect(await moveTask('nope', { doDate: null })).toBeNull()
   })
 
   it('can clear the date', async () => {
-    const task = await createTask({ title: 'Renew library card', dueDate: TODAY }, { now: NOW })
-    const result = await moveTask(task.id, { dueDate: null })
-    expect(result?.task.dueDate).toBeNull()
+    const task = await createTask({ title: 'Renew library card', doDate: TODAY }, { now: NOW })
+    const result = await moveTask(task.id, { doDate: null })
+    expect(result?.task.doDate).toBeNull()
   })
 
   it('can reorder a different key, such as boardOrder', async () => {
@@ -571,7 +638,7 @@ describe('trashTask', () => {
           { id: 's2', title: 'Fill in the form', done: false },
         ],
         tags: ['errands'],
-        dueDate: '2026-10-02',
+        doDate: '2026-10-02',
       },
       { now: NOW },
     )

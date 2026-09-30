@@ -194,9 +194,9 @@ export function saveViewNote(list: TaskListId): string {
 // ─── Naming ─────────────────────────────────────────────────────────────────
 
 const DUE_NAMES: Record<string, string> = {
-  overdue: 'Overdue',
-  today: 'Due today',
-  tomorrow: 'Due tomorrow',
+  overdue: 'Carried over',
+  today: 'Today',
+  tomorrow: 'Tomorrow',
   week: 'This week',
   upcoming: 'Coming up',
   none: 'No date',
@@ -210,7 +210,7 @@ const PRIORITY_NAMES: Record<number, string> = {
 }
 
 /**
- * A starting name for a new view, read from its filter: "High priority · C779", "Overdue", "Doing".
+ * A starting name for a new view, read from its filter: "High priority · C779", "Carried over", "Doing".
  * Falls back to the sort or "My view" so the field is never empty.
  */
 export function suggestViewName(

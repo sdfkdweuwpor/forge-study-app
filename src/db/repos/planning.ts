@@ -100,7 +100,11 @@ export interface WrittenDiff {
  * the user had added something to them (restoring one brings back a plain task the plan leaves alone).
  * Emits the matching `task.*` events.
  */
-export async function writePlanDiff(goalId: ID, diff: PlanTaskDiff, now: Millis): Promise<WrittenDiff> {
+export async function writePlanDiff(
+  goalId: ID,
+  diff: PlanTaskDiff,
+  now: Millis,
+): Promise<WrittenDiff> {
   const inserts = diff.insert.map((fields, i) => planTaskRow(goalId, fields, now, now + i))
   if (inserts.length > 0) await db.tasks.bulkAdd(inserts)
   if (diff.update.length > 0) {

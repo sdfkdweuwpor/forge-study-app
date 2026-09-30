@@ -27,12 +27,18 @@ export function useCompletedTasks(limit?: number): Task[] | undefined {
   }, [limit])
 }
 
-/** Tasks due from `from` to `to`, inclusive (uses the `dueDate` index); undated tasks are not included. */
-export function useTasksDueBetween(from: ISODate, to: ISODate): Task[] | undefined {
-  return useLiveQuery(
-    () => db.tasks.where('dueDate').between(from, to, true, true).toArray(),
-    [from, to],
-  )
+/**
+ * Tasks planned from `from` to `to`, inclusive: by their do date, or by their deadline when they have
+ * no do date (`planDay`). Uses the `doDate` and `dueDate` indexes; undated tasks are not included.
+ */
+export function useTasksPlannedBetween(from: ISODate, to: ISODate): Task[] | undefined {
+  return useLiveQuery(async () => {
+    const [planned, due] = await Promise.all([
+      db.tasks.where('doDate').between(from, to, true, true).toArray(),
+      db.tasks.where('dueDate').between(from, to, true, true).toArray(),
+    ])
+    return [...planned, ...due.filter((t) => t.doDate === null)]
+  }, [from, to])
 }
 
 /**

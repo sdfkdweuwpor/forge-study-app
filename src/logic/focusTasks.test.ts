@@ -15,8 +15,8 @@ function task(overrides: Partial<Task> = {}): Task {
     notes: [],
     status: 'todo',
     priority: 0,
-    dueDate: null,
-    dueTime: null,
+    doDate: null,
+    doTime: null,
     estimatePomodoros: null,
     estimateMinutes: null,
     tags: [],
@@ -36,6 +36,13 @@ function task(overrides: Partial<Task> = {}): Task {
     startedAt: null,
     completedAt: null,
     completedDay: null,
+    durationMinutes: null,
+    autoSlot: false,
+    kind: 'task',
+    assessmentId: null,
+    sync: null,
+    dueDate: null,
+    dueTime: null,
     ...overrides,
   }
 }
@@ -46,10 +53,10 @@ describe('rankFocusTasks with no query', () => {
   it('offers in-progress first, then due or overdue, then later, then undated', () => {
     const tasks = [
       task({ title: 'Undated' }),
-      task({ title: 'Next week', dueDate: '2026-10-05' }),
-      task({ title: 'Due today', dueDate: TODAY }),
-      task({ title: 'Overdue', dueDate: '2026-09-27' }),
-      task({ title: 'In progress', status: 'doing', dueDate: '2026-10-09' }),
+      task({ title: 'Next week', doDate: '2026-10-05' }),
+      task({ title: 'Due today', doDate: TODAY }),
+      task({ title: 'Overdue', doDate: '2026-09-27' }),
+      task({ title: 'In progress', status: 'doing', doDate: '2026-10-09' }),
     ]
     expect(titles(rankFocusTasks(tasks, '', TODAY))).toEqual([
       'In progress',
@@ -62,18 +69,18 @@ describe('rankFocusTasks with no query', () => {
 
   it('never offers a finished task, and puts a task skipped today last', () => {
     const tasks = [
-      task({ title: 'Skipped', dueDate: TODAY, skippedOn: TODAY }),
-      task({ title: 'Done', status: 'done', dueDate: TODAY }),
-      task({ title: 'Open', dueDate: TODAY }),
+      task({ title: 'Skipped', doDate: TODAY, skippedOn: TODAY }),
+      task({ title: 'Done', status: 'done', doDate: TODAY }),
+      task({ title: 'Open', doDate: TODAY }),
     ]
     expect(titles(rankFocusTasks(tasks, '', TODAY))).toEqual(['Open', 'Skipped'])
   })
 
   it('keeps the day order within a bucket and honours the limit', () => {
     const tasks = [
-      task({ title: 'B', dueDate: TODAY, orderInDay: 2 }),
-      task({ title: 'A', dueDate: TODAY, orderInDay: 1 }),
-      task({ title: 'C', dueDate: TODAY, orderInDay: 3 }),
+      task({ title: 'B', doDate: TODAY, orderInDay: 2 }),
+      task({ title: 'A', doDate: TODAY, orderInDay: 1 }),
+      task({ title: 'C', doDate: TODAY, orderInDay: 3 }),
     ]
     expect(titles(rankFocusTasks(tasks, '', TODAY, 2))).toEqual(['A', 'B'])
   })
@@ -81,9 +88,9 @@ describe('rankFocusTasks with no query', () => {
 
 describe('rankFocusTasks with a query', () => {
   const tasks = [
-    task({ title: 'C779 · Unit 3: CSS layout (45 min)', tags: ['C779'], dueDate: TODAY }),
-    task({ title: 'D278 · Ch. 4 scripting basics', tags: ['D278'], dueDate: TODAY }),
-    task({ title: 'Email mentor about term plan', dueDate: TODAY }),
+    task({ title: 'C779 · Unit 3: CSS layout (45 min)', tags: ['C779'], doDate: TODAY }),
+    task({ title: 'D278 · Ch. 4 scripting basics', tags: ['D278'], doDate: TODAY }),
+    task({ title: 'Email mentor about term plan', doDate: TODAY }),
     task({ title: 'Renew library card' }),
     task({ title: 'C182 · Operating systems (2/4)', tags: ['C182'], status: 'doing' }),
   ]

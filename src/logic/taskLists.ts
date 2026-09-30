@@ -6,6 +6,7 @@
 import type { ISODate, Task, TaskSort } from '@/db/types'
 import { dayOf, addDays, diffDays, fromISODate } from './dates'
 import { format } from 'date-fns'
+import { planDay } from './taskDates'
 import type { TaskGroup, TaskGroupBy } from './taskQuery'
 
 export type TaskListId = 'inbox' | 'upcoming' | 'all' | 'completed'
@@ -33,7 +34,7 @@ export function listLabel(list: TaskListId): string {
 /**
  * List membership.
  *  - inbox: open tasks that are not tied to a goal or course (your own tasks, whatever their date);
- *  - upcoming: open tasks due after today;
+ *  - upcoming: open tasks planned for after today (`planDay`: the do date, else the deadline);
  *  - all: every open task;
  *  - completed: every finished task.
  */
@@ -45,7 +46,7 @@ export function inList(task: Task, list: TaskListId, ctx: { today: ISODate }): b
     case 'all':
       return !done
     case 'upcoming':
-      return !done && task.dueDate !== null && task.dueDate > ctx.today
+      return !done && (planDay(task) ?? '') > ctx.today
     case 'inbox':
       return !done && task.goalId === null && task.milestoneId === null
   }

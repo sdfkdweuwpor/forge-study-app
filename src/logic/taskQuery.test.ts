@@ -25,8 +25,8 @@ function task(overrides: Partial<Task> = {}): Task {
     notes: [],
     status: 'todo',
     priority: 0,
-    dueDate: null,
-    dueTime: null,
+    doDate: null,
+    doTime: null,
     estimatePomodoros: null,
     estimateMinutes: null,
     tags: [],
@@ -46,6 +46,13 @@ function task(overrides: Partial<Task> = {}): Task {
     startedAt: null,
     completedAt: null,
     completedDay: null,
+    durationMinutes: null,
+    autoSlot: false,
+    kind: 'task',
+    assessmentId: null,
+    sync: null,
+    dueDate: null,
+    dueTime: null,
     ...overrides,
   }
 }
@@ -76,7 +83,7 @@ describe('filterTasks', () => {
       tags: ['C182', 'reading'],
       goalId: 'g1',
       milestoneId: 'm182',
-      dueDate: '2026-09-30',
+      doDate: '2026-09-30',
     }),
     task({
       title: 'Flashcards C779',
@@ -85,7 +92,7 @@ describe('filterTasks', () => {
       tags: ['C779'],
       goalId: 'g1',
       milestoneId: 'm779',
-      dueDate: '2026-09-29',
+      doDate: '2026-09-29',
       source: 'flashcards',
     }),
     task({
@@ -95,10 +102,10 @@ describe('filterTasks', () => {
       tags: ['lab', 'C182'],
       goalId: 'g1',
       milestoneId: 'm182',
-      dueDate: '2026-09-20',
+      doDate: '2026-09-20',
       completedDay: '2026-09-21',
     }),
-    task({ title: 'Buy groceries', status: 'todo', priority: 0, tags: [], dueDate: null }),
+    task({ title: 'Buy groceries', status: 'todo', priority: 0, tags: [], doDate: null }),
     task({
       title: 'D278 practice',
       status: 'todo',
@@ -106,7 +113,7 @@ describe('filterTasks', () => {
       tags: ['D278'],
       goalId: 'g2',
       milestoneId: 'm278',
-      dueDate: '2026-09-25',
+      doDate: '2026-09-25',
       source: 'schedule',
     }),
   ]
@@ -236,14 +243,14 @@ describe('filterTasks', () => {
 
   describe('due (today is Tue 2026-09-29)', () => {
     const due = [
-      task({ title: 'late', dueDate: '2026-09-28' }),
-      task({ title: 'late done', dueDate: '2026-09-28', status: 'done' }),
-      task({ title: 'today', dueDate: '2026-09-29' }),
-      task({ title: 'tomorrow', dueDate: '2026-09-30' }),
-      task({ title: 'fri', dueDate: '2026-10-02' }),
-      task({ title: 'sat', dueDate: '2026-10-03' }),
-      task({ title: 'sun', dueDate: '2026-10-04' }),
-      task({ title: 'next mon', dueDate: '2026-10-05' }),
+      task({ title: 'late', doDate: '2026-09-28' }),
+      task({ title: 'late done', doDate: '2026-09-28', status: 'done' }),
+      task({ title: 'today', doDate: '2026-09-29' }),
+      task({ title: 'tomorrow', doDate: '2026-09-30' }),
+      task({ title: 'fri', doDate: '2026-10-02' }),
+      task({ title: 'sat', doDate: '2026-10-03' }),
+      task({ title: 'sun', doDate: '2026-10-04' }),
+      task({ title: 'next mon', doDate: '2026-10-05' }),
       task({ title: 'none' }),
     ]
     const q = (filter: TaskFilter, ctx: QueryContext = TODAY): string[] =>
@@ -275,9 +282,9 @@ describe('filterTasks', () => {
 
   describe('due across DST', () => {
     const dst = [
-      task({ title: 'sat', dueDate: '2026-03-07' }),
-      task({ title: 'sun (DST)', dueDate: '2026-03-08' }),
-      task({ title: 'mon', dueDate: '2026-03-09' }),
+      task({ title: 'sat', doDate: '2026-03-07' }),
+      task({ title: 'sun (DST)', doDate: '2026-03-08' }),
+      task({ title: 'mon', doDate: '2026-03-09' }),
     ]
     it('tomorrow is the next calendar day even when it has 23 hours', () => {
       expect(titles(filterTasks(dst, { due: 'tomorrow' }, { today: '2026-03-07' }))).toEqual([
@@ -295,8 +302,8 @@ describe('filterTasks', () => {
     })
     it('a 25-hour day works too', () => {
       const fall = [
-        task({ title: 'nov1', dueDate: '2026-11-01' }),
-        task({ title: 'nov2', dueDate: '2026-11-02' }),
+        task({ title: 'nov1', doDate: '2026-11-01' }),
+        task({ title: 'nov2', doDate: '2026-11-02' }),
       ]
       expect(titles(filterTasks(fall, { due: 'tomorrow' }, { today: '2026-10-31' }))).toEqual([
         'nov1',
@@ -325,9 +332,9 @@ describe('sortTasks', () => {
 
   it('due: earliest first, undated last in both directions', () => {
     const none = task({ title: 'none' })
-    const late = task({ title: 'late', dueDate: '2026-10-09' })
-    const soon = task({ title: 'soon', dueDate: '2026-09-30' })
-    const mid = task({ title: 'mid', dueDate: '2026-10-02' })
+    const late = task({ title: 'late', doDate: '2026-10-09' })
+    const soon = task({ title: 'soon', doDate: '2026-09-30' })
+    const mid = task({ title: 'mid', doDate: '2026-10-02' })
     expect(titles(sortTasks([none, late, soon, mid], { key: 'due', dir: 'asc' }))).toEqual([
       'soon',
       'mid',
@@ -343,9 +350,9 @@ describe('sortTasks', () => {
   })
 
   it('due: within a day, all-day tasks come before timed ones, then by time', () => {
-    const allDay = task({ title: 'all day', dueDate: '2026-09-30' })
-    const morning = task({ title: '09:00', dueDate: '2026-09-30', dueTime: '09:00' })
-    const evening = task({ title: '18:30', dueDate: '2026-09-30', dueTime: '18:30' })
+    const allDay = task({ title: 'all day', doDate: '2026-09-30' })
+    const morning = task({ title: '09:00', doDate: '2026-09-30', doTime: '09:00' })
+    const evening = task({ title: '18:30', doDate: '2026-09-30', doTime: '18:30' })
     expect(titles(sortTasks([evening, morning, allDay], { key: 'due', dir: 'asc' }))).toEqual([
       'all day',
       '09:00',
@@ -359,16 +366,16 @@ describe('sortTasks', () => {
   })
 
   it('due: ties go to the higher priority', () => {
-    const low = task({ title: 'low', dueDate: '2026-09-30', priority: 1 })
-    const high = task({ title: 'high', dueDate: '2026-09-30', priority: 3 })
+    const low = task({ title: 'low', doDate: '2026-09-30', priority: 1 })
+    const high = task({ title: 'high', doDate: '2026-09-30', priority: 3 })
     expect(titles(sortTasks([low, high], { key: 'due', dir: 'asc' }))).toEqual(['high', 'low'])
   })
 
   it('priority: desc puts urgent first, asc puts none first; ties by due date', () => {
     const none = task({ title: 'none' })
     const low = task({ title: 'low', priority: 1 })
-    const highLate = task({ title: 'high late', priority: 3, dueDate: '2026-10-09' })
-    const highSoon = task({ title: 'high soon', priority: 3, dueDate: '2026-09-30' })
+    const highLate = task({ title: 'high late', priority: 3, doDate: '2026-10-09' })
+    const highSoon = task({ title: 'high soon', priority: 3, doDate: '2026-09-30' })
     const urgent = task({ title: 'urgent', priority: 4 })
     const all = [none, low, highLate, highSoon, urgent]
     expect(titles(sortTasks(all, { key: 'priority', dir: 'desc' }))).toEqual([
@@ -461,12 +468,12 @@ describe('sortTasks', () => {
 })
 
 describe('dateBucketOf and groupTasks(date)', () => {
-  const at = (title: string, dueDate: string | null, status: Task['status'] = 'todo'): Task =>
-    task({ title, dueDate, status })
+  const at = (title: string, doDate: string | null, status: Task['status'] = 'todo'): Task =>
+    task({ title, doDate, status })
 
   it('lists the buckets in display order', () => {
     expect(DATE_BUCKETS.map((b) => b.label)).toEqual([
-      'Overdue',
+      'Carried over',
       'Today',
       'Tomorrow',
       'This week',
@@ -489,7 +496,7 @@ describe('dateBucketOf and groupTasks(date)', () => {
     ]
     const groups = groupTasks(list, 'date', TODAY)
     expect(groups.map((g) => [g.id, g.label, titles(g.tasks)])).toEqual([
-      ['overdue', 'Overdue', ['overdue', 'overdue old']],
+      ['overdue', 'Carried over', ['overdue', 'overdue old']],
       ['today', 'Today', ['today']],
       ['tomorrow', 'Tomorrow', ['tomorrow']],
       ['week', 'This week', ['week', 'week end']],
@@ -603,11 +610,11 @@ describe('groupTasks(none) and queryTasks', () => {
 
   it('queryTasks filters, sorts, then groups', () => {
     const list = [
-      task({ title: 'b', dueDate: '2026-09-30', priority: 1 }),
-      task({ title: 'a', dueDate: '2026-09-30', priority: 4 }),
-      task({ title: 'done', dueDate: '2026-09-30', status: 'done' }),
-      task({ title: 'overdue', dueDate: '2026-09-20', priority: 2 }),
-      task({ title: 'later', dueDate: '2026-10-20', priority: 3 }),
+      task({ title: 'b', doDate: '2026-09-30', priority: 1 }),
+      task({ title: 'a', doDate: '2026-09-30', priority: 4 }),
+      task({ title: 'done', doDate: '2026-09-30', status: 'done' }),
+      task({ title: 'overdue', doDate: '2026-09-20', priority: 2 }),
+      task({ title: 'later', doDate: '2026-10-20', priority: 3 }),
     ]
     const result = queryTasks(
       list,
@@ -620,7 +627,7 @@ describe('groupTasks(none) and queryTasks', () => {
     )
     expect(titles(result.tasks)).toEqual(['a', 'later', 'overdue', 'b'])
     expect(result.groups.map((g) => [g.label, titles(g.tasks)])).toEqual([
-      ['Overdue', ['overdue']],
+      ['Carried over', ['overdue']],
       ['Tomorrow', ['a', 'b']],
       ['Later', ['later']],
     ])

@@ -31,11 +31,6 @@
   font-weight: var(--fw-regular);
 }
 
-/* Rolled over is the one group in amber. */
-.group[data-group='rolledOver'] .header {
-  color: var(--warning-text);
-}
-
 .list {
   margin: 0;
   padding: 0;

@@ -144,9 +144,10 @@ export interface WguSample {
 export function buildWguBsCs(today: ISODate, now: Millis): WguSample {
   const termStart = addDays(today, -57)
   const termEnd = addDays(addMonths(termStart, 6), -1)
-  // Sunday to Saturday: a lighter Sunday and Friday, a longer Saturday.
+  // Sunday to Saturday: a lighter Sunday and Friday, a longer Saturday (14 h a week of study windows;
+  // with the planner's breaks between 50-minute sessions that fits the remaining courses in the term).
   const availability: Availability = {
-    minutesByWeekday: [60, 90, 90, 90, 90, 60, 120],
+    minutesByWeekday: [90, 120, 120, 120, 120, 90, 180],
     daysOff: [],
   }
 

@@ -44,6 +44,7 @@ import {
   type TaskListId,
 } from '@/logic/taskLists'
 import { filterTasks, queryTasks, sortTasks } from '@/logic/taskQuery'
+import { planDay } from '@/logic/taskDates'
 import {
   SAVED_VIEW_LIST,
   canSaveView,
@@ -150,9 +151,10 @@ function TasksBody({ list, saved }: TasksBodyProps) {
     const groups = list === 'completed' ? groupCompleted(queried.tasks, { today }) : queried.groups
     // A saved view counts what it shows; a list counts what is in it (the filters then narrow it).
     const counted = saved ? queried.tasks : pool
-    const overdue = counted.filter(
-      (t) => t.status !== 'done' && t.dueDate !== null && diffDays(t.dueDate, today) < 0,
-    ).length
+    const overdue = counted.filter((t) => {
+      const day = planDay(t)
+      return t.status !== 'done' && day !== null && diffDays(day, today) < 0
+    }).length
     return { total: pool.length, shown: counted.length, tasks: queried.tasks, groups, overdue }
   }, [tasks, list, saved, view, today, weekStartsOn, projectRefs, motion])
 
@@ -411,7 +413,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         list === 'completed'
           ? `${plural(result.total, 'task')} done`
           : plural(result.shown, 'task'),
-        result.overdue > 0 ? `${result.overdue} overdue` : null,
+        result.overdue > 0 ? `${result.overdue} carried over` : null,
         list === 'completed' && xp && xp.today > 0 ? `+${xp.today} XP today` : null,
       ]
         .filter(Boolean)

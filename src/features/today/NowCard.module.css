@@ -101,7 +101,12 @@
   white-space: nowrap;
 }
 
-.chip[data-tone='overdue'] {
+.chip[data-tone='carried'] {
+  color: var(--text-muted);
+}
+
+/* A deadline is calm; amber only on the day it is due. */
+.chip[data-deadline='dueToday'] {
   color: var(--warning-text);
   font-weight: var(--fw-medium);
 }

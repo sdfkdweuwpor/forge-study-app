@@ -1,4 +1,5 @@
 import {
+  CalendarClock,
   CalendarDays,
   Check,
   Clock,
@@ -12,11 +13,10 @@ import {
 import { useOverlays } from '@/app/providers/OverlayProvider'
 import { Slot, useSlotCount } from '@/app/registry'
 import type { Priority, Task } from '@/db/types'
-import { diffDays } from '@/logic/dates'
 import { normalizeTag, tagColor } from '@/logic/tagColor'
-import { dueLabel, subtaskProgress } from '@/logic/taskDisplay'
+import { deadlineLabel, dueLabel, subtaskProgress } from '@/logic/taskDisplay'
 import { priorityLabel } from '@/logic/taskQuery'
-import { estimateText, overdueText } from '@/logic/todayStats'
+import { carriedFromText, estimateText } from '@/logic/todayStats'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
 import { Skeleton } from '@/ui/Skeleton'
@@ -70,8 +70,9 @@ function TaskNow({
   const completing = motion !== undefined
   const struck = motion?.phase === 'struck' || motion?.phase === 'leaving'
   const due = dueLabel(task, today)
-  const overdueDays = task.dueDate !== null ? diffDays(today, task.dueDate) : 0
-  const dueText = due?.tone === 'overdue' ? overdueText(overdueDays) : due?.text
+  const dueText =
+    due?.tone === 'carried' && task.doDate !== null ? carriedFromText(task.doDate, today) : due?.text
+  const deadline = deadlineLabel(task, today)
   const estimate = estimateText(task)
   const checklist = subtaskProgress(task.subtasks)
   const code = course?.code ?? null
@@ -117,6 +118,12 @@ function TaskNow({
           <span className={styles.chip} data-tone={due?.tone}>
             <CalendarDays size={14} aria-hidden="true" />
             <span>{dueText}</span>
+          </span>
+        ) : null}
+        {deadline ? (
+          <span className={styles.chip} data-deadline={deadline.tone} title={deadline.description}>
+            <CalendarClock size={14} aria-hidden="true" />
+            <span>{deadline.text}</span>
           </span>
         ) : null}
         {checklist ? (

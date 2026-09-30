@@ -10,7 +10,7 @@ import {
   greeting,
   levelForMinutes,
   levelForTasks,
-  overdueText,
+  carriedFromText,
   pomodorosDone,
   upcomingTargets,
   type GoalSession,
@@ -263,10 +263,14 @@ describe('labels', () => {
     expect(countdownText(-4)).toBe('4 days overdue')
   })
 
-  it('writes days overdue for a rolled-over row', () => {
-    expect(overdueText(1)).toBe('1 day overdue')
-    expect(overdueText(3)).toBe('3 days overdue')
-    expect(overdueText(0)).toBe('1 day overdue')
+  it('says which day a carried-over row is from, never how late it is', () => {
+    // 2026-09-29 is a Tuesday.
+    expect(carriedFromText('2026-09-28', '2026-09-29')).toBe('from Mon')
+    expect(carriedFromText('2026-09-26', '2026-09-29')).toBe('from Sat')
+    expect(carriedFromText('2026-09-23', '2026-09-29')).toBe('from Wed')
+    expect(carriedFromText('2026-09-20', '2026-09-29')).toBe('from Sep 20')
+    expect(carriedFromText('2025-12-30', '2026-09-29')).toBe('from Dec 30, 2025')
+    expect(carriedFromText('2026-09-28', '2026-09-29')).not.toMatch(/overdue|late|ago/)
   })
 })
 

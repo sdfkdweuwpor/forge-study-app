@@ -1,6 +1,6 @@
 /**
- * How a task is described in a row or a chip (pure): due dates in relative words, times of day,
- * estimates and checklist progress. `today` is always passed in.
+ * How a task is described in a row or a chip (pure): the day it is planned for and its deadline in
+ * relative words, times of day, estimates and checklist progress. `today` is always passed in.
  */
 import { format } from 'date-fns'
 import type { HHmm, ISODate, Subtask, Task } from '@/db/types'
@@ -47,9 +47,10 @@ export function relativeDay(day: ISODate, today: ISODate): string {
   return formatDay(day, today)
 }
 
+/** The tone of a date chip. Nothing here is ever red: dates inform, they do not scold. */
 export type DueTone =
-  /** Past due and still open. Drawn in amber. */
-  | 'overdue'
+  /** Planned for an earlier day and still open: quiet, it just carried over. */
+  | 'carried'
   | 'today'
   | 'upcoming'
   /** A finished task's date: quiet. */
@@ -59,28 +60,78 @@ export interface DueLabel {
   /** "Today, 2 PM", "3 days ago", "Fri". */
   text: string
   tone: DueTone
-  /** Full text for tooltips and screen readers: "Overdue, due Fri, Sep 25". */
+  /** Full text for tooltips and screen readers: "Planned for Fri, Sep 25". */
   description: string
 }
 
-/** The due chip of a task, or `null` when it has no due date. */
+/**
+ * The "when" chip of a task: its do date and time, or `null` when it has no do date (a task with only a
+ * deadline shows just its deadline chip).
+ */
 export function dueLabel(
-  task: Pick<Task, 'dueDate' | 'dueTime' | 'status'>,
+  task: Pick<Task, 'doDate' | 'doTime' | 'status'>,
   today: ISODate,
 ): DueLabel | null {
-  const { dueDate, dueTime, status } = task
-  if (dueDate === null) return null
-  const diff = diffDays(dueDate, today)
+  const { doDate, doTime, status } = task
+  if (doDate === null) return null
+  const diff = diffDays(doDate, today)
   const done = status === 'done'
-  const tone: DueTone = done ? 'done' : diff < 0 ? 'overdue' : diff === 0 ? 'today' : 'upcoming'
-  const day = relativeDay(dueDate, today)
+  const tone: DueTone = done ? 'done' : diff < 0 ? 'carried' : diff === 0 ? 'today' : 'upcoming'
+  const day = relativeDay(doDate, today)
   // A time of day only matters while the task can still be done on that day.
-  const text = dueTime !== null && diff >= 0 ? `${day}, ${formatTimeOfDay(dueTime)}` : day
+  const text = doTime !== null && diff >= 0 ? `${day}, ${formatTimeOfDay(doTime)}` : day
+  const full =
+    formatDayLong(doDate, today) + (doTime !== null ? `, ${formatTimeOfDay(doTime)}` : '')
+  const description =
+    tone === 'carried'
+      ? `Carried over from ${full}`
+      : done
+        ? `Was planned for ${full}`
+        : `Planned for ${full}`
+  return { text, tone, description }
+}
+
+export type DeadlineTone =
+  /** Due today and still open: the one amber moment. */
+  | 'dueToday'
+  /** Any other day, and a passed deadline too: calm. */
+  | 'calm'
+
+export interface DeadlineLabel {
+  /** "Due Fri", "Due today, 5 PM", "Due Sep 30". */
+  text: string
+  tone: DeadlineTone
+  /** "Due Fri, Oct 2, 5 PM". */
+  description: string
+}
+
+/**
+ * The small deadline chip ("Due Fri"), or `null` when the task has no deadline or is finished. Amber
+ * only on the due day; a deadline that has passed is still just "Due Tue", never red.
+ */
+export function deadlineLabel(
+  task: Pick<Task, 'dueDate' | 'dueTime' | 'status'>,
+  today: ISODate,
+): DeadlineLabel | null {
+  const { dueDate, dueTime, status } = task
+  if (dueDate === null || status === 'done') return null
+  const diff = diffDays(dueDate, today)
+  const day =
+    diff === 0
+      ? 'today'
+      : diff === 1
+        ? 'tomorrow'
+        : diff > 1 && diff <= 6
+          ? (WEEKDAY_NAMES[fromISODate(dueDate).getDay()]?.slice(0, 3) ?? formatDay(dueDate, today))
+          : formatDay(dueDate, today)
+  const time = dueTime !== null && diff >= 0 ? `, ${formatTimeOfDay(dueTime)}` : ''
   const full =
     formatDayLong(dueDate, today) + (dueTime !== null ? `, ${formatTimeOfDay(dueTime)}` : '')
-  const description =
-    tone === 'overdue' ? `Overdue, due ${full}` : done ? `Was due ${full}` : `Due ${full}`
-  return { text, tone, description }
+  return {
+    text: `Due ${day}${time}`,
+    tone: diff === 0 ? 'dueToday' : 'calm',
+    description: `Due ${full}`,
+  }
 }
 
 export interface EstimateLabel {

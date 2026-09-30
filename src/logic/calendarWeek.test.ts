@@ -30,8 +30,8 @@ function task(overrides: Partial<Task> = {}): Task {
     notes: [],
     status: 'todo',
     priority: 0,
-    dueDate: '2026-09-29',
-    dueTime: null,
+    doDate: '2026-09-29',
+    doTime: null,
     estimatePomodoros: null,
     estimateMinutes: null,
     tags: [],
@@ -51,6 +51,13 @@ function task(overrides: Partial<Task> = {}): Task {
     startedAt: null,
     completedAt: null,
     completedDay: null,
+    durationMinutes: null,
+    autoSlot: false,
+    kind: 'task',
+    assessmentId: null,
+    sync: null,
+    dueDate: null,
+    dueTime: null,
     ...overrides,
   }
 }
@@ -105,13 +112,13 @@ describe('durationOf', () => {
 
 describe('timeRangeFor', () => {
   it('is 07:00–23:00 by default', () => {
-    expect(timeRangeFor([task(), task({ dueTime: '09:00' })])).toEqual({ start: 420, end: 1380 })
+    expect(timeRangeFor([task(), task({ doTime: '09:00' })])).toEqual({ start: 420, end: 1380 })
   })
 
   it('widens to whole hours around tasks outside the default hours', () => {
-    expect(timeRangeFor([task({ dueTime: '06:30' })]).start).toBe(360)
-    expect(timeRangeFor([task({ dueTime: '22:30', estimateMinutes: 90 })]).end).toBe(1440)
-    expect(timeRangeFor([task({ dueTime: '23:10', estimateMinutes: 25 })]).end).toBe(1440)
+    expect(timeRangeFor([task({ doTime: '06:30' })]).start).toBe(360)
+    expect(timeRangeFor([task({ doTime: '22:30', estimateMinutes: 90 })]).end).toBe(1440)
+    expect(timeRangeFor([task({ doTime: '23:10', estimateMinutes: 25 })]).end).toBe(1440)
   })
 
   it('lists hour marks', () => {
@@ -121,8 +128,8 @@ describe('timeRangeFor', () => {
 
 describe('placeTimed', () => {
   it('places non-overlapping tasks full width', () => {
-    const a = task({ dueTime: '09:00', estimateMinutes: 30 })
-    const b = task({ dueTime: '10:00', estimateMinutes: 30 })
+    const a = task({ doTime: '09:00', estimateMinutes: 30 })
+    const b = task({ doTime: '10:00', estimateMinutes: 30 })
     const placed = placeTimed([b, a])
     expect(placed.map((p) => [p.task.id, p.start, p.end, p.lane, p.lanes])).toEqual([
       [a.id, 540, 570, 0, 1],
@@ -131,9 +138,9 @@ describe('placeTimed', () => {
   })
 
   it('splits the width between tasks that overlap', () => {
-    const a = task({ dueTime: '09:00', estimateMinutes: 60 })
-    const b = task({ dueTime: '09:30', estimateMinutes: 60 })
-    const c = task({ dueTime: '10:00', estimateMinutes: 30 })
+    const a = task({ doTime: '09:00', estimateMinutes: 60 })
+    const b = task({ doTime: '09:30', estimateMinutes: 60 })
+    const c = task({ doTime: '10:00', estimateMinutes: 30 })
     const placed = placeTimed([a, b, c])
     const by = (t: Task) => placed.find((p) => p.task.id === t.id)
     expect([by(a)?.lane, by(a)?.lanes]).toEqual([0, 2])
@@ -143,8 +150,8 @@ describe('placeTimed', () => {
   })
 
   it('gives a task the minimum height when its estimate is short or missing', () => {
-    const a = task({ dueTime: '09:00' })
-    const b = task({ dueTime: '09:20' })
+    const a = task({ doTime: '09:00' })
+    const b = task({ doTime: '09:20' })
     const placed = placeTimed([a, b])
     expect(placed[0]?.end).toBe(540 + 25)
     // b starts before a's 25 minutes are up, so they share the row.
@@ -152,25 +159,25 @@ describe('placeTimed', () => {
   })
 
   it('starts a new cluster once everything before it has ended', () => {
-    const a = task({ dueTime: '09:00', estimateMinutes: 60 })
-    const b = task({ dueTime: '09:30', estimateMinutes: 60 })
-    const c = task({ dueTime: '11:00', estimateMinutes: 30 })
+    const a = task({ doTime: '09:00', estimateMinutes: 60 })
+    const b = task({ doTime: '09:30', estimateMinutes: 60 })
+    const c = task({ doTime: '11:00', estimateMinutes: 30 })
     const placed = placeTimed([a, b, c])
     expect(placed.find((p) => p.task.id === c.id)?.lanes).toBe(1)
   })
 
   it('skips tasks without a usable time', () => {
-    expect(placeTimed([task(), task({ dueTime: '25:99' as never })])).toEqual([])
+    expect(placeTimed([task(), task({ doTime: '25:99' as never })])).toEqual([])
   })
 })
 
 describe('tasksByDay / calendarOrderIds', () => {
   const days = visibleDays('2026-09-29', 7, 1)
-  const allDay = task({ dueDate: '2026-09-29' })
-  const timed = task({ dueDate: '2026-09-29', dueTime: '14:00' })
-  const other = task({ dueDate: '2026-09-30', dueTime: '08:00' })
-  const away = task({ dueDate: '2026-10-20', dueTime: '08:00' })
-  const undated = task({ dueDate: null })
+  const allDay = task({ doDate: '2026-09-29' })
+  const timed = task({ doDate: '2026-09-29', doTime: '14:00' })
+  const other = task({ doDate: '2026-09-30', doTime: '08:00' })
+  const away = task({ doDate: '2026-10-20', doTime: '08:00' })
+  const undated = task({ doDate: null })
 
   it('files tasks under their day and separates the all-day strip', () => {
     const grid = tasksByDay([allDay, timed, other, away, undated], days)
@@ -231,49 +238,49 @@ describe('now line', () => {
 
 describe('nudgeSlot', () => {
   it('moves whole days, keeping the time', () => {
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '14:00' }, { days: 1 })).toEqual({
-      dueDate: '2026-09-30',
-      dueTime: '14:00',
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { days: 1 })).toEqual({
+      doDate: '2026-09-30',
+      doTime: '14:00',
     })
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: null }, { days: -1 })).toEqual({
-      dueDate: '2026-09-28',
-      dueTime: null,
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { days: -1 })).toEqual({
+      doDate: '2026-09-28',
+      doTime: null,
     })
-    expect(nudgeSlot({ dueDate: '2026-10-31', dueTime: null }, { days: 1 })?.dueDate).toBe(
+    expect(nudgeSlot({ doDate: '2026-10-31', doTime: null, dueDate: null }, { days: 1 })?.doDate).toBe(
       '2026-11-01',
     )
   })
 
   it('moves a quarter hour, landing on quarter hours', () => {
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '14:00' }, { minutes: 15 })?.dueTime).toBe(
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { minutes: 15 })?.doTime).toBe(
       '14:15',
     )
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '14:00' }, { minutes: -15 })?.dueTime).toBe(
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { minutes: -15 })?.doTime).toBe(
       '13:45',
     )
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '14:10' }, { minutes: 15 })?.dueTime).toBe(
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:10', dueDate: null }, { minutes: 15 })?.doTime).toBe(
       '14:15',
     )
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '14:10' }, { minutes: -15 })?.dueTime).toBe(
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:10', dueDate: null }, { minutes: -15 })?.doTime).toBe(
       '14:00',
     )
   })
 
   it('gives an untimed task 09:00 when nudged later, and leaves it when nudged earlier', () => {
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: null }, { minutes: 15 })).toEqual({
-      dueDate: '2026-09-29',
-      dueTime: '09:00',
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { minutes: 15 })).toEqual({
+      doDate: '2026-09-29',
+      doTime: '09:00',
     })
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: null }, { minutes: -15 })).toBeNull()
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { minutes: -15 })).toBeNull()
   })
 
   it('stays inside the day', () => {
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '23:45' }, { minutes: 15 })).toBeNull()
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '00:00' }, { minutes: -15 })).toBeNull()
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '23:45', dueDate: null }, { minutes: 15 })).toBeNull()
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '00:00', dueDate: null }, { minutes: -15 })).toBeNull()
   })
 
   it('does nothing for a task without a date or a no-op change', () => {
-    expect(nudgeSlot({ dueDate: null, dueTime: null }, { days: 1 })).toBeNull()
-    expect(nudgeSlot({ dueDate: '2026-09-29', dueTime: '14:00' }, {})).toBeNull()
+    expect(nudgeSlot({ doDate: null, doTime: null, dueDate: null }, { days: 1 })).toBeNull()
+    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, {})).toBeNull()
   })
 })

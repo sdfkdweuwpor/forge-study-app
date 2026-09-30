@@ -24,7 +24,7 @@ import { useTaskEnv } from './TaskActions'
 import styles from './RecurrenceField.module.css'
 
 interface RecurrenceFieldProps {
-  task: Pick<Task, 'id' | 'recurrence' | 'dueDate'>
+  task: Pick<Task, 'id' | 'recurrence' | 'doDate'>
 }
 
 function save(id: string, recurrence: RecurrenceRule | null) {
@@ -38,7 +38,7 @@ function CustomEditor({ task, close }: RecurrenceFieldProps & { close: () => voi
   // The interval is typed as text and committed on blur or Enter, so "1" on the way to "14" is
   // never saved (and a cleared field is not read as 1).
   const [everyText, setEveryText] = useState(() => String(form.every))
-  const anchor = task.dueDate ?? today
+  const anchor = task.doDate ?? today
   const rule = ruleFromForm(form)
   const preview = nextOccurrences(rule, anchor, 3)
 
@@ -122,7 +122,7 @@ function CustomEditor({ task, close }: RecurrenceFieldProps & { close: () => voi
 export function RecurrenceField({ task }: RecurrenceFieldProps) {
   const { today } = useTaskEnv()
   const [custom, setCustom] = useState(false)
-  const weekday = weekdayOf(task.dueDate ?? today)
+  const weekday = weekdayOf(task.doDate ?? today)
   const current = presetOf(task.recurrence, weekday)
 
   const items: MenuEntry[] = [

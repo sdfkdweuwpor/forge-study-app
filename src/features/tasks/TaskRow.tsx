@@ -1,10 +1,24 @@
 import { format } from 'date-fns'
-import { CalendarDays, Clock, FileText, ListChecks, Repeat, Timer } from 'lucide-react'
+import {
+  CalendarClock,
+  CalendarDays,
+  Clock,
+  FileText,
+  ListChecks,
+  Repeat,
+  Timer,
+} from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Task } from '@/db/types'
 import { describeRecurrence } from '@/logic/recurrence'
 import { normalizeTag, tagColor } from '@/logic/tagColor'
-import { dueLabel, estimateLabel, formatXp, subtaskProgress } from '@/logic/taskDisplay'
+import {
+  deadlineLabel,
+  dueLabel,
+  estimateLabel,
+  formatXp,
+  subtaskProgress,
+} from '@/logic/taskDisplay'
 import { Checkbox } from '@/ui/Checkbox'
 import { Tag } from '@/ui/Tag'
 import { InlineTitle } from './InlineTitle'
@@ -32,7 +46,7 @@ export interface TaskRowProps {
   showCourse?: boolean
   /** XP this finished task earned, shown in gold (the Completed list). */
   xp?: number
-  /** Replaces the words of the due chip, e.g. Today's "3 days overdue". The tone and icon stay. */
+  /** Replaces the words of the date chip, e.g. Today's "from Tue". The tone and icon stay. */
   dueText?: string
   /**
    * Scroll the row into view when it becomes selected. Only for keyboard selection: scrolling on a
@@ -43,7 +57,8 @@ export interface TaskRowProps {
 
 /**
  * One task: round checkbox, a title you edit in place, and meta chips (course, tags, checklist
- * progress, repeat, estimate, priority, due date). The `…` menu and the drag handle appear on hover.
+ * progress, repeat, estimate, priority, the day it is planned for, and a calm "Due Fri" chip when it
+ * has a deadline). The `…` menu and the drag handle appear on hover.
  * Clicking anywhere else on the row opens the task. Completion runs the BRIEF §3.5 motion.
  */
 export const TaskRow = memo(function TaskRow({
@@ -98,6 +113,7 @@ export const TaskRow = memo(function TaskRow({
     [task.tags, courseCode],
   )
   const due = dueLabel(task, today)
+  const deadline = deadlineLabel(task, today)
   const estimate = estimateLabel(task)
   const checklist = subtaskProgress(task.subtasks)
   const hasNotes = task.notes.some((b) => b.type === 'divider' || b.text.trim() !== '')
@@ -199,13 +215,29 @@ export const TaskRow = memo(function TaskRow({
                   ) : null}
                   {xp ? <span className={styles.xpTotal}>{formatXp(xp)}</span> : null}
                 </>
-              ) : due ? (
-                <span className={styles.due} data-tone={due.tone}>
-                  <CalendarDays size={13} aria-hidden="true" />
-                  <span>{dueText ?? due.text}</span>
-                  {due.tone === 'overdue' ? <span className="sr-only"> (overdue)</span> : null}
-                </span>
-              ) : null}
+              ) : (
+                <>
+                  {due ? (
+                    <span className={styles.due} data-tone={due.tone} title={due.description}>
+                      <CalendarDays size={13} aria-hidden="true" />
+                      <span>{dueText ?? due.text}</span>
+                      {due.tone === 'carried' ? (
+                        <span className="sr-only"> (carried over)</span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                  {deadline ? (
+                    <span
+                      className={styles.deadline}
+                      data-tone={deadline.tone}
+                      title={deadline.description}
+                    >
+                      <CalendarClock size={13} aria-hidden="true" />
+                      <span>{deadline.text}</span>
+                    </span>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
 

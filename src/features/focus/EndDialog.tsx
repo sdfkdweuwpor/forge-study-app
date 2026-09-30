@@ -77,8 +77,8 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
       onClose()
       const parts = [
         result.xp > 0 ? formatXp(result.xp) : null,
-        result.next?.dueDate
-          ? `Next: ${relativeDay(result.next.dueDate, dayOf(Date.now()))}`
+        result.next?.doDate
+          ? `Next: ${relativeDay(result.next.doDate, dayOf(Date.now()))}`
           : null,
       ].filter((part): part is string => part !== null)
       toast.show({

@@ -8,7 +8,7 @@ import { requestTodayAction } from './todayActions'
 
 /**
  * Today's own shortcuts. They live in the `today` scope, so they only exist while the page is open,
- * and act on the Now card and the Rolled over group; `j k x e enter` come from the tasks feature.
+ * and act on the Now card and the Carried over group; `j k x e enter` come from the tasks feature.
  */
 const shortcuts: ShortcutDef[] = [
   {
@@ -34,9 +34,9 @@ const shortcuts: ShortcutDef[] = [
     scope: 'today',
   },
   {
-    id: 'today.moveRolledOver',
+    id: 'today.moveCarriedOver',
     keys: 'shift+t',
-    description: 'Move all rolled-over tasks to today',
+    description: 'Move all carried-over tasks to today',
     group: 'Today',
     scope: 'today',
   },
@@ -80,13 +80,13 @@ const manifest: FeatureManifest = {
       run: () => requestTodayAction('skipNow'),
     },
     {
-      id: 'command.today.moveRolledOver',
-      title: 'Move rolled-over tasks to today',
+      id: 'command.today.moveCarriedOver',
+      title: 'Move carried-over tasks to today',
       group: 'Review',
       icon: CalendarArrowUp,
-      keywords: ['overdue', 'reschedule', 'catch up', 'slipped'],
-      shortcutId: 'today.moveRolledOver',
-      run: () => requestTodayAction('moveRolledOver'),
+      keywords: ['rolled over', 'overdue', 'reschedule', 'catch up', 'slipped', 'earlier'],
+      shortcutId: 'today.moveCarriedOver',
+      run: () => requestTodayAction('moveCarriedOver'),
     },
   ],
   slots: [

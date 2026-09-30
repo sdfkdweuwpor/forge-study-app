@@ -24,9 +24,11 @@ const taskSearch: SearchProvider = {
       subtitle:
         task.status === 'done'
           ? 'Completed'
-          : task.dueDate
-            ? `Due ${relativeDay(task.dueDate, dayOf(Date.now()))}`
-            : where === 'title'
+          : task.doDate
+            ? relativeDay(task.doDate, dayOf(Date.now()))
+            : task.dueDate
+              ? `Due ${relativeDay(task.dueDate, dayOf(Date.now()))}`
+              : where === 'title'
               ? 'No date'
               : `Matches in ${where === 'subtask' ? 'a subtask' : where}`,
       icon: task.status === 'done' ? CircleCheckBig : ListChecks,

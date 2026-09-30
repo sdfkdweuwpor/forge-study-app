@@ -11,7 +11,7 @@ export interface Chip {
   kind: ChipKind
   label: string
   color: TagColor
-  /** Plain-language name for screen readers and tooltips: "Due date", "Course". */
+  /** Plain-language name for screen readers and tooltips: "Date", "Deadline", "Course". */
   name: string
 }
 
@@ -24,8 +24,9 @@ const PRIORITY_COLORS: Record<Priority, TagColor> = {
 }
 
 const KIND_NAMES: Record<ChipKind, string> = {
-  date: 'Due date',
-  time: 'Due time',
+  date: 'Date',
+  time: 'Time',
+  deadline: 'Deadline',
   tag: 'Tag',
   priority: 'Priority',
   estimate: 'Estimate',
@@ -43,6 +44,8 @@ export function tokenColor(
     case 'date':
     case 'time':
       return 'blue'
+    case 'deadline':
+      return 'brown'
     case 'tag':
       return tagColor(token.text, tagColors)
     case 'priority':

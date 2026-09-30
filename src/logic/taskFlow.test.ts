@@ -1,42 +1,57 @@
 import { describe, expect, it } from 'vitest'
 import type { RecurrenceRule, Task } from '@/db/types'
-import { buildNextInstance, nextDueAfterCompletion } from './taskFlow'
+import { buildNextInstance, nextDateAfterCompletion, shiftedDeadline } from './taskFlow'
 
 const daily: RecurrenceRule = { freq: 'daily', interval: 1, byWeekday: [] }
 const sundays: RecurrenceRule = { freq: 'weekly', interval: 1, byWeekday: [0] }
 const weekdays: RecurrenceRule = { freq: 'weekdays', interval: 1, byWeekday: [] }
 const fortnightly: RecurrenceRule = { freq: 'weekly', interval: 2, byWeekday: [1] }
 
-describe('nextDueAfterCompletion', () => {
+describe('shiftedDeadline', () => {
+  it('keeps a deadline the same distance from the do date', () => {
+    expect(shiftedDeadline({ doDate: '2026-09-27', dueDate: '2026-09-29' }, '2026-10-04')).toBe(
+      '2026-10-06',
+    )
+  })
+
+  it('moves a deadline without a do date to the new day, and leaves no deadline alone', () => {
+    expect(shiftedDeadline({ doDate: null, dueDate: '2026-09-29' }, '2026-10-04')).toBe(
+      '2026-10-04',
+    )
+    expect(shiftedDeadline({ doDate: '2026-09-27', dueDate: null }, '2026-10-04')).toBeNull()
+  })
+})
+
+describe('nextDateAfterCompletion', () => {
   it('advances one occurrence from the due date when finished on time', () => {
-    expect(nextDueAfterCompletion(daily, '2026-09-29', '2026-09-29')).toBe('2026-09-30')
-    expect(nextDueAfterCompletion(sundays, '2026-09-27', '2026-09-27')).toBe('2026-10-04')
+    expect(nextDateAfterCompletion(daily, '2026-09-29', '2026-09-29')).toBe('2026-09-30')
+    expect(nextDateAfterCompletion(sundays, '2026-09-27', '2026-09-27')).toBe('2026-10-04')
   })
 
   it('skips occurrences that are already in the past when finished late', () => {
     // A daily task due Sept 26, finished Sept 29: next is tomorrow, not Sept 27.
-    expect(nextDueAfterCompletion(daily, '2026-09-26', '2026-09-29')).toBe('2026-09-30')
+    expect(nextDateAfterCompletion(daily, '2026-09-26', '2026-09-29')).toBe('2026-09-30')
     // Weekly on Sundays, due Sept 20, finished on Tuesday Sept 29: next Sunday.
-    expect(nextDueAfterCompletion(sundays, '2026-09-20', '2026-09-29')).toBe('2026-10-04')
+    expect(nextDateAfterCompletion(sundays, '2026-09-20', '2026-09-29')).toBe('2026-10-04')
   })
 
   it('keeps the phase of an every-other-week series when finished late', () => {
     // Mondays every 2 weeks: Sept 7, Sept 21, Oct 5 …; finished Sept 29 -> Oct 5.
-    expect(nextDueAfterCompletion(fortnightly, '2026-09-07', '2026-09-29')).toBe('2026-10-05')
+    expect(nextDateAfterCompletion(fortnightly, '2026-09-07', '2026-09-29')).toBe('2026-10-05')
   })
 
   it('goes after the due date when finished early', () => {
-    expect(nextDueAfterCompletion(daily, '2026-10-05', '2026-09-29')).toBe('2026-10-06')
+    expect(nextDateAfterCompletion(daily, '2026-10-05', '2026-09-29')).toBe('2026-10-06')
   })
 
   it('recurs from today when the task had no due date', () => {
-    expect(nextDueAfterCompletion(daily, null, '2026-09-29')).toBe('2026-09-30')
+    expect(nextDateAfterCompletion(daily, null, '2026-09-29')).toBe('2026-09-30')
     // Friday -> Monday for weekdays.
-    expect(nextDueAfterCompletion(weekdays, null, '2026-10-02')).toBe('2026-10-05')
+    expect(nextDateAfterCompletion(weekdays, null, '2026-10-02')).toBe('2026-10-05')
   })
 
   it('is always strictly after today, even for a very old due date', () => {
-    const next = nextDueAfterCompletion(daily, '2020-01-01', '2026-09-29')
+    const next = nextDateAfterCompletion(daily, '2020-01-01', '2026-09-29')
     expect(next).toBe('2026-09-30')
   })
 })
@@ -52,8 +67,8 @@ const task = (over: Partial<Task> = {}): Task => ({
   ],
   status: 'done',
   priority: 2,
-  dueDate: '2026-09-27',
-  dueTime: '18:00',
+  doDate: '2026-09-27',
+  doTime: '18:00',
   estimatePomodoros: 1,
   estimateMinutes: null,
   tags: ['review'],
@@ -76,12 +91,19 @@ const task = (over: Partial<Task> = {}): Task => ({
   startedAt: 150,
   completedAt: 300,
   completedDay: '2026-09-27',
+  durationMinutes: null,
+  autoSlot: false,
+  kind: 'task',
+  assessmentId: null,
+  sync: null,
+  dueDate: null,
+  dueTime: null,
   ...over,
 })
 
 describe('buildNextInstance', () => {
   let n = 0
-  const opts = { id: 'weekly-2', dueDate: '2026-10-04', now: 999, newId: () => `new-${++n}` }
+  const opts = { id: 'weekly-2', doDate: '2026-10-04', now: 999, newId: () => `new-${++n}` }
 
   it('copies the content and resets progress', () => {
     const next = buildNextInstance(task(), opts)
@@ -92,8 +114,8 @@ describe('buildNextInstance', () => {
       title: 'Weekly review',
       status: 'todo',
       priority: 2,
-      dueDate: '2026-10-04',
-      dueTime: '18:00',
+      doDate: '2026-10-04',
+      doTime: '18:00',
       estimatePomodoros: 1,
       tags: ['review'],
       order: 500,

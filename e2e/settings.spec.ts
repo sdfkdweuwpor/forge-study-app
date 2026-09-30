@@ -176,6 +176,7 @@ test.describe('the page', () => {
       'Sound and notifications',
       'Site blocker',
       'Export & calendar',
+      'Snapshots',
       'Data',
     ])
 
@@ -196,6 +197,9 @@ test.describe('the page', () => {
     await expect(
       page.getByRole('heading', { level: 2, name: 'Sound and notifications' }),
     ).toBeInViewport()
+    // ...and so does the Snapshots section Phase 11c contributes.
+    await page.goto('/settings/snapshots')
+    await expect(page.getByRole('heading', { level: 2, name: 'Snapshots' })).toBeInViewport()
   })
 
   test('on a phone the sections stack, with no sideways scroll', async ({ page }) => {

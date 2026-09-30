@@ -14,6 +14,9 @@ const TODAY = '2026-09-29'
 
 const levelUp = (page: Page) => page.getByTestId('level-up')
 const meter = (page: Page) => page.getByTestId('level-meter')
+const badge = (page: Page) => page.getByTestId('level-badge')
+const levelRow = (page: Page) => page.getByTestId('level-row')
+const moreSheet = (page: Page) => page.getByRole('dialog', { name: 'More' })
 const toasts = (page: Page) => page.getByRole('region', { name: 'Notifications' })
 
 /** Reads a whole table straight from IndexedDB, so an assertion never depends on the UI under test. */
@@ -151,13 +154,165 @@ test.describe('level meter', () => {
     await expect(page).toHaveURL(/\/rewards$/)
   })
 
-  test('is not drawn on a phone: there is no sidebar and the More sheet has no footer slot', async ({
+  test('a phone has no sidebar: the meter is not drawn there, the level is a row in the More sheet', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await gotoApp(page, '/', 'wgu')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect(meter(page)).toHaveCount(0)
+    await expect(badge(page)).toHaveCount(0)
+  })
+})
+
+/**
+ * Phase 13 carry-over from 6D: where the sidebar is not on screen the level is a ring beside the "Open
+ * sidebar" button (collapsed desktop, tablet) and a row at the foot of the phone's More sheet. All three
+ * read the same hook, so they say the same thing.
+ */
+test.describe('the level where the sidebar is not', () => {
+  /** What the meter's own words are for the sample data. */
+  async function expected(page: Page) {
+    const info = levelFromLifetimeXp(await lifetimeXp(page))
+    const progress = `${info.intoLevel.toLocaleString('en-US')} / ${info.needed.toLocaleString('en-US')} XP`
+    return { info, progress, label: `Level ${info.level}, ${progress}. Open rewards` }
+  }
+
+  test('a collapsed sidebar keeps the level: a ring beside the open button, with the meter\'s tooltip', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await gotoApp(page, '/', 'wgu')
+    await expect(meter(page)).toBeVisible()
+    // Open sidebar: the meter is there and the ring is not (one level on screen, not two).
+    await expect(badge(page)).toHaveCount(0)
+    const { info, label } = await expected(page)
+    const meterLabel = await meter(page).getAttribute('aria-label')
+
+    await page.keyboard.press('ControlOrMeta+\\')
+    await expect(badge(page)).toBeVisible()
+    await expect(meter(page)).toBeHidden()
+    // The same words as the meter, and the level inside the ring.
+    await expect(badge(page)).toHaveAttribute('aria-label', label)
+    expect(label).toBe(meterLabel)
+    await expect(badge(page)).toHaveText(String(info.level))
+
+    // Beside the open button, on its line and its size; 32 px on a mouse.
+    const open = await page.getByRole('button', { name: 'Open sidebar' }).boundingBox()
+    const ring = await badge(page).boundingBox()
+    if (!open || !ring) throw new Error('no boxes')
+    expect(ring.x).toBeGreaterThanOrEqual(open.x + open.width)
+    expect(ring.x - (open.x + open.width)).toBeLessThanOrEqual(8)
+    expect(Math.abs(ring.y + ring.height / 2 - (open.y + open.height / 2))).toBeLessThanOrEqual(1)
+    expect(ring.width).toBeGreaterThanOrEqual(32)
+    expect(ring.height).toBeGreaterThanOrEqual(32)
+
+    await badge(page).hover()
+    const tip = page.getByRole('tooltip')
+    await expect(tip).toContainText('XP earned in all')
+    await expect(tip).toContainText('XP to spend')
+    await expect(tip).toContainText(`XP to Level ${info.level + 1}`)
+
+    // Tab order: Open sidebar, then the ring.
+    await page.getByRole('button', { name: 'Open sidebar' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(badge(page)).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/rewards$/)
+
+    // Expanding puts the meter back and takes the ring away.
+    await page.keyboard.press('ControlOrMeta+\\')
+    await expect(meter(page)).toBeVisible()
+    await expect(badge(page)).toHaveCount(0)
+  })
+
+  test('the ring and the meter follow the same XP: finishing a task moves both', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await gotoApp(page, '/', 'wgu')
+    await expect(meter(page)).toBeVisible()
+    await page.keyboard.press('ControlOrMeta+\\')
+    await expect(badge(page)).toBeVisible()
+    const before = await expected(page)
+    await expect(badge(page)).toHaveAttribute('aria-label', before.label)
+
+    await completeMentorTask(page)
+    // +20 XP: the ring's label catches up without a reload, and it is the label the meter then shows.
+    await expect
+      .poll(async () => (await expected(page)).label)
+      .not.toBe(before.label)
+    const after = await expected(page)
+    await expect(badge(page)).toHaveAttribute('aria-label', after.label)
+    await page.keyboard.press('ControlOrMeta+\\')
+    await expect(meter(page)).toHaveAttribute('aria-label', after.label)
+  })
+
+  test('a tablet\'s closed drawer keeps the ring beside the open button, 44 px for a finger', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await gotoApp(page, '/', 'wgu')
+    await expect(badge(page)).toBeVisible()
+    const { label } = await expected(page)
+    await expect(badge(page)).toHaveAttribute('aria-label', label)
+    const open = await page.getByRole('button', { name: 'Open sidebar' }).boundingBox()
+    const ring = await badge(page).boundingBox()
+    if (!open || !ring) throw new Error('no boxes')
+    expect(ring.x).toBeGreaterThanOrEqual(open.x + open.width)
+    expect(ring.width).toBeGreaterThanOrEqual(44)
+    expect(ring.height).toBeGreaterThanOrEqual(44)
+
+    // Opening the drawer shows the meter (the full one), and the page behind it, ring included, is inert.
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeVisible()
+    await expect(meter(page)).toBeVisible()
+    await expect(page.locator('[inert]').filter({ has: badge(page) })).toHaveCount(1)
+  })
+
+  test('a phone ends the More sheet with a level row that opens rewards', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await gotoApp(page, '/', 'wgu')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(levelRow(page)).toBeHidden()
+
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'More' }).click()
+    await expect(moreSheet(page)).toBeVisible()
+    const { info, progress, label } = await expected(page)
+    await expect(levelRow(page)).toBeVisible()
+    await expect(levelRow(page)).toHaveAttribute('aria-label', label)
+    await expect(levelRow(page)).toContainText(`Level ${info.level}`)
+    await expect(levelRow(page)).toContainText(progress)
+    // It is the last thing in the sheet, and a 44 px row.
+    const row = await levelRow(page).boundingBox()
+    const settings = await moreSheet(page).getByRole('link', { name: 'Settings' }).boundingBox()
+    if (!row || !settings) throw new Error('no boxes')
+    expect(row.y).toBeGreaterThan(settings.y)
+    expect(row.height).toBeGreaterThanOrEqual(44)
+    // The sheet fits the phone once it has slid up (it takes 280 ms).
+    await expect
+      .poll(async () => {
+        const b = await levelRow(page).boundingBox()
+        return b ? b.y + b.height : Number.POSITIVE_INFINITY
+      })
+      .toBeLessThanOrEqual(812)
+
+    await levelRow(page).click()
+    await expect(page).toHaveURL(/\/rewards$/)
+    await expect(moreSheet(page)).toBeHidden()
+  })
+
+  test('the More sheet scrolls on a phone held sideways, so the level row is still reachable', async ({
+    page,
+  }) => {
+    // The widest a phone gets (under 640 px) and 320 px tall: the sheet is taller than the screen.
+    await page.setViewportSize({ width: 600, height: 320 })
+    await gotoApp(page, '/', 'wgu')
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'More' }).click()
+    await expect(moreSheet(page)).toBeVisible()
+    await levelRow(page).scrollIntoViewIfNeeded()
+    const row = await levelRow(page).boundingBox()
+    if (!row) throw new Error('no row')
+    expect(row.y + row.height).toBeLessThanOrEqual(320)
+    expect(row.y).toBeGreaterThanOrEqual(0)
   })
 })
 

@@ -110,6 +110,25 @@ const shots: ShotList = {
         await page.getByRole('tooltip').waitFor()
       },
     },
+    // Where the sidebar is not: a ring beside the open button with the sidebar collapsed (1440), the last row
+    // of the More sheet on a phone (375).
+    {
+      name: 'level-compact',
+      path: '/?seed=wgu',
+      prepare: async (page) => {
+        await loaded(page)
+        const more = page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'More' })
+        if ((await more.count()) > 0) {
+          await more.click()
+          await page.getByTestId('level-row').waitFor()
+          await page.waitForTimeout(400)
+          return
+        }
+        await page.keyboard.press('ControlOrMeta+\\')
+        await page.getByTestId('level-badge').waitFor()
+        await page.waitForTimeout(400)
+      },
+    },
     {
       name: 'level-up',
       path: '/?seed=wgu',

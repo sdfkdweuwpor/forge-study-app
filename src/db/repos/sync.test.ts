@@ -10,6 +10,8 @@ import { defaultSyncState } from '@/db/defaults'
 import { onDomainEvent, resetDomainEvents, settleDomainEvents, type DomainEvent } from '@/db/events'
 import { exportBackup, importBackup, resetAllData } from '@/db/repos/backup'
 import { awardDailyGoal } from '@/db/repos/dailyGoal'
+import { removeBlocklistEntry, seedDefaultBlocklist } from '@/db/repos/blocker'
+import { archiveReward, seedStarterRewards, updateReward } from '@/db/repos/rewards'
 import { createPdfResource, deleteResource } from '@/db/repos/resources'
 import { ensureSettings, updateSettings } from '@/db/repos/settings'
 import { finishSession, startSession } from '@/db/repos/sessions'
@@ -372,6 +374,113 @@ describe('first sync', () => {
     const again = await syncOk()
     expect(again.pushed).toBe(0)
     expect(cloud.model.lastSeq).toBe(sent)
+  })
+})
+
+describe('first sync: seed rows every device gives the same id', () => {
+  const DAY = 24 * 60 * 60_000
+
+  /** What the person did on A (whose clock runs ten days behind) before the second device existed. */
+  async function aEditsItsShop(): Promise<void> {
+    devices.setOffset('A', -10 * DAY)
+    await ensureSettings()
+    await seedStarterRewards({ now: devices.now() })
+    await seedDefaultBlocklist({ now: devices.now() })
+    await enable()
+    await syncOk()
+    await updateReward('starter-reward:0', { price: 999 }, { now: devices.now() })
+    await archiveReward('starter-reward:2', { now: devices.now() })
+    await db.rewards.delete('starter-reward:1')
+    await removeBlocklistEntry('default:facebook.com')
+    await syncOk()
+  }
+
+  async function expectTheAccountsShop(): Promise<void> {
+    expect((await db.rewards.get('starter-reward:0'))?.price).toBe(999)
+    expect((await db.rewards.get('starter-reward:1')) === undefined).toBe(true)
+    expect((await db.rewards.get('starter-reward:2'))?.archived).toBe(true)
+    expect((await db.blocklist.get('default:facebook.com')) === undefined).toBe(true)
+    expect(await db.blocklist.count()).toBe(10)
+    expect((cloud.row('rewards', 'starter-reward:0')?.data as { price: number }).price).toBe(999)
+    expect(cloud.row('rewards', 'starter-reward:1')?.deleted).toBe(true)
+    expect(cloud.row('blocklist', 'default:facebook.com')?.deleted).toBe(true)
+  }
+
+  it('a new device whose seeds are newer than the account does not bring back what was edited or removed', async () => {
+    await aEditsItsShop()
+    const seq = cloud.model.lastSeq
+
+    // B is new: it seeded its shop and blocklist today, untouched, and only then turns sync on.
+    await devices.switchTo('B')
+    await ensureSettings()
+    await seedStarterRewards()
+    await seedDefaultBlocklist()
+    await enable()
+    const first = await syncOk()
+    expect(first.mode).toBe('bootstrap')
+    expect(first.pushed).toBe(0)
+    expect(cloud.model.lastSeq).toBe(seq)
+    await expectTheAccountsShop()
+    expect(await pendingChangeCount()).toBe(0)
+
+    // And A, syncing again, finds nothing of B's seeds on the account.
+    await devices.switchTo('A')
+    await syncOk()
+    await expectTheAccountsShop()
+  })
+
+  it('the same when B seeded after turning sync on, so its seeds sit in the outbox', async () => {
+    await aEditsItsShop()
+    const seq = cloud.model.lastSeq
+    await devices.switchTo('B')
+    await ensureSettings()
+    await enable()
+    await seedStarterRewards()
+    await seedDefaultBlocklist()
+    expect(await pendingChangeCount()).toBeGreaterThan(10)
+    const first = await syncOk()
+    // Only the settings row (the two "seeded" flags) is B's own change; no reward or site reaches the account.
+    expect(first.pushed).toBe(1)
+    expect((await cloud.pull(seq, 500)).map((r) => r.tbl)).toEqual(['settings'])
+    await expectTheAccountsShop()
+    expect(await pendingChangeCount()).toBe(0)
+  })
+
+  it('a seed row the person already changed on this device is an ordinary row: the newer edit wins', async () => {
+    await aEditsItsShop()
+    await devices.switchTo('B')
+    await ensureSettings()
+    await seedStarterRewards()
+    await seedDefaultBlocklist()
+    // B: the price was edited today (newer than anything on A), and a default site switched off.
+    await updateReward('starter-reward:0', { price: 450 })
+    await db.blocklist.update('default:reddit.com', { enabled: false, updatedAt: Date.now() })
+    await enable()
+    await syncOk()
+    expect((await db.rewards.get('starter-reward:0'))?.price).toBe(450)
+    expect((cloud.row('rewards', 'starter-reward:0')?.data as { price: number }).price).toBe(450)
+    expect(cloud.row('blocklist', 'default:reddit.com')).toBeDefined()
+    expect(
+      (cloud.row('blocklist', 'default:reddit.com')?.data as { enabled: boolean }).enabled,
+    ).toBe(false)
+    // The rows it did not touch still follow the account.
+    expect((await db.rewards.get('starter-reward:1')) === undefined).toBe(true)
+    expect((await db.blocklist.get('default:facebook.com')) === undefined).toBe(true)
+  })
+
+  it('seeds the account does not have yet are pushed as before', async () => {
+    devices.setOffset('A', -10 * DAY)
+    await ensureSettings()
+    await enable()
+    await syncOk()
+    await devices.switchTo('B')
+    await ensureSettings()
+    await seedStarterRewards()
+    await seedDefaultBlocklist()
+    await enable()
+    const first = await syncOk()
+    expect(first.pushed).toBe(3 + 11)
+    expect(cloud.row('rewards', 'starter-reward:1')?.deleted).toBe(false)
   })
 })
 
@@ -1296,14 +1405,96 @@ describe('a batch the server will not take', () => {
     expect(await pendingChangeCount()).toBe(0)
   })
 
-  it('gives up with a server error when many rows are refused: that is the request, not the rows', async () => {
+  it('a server that refuses every row loses nothing: the cycle fails, every change stays queued, and goes once the server is fixed', async () => {
     await enable()
     await syncOk()
     await twentyTasks()
+    const queued = await pendingChangeCount()
+    expect(queued).toBeGreaterThanOrEqual(20)
     cloud.refuseRow = () => true
     const failed = await syncError()
     expect(failed.error.kind).toBe('server')
-    expect(await pendingChangeCount()).toBeGreaterThan(5)
+    expect(failed.httpStatus).toBe(400)
+    // Not one entry was dropped, however many rows were tried, and again on the next cycle.
+    expect(await pendingChangeCount()).toBe(queued)
+    await syncError()
+    expect(await pendingChangeCount()).toBe(queued)
+    expect((await getSyncState())?.lastError?.kind).toBe('server')
+
+    cloud.calm()
+    const fixed = await syncOk()
+    expect(fixed.refused).toHaveLength(0)
+    expect(await pendingChangeCount()).toBe(0)
+    expect(cloud.rows().filter((r) => r.tbl === 'tasks')).toHaveLength(20)
+    expect((await getSyncState())?.lastError).toBeNull()
+  })
+
+  it('one refused row with nothing else to send stays queued, the pull still goes on, and it goes out once something else is taken', async () => {
+    await enable()
+    await syncOk()
+    await devices.switchTo('B')
+    await ensureSettings()
+    await enable()
+    await syncOk()
+    const fromB = await createTask({ title: 'Email the D278 course mentor' })
+    await syncOk()
+    await devices.switchTo('A')
+
+    const bad = await createTask({ title: 'C182 flashcards 8' })
+    cloud.refuseRow = (row) => row.id === bad.id
+    const failed = await syncError()
+    expect(failed.error.kind).toBe('server')
+    // Alone, it cannot be told from a server that takes nothing: it is kept, and B's task still arrived.
+    expect(await db.syncOutbox.get(['tasks', bad.id])).toBeDefined()
+    expect(await db.tasks.get(fromB.id)).toBeDefined()
+
+    // Another change the server takes shows the row is the problem: it is left out and named.
+    await createTask({ title: 'Review C779 CSS notes' })
+    const next = await syncOk()
+    expect(next.pushed).toBe(1)
+    expect(next.refused.map((r) => r.id)).toEqual([bad.id])
+    expect(await pendingChangeCount()).toBe(0)
+    expect((await getSyncState())?.lastError?.message).toContain('C182 flashcards 8')
+  })
+
+  it('a refused row in the first 200 entries does not wedge the rest of a long queue', async () => {
+    await enable()
+    await syncOk()
+    const template = await createTask({ title: 'C182 flashcards 1' })
+    await syncOk()
+    const many: Task[] = Array.from({ length: 250 }, (_, i) => ({
+      ...template,
+      id: `bulk-${i}`,
+      title: `C182 flashcards ${i + 2}`,
+    }))
+    await db.tasks.bulkAdd(many)
+    expect(await pendingChangeCount()).toBe(250)
+    cloud.refuseRow = (row) => row.id === 'bulk-0'
+    const result = await syncOk()
+    expect(result.refused.map((r) => r.id)).toEqual(['bulk-0'])
+    expect(result.pushed).toBe(249)
+    expect(cloud.rows().filter((r) => r.tbl === 'tasks')).toHaveLength(250)
+    expect(cloud.row('tasks', 'bulk-0')).toBeUndefined()
+    expect(await pendingChangeCount()).toBe(0)
+  })
+
+  it('a row edited again after the server refused it is tried again at once', async () => {
+    await enable()
+    await syncOk()
+    const bad = await createTask({ title: 'C182 flashcards 8' })
+    const good = await createTask({ title: 'Review C779 CSS notes' })
+    cloud.refuseRow = (row) => row.id === bad.id
+    cloud.afterPushStored = async () => {
+      // The person fixes the row while the cycle is running.
+      cloud.refuseRow = null
+      cloud.afterPushStored = null
+      await updateTask(bad.id, { title: 'C182 flashcards 8 (fixed)' })
+    }
+    const result = await syncOk()
+    expect(result.refused).toHaveLength(0)
+    expect(cloud.row('tasks', bad.id)).toBeDefined()
+    expect(cloud.row('tasks', good.id)).toBeDefined()
+    expect(await pendingChangeCount()).toBe(0)
   })
 })
 

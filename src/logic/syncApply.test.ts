@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Task } from '@/db/types'
 import {
+  accountWinsOverSeed,
   clockCheckDue,
   clockSkew,
   duplicatePlanKeys,
@@ -132,6 +133,55 @@ describe('levelToAbsorb', () => {
   it('does nothing for a level that cannot be', () => {
     expect(levelToAbsorb(3, 0)).toBeNull()
     expect(levelToAbsorb(3, Number.NaN)).toBeNull()
+  })
+})
+
+describe('accountWinsOverSeed', () => {
+  const reward = (over: Record<string, unknown> = {}) => ({
+    id: 'starter-reward:0',
+    createdAt: 1_000,
+    updatedAt: 1_000,
+    title: '30 min gaming',
+    price: 300,
+    ...over,
+  })
+  const site = (over: Record<string, unknown> = {}) => ({
+    id: 'default:reddit.com',
+    createdAt: 5_005,
+    updatedAt: 5_000,
+    kind: 'block',
+    domain: 'reddit.com',
+    pattern: null,
+    enabled: true,
+    isDefault: true,
+    note: null,
+    ...over,
+  })
+
+  it('is true for an untouched starter reward and an untouched default site', () => {
+    expect(accountWinsOverSeed('rewards', reward(), 11)).toBe(true)
+    expect(accountWinsOverSeed('blocklist', site(), 11)).toBe(true)
+    // The seed spreads createdAt by 1 ms per site, the last of 11 by 10.
+    expect(accountWinsOverSeed('blocklist', site({ createdAt: 5_010 }), 11)).toBe(true)
+  })
+
+  it('is false once the person changed the row', () => {
+    expect(accountWinsOverSeed('rewards', reward({ updatedAt: 9_000 }), 11)).toBe(false)
+    expect(accountWinsOverSeed('blocklist', site({ enabled: false }), 11)).toBe(false)
+    expect(accountWinsOverSeed('blocklist', site({ updatedAt: 60_000 }), 11)).toBe(false)
+    expect(accountWinsOverSeed('blocklist', site({ note: 'Distracting' }), 11)).toBe(false)
+    expect(accountWinsOverSeed('blocklist', site({ kind: 'allow', pattern: 'x/y' }), 11)).toBe(
+      false,
+    )
+  })
+
+  it('is false for rows with another id or from another table, and for rows that are not rows', () => {
+    expect(accountWinsOverSeed('rewards', reward({ id: 'reward-7f3a' }), 11)).toBe(false)
+    expect(accountWinsOverSeed('blocklist', site({ id: 'block-a' }), 11)).toBe(false)
+    expect(accountWinsOverSeed('blocklist', site({ id: 'default:tiktok.com' }), 11)).toBe(false)
+    expect(accountWinsOverSeed('tasks', reward({ id: 'starter-reward:0' }), 11)).toBe(false)
+    expect(accountWinsOverSeed('rewards', undefined, 11)).toBe(false)
+    expect(accountWinsOverSeed('rewards', reward({ updatedAt: 'now' }), 11)).toBe(false)
   })
 })
 

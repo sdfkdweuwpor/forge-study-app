@@ -108,8 +108,9 @@ export function levelToAbsorb(lastCelebrated: number, currentLevel: number): num
  * on another device, so comparing stamps would hand the account back its starter rewards and default
  * sites after the person edited or removed them.
  *  - a starter reward: `updatedAt === createdAt`;
- *  - a default site: `kind: 'block'`, on, no pattern, no note, and `updatedAt` within `defaultSiteCount`
- *    ms of `createdAt` (the seed spreads `createdAt` by one ms per site; any later edit is far past it).
+ *  - a default site: `kind: 'block'`, on, no pattern, no note, and `updatedAt` fewer than
+ *    `defaultSiteCount` ms from `createdAt` (the seed spreads `createdAt` by one ms per site; any later
+ *    edit is far past it).
  * Rows of any other table, or with another id, are never seeds in this sense.
  */
 export function accountWinsOverSeed(

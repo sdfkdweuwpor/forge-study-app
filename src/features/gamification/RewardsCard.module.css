@@ -117,9 +117,9 @@
  * stay 44px; the row stops paying for them twice:
  *
  * - no extra vertical padding (the targets are the height), a hairline of gap between rewards;
- * - a phone lays the row out as two 44px lines, so each control sits on the line it belongs to: the title
- *   with Redeem, the price with how close it is and the menu (96px a reward, and the same with "to go");
- * - a tablet has room for the title and the price on one line (56px a reward).
+ * - a phone lays the row out as two 44px lines: the title with Redeem and the menu, then the price with how
+ *   close it is, under the title (96px a reward, with or without "930 XP to go");
+ * - a tablet has room for the title and the price on one line (52px a reward).
  */
 @media (pointer: coarse) {
   .card {
@@ -145,9 +145,10 @@
 
 @media (pointer: coarse) and (max-width: 639px) {
   .card {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
     grid-template-areas:
-      'handle icon title redeem'
-      'handle icon meta more';
+      'handle icon title redeem more'
+      'handle icon meta meta meta';
     row-gap: 0;
   }
 
@@ -177,13 +178,9 @@
     grid-area: redeem;
   }
 
+  /* Redeem and the menu sit close, as they do in the desktop row's action group. */
   .more {
     grid-area: more;
-    justify-self: end;
-  }
-
-  /* "930 XP to go" stays on the price's line at 375px with a shorter bar; on a narrower phone it wraps under. */
-  .toGoBar {
-    width: 32px;
+    margin-left: calc(var(--space-1) * -1);
   }
 }

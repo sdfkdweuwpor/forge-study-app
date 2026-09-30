@@ -432,3 +432,108 @@ test.describe('Rewards shop', () => {
     expect(after).toBeLessThanOrEqual(0)
   })
 })
+
+// ── Touch: tighter rows, same 44 px targets ──────────────────────────────────────────────────────
+// The title and the price are buttons with a 44 px target each, so the shop's rows used to be 114 px tall
+// (132 with "240 XP to go" on a third line). On a phone a reward is now two 44 px lines; on a tablet, one.
+
+interface Box {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+async function boxOf(page: Page, name: string): Promise<Box> {
+  const box = await page.getByRole('button', { name }).boundingBox()
+  if (!box) throw new Error(`no box for ${name}`)
+  return box
+}
+
+const rowHeights = async (page: Page): Promise<number[]> => {
+  const rows = rewardRows(page)
+  const heights: number[] = []
+  for (let i = 0; i < (await rows.count()); i++) {
+    heights.push((await rows.nth(i).boundingBox())?.height ?? 0)
+  }
+  return heights
+}
+
+test.describe('Shop rows on a phone that is touched', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 812 } })
+
+  test('a reward is two 44 px lines, with or without "to go", and every target stays 44 px', async ({
+    page,
+  }) => {
+    await openShop(page, 1260)
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
+
+    // 44 + 44 and a little air, where it was 114 to 132.
+    for (const h of await rowHeights(page)) {
+      expect(h).toBeGreaterThanOrEqual(88)
+      expect(h).toBeLessThanOrEqual(100)
+    }
+    // The unaffordable reward has "240 XP to go" too and is no taller.
+    const heights = await rowHeights(page)
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1)
+
+    for (const title of ['30 min gaming', 'Coffee out', 'Order takeout']) {
+      const name = await boxOf(page, `Title of ${title}`)
+      const price = await boxOf(page, `Price of ${title}`)
+      const icon = await boxOf(page, `Change icon for ${title}`)
+      expect(name.height).toBeGreaterThanOrEqual(44)
+      expect(price.height).toBeGreaterThanOrEqual(44)
+      expect(icon.width).toBeGreaterThanOrEqual(44)
+      expect(icon.height).toBeGreaterThanOrEqual(44)
+      // The price is under the title, and the two targets do not overlap.
+      expect(price.y).toBeGreaterThanOrEqual(name.y + name.height - 1)
+    }
+
+    // "240 XP to go" stays on the price's line.
+    const price = await boxOf(page, 'Price of Order takeout')
+    const toGo = await page.getByText('240 XP to go').boundingBox()
+    if (!toGo) throw new Error('no "to go" text')
+    expect(toGo.y).toBeGreaterThanOrEqual(price.y)
+    expect(toGo.y + toGo.height).toBeLessThanOrEqual(price.y + price.height)
+
+    // Redeem and the menu share the title's line.
+    const redeem = await boxOf(page, 'Redeem Coffee out for 500 XP')
+    const menu = await boxOf(page, 'Actions for Coffee out')
+    const title = await boxOf(page, 'Title of Coffee out')
+    for (const b of [redeem, menu]) {
+      expect(b.y + b.height / 2).toBeGreaterThanOrEqual(title.y)
+      expect(b.y + b.height / 2).toBeLessThanOrEqual(title.y + title.height)
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+
+  test('Redeem and the title still work by touch in the new layout', async ({ page }) => {
+    await openShop(page, 1260)
+    await page.getByRole('button', { name: 'Redeem Coffee out for 500 XP' }).tap()
+    await page
+      .getByRole('dialog', { name: 'Redeem Coffee out for 500 XP?' })
+      .getByRole('button', { name: 'Redeem', exact: true })
+      .tap()
+    await expect(balance(page)).toHaveText('760 XP')
+    await page.getByRole('button', { name: 'Title of 30 min gaming' }).tap()
+    await expect(page.getByRole('textbox', { name: 'Title of 30 min gaming' })).toBeFocused()
+  })
+})
+
+test.describe('Shop rows on a tablet that is touched', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 768, height: 1024 } })
+
+  test('the title and the price share one 52 px line, each still a 44 px target', async ({ page }) => {
+    await openShop(page, 1260)
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
+    for (const h of await rowHeights(page)) expect(h).toBeLessThanOrEqual(60)
+    for (const title of ['30 min gaming', 'Coffee out', 'Order takeout']) {
+      const name = await boxOf(page, `Title of ${title}`)
+      const price = await boxOf(page, `Price of ${title}`)
+      expect(name.height).toBeGreaterThanOrEqual(44)
+      expect(price.height).toBeGreaterThanOrEqual(44)
+      expect(Math.abs(name.y + name.height / 2 - (price.y + price.height / 2))).toBeLessThanOrEqual(2)
+      expect(price.x).toBeGreaterThanOrEqual(name.x + name.width)
+    }
+  })
+})

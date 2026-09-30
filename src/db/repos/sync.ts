@@ -533,6 +533,8 @@ async function sendBatch(
       { raiseStamp: true },
     )
     ctx.pushed += batch.length
+    // A record refused earlier in this cycle that the server now took (edited meanwhile) is no longer refused.
+    for (const r of batch) ctx.held.delete(rowKey(r.tbl, r.id))
     ctx.report('push', ctx.pushed)
   }
   return true

@@ -170,7 +170,17 @@ const list: ShotList = {
         await hoverTask(p, 'task:shot-task-7')
       },
     },
-    // The sidebar hidden: the title moves over so the floating sidebar button does not sit on it.
+    // A year of study (2,000 tasks): Fit shows the whole city, at a fraction of a pixel per art pixel, even at 375 px.
+    {
+      name: 'fit-year',
+      path: '/world?seed=wgu-year',
+      waitFor: CANVAS,
+      prepare: async (p) => {
+        await p.waitForFunction(() => (window.__forgeWorld?.ids().length ?? 0) > 1000)
+        await p.waitForTimeout(500)
+      },
+    },
+    // The sidebar hidden: the title moves over so the floating sidebar button and the level ring do not sit on it.
     {
       name: 'collapsed',
       path: '/world?seed=wgu',

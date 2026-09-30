@@ -72,12 +72,12 @@ const SPRITE_HEIGHT: Record<Kind, number> = {
   road: 0,
   decor: 2,
   lamp: 8,
-  tree: 18,
-  house: 19,
-  block: 4,
-  monument: 32,
-  landmark: 58,
-  castle: 66,
+  tree: 8,
+  house: 20,
+  block: 3,
+  monument: 17,
+  landmark: 43,
+  castle: 27,
 }
 
 /** Sprite height above the footprint's top corner, at zoom 1. */

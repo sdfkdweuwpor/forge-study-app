@@ -33,8 +33,8 @@ const COLOURS: Record<Theme, SkyColours> = {
     night: { top: '#141a26', bottom: '#2a2f3a' },
   },
   dark: {
-    day: { top: '#a9c3d6', bottom: '#cfcbc1' },
-    mid: { top: '#b99a7c', bottom: '#c9b8a2' },
+    day: { top: '#7f9bb1', bottom: '#b4b3ab' },
+    mid: { top: '#a08669', bottom: '#b4a58f' },
     night: { top: '#0c1119', bottom: '#1c202a' },
   },
 }

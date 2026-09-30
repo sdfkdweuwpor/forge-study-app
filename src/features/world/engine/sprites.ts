@@ -107,6 +107,19 @@ function pickFrom<T>(list: readonly T[], i: number): T {
   return item
 }
 
+/**
+ * The outline colour for a part: one shade darker than its walls, and in daylight pulled towards a
+ * warm grey so the nine hues keep a calm, shared ink.
+ */
+function ink(theme: Theme, color: string): string {
+  return theme === 'dark' ? shade(color, -28) : mixHex(shade(color, -26), '#7d776d', 0.45)
+}
+
+/** In the dark theme the walls' base colours are already dark, and the right face is darker still: lift them a little. */
+function wallOf(theme: Theme, color: string): string {
+  return theme === 'dark' ? shade(color, 5) : color
+}
+
 interface Faces {
   top: string
   left: string
@@ -254,8 +267,13 @@ function blob(p: Painter, cx: number, top: number, w: number, h: number, color: 
   }
 }
 
-/** Runs `draw` once for each of the four neighbouring offsets in `color`, then once for real. */
-function outlined(p: Painter, color: string, draw: (p: Painter) => void): void {
+/**
+ * One part of a sprite with its own 1 px outline: `draw` runs once for each of the four neighbouring
+ * offsets in the outline colour, then once for real. Later parts paint over earlier ones, so every
+ * part keeps a dark edge where it meets the next (a roof over its walls, a tower beside a wall).
+ * The painter given to `draw` is the real one only on the last pass.
+ */
+function part(p: Painter, color: string, draw: (p: Painter) => void): void {
   for (const [dx, dy] of [
     [-1, 0],
     [1, 0],
@@ -397,68 +415,68 @@ function paintDecor(c: Ctx): void {
 // ─── Earned: tiles ──────────────────────────────────────────────────────────────────────────────
 
 function paintHouse(c: Ctx): void {
-  const { pal, spec, theme } = c
+  const { pal, spec, theme, p } = c
   const hue = pickFrom(HOUSE_HUES, spec.variant)
   const colours = pal.hues[hue]
-  const wall = colours.bg
+  const wall = wallOf(theme, colours.bg)
   const roof = colours.text
   const s: Solid = { u0: 1, v0: 1, lu: 14, lv: 14, z0: 0 }
   const wallH = 14
-  shadow(c.p, theme, 2, 2, 14, 14)
-  outlined(c.p, shade(wall, -28), (p) => {
-    const draw = { ...c, p, lights: p === c.p ? c.lights : null }
-    // Walls.
-    cuboid(p, s.u0, s.v0, s.lu, s.lv, 0, wallH, wall)
-    if (p === c.p) {
-      // Door on the left face, one window on each face.
-      bandLeft(p, s, 2, 3, 0, 5, shade(roof, -8))
-      windowLeft(draw, s, 8, 3, 5, 3, wall, true)
-      windowRight(draw, s, 4, 3, 5, 3, wall, true)
-    }
-    // A gable roof: the ridge runs along u, so the left slope and the right gable end show.
-    const cx = 0
-    const eaveY = 1 - wallH // top corner of the wall top, y
-    const rise = 9
-    const L: [number, number] = [cx - 14, eaveY + 7]
-    const B: [number, number] = [cx, eaveY + 14]
-    const R: [number, number] = [cx + 14, eaveY + 7]
-    const ridgeStart: [number, number] = [cx - 7, eaveY + 3.5 - rise]
-    const ridgeEnd: [number, number] = [cx + 7, eaveY + 10.5 - rise]
-    poly(p, [B, R, ridgeEnd], shade(wall, -12))
-    poly(p, [[L[0], L[1] + 1], [B[0], B[1] + 1], ridgeEnd, ridgeStart], roof)
-    if (p === c.p) {
-      line(p, L[0], L[1] + 1, B[0], B[1] + 1, shade(roof, -14))
-      line(p, ridgeStart[0], Math.round(ridgeStart[1]), ridgeEnd[0], Math.round(ridgeEnd[1]), shade(roof, 12))
-    }
-    if (spec.variant >= 4) cuboid(p, 4, 6, 2, 2, 20, 26, shade(pal.hues.gray.text, -4))
+  shadow(p, theme, 2, 2, 14, 14)
+
+  // Walls, with the gable end of the roof (the ridge runs along u, so the left slope and the right
+  // gable end show).
+  const cx = 0
+  const eaveY = 1 - wallH // y of the top corner of the wall top
+  const rise = 9
+  const L: [number, number] = [cx - 14, eaveY + 7]
+  const B: [number, number] = [cx, eaveY + 14]
+  const R: [number, number] = [cx + 14, eaveY + 7]
+  const ridgeStart: [number, number] = [cx - 7, eaveY + 3.5 - rise]
+  const ridgeEnd: [number, number] = [cx + 7, eaveY + 10.5 - rise]
+  part(p, ink(theme, wall), (q) => {
+    faceLeft(q, s.u0, s.v0, s.lu, s.lv, 0, wallH, wall)
+    faceRight(q, s.u0, s.v0, s.lu, s.lv, 0, wallH, shade(wall, -12))
+    poly(q, [B, R, ridgeEnd], shade(wall, -12))
   })
+  // A door on the left face (3x5) and a window (3x3) on each face.
+  bandLeft(p, s, 2, 3, 0, 5, shade(roof, -8))
+  windowLeft(c, s, 8, 3, 5, 3, wall, true)
+  windowRight(c, s, 4, 3, 5, 3, wall, true)
+  // The roof.
+  part(p, ink(theme, roof), (q) => {
+    poly(q, [[L[0], L[1] + 1], [B[0], B[1] + 1], ridgeEnd, ridgeStart], roof)
+  })
+  line(p, L[0] + 1, L[1] + 1, B[0], B[1] + 1, shade(roof, -14))
+  line(p, ridgeStart[0] + 1, Math.round(ridgeStart[1]) + 1, ridgeEnd[0] - 1, Math.round(ridgeEnd[1]) + 1, shade(roof, 12))
+  if (spec.variant >= 4) part(p, ink(theme, roof), (q) => cuboid(q, 4, 6, 2, 2, 20, 26, shade(pal.hues.gray.text, -4)))
 }
 
 function paintTree(c: Ctx): void {
-  const { pal, spec, theme } = c
+  const { pal, spec, theme, p } = c
   const autumn = spec.variant >= 6
   const leaf = pal.hues[autumn ? 'orange' : 'green']
   const trunk = pal.hues.brown.text
-  const mid = shade(leaf.text, 10)
-  const lightLeaf = shade(leaf.text, 20)
-  const dark = leaf.text
-  shadow(c.p, theme, 3, 3, 10, 10)
-  outlined(c.p, shade(leaf.text, -22), (p) => {
-    // Trunk 2 by 5, then three stacked blobs: 8x5, 10x5, 6x4.
-    p.rect(-1, 3, 2, 5, trunk)
-    blob(p, 0, -1, 8, 5, mid)
-    blob(p, 0, -5, 10, 5, mid)
-    blob(p, 0, -8, 6, 4, mid)
-    if (p === c.p) {
-      // Light from the top left, shade underneath.
-      blob(p, -1, -8, 4, 2, lightLeaf)
-      p.rect(-4, -4, 3, 2, lightLeaf)
-      p.rect(-3, 0, 2, 2, lightLeaf)
-      p.rect(1, 1, 4, 2, dark)
-      p.rect(2, -3, 4, 2, dark)
-      p.rect(-2, 3, 5, 1, dark)
-    }
+  const dark = theme === 'dark'
+  const mid = shade(leaf.text, dark ? -20 : 12)
+  const lightLeaf = shade(mid, 10)
+  const deep = shade(mid, -12)
+  shadow(p, theme, 3, 3, 10, 10)
+  // Trunk 2 by 5.
+  p.rect(-1, 3, 2, 5, trunk)
+  p.rect(0, 3, 1, 5, shade(trunk, -10))
+  // Three stacked blobs: 8x5, 10x5, 6x4, lit from the top left and shaded underneath.
+  part(p, shade(mid, -26), (q) => {
+    blob(q, 0, -1, 8, 5, mid)
+    blob(q, 0, -5, 10, 5, mid)
+    blob(q, 0, -8, 6, 4, mid)
   })
+  blob(p, -1, -8, 4, 2, lightLeaf)
+  p.rect(-4, -4, 3, 2, lightLeaf)
+  p.rect(-3, 0, 2, 2, lightLeaf)
+  p.rect(1, 1, 4, 2, deep)
+  p.rect(2, -3, 3, 2, deep)
+  p.rect(-2, 3, 5, 1, deep)
 }
 
 function paintLamp(c: Ctx): void {
@@ -475,181 +493,213 @@ function paintLamp(c: Ctx): void {
 // ─── Earned: blocks of flats ────────────────────────────────────────────────────────────────────
 
 function paintBlock(c: Ctx): void {
-  const { pal, spec, theme } = c
+  const { pal, spec, theme, p } = c
   const hue = pickFrom(BLOCK_HUES, spec.variant)
-  const wall = pal.hues[hue].bg
+  const wall = wallOf(theme, pal.hues[hue].bg)
   const trim = pal.hues[hue].text
   const floors = Math.max(1, Math.min(6, spec.floors))
   const height = floors * FLOOR_PX
   const s: Solid = { u0: 1, v0: 1, lu: 14, lv: 14, z0: 0 }
+  // Each window has a fixed place on a golden-ratio sequence (offset per building), and is lit when that
+  // place is below the chance: lit windows are evenly spread, and a window lit at one streak level stays
+  // lit at every higher one.
   const chance = 0.35 + 0.15 * spec.streakLevel
-  shadow(c.p, theme, 2, 2, 14, 14)
-  outlined(c.p, shade(wall, -28), (p) => {
-    const draw = { ...c, p, lights: p === c.p ? c.lights : null }
-    cuboid(p, 1, 1, 14, 14, 0, height, wall)
-    if (p === c.p) {
-      // A dark base band, two windows per face per floor (2x3 px), each lit or not by its own roll.
-      bandLeft(p, s, 0, 14, 0, 2, shade(wall, -14))
-      bandRight(p, s, 0, 14, 0, 2, shade(wall, -20))
-      for (let f = 0; f < floors; f++) {
-        for (const [face, cols] of [['left', [3, 9]], ['right', [3, 9]]] as const) {
-          cols.forEach((col, i) => {
-            const roll = mulberry32(hash32(`${spec.id}:${f}:${face}:${i}`))()
-            const lit = roll < chance
-            const up = f * FLOOR_PX + 4
-            if (face === 'left') windowLeft(draw, s, col, 2, up, 3, wall, lit)
-            else windowRight(draw, s, col, 2, up, 3, wall, lit)
-          })
-        }
-      }
+  const offset = mulberry32(hash32(spec.id))()
+  shadow(p, theme, 2, 2, 14, 14)
+  part(p, ink(theme, wall), (q) => cuboid(q, 1, 1, 14, 14, 0, height, wall))
+  // A dark base band, then two windows per face per floor (2x3 px), each lit or not by its own roll.
+  bandLeft(p, s, 0, 14, 0, 2, shade(wall, -14))
+  bandRight(p, s, 0, 14, 0, 2, shade(wall, -20))
+  for (let f = 0; f < floors; f++) {
+    for (const face of ['left', 'right'] as const) {
+      ;[3, 9].forEach((col, i) => {
+        const n = f * 4 + (face === 'left' ? 0 : 2) + i
+        const lit = (offset + n * 0.6180339887) % 1 < chance
+        const up = f * FLOOR_PX + 4
+        if (face === 'left') windowLeft(c, s, col, 2, up, 3, wall, lit)
+        else windowRight(c, s, col, 2, up, 3, wall, lit)
+      })
     }
-    // A 2 px roof ledge, wider than the walls.
-    cuboid(p, 0, 0, 16, 16, height, height + 2, shade(wall, -6))
-    if (spec.variant % 2 === 1) cuboid(p, 6, 6, 4, 4, height + 2, height + 5, trim)
-  })
+  }
+  // A 2 px roof ledge, a little wider than the walls, and now and then a plant room on it.
+  part(p, ink(theme, wall), (q) => cuboid(q, 0, 0, 16, 16, height, height + 2, shade(wall, -6)))
+  if (spec.variant % 2 === 1) part(p, ink(theme, trim), (q) => cuboid(q, 6, 6, 4, 4, height + 2, height + 5, trim))
 }
 
 // ─── Earned: landmarks ──────────────────────────────────────────────────────────────────────────
 
 function paintLandmark(c: Ctx): void {
-  const { pal, spec, theme } = c
+  const { pal, spec, theme, p } = c
   const gray = pal.hues.gray
   const cap = pal.hues[pickFrom(CAP_HUES, spec.variant)]
-  const wall = gray.bg
+  const wall = wallOf(theme, gray.bg)
   const trim = gray.text
+  const outline = ink(theme, wall)
   const plaza = shade(gray.bg, theme === 'dark' ? 6 : -5)
   const s: Solid = { u0: 7, v0: 7, lu: 18, lv: 18, z0: 2 }
   const towerTop = 2 + 44
-  shadow(c.p, theme, 3, 3, 28, 28)
-  outlined(c.p, shade(wall, -28), (p) => {
-    const draw = { ...c, p, lights: p === c.p ? c.lights : null }
-    cuboid(p, 2, 2, 28, 28, 0, 2, plaza)
-    cuboid(p, s.u0, s.v0, s.lu, s.lv, 2, towerTop, wall)
-    if (p === c.p) {
-      // Four floors of 11 px: a trim line between floors, two windows per face.
-      for (let f = 1; f < 4; f++) {
-        bandLeft(p, s, 0, s.lv, f * 11 - 1, 1, trim)
-        bandRight(p, s, 0, s.lv, f * 11 - 1, 1, shade(trim, -8))
-      }
-      for (let f = 0; f < 4; f++) {
-        const up = f * 11 + 3
-        for (const col of [3, 12]) {
-          if (!(f === 3 && col === 12)) windowLeft(draw, s, col, 3, up, 5, wall, true)
-          windowRight(draw, s, col, 3, up, 5, wall, true)
-        }
-      }
-      // A clock on the front of the top floor: 4x4.
-      bandLeft(p, s, 7, 4, 3 * 11 + 3, 4, trim)
-      bandLeft(p, s, 8, 2, 3 * 11 + 4, 2, shade(wall, 6))
-      // A door.
-      bandLeft(p, s, 7, 4, 0, 5, shade(trim, -6))
+  shadow(p, theme, 3, 3, 28, 28)
+  part(p, outline, (q) => cuboid(q, 2, 2, 28, 28, 0, 2, plaza))
+  part(p, outline, (q) => cuboid(q, s.u0, s.v0, s.lu, s.lv, 2, towerTop, wall))
+  // Four floors of 11 px: a trim line between floors, two windows per face.
+  for (let f = 1; f < 4; f++) {
+    bandLeft(p, s, 0, s.lv, f * 11 - 1, 1, trim)
+    bandRight(p, s, 0, s.lv, f * 11 - 1, 1, shade(trim, -8))
+  }
+  for (let f = 0; f < 4; f++) {
+    const up = f * 11 + 3
+    for (const col of [3, 12]) {
+      if (!(f === 3 && col === 12)) windowLeft(c, s, col, 3, up, 5, wall, true)
+      windowRight(c, s, col, 3, up, 5, wall, true)
     }
-    // Cornice, a coloured cap, and the spire.
-    cuboid(p, 6, 6, 20, 20, towerTop, towerTop + 2, trim)
-    cuboid(p, 8, 8, 16, 16, towerTop + 2, towerTop + 5, cap.text)
-  })
+  }
+  // A clock on the front of the top floor (4x4) and a door.
+  bandLeft(p, s, 7, 4, 3 * 11 + 3, 4, trim)
+  bandLeft(p, s, 8, 2, 3 * 11 + 4, 2, shade(wall, 6))
+  bandLeft(p, s, 7, 4, 0, 5, shade(trim, -6))
+  // Cornice, a coloured cap, and the gold spire with its flag.
+  part(p, ink(theme, trim), (q) => cuboid(q, 6, 6, 20, 20, towerTop, towerTop + 2, trim))
+  part(p, ink(theme, cap.text), (q) => cuboid(q, 8, 8, 16, 16, towerTop + 2, towerTop + 5, cap.text))
   const cy = 16 - (towerTop + 5)
-  poly(c.p, [[-2, cy], [2, cy], [0, cy - 8]], pal.gold)
-  c.p.rect(0, cy - 9, 3, 1, shade(pal.gold, 12))
+  poly(p, [[-2, cy], [2, cy], [0, cy - 8]], pal.gold)
+  p.rect(0, cy - 9, 3, 1, shade(pal.gold, 12))
 }
 
 function paintMonument(c: Ctx): void {
-  const { pal, theme } = c
+  const { pal, theme, p } = c
   const gray = pal.hues.gray
-  const stone = shade(gray.bg, theme === 'dark' ? 6 : -5)
-  const obelisk = gray.bg
-  shadow(c.p, theme, 3, 3, 28, 28)
-  outlined(c.p, shade(gray.bg, -28), (p) => {
-    cuboid(p, 2, 2, 28, 28, 0, 3, stone)
-    cuboid(p, 9, 9, 14, 14, 3, 4, shade(stone, 6))
-    cuboid(p, 12, 12, 8, 8, 4, 7, shade(gray.bg, -10))
-    // The obelisk: 4 wide and 24 tall, with a gold cap.
-    cuboid(p, 15, 15, 2, 2, 7, 31, obelisk)
-  })
+  const stone = shade(gray.bg, theme === 'dark' ? 6 : -6)
+  const obelisk = mixHex(gray.bg, gray.text, 0.4)
+  const outline = ink(theme, gray.bg)
+  shadow(p, theme, 3, 3, 28, 28)
+  part(p, outline, (q) => cuboid(q, 2, 2, 28, 28, 0, 3, stone))
+  cuboid(p, 9, 9, 14, 14, 3, 4, shade(stone, 6))
+  part(p, ink(theme, obelisk), (q) => cuboid(q, 12, 12, 8, 8, 4, 7, shade(obelisk, -6)))
+  // The obelisk: 4 wide and 24 tall, with a gold cap.
+  part(p, ink(theme, obelisk), (q) => cuboid(q, 15, 15, 2, 2, 7, 31, obelisk))
   const cy = 16 - 31
-  poly(c.p, [[-2, cy], [2, cy], [0, cy - 4]], pal.gold)
+  poly(p, [[-2, cy], [2, cy], [0, cy - 4]], pal.gold)
   // Two small trees on the plaza.
+  const leaf = shade(pal.hues.green.text, theme === 'dark' ? -20 : 12)
   for (const x of [-19, 19]) {
     const y = 13
-    c.p.rect(x, y - 1, 1, 3, pal.hues.brown.text)
-    blob(c.p, x, y - 6, 6, 3, shade(pal.hues.green.text, 12))
-    blob(c.p, x, y - 4, 6, 3, shade(pal.hues.green.text, 4))
+    p.rect(x, y - 1, 1, 3, pal.hues.brown.text)
+    part(p, shade(leaf, -26), (q) => {
+      blob(q, x, y - 6, 6, 3, leaf)
+      blob(q, x, y - 4, 6, 3, leaf)
+    })
+    blob(p, x - 1, y - 6, 3, 2, shade(leaf, 10))
   }
 }
 
 function paintCastle(c: Ctx): void {
-  const { pal, spec, theme } = c
+  const { pal, theme, p } = c
   const gray = pal.hues.gray
-  const wall = gray.bg
+  const wall = wallOf(theme, gray.bg)
   const trim = gray.text
   const flag = pal.gold
-  const cap = pal.hues[pickFrom(CAP_HUES, spec.variant)].text
-  shadow(c.p, theme, 3, 3, 44, 44)
-  const merlons = (p: Painter, u0: number, v0: number, lu: number, lv: number, z: number, base: string) => {
+  const outline = ink(theme, wall)
+  const merlon = shade(wall, -3)
+  shadow(p, theme, 3, 3, 44, 44)
+  const merlons = (q: Painter, u0: number, v0: number, lu: number, lv: number, z: number) => {
     if (lu >= lv) {
-      for (let u = u0; u + 2 <= u0 + lu; u += 4) cuboid(p, u, v0, 2, 2, z, z + 3, base)
+      for (let u = u0; u + 2 <= u0 + lu; u += 4) cuboid(q, u, v0, 2, 2, z, z + 3, merlon)
     } else {
-      for (let v = v0; v + 2 <= v0 + lv; v += 4) cuboid(p, u0, v, 2, 2, z, z + 3, base)
+      for (let v = v0; v + 2 <= v0 + lv; v += 4) cuboid(q, u0, v, 2, 2, z, z + 3, merlon)
     }
   }
-  const tower = (p: Painter, u0: number, v0: number) => {
-    cuboid(p, u0, v0, 8, 8, 0, 26, wall)
-    for (const [du, dv] of [[0, 0], [6, 0], [0, 6], [6, 6]] as const) cuboid(p, u0 + du, v0 + dv, 2, 2, 26, 29, shade(wall, -4))
+  const tower = (u0: number, v0: number) =>
+    part(p, outline, (q) => {
+      cuboid(q, u0, v0, 8, 8, 0, 26, wall)
+      for (const [du, dv] of [[0, 0], [6, 0], [0, 6], [6, 6]] as const) cuboid(q, u0 + du, v0 + dv, 2, 2, 26, 29, merlon)
+    })
+  const slits = (u0: number, v0: number, left: boolean, right: boolean) => {
+    const t: Solid = { u0, v0, lu: 8, lv: 8, z0: 0 }
+    if (left) bandLeft(p, t, 3, 2, 15, 6, shade(wall, -24))
+    if (right) bandRight(p, t, 3, 2, 15, 6, shade(wall, -28))
   }
-  outlined(c.p, shade(wall, -28), (p) => {
-    const draw = { ...c, p, lights: p === c.p ? c.lights : null }
-    // A paved courtyard.
-    cuboid(p, 4, 4, 40, 40, 0, 1, shade(gray.bg, theme === 'dark' ? 8 : -6))
-    // Back to front: back tower, the two back walls, the side towers, the keep, the two front walls, the front tower.
-    tower(p, 2, 2)
-    cuboid(p, 10, 4, 28, 4, 0, 16, wall)
-    cuboid(p, 4, 10, 4, 28, 0, 16, wall)
-    merlons(p, 10, 4, 28, 4, 16, shade(wall, -4))
-    merlons(p, 4, 10, 4, 28, 16, shade(wall, -4))
-    tower(p, 38, 2)
-    tower(p, 2, 38)
-    // The keep: 16 x 16 units, 34 tall, with a cap of merlons and window slits.
-    const keep: Solid = { u0: 16, v0: 16, lu: 16, lv: 16, z0: 0 }
-    cuboid(p, 16, 16, 16, 16, 0, 34, wall)
-    for (const [du, dv] of [[0, 0], [14, 0], [0, 14], [14, 14], [7, 0], [0, 7], [7, 14], [14, 7]] as const) {
-      cuboid(p, 16 + du, 16 + dv, 2, 2, 34, 37, shade(wall, -4))
-    }
-    if (p === c.p) {
-      bandLeft(p, keep, 3, 2, 22, 6, shade(wall, -22))
-      bandLeft(p, keep, 11, 2, 22, 6, shade(wall, -22))
-      bandRight(p, keep, 3, 2, 22, 6, shade(wall, -26))
-      bandRight(p, keep, 11, 2, 22, 6, shade(wall, -26))
-      windowLeft(draw, keep, 7, 2, 12, 5, wall, true)
-    }
-    cuboid(p, 10, 40, 28, 4, 0, 16, wall)
-    cuboid(p, 40, 10, 4, 28, 0, 16, wall)
-    merlons(p, 10, 40, 28, 4, 16, shade(wall, -4))
-    merlons(p, 40, 10, 4, 28, 16, shade(wall, -4))
-    tower(p, 38, 38)
-    if (p === c.p) {
-      // The gate in the front-left wall: an arch 8 wide and 10 tall.
-      const gate: Solid = { u0: 10, v0: 40, lu: 28, lv: 4, z0: 0 }
-      bandLeft(p, gate, 10, 8, 0, 8, shade(trim, -18))
-      bandLeft(p, gate, 11, 6, 8, 1, shade(trim, -18))
-      bandLeft(p, gate, 12, 4, 9, 1, shade(trim, -18))
-      // Slits in the towers.
-      for (const [u0, v0] of [[2, 38], [38, 38], [38, 2], [2, 2]] as const) {
-        const t: Solid = { u0, v0, lu: 8, lv: 8, z0: 0 }
-        if (u0 === 2 || v0 === 38) bandLeft(p, t, 3, 2, 16, 5, shade(wall, -24))
-        if (u0 === 38 || v0 === 38) bandRight(p, t, 3, 2, 16, 5, shade(wall, -28))
-      }
-    }
-    // A coloured pennant roof on the front tower.
-    cuboid(p, 40, 40, 4, 4, 29, 32, cap)
+  // A paved courtyard.
+  part(p, outline, (q) => cuboid(q, 4, 4, 40, 40, 0, 1, shade(gray.bg, theme === 'dark' ? 8 : -6)))
+  // Back to front: back tower, the two back walls, the side towers, the keep, the two front walls, the front tower.
+  tower(2, 2)
+  part(p, outline, (q) => {
+    cuboid(q, 10, 4, 28, 4, 0, 16, wall)
+    merlons(q, 10, 4, 28, 4, 16)
   })
+  part(p, outline, (q) => {
+    cuboid(q, 4, 10, 4, 28, 0, 16, wall)
+    merlons(q, 4, 10, 4, 28, 16)
+  })
+  tower(38, 2)
+  slits(38, 2, true, true)
+  tower(2, 38)
+  slits(2, 38, true, true)
+  // The keep: 16 x 16 units and 34 tall, with merlons all round and window slits.
+  const keep: Solid = { u0: 16, v0: 16, lu: 16, lv: 16, z0: 0 }
+  part(p, outline, (q) => {
+    cuboid(q, 16, 16, 16, 16, 0, 34, wall)
+    for (const [du, dv] of [[0, 0], [14, 0], [0, 14], [14, 14], [6, 0], [0, 6], [6, 14], [14, 6]] as const) {
+      cuboid(q, 16 + du, 16 + dv, 2, 2, 34, 37, merlon)
+    }
+  })
+  for (const col of [3, 11]) {
+    bandLeft(p, keep, col, 2, 22, 6, shade(wall, -22))
+    bandRight(p, keep, col, 2, 22, 6, shade(wall, -26))
+  }
+  windowLeft(c, keep, 7, 2, 12, 5, wall, true)
+  part(p, outline, (q) => {
+    cuboid(q, 10, 40, 28, 4, 0, 16, wall)
+    merlons(q, 10, 40, 28, 4, 16)
+  })
+  part(p, outline, (q) => {
+    cuboid(q, 40, 10, 4, 28, 0, 16, wall)
+    merlons(q, 40, 10, 4, 28, 16)
+  })
+  // The gate in the front-left wall: an arch 8 wide and 10 tall.
+  const gate: Solid = { u0: 10, v0: 40, lu: 28, lv: 4, z0: 0 }
+  const dark = shade(trim, -22)
+  bandLeft(p, gate, 10, 8, 0, 8, dark)
+  bandLeft(p, gate, 11, 6, 8, 1, dark)
+  bandLeft(p, gate, 12, 4, 9, 1, dark)
+  tower(38, 38)
+  slits(38, 38, true, true)
   // Two gold flags: on the keep and on the front tower.
   const flagAt = (x: number, y: number, h: number, wide: number) => {
-    c.p.rect(x, y - h, 1, h, shade(trim, -10))
-    c.p.rect(x + 1, y - h, wide, 3, flag)
-    c.p.rect(x + 1, y - h + 3, Math.max(1, wide - 2), 1, shade(flag, -12))
+    p.rect(x, y - h, 1, h, shade(trim, -10))
+    p.rect(x + 1, y - h, wide, 3, flag)
+    p.rect(x + 1, y - h + 3, Math.max(1, wide - 2), 1, shade(flag, -12))
   }
   flagAt(0, 24 - 37, 9, 5)
-  flagAt(0, 40 - 32, 7, 4)
+  flagAt(0, 42 - 29, 7, 4)
+}
+
+// ─── Fountain ───────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The fountain on a plaza (streak of 30 days): a small stone basin at the plaza's right-hand edge, with
+ * a jet of water in one of four frames. Drawn in the same footprint units as a landmark or monument,
+ * whose plazas share one geometry.
+ */
+export function paintFountain(p: Painter, pal: WorldPalette, theme: Theme, frame: number): void {
+  const stone = shade(pal.hues.gray.bg, theme === 'dark' ? 12 : -8)
+  const rim = ink(theme, pal.hues.gray.bg)
+  part(p, rim, (q) => cuboid(q, 26, 12, 4, 8, 2, 4, stone))
+  flat(p, 27, 13, 2, 6, 4, pal.water)
+  // The middle of the basin: u = 28, v = 16, at the height of the water.
+  const cx = 28 - 16
+  const top = (28 + 16) / 2 - 4
+  const f = ((frame % 4) + 4) % 4
+  const light = pal.waterLight
+  // Jet: a column that rises and falls, with drops that drift out.
+  const rise = [3, 4, 5, 4][f] ?? 3
+  p.rect(cx, top - rise, 1, rise, light)
+  p.rect(cx - 1, top - rise + 1, 1, 1, pal.water)
+  p.rect(cx + 1, top - rise + 1, 1, 1, pal.water)
+  if (f === 1 || f === 2) {
+    p.rect(cx - 2, top - rise + 2, 1, 1, light)
+    p.rect(cx + 2, top - rise + 2, 1, 1, light)
+  }
+  if (f === 3 || f === 0) p.rect(cx, top - rise - 1, 1, 1, light)
 }
 
 // ─── Entry point ────────────────────────────────────────────────────────────────────────────────

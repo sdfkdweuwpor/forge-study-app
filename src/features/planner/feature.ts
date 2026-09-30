@@ -1,7 +1,10 @@
 import { LifeBuoy, ListChecks, SlidersHorizontal } from 'lucide-react'
+import { lazy } from 'react'
 import type { CommandDef, FeatureManifest } from '@/app/registry'
-import { PlanHeader } from './goal/PlanHeader'
 import { plannerShortcuts } from './shortcuts'
+
+// The goal page pieces (and the planner logic with them) load with the goal page, not with the app.
+const PlanHeader = lazy(() => import('./goal/PlanHeader').then((m) => ({ default: m.PlanHeader })))
 
 const onGoalPage = (): boolean =>
   /^\/goals\/[^/]+\/?$/.test(window.location.pathname) &&

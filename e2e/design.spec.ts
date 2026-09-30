@@ -96,13 +96,26 @@ test.describe('/design (1440)', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Design system' })).toBeVisible()
 
     expect(await sections(page).count()).toBeGreaterThanOrEqual(21)
-    for (const id of REQUIRED_SECTIONS) {
-      const section = page.locator(`section#${id}`)
-      await expect(section, `section #${id}`).toHaveCount(1)
-      await expect(section.locator(':scope > header > h3'), `#${id} has a title`).toHaveCount(1)
-      await expect(section.locator('[data-column="light"]'), `#${id} light column`).toHaveCount(1)
-      await expect(section.locator('[data-column="dark"]'), `#${id} dark column`).toHaveCount(1)
-    }
+    // One browser round trip for the ~25 sections x 4 checks: as ~100 separate expectations this outlasted
+    // the 30 s test timeout when four workers rendered this heavy page at once (it failed at HEAD too).
+    const problems = await page.evaluate((ids) => {
+      const found: string[] = []
+      const count = (root: ParentNode, selector: string): number =>
+        root.querySelectorAll(selector).length
+      for (const id of ids) {
+        const matches = document.querySelectorAll(`section#${id}`)
+        if (matches.length !== 1) {
+          found.push(`section #${id}: ${matches.length} found`)
+          continue
+        }
+        const section = matches[0] as HTMLElement
+        if (count(section, ':scope > header > h3') !== 1) found.push(`#${id} has no title`)
+        if (count(section, '[data-column="light"]') !== 1) found.push(`#${id} light column`)
+        if (count(section, '[data-column="dark"]') !== 1) found.push(`#${id} dark column`)
+      }
+      return found
+    }, [...REQUIRED_SECTIONS])
+    expect(problems).toEqual([])
     await expect(
       page.getByRole('alert').filter({ hasText: 'Some demos were skipped' }),
     ).toHaveCount(0)

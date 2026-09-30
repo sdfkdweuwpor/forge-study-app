@@ -67,6 +67,7 @@ export function defaultSettingsData(): SettingsData {
     lastCelebratedLevel: 0,
     rewardsSeeded: false,
     sync: { enabled: false, url: null, anonKey: null, lastSyncAt: null },
+    world: { seed: 0 },
   }
 }
 

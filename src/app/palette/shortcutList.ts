@@ -34,6 +34,7 @@ export const SCOPE_LABELS: Record<ScopeId, string> = {
   cards: 'Flashcards',
   rewards: 'Rewards',
   progress: 'Progress',
+  world: 'My World',
   blocker: 'Blocker',
   modal: 'Dialogs',
   menu: 'Menus',

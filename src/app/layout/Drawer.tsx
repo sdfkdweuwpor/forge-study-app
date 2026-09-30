@@ -15,13 +15,15 @@ interface DrawerProps {
 /**
  * Overlay panel for the tablet sidebar (side="left") and the mobile "More" sheet (side="bottom").
  * Always mounted so it can animate out; `inert` while closed. Escape, the scrim and route changes close it.
- * While open it is a blocking `drawer` shortcut scope, so neither the page's keys (`x`, `j`…) nor global
- * sequences (`g t`…) fire underneath it, and Esc closes it.
+ * While open it is a blocking, pinned `drawer` shortcut scope, so neither the page's keys (`x`, `j`…) nor
+ * global sequences (`g t`…) fire underneath it (even for a page that mounts after it opened), and Esc
+ * closes it.
  */
 export function Drawer({ open, onClose, label, side = 'left', children }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   useModalFocus(open, panelRef)
-  useShortcutScope('drawer', open)
+  // Pinned: a page that mounts under the open sheet (a lazy chunk arriving late) stays beneath it.
+  useShortcutScope('drawer', open, { pinned: true })
   useShortcutHandler('app.escape', onClose, open)
 
   return (

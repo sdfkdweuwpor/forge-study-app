@@ -17,10 +17,14 @@ export function useShortcuts(): ShortcutContextValue {
 export function useShortcutScope(scope: ScopeId, active = true, options?: ScopeOptions): void {
   const { pushScope } = useShortcuts()
   const blocking = options?.blocking
-  useEffect(
-    () => (active ? pushScope(scope, blocking === undefined ? {} : { blocking }) : undefined),
-    [pushScope, scope, active, blocking],
-  )
+  const pinned = options?.pinned
+  useEffect(() => {
+    if (!active) return undefined
+    return pushScope(scope, {
+      ...(blocking === undefined ? {} : { blocking }),
+      ...(pinned === undefined ? {} : { pinned }),
+    })
+  }, [pushScope, scope, active, blocking, pinned])
 }
 
 /**

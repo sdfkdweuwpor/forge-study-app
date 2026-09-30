@@ -359,6 +359,58 @@ describe('blocking scopes', () => {
     expect([t.escape(), t.appEsc()]).toEqual([2, 1])
   })
 
+  describe('a pinned overlay (the drawer and the More sheet)', () => {
+    it('keeps a page scope that mounts after it opened beneath it, so its esc cannot win', () => {
+      const t = tasksDefs()
+      const c = make(t.defs)
+      // The sheet is open before the lazy page has mounted...
+      const closeDrawer = c.pushScope('drawer', { pinned: true })
+      // ...and then the page's scope arrives.
+      c.pushScope('tasks')
+      expect(c.getScopes()).toEqual(['tasks', 'drawer'])
+
+      press(c, 'x')
+      expect(t.complete()).toBe(0)
+      expect(press(c, 'Escape').prevented).toBe(true)
+      expect([t.escape(), t.appEsc()]).toEqual([0, 1])
+
+      // Closed: the page has the keyboard.
+      closeDrawer()
+      press(c, 'x')
+      expect(t.complete()).toBe(1)
+      press(c, 'Escape')
+      expect([t.escape(), t.appEsc()]).toEqual([1, 1])
+    })
+
+    it('without pinning, the same late page scope sits on top (why the option exists)', () => {
+      const t = tasksDefs()
+      const c = make(t.defs)
+      c.pushScope('drawer')
+      c.pushScope('tasks')
+      expect(c.getScopes()).toEqual(['drawer', 'tasks'])
+      press(c, 'Escape')
+      expect([t.escape(), t.appEsc()]).toEqual([1, 0])
+    })
+
+    it('still lets an overlay opened over it stack on top, and a page scope goes under both', () => {
+      const c = make([])
+      c.pushScope('today')
+      c.pushScope('drawer', { pinned: true })
+      c.pushScope('modal')
+      c.pushScope('tasks')
+      expect(c.getScopes()).toEqual(['today', 'tasks', 'drawer', 'modal'])
+    })
+
+    it('leaves the order alone when nothing is pinned, and when the pinned scope has gone', () => {
+      const c = make([])
+      const close = c.pushScope('drawer', { pinned: true })
+      close()
+      c.pushScope('today')
+      c.pushScope('tasks')
+      expect(c.getScopes()).toEqual(['today', 'tasks'])
+    })
+  })
+
   it('Esc reaches the global handler even while typing in an overlay input', () => {
     const t = tasksDefs()
     const c = make(t.defs)

@@ -671,6 +671,11 @@ export interface Settings extends Base {
   /** The three starter rewards were offered once (or the shop already had rewards); never seed again. */
   rewardsSeeded: boolean
   sync: { enabled: boolean; url: string | null; anonKey: string | null; lastSyncAt: Millis | null }
+  /**
+   * My World. `seed` is the constant the city's seeded generator starts from: created once (0 = not yet),
+   * then never changed, so the same history always grows the same city.
+   */
+  world: { seed: number }
 }
 /** Settings without the row bookkeeping (`id`, timestamps). */
 export type SettingsData = Omit<Settings, keyof Base>

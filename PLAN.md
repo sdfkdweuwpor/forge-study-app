@@ -816,19 +816,22 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Charts: focus minutes per day (30 d), tasks per week, time per goal/course, hour histogram, estimate accuracy.
   - Hand-made SVG with `<title>`/`<desc>` and a visually hidden data table.
   - Done: `ui/charts/` (`ChartFrame`, `BarChart`, `Heatmap`, `HourHistogram`, `HBarList`, `AccuracyScatter`, `Sparkline`, pure `scale.ts`/`nav.ts`/`cluster.ts` with tests; exported from `ui/index.ts`); `logic/stats.ts` and `statsLabels.ts` (58 + 9 tests incl. DST, the autumn repeated hour and the spring missing hour); `features/progress/{ProgressPage*, queries.ts (+test), sections/*}` registered through `ProgressPage.feature.ts`; chart specimens in `/design` (Composites, "Charts"); `data/sample/progressSample.ts`; `e2e/progress.spec.ts` (+ `progressHistory.ts`), `scripts/shots/progress.ts`, `screenshots/7b/`. Shell edit: scope `progress` (`registry/types.ts`, `palette/shortcutList.ts`). Shortcuts `v g` / `v c`; palette "Show time per goal / course".
-- [ ] **7C [B] Weekly review** (after 7A). Owns `src/db/repos/reviews.ts` and `src/features/progress/WeeklyReview*`.
+- [x] **7C [B] Weekly review** (after 7A). Owns `src/db/repos/reviews.ts` and `src/features/progress/WeeklyReview*`.
   - Wins, hours per goal, streak, "what got in the way?", and next week's plan preview.
   - Sunday prompt in `today.aside`.
+  - Done: `logic/weeklyReview.ts` (`buildWeeklyReview`, `isReviewDay`, `resolveReviewWeek`; 36 tests incl. New York weekdays, both DST Sundays and the badge window), `db/repos/reviews.ts` (`saveReviewNote`, idempotent `completeWeeklyReview` +10 XP under `review:<weekStart>`, `loadReviewInput`; 17 tests on fake-indexeddb), `features/progress/{WeeklyReview.feature.ts, WeeklyReviewPage, WeeklyReviewNote (autosave), WeeklyReviewNextWeek, WeeklyReviewPrompt (`today.aside`), WeeklyReviewData/States}`, `e2e/weekly-review.spec.ts` (+ `reviewWeek.ts` seed), `scripts/shots/review.ts`, `screenshots/7c/`. Route `/review/:weekStart?`; palette "Weekly review"; `g v` (`g w` is My World's), `[` / `]` and `shift+d` on the page.
+  - Integration fixes (same pass): the daily-goal toast e2e flake (the seeding page's start-up paid the goal; test now writes while the app is closed), one celebration queue (`logic/celebrations.ts`, `app/celebrate.ts`: streak XP + badge are one toast, nothing shows over the level-up moment), the More-sheet Esc flake (`pinned` drawer scope), and the extension specs out of the main Playwright config.
 - [ ] **7D [D] Review** of charts and heatmap visuals in both themes.
 
 ### Phase 8 — My World
-- [ ] **8A [B] World.** Owns `src/logic/world/**` and tests, and `src/features/world/**`.
+- [x] **8A [B] World.** Owns `src/logic/world/**` and tests, and `src/features/world/**`.
   - `mulberry32` PRNG seeded from a constant.
   - Stable spiral placement: tiles are placed in completion order and existing ones never move.
   - Content: task → house/tree/lamp; focus hour → building floor; course → named landmark; degree → castle.
   - Streak adds animated details (lights, people, birds).
   - Isometric canvas renderer (DPR-aware), day/night from real time, hover/tap tooltip (what and when), PNG export, reduced-motion.
   - Tests: determinism, and append-stability.
+  - Done: `logic/world/` (`types`, `prng`, `hash`, `spiral`, `layout`, `iso`, `sky`, `palette`, `camera`, `nav`, `ambient`, `text`; 11 test files, incl. the spec vectors, the 300-input no-overlap property test, order independence, append-stability, iso round-trip, depth sort); `features/world/engine/` (`sprites`, `canvasKit`, `renderer`, `input`, `mount`, README; sprite tests); `features/world/{WorldPage, WorldTooltip, LegendPopover, queries, feature}`; `db/repos/world.ts` (`ensureWorldSeed`, `loadWorldRows`, tests) with `settings.world.seed`; `e2e/world.spec.ts` (+ `worldHook.d.ts`), `scripts/shots/world.ts`, `screenshots/8a/`. 2,000 tasks and a 100-day streak: loads in under 2 s and pans at frame rate. Shell edits: `Shell.module.css` (full-bleed `world` route), scope `world`, `lib/download.ts` (`downloadBlob`), `playwright.shoot.config.ts` (`E2E_PORT`/`E2E_OUT`). Shortcuts `=` `-` `0` `e` on the page; palette "Zoom in / Zoom out / Fit / Export My World as PNG". Decisions in DECISIONS.md "My World".
 - [ ] **8B [D] Art direction** review and palette pass (tokens only).
 
 ### Phase 9 — Chrome extension + Blocker

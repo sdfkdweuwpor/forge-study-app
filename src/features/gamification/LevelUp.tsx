@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { holdCelebrations } from '@/app/celebrate'
 import { recordError } from '@/app/reportError'
 import { useSettings } from '@/db/hooks/useSettings'
 import { useXp } from '@/db/hooks/useXp'
@@ -23,6 +24,9 @@ const isVisible = (): boolean => document.visibilityState === 'visible'
  *
  * With no level recorded yet (first start, restored backup) it records the current one and shows
  * nothing: levels reached by sample or imported data are not a moment.
+ *
+ * While the moment is open the celebration queue holds every toast back (a streak milestone, a badge, the
+ * daily goal), so nothing competes with it; they show when it closes.
  */
 export function LevelUp() {
   const xp = useXp()
@@ -30,6 +34,16 @@ export function LevelUp() {
   const visible = useSyncExternalStore(subscribeVisibility, isVisible, () => false)
   const [moment, setMoment] = useState<number | null>(null)
   const working = useRef(false)
+  const releaseToasts = useRef<(() => void) | null>(null)
+
+  // The hold is taken before the moment renders (a toast must not slip out in between) and lets go when
+  // the moment ends or this component goes away.
+  const endMoment = () => {
+    releaseToasts.current?.()
+    releaseToasts.current = null
+    setMoment(null)
+  }
+  useEffect(() => () => releaseToasts.current?.(), [])
 
   const current = xp?.level.level
   const last = settings?.lastCelebratedLevel
@@ -45,6 +59,7 @@ export function LevelUp() {
         if (decision.kind === 'init') {
           await initCelebratedLevel(decision.level)
         } else if (await claimLevelCelebration(decision.level)) {
+          releaseToasts.current ??= holdCelebrations()
           setMoment(decision.level)
         }
       } catch (error) {
@@ -59,7 +74,7 @@ export function LevelUp() {
   if (moment === null) return null
   return (
     <Suspense fallback={null}>
-      <LevelUpMoment key={moment} level={moment} onDone={() => setMoment(null)} />
+      <LevelUpMoment key={moment} level={moment} onDone={endMoment} />
     </Suspense>
   )
 }

@@ -173,7 +173,10 @@ test.describe('Streaks: reaching a milestone live', () => {
     await expect(page.getByTestId('timer-toggle')).toHaveText('Pause')
     await page.clock.fastForward('25:00')
 
-    await expect(toasts(page)).toContainText('7-day streak · +100 XP 🔥')
+    // The milestone's XP and its badge are one toast, not two (the queue merges what arrives together).
+    await expect(toasts(page)).toContainText('7-day streak · +100 XP 🔥 · Badge unlocked')
+    await expect(toasts(page).getByRole('status').getByText(/streak/)).toHaveCount(1)
+    await expect(toasts(page)).not.toContainText('Badge unlocked · 7-Day Streak')
     await expect(count(page)).toHaveText('7')
 
     // Once only: reloading credits nothing again and says nothing.

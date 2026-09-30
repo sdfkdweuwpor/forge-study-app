@@ -24,11 +24,19 @@ export const BLOCKING_SCOPES: ReadonlySet<ScopeId> = new Set<ScopeId>([
 export interface ScopeOptions {
   /** Overrides whether this scope blocks what is beneath it (default: it does for `BLOCKING_SCOPES`). */
   blocking?: boolean
+  /**
+   * For the shell's own overlays (the navigation drawer, the More sheet). A page scope that is pushed
+   * while a pinned scope is on the stack goes *beneath* it, not on top: a lazy page whose chunk arrives
+   * after the sheet was opened would otherwise land above it, and its deeper `esc` (`tasks.escape`) would
+   * win over the sheet's. Other overlays' scopes (`modal`, `menu`...) still stack on top as usual.
+   */
+  pinned?: boolean
 }
 
 interface ScopeEntry {
   id: ScopeId
   blocking: boolean
+  pinned: boolean
 }
 
 export interface KeyEventLike extends KeyLike {
@@ -114,8 +122,15 @@ export class ShortcutController {
     const entry: ScopeEntry = {
       id: scope,
       blocking: options.blocking ?? BLOCKING_SCOPES.has(scope),
+      pinned: options.pinned === true,
     }
-    this.setEntries([...this.entries, entry])
+    // A page scope arriving under a pinned overlay belongs to the page beneath it, whenever it mounted.
+    const under = entry.blocking || entry.pinned ? -1 : this.entries.findIndex((e) => e.pinned)
+    this.setEntries(
+      under === -1
+        ? [...this.entries, entry]
+        : [...this.entries.slice(0, under), entry, ...this.entries.slice(under)],
+    )
     return () => {
       if (this.entries.includes(entry)) this.setEntries(this.entries.filter((e) => e !== entry))
     }

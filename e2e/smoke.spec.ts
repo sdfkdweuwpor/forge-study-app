@@ -679,6 +679,35 @@ test.describe('mobile More sheet (375x812)', () => {
     await expect(moreSheet(page)).toBeHidden()
     await expect(more).toBeFocused()
   })
+
+  // The flake behind the test above: on a slow or loaded machine the Today page's chunk arrives after
+  // the sheet was opened, its `tasks` shortcut scope landed on top of the sheet's, and the page's own
+  // Esc ("clear the selection") answered instead of the sheet's. Holding the chunk back makes it certain.
+  test('Esc still closes the sheet when the page under it finishes loading afterwards', async ({
+    page,
+  }) => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await page.route(/\/assets\/TodayPage-[^/]*\.js$/, async (route) => {
+      await held
+      await route.continue()
+    })
+    await page.goto('/')
+    await page.locator('#root > *').first().waitFor()
+    const more = page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('button', { name: 'More' })
+    await more.click()
+    await expect(moreSheet(page)).toBeVisible()
+
+    release()
+    await expect(pageHeading(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(moreSheet(page)).toBeHidden()
+    await expect(more).toBeFocused()
+  })
 })
 
 // ── 9. History, focus and announcements ──────────────────────────────────────────────────────────

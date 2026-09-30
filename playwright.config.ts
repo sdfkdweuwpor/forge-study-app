@@ -10,6 +10,10 @@ const isolated = port !== 4173 || outDir !== undefined
 // Never run `playwright install` in this environment.
 export default defineConfig({
   testDir: './e2e',
+  // The two specs that load the built extension need their own config (`extension/playwright.config.ts`: one
+  // worker, no app web server). Under this one `blocker-extension.spec.ts` fails, and `extension.spec.ts`
+  // would rebuild extension/dist while other workers run. `npm run e2e` runs both configs.
+  testIgnore: ['**/blocker-extension.spec.ts', '**/extension.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

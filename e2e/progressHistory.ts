@@ -9,7 +9,7 @@ export const TODAY = '2026-09-29'
  * Sets fields on the settings row (`id: 'app'`) straight in IndexedDB. Reload afterwards: live queries
  * do not see a raw write.
  */
-async function patchSettings(page: Page, patch: Record<string, unknown>): Promise<void> {
+export async function patchSettings(page: Page, patch: Record<string, unknown>): Promise<void> {
   await page.evaluate(
     (fields) =>
       new Promise<void>((resolve, reject) => {

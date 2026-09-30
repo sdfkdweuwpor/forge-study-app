@@ -1,5 +1,6 @@
 import { useEffect, type ComponentType, type ReactNode } from 'react'
 import { ToastProvider } from '@/ui/Toast'
+import { CelebrationHost } from './CelebrationHost'
 import { ErrorBoundary } from './ErrorBoundary'
 import { RootErrorScreen } from './ErrorScreens'
 import { runAppStart } from './boot'
@@ -65,6 +66,7 @@ export function App({ registry }: { registry: Registry }) {
                   <FeatureProviders registry={registry}>
                     <OverlayEscape />
                     <AppStart registry={registry} />
+                    <CelebrationHost />
                     <Shell />
                     <PaletteOverlay />
                     <ShortcutSheet />

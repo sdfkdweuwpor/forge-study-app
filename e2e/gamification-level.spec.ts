@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { levelFromLifetimeXp, xpToReachLevel } from '../src/logic/xp'
 import { expect, gotoApp, test } from './fixtures'
-import { focusSession, putRows } from './idb'
+import { focusSession, putRows, putRowsWhileClosed } from './idb'
 
 /**
  * Phase 6A: the sidebar level meter, the level-up moment and the daily-goal bonus, on the WGU sample
@@ -215,12 +215,12 @@ test.describe('level-up moment', () => {
     await expect(levelUp(page)).toContainText(`Level ${level + 1}`)
     await expect(levelUp(page)).toHaveAttribute('data-reduced', 'true')
     // No squares are ever drawn.
-    for (let i = 0; i < 2; i++) {
-      expect(await confettiPixels(page)).toBeLessThanOrEqual(0)
-      await page.waitForTimeout(80)
-    }
+    expect(await confettiPixels(page)).toBeLessThanOrEqual(0)
 
-    await levelUp(page).getByTestId('level-up-dismiss').click()
+    // The moment is only 1.4 s long, so the click must not wait for Playwright's stability checks (on a
+    // loaded machine they alone can outlast it: it flaked about 1 run in 6 before this): dispatch it.
+    await levelUp(page).getByTestId('level-up-dismiss').dispatchEvent('click')
+    expect(await confettiPixels(page)).toBeLessThanOrEqual(0)
     await levelUp(page).waitFor({ state: 'detached', timeout: 4000 })
     expect(await momentLifetime(page)).toBeLessThan(1100)
   })
@@ -235,6 +235,24 @@ test.describe('level-up moment', () => {
       .toBe(levelFromLifetimeXp(await lifetimeXp(page)).level)
     await page.waitForTimeout(500)
     await expect(levelUp(page)).toHaveCount(0)
+  })
+
+  test('a toast that arrives during the moment waits until it closes', async ({ page }) => {
+    // The daily goal's +25 XP is more than the 5 XP the level needs, so its toast and the moment coincide.
+    const level = await nearNextLevel(page)
+    await putRowsWhileClosed(
+      page,
+      'sessions',
+      Array.from({ length: 6 }, (_, i) => focusSession(`e2e-late${i + 1}`, TODAY, null, 25)),
+    )
+    await gotoApp(page, '/')
+
+    await expect(levelUp(page)).toBeVisible()
+    await expect(levelUp(page)).toContainText(`Level ${level + 1}`)
+    // The gold toast is held back while the moment is up, then shows once it has gone.
+    await expect(toasts(page)).not.toContainText('Daily goal hit')
+    await levelUp(page).waitFor({ state: 'detached', timeout: 4000 })
+    await expect(toasts(page)).toContainText('Daily goal hit · +25 XP')
   })
 
   test('several levels at once are one celebration, at the highest', async ({ page }) => {
@@ -270,8 +288,10 @@ test.describe('daily goal', () => {
   }) => {
     await gotoApp(page, '/', 'wgu')
     await expect(meter(page)).toBeVisible()
-    // Six finished 25-minute pomodoros today: the default goal, written behind the app's back.
-    await putRows(
+    // Six finished 25-minute pomodoros today: the default goal, written while the app is closed (the
+    // seeding load may still be starting up, and would pay the goal itself and show its toast in a page
+    // that the next load replaces).
+    await putRowsWhileClosed(
       page,
       'sessions',
       Array.from({ length: 6 }, (_, i) => focusSession(`e2e-s${i + 1}`, TODAY, null, 25)),

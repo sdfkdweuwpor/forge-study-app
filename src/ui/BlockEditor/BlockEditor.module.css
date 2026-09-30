@@ -280,7 +280,7 @@ button.emoji {
 }
 
 /* No room for handles on phones: the slash menu and the keyboard do the same jobs. */
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .root {
     --be-gutter: 0px;
   }

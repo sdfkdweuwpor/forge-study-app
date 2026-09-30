@@ -155,6 +155,20 @@
   height: 100%;
 }
 
+/*
+ * A shortcut in the icon slot is visually hidden on touch screens (Kbd.module.css). Take the empty slot
+ * out of the flow too, without removing it, so the button's name stays the same.
+ */
+@media (hover: none) {
+  .icon:has(> kbd:only-child) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
 /* Muted icons in ghost/secondary buttons brighten with the label on hover. */
 .button:where([data-variant='secondary'], [data-variant='ghost']) .icon {
   color: var(--text-muted);

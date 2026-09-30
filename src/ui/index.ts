@@ -121,3 +121,6 @@ export type {
   SparklineProps,
   ChartFrameProps,
 } from './charts'
+
+// Helpers
+export { useStickyScrollPadding } from './StickyScrollPadding'

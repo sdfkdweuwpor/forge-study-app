@@ -28,19 +28,23 @@ export interface TaskShortcutOptions {
 }
 
 /**
- * True while nothing interactive has focus (the page body). The Enter shortcut is only live then, so
- * it never swallows Enter on a focused button, link or checkbox, which must keep activating.
+ * Whether what has focus takes no keys of its own: the page body, or the heading (or `<main>`) the router
+ * focuses after every navigation so a screen reader starts in the new page. Nothing there uses Enter.
+ */
+function isPassiveFocus(active: Element | null): boolean {
+  if (!active || active === document.body) return true
+  return active.tagName === 'MAIN' || /^H[1-6]$/.test(active.tagName)
+}
+
+/**
+ * True while nothing interactive has focus (the page body, or the heading the router just focused). The
+ * Enter shortcut is only live then, so it never swallows Enter on a focused button, link or checkbox,
+ * which must keep activating. After `g i` focus is on the heading: `j`, then Enter, must open the task.
  */
 function useKeyboardIdle(): boolean {
-  const [idle, setIdle] = useState(() => {
-    const active = document.activeElement
-    return !active || active === document.body
-  })
+  const [idle, setIdle] = useState(() => isPassiveFocus(document.activeElement))
   useEffect(() => {
-    const update = () => {
-      const active = document.activeElement
-      setIdle(!active || active === document.body)
-    }
+    const update = () => setIdle(isPassiveFocus(document.activeElement))
     document.addEventListener('focusin', update)
     document.addEventListener('focusout', update)
     return () => {

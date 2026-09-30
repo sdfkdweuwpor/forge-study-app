@@ -1,6 +1,6 @@
 /** Factory defaults (PLAN §3.2). Factories return fresh objects so callers can never share arrays. */
 import { defaultTaskWindows } from '@/logic/schemaV2'
-import type { Millis, Settings, SettingsData } from './types'
+import type { Millis, Settings, SettingsData, SyncStateRow } from './types'
 
 export const SETTINGS_ID = 'app'
 
@@ -73,4 +73,31 @@ export function defaultSettingsData(): SettingsData {
 
 export function defaultSettings(now: Millis): Settings {
   return { id: SETTINGS_ID, createdAt: now, updatedAt: now, ...defaultSettingsData() }
+}
+
+/**
+ * This device's sync row before any setup, and what "Sign out and stop syncing" returns to (keeping the
+ * project and the email: pass them in). With no row at all, sync is off too (PLAN §4.7.4).
+ */
+export function defaultSyncState(
+  keep: Pick<SyncStateRow, 'url' | 'anonKey' | 'email'> = { url: null, anonKey: null, email: null },
+): SyncStateRow {
+  return {
+    id: 'device',
+    enabled: false,
+    url: keep.url,
+    anonKey: keep.anonKey,
+    email: keep.email,
+    session: null,
+    pendingLogin: null,
+    deviceId: null,
+    accountUserId: null,
+    phase: 'off',
+    pullCursor: 0,
+    maxSeenStamp: 0,
+    lastSyncAt: null,
+    lastAttemptAt: null,
+    lastError: null,
+    clockSkewMs: null,
+  }
 }

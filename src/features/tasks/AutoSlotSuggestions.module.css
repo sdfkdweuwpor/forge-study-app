@@ -53,6 +53,13 @@
   min-height: 36px;
 }
 
+/* Phones: each suggestion wraps to two lines, so space them apart or one's buttons touch the next name. */
+@media (max-width: 639px) {
+  .list {
+    gap: var(--space-3);
+  }
+}
+
 .text {
   display: flex;
   flex-wrap: wrap;

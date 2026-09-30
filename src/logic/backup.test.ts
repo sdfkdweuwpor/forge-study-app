@@ -16,6 +16,7 @@ import {
   isResetPhrase,
   migrateBackup,
   migrateBackupV1toV2,
+  migrateBackupV2toV3,
   parseBackup,
   planRestore,
   safetyCopyFilename,
@@ -120,6 +121,23 @@ describe('buildBackup', () => {
     })
     expect(file.tables).toEqual(tables)
     expect(file.tables.tasks).not.toBe(tables.tasks)
+  })
+
+  it('never writes this device’s sync bookkeeping, whoever passes it in', async () => {
+    const tables = {
+      tasks: [{ id: 't1' }],
+      syncOutbox: [{ tbl: 'tasks', id: 't1', at: 1 }],
+      syncState: [
+        {
+          id: 'device',
+          enabled: true,
+          session: { accessToken: 'SECRET-ACCESS', refreshToken: 'SECRET-REFRESH' },
+        },
+      ],
+    }
+    const file = await buildBackup({ tables, schemaVersion: 3, appVersion: '0.1.0', now: NOW })
+    expect(file.tables).toEqual({ tasks: [{ id: 't1' }], syncOutbox: [], syncState: [] })
+    expect(serializeBackup(file)).not.toContain('SECRET')
   })
 
   it('embeds attached files as base64 while they fit', async () => {
@@ -449,6 +467,80 @@ describe('v1 → v2 migration', () => {
     expect(migrateBackup(v1(), 1, NOW).schemaVersion).toBe(1)
     const newer = { ...v1(), schemaVersion: 9 }
     expect(migrateBackup(newer, 2, NOW)).toBe(newer)
+  })
+})
+
+describe('v2 → v3 migration (cloud sync)', () => {
+  const V2_SYNC = { enabled: false, url: null, anonKey: null, lastSyncAt: null }
+  const CTX3: BackupContext = {
+    currentVersion: 3,
+    knownTables: ['settings', 'tasks', 'goals', 'files'],
+    ignoredTables: ['snapshots', 'syncOutbox', 'syncState'],
+  }
+  const v2 = (): BackupFile => ({
+    app: 'forge',
+    format: 1,
+    schemaVersion: 2,
+    appVersion: '0.1.0',
+    exportedAt: '2026-09-22T13:30:00.000Z',
+    notes: [],
+    tables: {
+      settings: [{ id: 'app', dailyGoalPomodoros: 6, sync: V2_SYNC }],
+      tasks: [{ id: 't1', title: 'Email mentor' }],
+    },
+  })
+
+  it('brings a v2 file to v3: `settings.sync` gone, everything else as it was', () => {
+    const out = migrateBackupV2toV3(v2(), NOW)
+    expect(out.schemaVersion).toBe(3)
+    expect(out.tables.settings).toEqual([{ id: 'app', dailyGoalPomodoros: 6 }])
+    expect(out.tables.tasks).toEqual(v2().tables.tasks)
+    expect(out.appVersion).toBe('0.1.0')
+  })
+
+  it('does not change the input, and leaves a v1 or v3 file alone', () => {
+    const input = v2()
+    const before = structuredClone(input)
+    const out = migrateBackupV2toV3(input, NOW)
+    expect(input).toEqual(before)
+    expect(migrateBackupV2toV3(out, NOW)).toBe(out)
+    const v1 = { ...v2(), schemaVersion: 1 }
+    expect(migrateBackupV2toV3(v1, NOW)).toBe(v1)
+  })
+
+  it('migrateBackup takes a v1 file through v2 to v3, and stops at the target', () => {
+    const v1 = { ...v2(), schemaVersion: 1 }
+    const up = migrateBackup(v1, 3, NOW)
+    expect(up.schemaVersion).toBe(3)
+    expect(up.tables.settings?.[0]).not.toHaveProperty('sync')
+    expect(up.tables.tasks?.[0]).toMatchObject({ id: 't1', kind: 'task' })
+    expect(migrateBackup(v1, 2, NOW).tables.settings?.[0]).toHaveProperty('sync')
+  })
+
+  it('a file carrying sync bookkeeping imports without it and without a warning', () => {
+    const file = {
+      ...v2(),
+      tables: {
+        ...v2().tables,
+        syncOutbox: [{ tbl: 'tasks', id: 't1', at: 1 }],
+        syncState: [{ id: 'device', enabled: true, session: { accessToken: 'secret' } }],
+      },
+    }
+    const r = validateBackup(file, CTX3)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.warnings).toEqual([])
+    const plan = planRestore(r.file, CTX3, NOW)
+    expect(Object.keys(plan.tables).sort()).toEqual([...CTX3.knownTables].sort())
+    expect(plan.tables.settings).toEqual([{ id: 'app', dailyGoalPomodoros: 6 }])
+    // A v3 file that somehow carries them (a crash dump) loses them the same way.
+    const v3 = validateBackup({ ...file, schemaVersion: 3 }, CTX3)
+    expect(v3.ok).toBe(true)
+    if (!v3.ok) return
+    expect(v3.warnings).toEqual([])
+    const tables = Object.keys(planRestore(v3.file, CTX3, NOW).tables)
+    expect(tables).not.toContain('syncState')
+    expect(tables).not.toContain('syncOutbox')
   })
 })
 

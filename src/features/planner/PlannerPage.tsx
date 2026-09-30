@@ -126,8 +126,12 @@ function PlannerScreen() {
     else writePref(PREF_KEYS.plannerDraft, serializePlanner(state))
   }, [state, draft, step, today])
 
-  // Each step starts at the top.
+  // Each step starts at the top. Not on arrival, though: the page is already there, and scrolling an
+  // element into view moves where the next Tab starts, which skipped the skip link and the sidebar.
+  const scrolledFor = useRef(step)
   useEffect(() => {
+    if (scrolledFor.current === step) return
+    scrolledFor.current = step
     top.current?.scrollIntoView({ block: 'start' })
   }, [step])
 

@@ -65,3 +65,20 @@
 .chord[data-mac] .plainKey + .plainKey {
   margin-left: 1px;
 }
+
+/*
+ * A shortcut shown inside a control ("Add task N", "Accept all ⇧A", a menu row) means nothing on a
+ * touch screen and costs room a phone does not have. It is only visually hidden, so the control keeps
+ * its accessible name. Hints in running text ("Press Q anywhere…") are hidden whole by their feature.
+ */
+@media (hover: none) {
+  :global(:is(button, a, [role='menuitem'], [role='option'])) .kbd {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

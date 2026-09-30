@@ -99,7 +99,15 @@
 
 @media (pointer: coarse) {
   .steps button {
+    justify-content: center;
+    min-width: var(--tap-min);
     min-height: var(--tap-min);
+  }
+}
+
+@media (pointer: coarse) and (max-width: 639px) {
+  .steps ol {
+    column-gap: 0;
   }
 }
 

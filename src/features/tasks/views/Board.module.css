@@ -7,7 +7,8 @@
 .board {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(268px, 1fr);
+  /* 216px lets the three columns fit a tablet (768) and a 1024 window with the sidebar open. */
+  grid-auto-columns: minmax(216px, 1fr);
   /* Every column is as tall as the tallest, so a short one can be dropped on anywhere below its cards. */
   align-items: stretch;
   min-height: 320px;

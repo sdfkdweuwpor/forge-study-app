@@ -9,7 +9,14 @@ import {
   groupSections,
   type SectionGroup,
 } from '@/logic/sectionOrder'
-import { Button, EmptyState, SegmentedControl, Toggle, type SegmentOption } from '@/ui'
+import {
+  Button,
+  EmptyState,
+  SegmentedControl,
+  Toggle,
+  useStickyScrollPadding,
+  type SegmentOption,
+} from '@/ui'
 import type { DemoGroup, DemoSection } from './types'
 import styles from './DesignPage.module.css'
 
@@ -164,6 +171,7 @@ function TableOfContents({
 }) {
   const [open, setOpen] = useState(false)
   const navRef = useRef<HTMLElement>(null)
+  useStickyScrollPadding(navRef)
   const listId = useId()
   const activeTitle = groups.flatMap((g) => g.sections).find((s) => s.id === activeId)?.title
 
@@ -338,6 +346,9 @@ export default function DesignPage() {
   const [accent, setAccent] = useState<AccentId>(app.accent)
   const [previewReduced, setPreviewReduced] = useState(false)
   const activeId = useActiveSection(SECTION_IDS)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  // The toolbar sticks to the top from 1440px up: Tab must not scroll a control in underneath it.
+  useStickyScrollPadding(toolbarRef)
   useScrollToHash()
 
   // The device or Settings asking for reduced motion cannot be undone from a sub-tree of the page.
@@ -354,7 +365,7 @@ export default function DesignPage() {
         </p>
       </header>
 
-      <div className={styles.toolbar} role="group" aria-label="Preview settings">
+      <div ref={toolbarRef} className={styles.toolbar} role="group" aria-label="Preview settings">
         <div className={styles.control}>
           <span className={styles.controlLabel} aria-hidden="true">
             Theme

@@ -4,12 +4,22 @@
  * - every write path the app has, with sync on (the expected outbox entries) and off (none, and no
  *   change to a transaction's scope).
  */
-import Dexie, { liveQuery } from 'dexie'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import Dexie, {
+  liveQuery,
+  type DBCore,
+  type DBCoreMutateRequest,
+  type DBCoreMutateResponse,
+  type DBCoreTable,
+  type DBCoreTransaction,
+} from 'dexie'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { WGU_GOAL_ID } from '@/data/sample/wguBsCs'
 import { applySeed } from '@/dev/seed'
 import { ForgeDB, db } from '@/db/db'
+import { defaultSyncState } from '@/db/defaults'
 import { settleDomainEvents } from '@/db/events'
 import { BACKUP_CONTEXT, exportBackup, importBackup, resetAllData } from '@/db/repos/backup'
+import { rebalanceGoal } from '@/db/repos/goals'
 import { updateSettings, ensureSettings } from '@/db/repos/settings'
 import { restoreSnapshot, takeSnapshot } from '@/db/repos/snapshots'
 import { createTask, completeTask } from '@/db/repos/tasks'
@@ -20,7 +30,7 @@ import type { BlockEvent, Reward, SyncStateRow } from '@/db/types'
 import { parseBackup } from '@/logic/backup'
 import { LOCAL_TABLES, SYNC_TABLES } from '@/logic/syncTables'
 import { markRemoteApply, markUntracked } from './remoteApply'
-import { OUTBOX_TABLE } from './tracking'
+import { OUTBOX_TABLE, SyncTracker } from './tracking'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 
@@ -53,6 +63,17 @@ async function outbox(): Promise<string[]> {
   return (await db.syncOutbox.toArray()).map((e) => `${e.tbl}:${e.id}`).sort()
 }
 
+const DAY = 24 * 60 * 60 * 1000
+
+/** Every synced row as `table:id` → its JSON. */
+async function syncedRows(): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  for (const name of SYNC_TABLES)
+    for (const row of (await db.table(name).toArray()) as { id: string }[])
+      out.set(`${name}:${row.id}`, JSON.stringify(row))
+  return out
+}
+
 async function clearAll(): Promise<void> {
   db.syncTracker.setEnabled(false)
   await Promise.all(db.tables.map((t) => t.clear()))
@@ -76,19 +97,128 @@ describe('the table partition', () => {
 })
 
 describe('with sync off', () => {
-  it('queues nothing and does not widen a transaction', async () => {
+  it('queues nothing on any write path and does not widen a transaction', async () => {
     expect(db.syncTracker.enabled).toBe(false)
-    let stores: string[] = []
+    const scopes: string[][] = []
+    const scopeOf = (tx: { idbtrans: IDBTransaction }) =>
+      scopes.push(Array.from(tx.idbtrans.objectStoreNames).sort())
+
     await db.transaction('rw', db.rewards, async (tx) => {
+      await db.rewards.add(reward('add'))
       await db.rewards.put(reward('a'))
       await db.rewards.update('a', { price: 400 })
       await db.rewards.delete('a')
-      stores = Array.from((tx.idbtrans as IDBTransaction).objectStoreNames)
+      scopeOf(tx)
     })
+    await db.transaction('rw', db.tasks, db.goals, db.xpEvents, db.settings, async (tx) => {
+      await ensureSettings()
+      await db.xpEvents.put({
+        id: 'xp:t#0',
+        createdAt: 1,
+        updatedAt: 1,
+        at: 1,
+        day: '2026-09-29',
+        source: 'task',
+        amount: 15,
+        key: 't',
+        refId: null,
+        note: null,
+      })
+      scopeOf(tx)
+    })
+    await db.rewards.bulkAdd([reward('ba1'), reward('ba2')])
     await db.rewards.bulkPut([reward('b'), reward('c')])
+    await db.rewards.bulkUpdate([{ key: 'b', changes: { price: 1 } }])
+    await db.rewards.upsert('up', { ...reward('up') })
+    await db.rewards
+      .where('id')
+      .equals('c')
+      .modify((r) => {
+        r.price = 7
+      })
+    await db.rewards.bulkDelete(['b'])
+    await db.rewards.where('id').equals('c').delete()
     await db.rewards.clear()
-    expect(stores).toEqual(['rewards'])
+    await updateSettings({ dailyGoalPomodoros: 9 })
+    await db.blockEvents.bulkPut([blockEvent('e1')])
+
+    expect(scopes).toEqual([['rewards'], ['goals', 'settings', 'tasks', 'xpEvents']])
     expect(await outbox()).toEqual([])
+  })
+
+  it('is a strict pass-through: the same scope, the same request, the same promise, nothing read', async () => {
+    const calls: string[] = []
+    const trans: DBCoreTransaction = { abort: () => undefined }
+    const response: Promise<DBCoreMutateResponse> = Promise.resolve({
+      numFailures: 0,
+      failures: {},
+      lastResult: undefined,
+    })
+    const tables = new Map<string, DBCoreTable>()
+    const stubTable = (name: string): DBCoreTable => ({
+      name,
+      schema: {
+        name,
+        primaryKey: { name: null, keyPath: 'id', extractKey: (v: { id: string }) => v.id },
+        indexes: [],
+        getIndexByKeyPath: () => undefined,
+      },
+      mutate: () => {
+        calls.push(`${name}.mutate`)
+        return response
+      },
+      get: () => {
+        calls.push(`${name}.get`)
+        return Promise.resolve(undefined)
+      },
+      getMany: () => {
+        calls.push(`${name}.getMany`)
+        return Promise.resolve([])
+      },
+      query: () => {
+        calls.push(`${name}.query`)
+        return Promise.resolve({ result: [] })
+      },
+      openCursor: () => Promise.resolve(null),
+      count: () => Promise.resolve(0),
+    })
+    let scope: string[] = []
+    const down: DBCore = {
+      stack: 'dbcore',
+      MIN_KEY: -Infinity,
+      MAX_KEY: [[]],
+      schema: { name: 'stub', tables: [] },
+      transaction: (stores) => {
+        scope = stores
+        return trans
+      },
+      table: (name) => {
+        const known = tables.get(name)
+        if (known) return known
+        const made = stubTable(name)
+        tables.set(name, made)
+        return made
+      },
+    }
+    const core = new SyncTracker(() => 1).middleware.create(down)
+    if (!core.transaction || !core.table) throw new Error('the middleware must wrap both')
+
+    const stores = ['settings', 'rewards']
+    expect(core.transaction(stores, 'readwrite')).toBe(trans)
+    expect(scope).toBe(stores)
+    // A local table is not wrapped at all.
+    expect(core.table('files')).toBe(down.table('files'))
+    const requests: DBCoreMutateRequest[] = [
+      { type: 'put', trans, values: [{ id: 'app' }] },
+      { type: 'add', trans, values: [{ id: 'r1' }] },
+      { type: 'delete', trans, keys: ['r1'] },
+      { type: 'deleteRange', trans, range: { type: 3, lower: -Infinity, upper: [[]] } },
+    ]
+    for (const req of requests) {
+      const table = req.type === 'put' ? 'settings' : 'rewards'
+      expect(core.table(table).mutate(req)).toBe(response)
+    }
+    expect(calls).toEqual(['settings.mutate', 'rewards.mutate', 'rewards.mutate', 'rewards.mutate'])
   })
 })
 
@@ -194,13 +324,13 @@ describe('Dexie facts the tracking relies on', () => {
   it('writes the outbox through Dexie’s observability layer (live queries see it)', async () => {
     const seen: number[] = []
     const sub = liveQuery(() => db.syncOutbox.count()).subscribe((n) => seen.push(n))
-    await new Promise((r) => setTimeout(r, 20))
+    // Polled, not slept: the suite runs on a shared machine.
+    await vi.waitFor(() => expect(seen).toEqual([0]))
     await db.rewards.put(reward('a'))
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.waitFor(() => expect(seen).toEqual([0, 1]))
     await db.rewards.put(reward('b'))
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.waitFor(() => expect(seen).toEqual([0, 1, 2]))
     sub.unsubscribe()
-    expect(seen).toEqual([0, 1, 2])
   })
 
   it('does not track an upgrade transaction, even with tracking on', async () => {
@@ -337,20 +467,21 @@ describe('every write path, with sync on', () => {
     await applySeed('wgu')
     const { json } = await exportBackup(NOW, 'test')
     await db.rewards.put(reward('added-after-export'))
+    const before = await syncedRows()
     db.syncTracker.setEnabled(true)
 
     const parsed = parseBackup(json, BACKUP_CONTEXT)
     if (!parsed.ok) throw new Error(parsed.errors.join('\n'))
     await importBackup(parsed.file, NOW)
 
-    const queued = new Set(await outbox())
-    expect(queued.has('rewards:added-after-export')).toBe(true)
     expect(await db.rewards.get('added-after-export')).toBeUndefined()
-    for (const t of await db.tasks.toArray()) expect(queued.has(`tasks:${t.id}`)).toBe(true)
-    expect(queued.has('settings:app')).toBe(true)
-    expect([...queued].some((k) => k.startsWith('streakDays:') || k.startsWith('files:'))).toBe(
-      false,
-    )
+    // Exactly the synced rows before and after: a missed key would be a device that never converges.
+    const after = await syncedRows()
+    const expected = [...new Set([...before.keys(), ...after.keys()])].sort()
+    expect(expected).toContain('rewards:added-after-export')
+    expect(expected).toContain('settings:app')
+    expect(expected.length).toBeGreaterThan(50)
+    expect(await outbox()).toEqual(expected)
   })
 
   it('a snapshot restore replaces the same way', async () => {
@@ -358,32 +489,29 @@ describe('every write path, with sync on', () => {
     await applySeed('wgu')
     const snap = await takeSnapshot('manual', { now: NOW, appVersion: 'test' })
     await db.rewards.put(reward('after-snapshot'))
+    const before = await syncedRows()
     db.syncTracker.setEnabled(true)
     await restoreSnapshot(snap?.id ?? '', { now: NOW, appVersion: 'test' })
-    const queued = await outbox()
-    expect(queued).toContain('rewards:after-snapshot')
-    expect(queued.some((k) => k.startsWith('snapshots:'))).toBe(false)
+    const after = await syncedRows()
+    const expected = [...new Set([...before.keys(), ...after.keys()])].sort()
+    expect(expected).toContain('rewards:after-snapshot')
+    expect(expected.length).toBeGreaterThan(50)
+    // Exactly those keys; the snapshot rows themselves (local) never are.
+    expect(await outbox()).toEqual(expected)
   })
 
   it('reset erases this device only: tracking off, outbox and syncState cleared, nothing queued', async () => {
     await db.rewards.put(reward('a'))
     const state: SyncStateRow = {
-      id: 'device',
+      ...defaultSyncState({
+        url: 'https://abcdefghijklmnopqrst.supabase.co',
+        anonKey: 'sb_publishable_x',
+        email: 'ana@example.com',
+      }),
       enabled: true,
-      url: 'https://abcdefghijklmnopqrst.supabase.co',
-      anonKey: 'sb_publishable_x',
-      email: 'ana@example.com',
-      session: null,
-      pendingLogin: null,
       deviceId: 'dev-1',
-      accountUserId: null,
       phase: 'steady',
       pullCursor: 42,
-      maxSeenStamp: 0,
-      lastSyncAt: null,
-      lastAttemptAt: null,
-      lastError: null,
-      clockSkewMs: null,
     }
     await db.syncState.put(state)
     expect(await outbox()).toEqual(['rewards:a'])
@@ -394,6 +522,93 @@ describe('every write path, with sync on', () => {
     expect(await outbox()).toEqual([])
     // The settings row made again after the reset is not queued either (sync is off now).
     expect(await db.settings.count()).toBe(1)
+  })
+
+  it('writes the entry inside the same transaction as the change (visible before commit)', async () => {
+    let inside: unknown
+    let stores: string[] = []
+    await db.transaction('rw', db.rewards, db.goals, db.syncOutbox, async (tx) => {
+      await db.rewards.put(reward('a'))
+      inside = await db.syncOutbox.get(['rewards', 'a'])
+      stores = Array.from((tx.idbtrans as IDBTransaction).objectStoreNames).sort()
+    })
+    expect(inside).toMatchObject({ tbl: 'rewards', id: 'a' })
+    // Declaring the outbox yourself does not add it twice.
+    expect(stores).toEqual(['goals', 'rewards', OUTBOX_TABLE])
+  })
+
+  it('queues every table a multi-table transaction writes, and nothing it only read', async () => {
+    await db.rewards.put(reward('read-only'))
+    await db.syncOutbox.clear()
+    const task = await createTask({ title: 'Outline D278 essay' }, { now: NOW })
+    await db.syncOutbox.clear()
+    await db.transaction('rw', [db.tasks, db.rewards, db.xpEvents, db.redemptions], async () => {
+      await db.rewards.get('read-only')
+      await db.tasks.update(task.id, { priority: 3 })
+      await awardXp({ source: 'task', amount: 15, key: `task:${task.id}`, at: NOW })
+    })
+    expect(await outbox()).toEqual([`tasks:${task.id}`, `xpEvents:xp:task:${task.id}#0`])
+  })
+
+  it('also covers bulkAdd, bulkUpdate, upsert and a modify callback; a no-op update queues nothing', async () => {
+    await db.rewards.bulkAdd([reward('ba1'), reward('ba2')])
+    await db.rewards.put(reward('bu'))
+    await db.syncOutbox.clear()
+    await db.rewards.bulkUpdate([
+      { key: 'bu', changes: { price: 5 } },
+      { key: 'missing', changes: { price: 5 } },
+    ])
+    await db.rewards.upsert('up', { ...reward('up') })
+    await db.rewards
+      .where('id')
+      .equals('ba1')
+      .modify((r) => {
+        r.archived = true
+      })
+    await db.rewards.update('nobody', { price: 1 })
+    expect(await outbox()).toEqual(['rewards:ba1', 'rewards:bu', 'rewards:up'])
+  })
+
+  it('a re-plan queues every record it changed', async () => {
+    db.syncTracker.setEnabled(false)
+    await applySeed('wgu')
+    const before = await syncedRows()
+    db.syncTracker.setEnabled(true)
+    // Three days on: the plan rolls forward, so plan tasks, the goal and its courses change.
+    const summary = await rebalanceGoal(WGU_GOAL_ID, { now: NOW + 3 * DAY, reason: 'edit' })
+    expect(summary?.changed).toBe(true)
+    const after = await syncedRows()
+    const changed = [...new Set([...before.keys(), ...after.keys()])].filter(
+      (k) => before.get(k) !== after.get(k),
+    )
+    expect(changed.length).toBeGreaterThan(10)
+    const queued = await outbox()
+    expect(queued.filter((k) => !changed.includes(k))).toEqual([])
+    expect(changed.filter((k) => !queued.includes(k))).toEqual([])
+  })
+
+  it('an edit in another tab during a push gets a stamp past the entry being pushed', async () => {
+    const name = `forge-tracking-tabs-${Math.random().toString(36).slice(2)}`
+    // Two tabs on one database, their clocks on the same millisecond, the same remote stamp seen.
+    const tabA = new ForgeDB(name, () => 1_000)
+    const tabB = new ForgeDB(name, () => 1_000)
+    for (const tab of [tabA, tabB]) {
+      // Opened first: opening loads the flag from `syncState` (none here, so off).
+      await tab.open()
+      tab.syncTracker.setEnabled(true)
+      tab.syncTracker.seed({ maxSeenStamp: 5_000 })
+    }
+    await tabA.rewards.put(reward('x'))
+    const pushed = (await tabA.syncOutbox.get(['rewards', 'x']))?.at
+    expect(pushed).toBe(5_001)
+    await tabB.rewards.update('x', { price: 1 })
+    const queued = (await tabB.syncOutbox.get(['rewards', 'x']))?.at ?? 0
+    expect(queued).toBeGreaterThan(pushed ?? Infinity)
+    // …and tab B's next stamps stay past it.
+    expect(tabB.syncTracker.stamp()).toBeGreaterThan(queued)
+    tabA.close()
+    tabB.close()
+    await Dexie.delete(name)
   })
 
   it('XP awards are queued under their deterministic ids', async () => {
@@ -413,6 +628,83 @@ describe('stamps, listeners and loading', () => {
     frozen.syncTracker.seed({ maxSeenStamp: 5_000 })
     expect(frozen.syncTracker.stamp()).toBe(5_001)
     frozen.close()
+  })
+
+  it('ignores a stamp that is not a finite number, from any source', async () => {
+    const name = `forge-tracking-nan-${Math.random().toString(36).slice(2)}`
+    const tab = new ForgeDB(name, () => 1_000)
+    await tab.open()
+    tab.syncTracker.setEnabled(true)
+    tab.syncTracker.seed({ maxSeenStamp: 5_000 })
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      tab.syncTracker.observeRemoteStamp(bad)
+      tab.syncTracker.seed({ maxSeenStamp: bad, lastStamp: bad })
+    }
+    expect(tab.syncTracker.stamp()).toBe(5_001)
+    // A tracked write after them still queues a real stamp.
+    await tab.rewards.put(reward('a'))
+    expect((await tab.syncOutbox.get(['rewards', 'a']))?.at).toBe(5_002)
+    // A corrupt stamp floor in the database is ignored on open too.
+    await tab.table('syncState').put({ id: 'device', enabled: true, maxSeenStamp: Number.NaN })
+    tab.close()
+    await tab.open()
+    expect(tab.syncTracker.stamp()).toBe(5_003)
+    tab.close()
+    await Dexie.delete(name)
+  })
+
+  it('entries carry strictly increasing stamps, even from a frozen clock', async () => {
+    const name = `forge-tracking-order-${Math.random().toString(36).slice(2)}`
+    const frozen = new ForgeDB(name, () => 2_000)
+    await frozen.open()
+    frozen.syncTracker.setEnabled(true)
+    await frozen.rewards.put(reward('a'))
+    await frozen.rewards.put(reward('b'))
+    await frozen.rewards.bulkPut([reward('c'), reward('d')])
+    const ats = (await frozen.syncOutbox.orderBy('at').toArray()).map((e) => `${e.id}@${e.at}`)
+    // One stamp per write; the rows of one bulk write share it.
+    expect(ats).toEqual(['a@2000', 'b@2001', 'c@2002', 'd@2002'])
+    frozen.close()
+    await Dexie.delete(name)
+  })
+
+  it('a remote stamp applied in one tab lifts the stamps of the other tabs', async () => {
+    const leader = new ForgeDB(
+      `forge-tracking-leader-${Math.random().toString(36).slice(2)}`,
+      () => 1_000,
+    )
+    const other = new ForgeDB(
+      `forge-tracking-other-${Math.random().toString(36).slice(2)}`,
+      () => 1_000,
+    )
+    leader.syncTracker.listen()
+    other.syncTracker.listen()
+    try {
+      leader.syncTracker.observeRemoteStamp(8_000)
+      expect(leader.syncTracker.stamp()).toBe(8_001)
+      // Polled, not slept (a shared machine). Each poll takes a stamp, but polls stay far below 8 000.
+      await vi.waitFor(() => expect(other.syncTracker.stamp()).toBe(8_001))
+      // Tracking switched in one tab follows in the other.
+      leader.syncTracker.setEnabled(true, { broadcast: true })
+      await vi.waitFor(() => expect(other.syncTracker.enabled).toBe(true))
+      // Unrelated or malformed messages are ignored, a non-finite stamp included. The last message is a
+      // sentinel: one channel delivers in order, so once it has landed the others have too.
+      const stranger = new BroadcastChannel('forge:sync')
+      stranger.postMessage({ type: 'tracking', on: 'yes' })
+      stranger.postMessage({ type: 'syncNow' })
+      stranger.postMessage({ type: 'seen', stamp: Number.NaN })
+      stranger.postMessage({ type: 'seen', stamp: Number.POSITIVE_INFINITY })
+      stranger.postMessage({ type: 'seen', stamp: 9_000 })
+      await vi.waitFor(() => expect(other.syncTracker.stamp()).toBe(9_001))
+      stranger.close()
+      expect(other.syncTracker.enabled).toBe(true)
+      expect(other.syncTracker.stamp()).toBe(9_002)
+    } finally {
+      leader.syncTracker.unlisten()
+      other.syncTracker.unlisten()
+      leader.close()
+      other.close()
+    }
   })
 
   it('tells listeners about tracked writes, and a failing listener does not fail the write', async () => {

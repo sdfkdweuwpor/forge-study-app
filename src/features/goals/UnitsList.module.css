@@ -96,6 +96,26 @@
   max-width: 420px;
 }
 
+/*
+ * Touch: the grip is squeezed to its 20px column, so it gets its 44px target from an invisible square
+ * centred on it instead. It reaches into the row padding and the gap, not over the checkbox.
+ */
+@media (pointer: coarse) {
+  .handle > button {
+    position: relative;
+  }
+
+  .handle > button::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--tap-min);
+    height: var(--tap-min);
+    translate: -50% -50%;
+    content: '';
+  }
+}
+
 @media (max-width: 639px) {
   .row {
     grid-template-columns: 20px auto minmax(0, 1fr) 24px;

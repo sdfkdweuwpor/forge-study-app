@@ -110,6 +110,23 @@
   font-weight: var(--fw-medium);
 }
 
+/* Touch: the course links are 44px tall, and each row centres its days on the link. */
+@media (pointer: coarse) {
+  .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+
+  .more {
+    gap: 0;
+  }
+
+  .moreRow {
+    align-items: center;
+  }
+}
+
 /* ── Heatmap ─────────────────────────────────────────────────────────────── */
 .grid {
   display: grid;

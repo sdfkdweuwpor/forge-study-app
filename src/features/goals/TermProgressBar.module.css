@@ -19,9 +19,11 @@
 }
 
 .value {
+  flex: none;
   color: var(--text);
   font-size: var(--fs-14);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .caption {

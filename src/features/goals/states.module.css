@@ -7,6 +7,13 @@
   font-size: var(--fs-12);
 }
 
+/* Touch screens and phones have no keyboard to press N on (as the Today and Rewards empty states). */
+@media (hover: none), (max-width: 639px) {
+  .hint {
+    display: none;
+  }
+}
+
 .list {
   display: flex;
   flex-direction: column;

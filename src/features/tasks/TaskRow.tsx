@@ -122,6 +122,9 @@ export const TaskRow = memo(function TaskRow({
   const estimate = estimateLabel(task)
   const checklist = subtaskProgress(task.subtasks)
   const hasNotes = task.notes.some((b) => b.type === 'divider' || b.text.trim() !== '')
+  // The grip is absolutely placed: left of the checkbox in a row, beside the … menu on a card. Its place
+  // in the DOM follows, so Tab meets the controls in the order the eye does.
+  const grip = handle ? <div className={styles.handle}>{handle}</div> : null
 
   return (
     <div className={styles.collapse} data-phase={phase} data-motion="opacity">
@@ -147,7 +150,7 @@ export const TaskRow = memo(function TaskRow({
             aria-label={`Open ${task.title}`}
             onClick={() => openTask(task.id)}
           />
-          {handle ? <div className={styles.handle}>{handle}</div> : null}
+          {variant === 'row' ? grip : null}
           <Checkbox
             variant="round"
             className={styles.check}
@@ -245,6 +248,8 @@ export const TaskRow = memo(function TaskRow({
               )}
             </div>
           </div>
+
+          {variant === 'card' ? grip : null}
 
           <div className={styles.actions}>
             {onStartFocus && task.status !== 'done' ? (

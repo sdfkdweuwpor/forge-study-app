@@ -51,7 +51,6 @@
   margin: 0;
   font-size: var(--fs-14);
   font-variant-numeric: tabular-nums;
-  padding-left: 6px;
   white-space: nowrap;
 }
 
@@ -76,6 +75,19 @@
 @media (hover: hover) {
   .afterButton:hover {
     background: var(--bg-hover);
+  }
+}
+
+/* Touch: the editable values are 44px tall, so plain ones match them and every row lines up. */
+@media (pointer: coarse) {
+  .afterButton {
+    min-height: var(--tap-min);
+  }
+
+  .plain {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
   }
 }
 

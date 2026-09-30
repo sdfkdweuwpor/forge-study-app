@@ -13,6 +13,7 @@ import { dayOf, diffDays } from './dates'
 import { migrateTablesV1toV2 } from './schemaV2'
 import { migrateTablesV2toV3 } from './schemaV3'
 import { markTrashBlobs, withoutMarkedTrashFiles } from './snapshotJson'
+import { SYNC_BOOKKEEPING_TABLES } from './syncTables'
 
 /** The part of a backup file the migrators read and write. */
 export interface VersionedTables {
@@ -137,16 +138,22 @@ interface FileRow {
 const hasBlob = (row: unknown): row is FileRow =>
   isPlainObject(row) && typeof Blob !== 'undefined' && row.blob instanceof Blob
 
+const BOOKKEEPING: ReadonlySet<string> = new Set(SYNC_BOOKKEEPING_TABLES)
+
 /**
  * Turns table rows into a `BackupFile`. Attached files are the only rows JSON cannot hold: they are
  * embedded as base64 when together they fit the limit, otherwise every file is listed without its bytes
  * and a note says so.
+ *
+ * This device's sync bookkeeping (`syncState` holds the session's tokens) never goes into a file, even
+ * from a caller that reads every table (the crash screen's export): its rows are written as empty lists.
  */
 export async function buildBackup(input: BuildBackupInput): Promise<BackupFile> {
   const { tables, schemaVersion, appVersion, now } = input
   const limit = input.embedLimitBytes ?? FILES_EMBED_LIMIT_BYTES
   const out: Record<string, unknown[]> = {}
-  for (const [name, rows] of Object.entries(tables)) out[name] = [...rows]
+  for (const [name, rows] of Object.entries(tables))
+    out[name] = BOOKKEEPING.has(name) ? [] : [...rows]
 
   const notes: string[] = []
   const files = (out.files ?? []).filter(hasBlob)

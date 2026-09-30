@@ -343,8 +343,10 @@
   row-gap: var(--space-2);
 }
 
+/* The right padding keeps the first line clear of the grip, which sits beside the … menu. */
 .row[data-variant='card'] .title {
   flex: 0 0 auto;
+  padding-right: var(--space-3);
   line-height: 20px;
 }
 

@@ -48,6 +48,7 @@ import { formatDayLong, formatTimeOfDay } from '@/logic/taskDisplay'
 import { Button } from '@/ui/Button'
 import { IconButton } from '@/ui/IconButton'
 import { Kbd } from '@/ui/Kbd'
+import { useStickyScrollPadding } from '@/ui/StickyScrollPadding'
 import { CalendarEventFace, DraggableEvent } from './CalendarEvent'
 import styles from './Calendar.module.css'
 
@@ -70,6 +71,8 @@ export interface CalendarViewProps {
 
 /** All-day tasks shown per day before "+N more". */
 const ALL_DAY_LIMIT = 3
+/** Air kept between the sticky day header and a control scrolled to just below it. */
+const HEAD_GAP = 8
 /** How long the dropped position is kept after the write, so the live query has time to catch up. */
 const SETTLE_MS = 180
 const SWIPE_MIN_PX = 70
@@ -288,6 +291,10 @@ export function CalendarView({
   const dragging = useRef(false)
   const swipe = useRef<{ x: number; y: number } | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
+  const headRef = useRef<HTMLDivElement | null>(null)
+
+  // The day header sticks to the top of the page: tabbing up to an event must not scroll it in underneath.
+  useStickyScrollPadding(headRef, HEAD_GAP)
 
   const shown = useMemo(
     () =>
@@ -505,7 +512,7 @@ export function CalendarView({
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
-          <div className={`${styles.row} ${styles.head}`}>
+          <div ref={headRef} className={`${styles.row} ${styles.head}`}>
             <span />
             {days.map((day) => (
               <div

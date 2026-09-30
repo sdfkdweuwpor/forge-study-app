@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applySeed } from '@/dev/seed'
-import { db } from '@/db/db'
+import { ForgeDB, db } from '@/db/db'
+import { defaultSyncState } from '@/db/defaults'
 import { BACKUP_TABLES } from '@/db/repos/backup'
 import {
   BACKUP_CONTEXT,
@@ -14,9 +15,10 @@ import {
   resetAllData,
 } from '@/db/repos/backup'
 import { getSettings, updateSettings } from '@/db/repos/settings'
+import { readSnapshotText, takeSnapshot } from '@/db/repos/snapshots'
 import type { BackupFile } from '@/logic/backup'
 import { migrateBackupV1toV2, parseBackup } from '@/logic/backup'
-import type { StoredFile } from '@/db/types'
+import type { StoredFile, SyncStateRow } from '@/db/types'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 const DAY = 24 * 60 * 60 * 1000
@@ -58,6 +60,7 @@ async function seedEverything(): Promise<void> {
 }
 
 beforeEach(async () => {
+  db.syncTracker.setEnabled(false)
   await Promise.all(db.tables.map((t) => t.clear()))
 })
 
@@ -347,6 +350,130 @@ describe('reset', () => {
     expect(settings.appearance.accent).toBe('blue')
     expect(settings.profile.name).toBe('')
     expect(await db.snapshots.count()).toBe(1)
+  })
+})
+
+describe('cloud sync bookkeeping (PLAN §4.7.4)', () => {
+  const TOKEN = 'access-token-that-must-never-leave-the-device'
+  const syncOn = (): SyncStateRow => ({
+    ...defaultSyncState({
+      url: 'https://abcdefghijklmnopqrst.supabase.co',
+      anonKey: 'sb_publishable_abc',
+      email: 'ana@example.com',
+    }),
+    enabled: true,
+    deviceId: 'device-here',
+    phase: 'steady',
+    pullCursor: 42,
+    session: {
+      accessToken: TOKEN,
+      refreshToken: 'refresh',
+      expiresAt: NOW + DAY,
+      userId: 'user-1',
+      email: 'ana@example.com',
+    },
+  })
+
+  /** Sync switched on for this device: its row, tracking on, and a change waiting. */
+  async function turnSyncOn(): Promise<void> {
+    await db.syncState.put(syncOn())
+    db.syncTracker.setEnabled(true)
+    await db.parkingLot.put({
+      id: 'park-sync',
+      createdAt: 1,
+      updatedAt: 1,
+      text: 'Ask about the OA',
+      status: 'open',
+      sessionId: null,
+      taskId: null,
+    })
+    expect(await db.syncOutbox.count()).toBe(1)
+  }
+
+  afterEach(() => {
+    db.syncTracker.setEnabled(false)
+  })
+
+  it('is never in an export, a safety copy or a snapshot', async () => {
+    await seedEverything()
+    await turnSyncOn()
+    const { file, json } = await exportBackup(NOW, VERSION)
+    expect(Object.keys(file.tables)).not.toContain('syncState')
+    expect(Object.keys(file.tables)).not.toContain('syncOutbox')
+    expect(json).not.toContain(TOKEN)
+
+    const copy = await createSafetyCopy('pre-import', NOW, VERSION)
+    expect(copy.download.json).not.toContain(TOKEN)
+    const snap = await takeSnapshot('pre-sync', { now: NOW, appVersion: VERSION })
+    expect(await db.snapshots.count()).toBe(2)
+    for (const row of await db.snapshots.toArray()) {
+      const text = await readSnapshotText(row.id)
+      expect(text).not.toContain(TOKEN)
+      const tables = (JSON.parse(text) as { tables: Record<string, unknown> }).tables
+      expect(Object.keys(tables)).not.toContain('syncOutbox')
+      expect(Object.keys(tables)).not.toContain('syncState')
+    }
+    expect(snap?.reason).toBe('pre-sync')
+  })
+
+  it('an import keeps this device’s sync set-up, and with sync on queues what it replaced', async () => {
+    await seedEverything()
+    const { file } = await exportBackup(NOW, VERSION)
+    await Promise.all(db.tables.map((t) => t.clear()))
+    await turnSyncOn()
+    // A file from elsewhere that (wrongly) carries another device's bookkeeping.
+    const foreign = {
+      ...file,
+      tables: {
+        ...file.tables,
+        syncState: [{ ...syncOn(), deviceId: 'device-elsewhere', session: null }],
+        syncOutbox: [{ tbl: 'tasks', id: 'from-the-file', at: 1 }],
+      },
+    }
+    const parsed = parseBackup(JSON.stringify(foreign), BACKUP_CONTEXT)
+    if (!parsed.ok) throw new Error(parsed.errors.join('\n'))
+    expect(parsed.warnings).toEqual([])
+    await importBackup(parsed.file, NOW)
+
+    expect(await db.syncState.toArray()).toEqual([syncOn()])
+    const queued = (await db.syncOutbox.toArray()).map((e) => `${e.tbl}:${e.id}`)
+    expect(queued).not.toContain('tasks:from-the-file')
+    expect(queued).toContain('parkingLot:park-sync')
+    expect(queued.length).toBeGreaterThan(50)
+  })
+
+  it('reset stops sync: tracking off here and in other tabs, bookkeeping cleared, nothing queued', async () => {
+    await seedEverything()
+    await turnSyncOn()
+    const otherTab = new ForgeDB(`forge-other-tab-${Math.random().toString(36).slice(2)}`)
+    otherTab.syncTracker.setEnabled(true)
+    db.syncTracker.listen()
+    otherTab.syncTracker.listen()
+    try {
+      await resetAllData()
+      expect(db.syncTracker.enabled).toBe(false)
+      // Polled, not slept: the other tab hears it over the BroadcastChannel (a shared machine).
+      await vi.waitFor(() => expect(otherTab.syncTracker.enabled).toBe(false))
+    } finally {
+      db.syncTracker.unlisten()
+      otherTab.syncTracker.unlisten()
+      otherTab.close()
+    }
+    expect(await db.syncState.count()).toBe(0)
+    expect(await db.syncOutbox.count()).toBe(0)
+    expect(await db.tasks.count()).toBe(0)
+    // The settings row made again afterwards is not queued: sync is off on this device now.
+    await updateSettings({ dailyGoalPomodoros: 4 })
+    expect(await db.syncOutbox.count()).toBe(0)
+  })
+
+  it('a reset that fails leaves sync on, with everything in place', async () => {
+    await turnSyncOn()
+    vi.spyOn(db, 'transaction').mockRejectedValueOnce(new Error('The disk is full'))
+    await expect(resetAllData()).rejects.toThrow('The disk is full')
+    expect(db.syncTracker.enabled).toBe(true)
+    expect(await db.syncState.get('device')).toEqual(syncOn())
+    expect(await db.syncOutbox.count()).toBe(1)
   })
 })
 

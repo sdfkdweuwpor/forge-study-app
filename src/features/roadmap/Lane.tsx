@@ -61,6 +61,76 @@ export function Lane({ goal, layout, scale, today, projection, status }: LanePro
   const barSpan = layout.bar
   const todayX = dayX(scale, today) + 0.5 / scale.days
 
+  // The target and the assessment markers share one row of the track. They go in the DOM from left to
+  // right, so Tab meets them in the order the eye does (the layout hands them over by course). The
+  // "Target →" label at an edge rides above the bar, so it comes before it.
+  const edge: ReactElement | null =
+    layout.targetEdge && goal.targetDate ? (
+      <Stop
+        label={`Target ${day(goal.targetDate)}, ${layout.targetEdge === 'after' ? 'after' : 'before'} the months shown`}
+      >
+        {(a11y) => (
+          <span
+            {...a11y}
+            className={styles.edge}
+            data-side={layout.targetEdge}
+            data-testid="lane-target-edge"
+            role="img"
+          >
+            {layout.targetEdge === 'before' ? '← Target' : 'Target →'}
+          </span>
+        )}
+      </Stop>
+    ) : null
+  const flags: { key: string; x: number; node: ReactElement }[] = []
+  if (layout.target !== null && goal.targetDate !== null) {
+    const targetX = layout.target
+    flags.push({
+      key: 'target',
+      x: targetX,
+      node: (
+        <Stop key="target" label={`Target ${day(goal.targetDate)}`}>
+          {(a11y) => (
+            <span
+              {...a11y}
+              className={styles.targetMark}
+              style={{ left: pct(targetX) }}
+              data-testid="lane-target"
+              role="img"
+            />
+          )}
+        </Stop>
+      ),
+    })
+  }
+  for (const { assessment, x } of layout.markers) {
+    flags.push({
+      key: assessment.id,
+      x,
+      node: (
+        <Stop
+          key={assessment.id}
+          label={`${MARKER_LABEL[assessment.kind]}: ${assessment.title}, ${
+            assessment.date ? day(assessment.date) : ''
+          }${assessment.done ? ', done' : ''}`}
+        >
+          {(a11y) => (
+            <span
+              {...a11y}
+              className={styles.marker}
+              style={{ left: pct(x) }}
+              data-kind={assessment.kind}
+              data-done={assessment.done || undefined}
+              data-testid="lane-marker"
+              role="img"
+            />
+          )}
+        </Stop>
+      ),
+    })
+  }
+  flags.sort((a, b) => a.x - b.x)
+
   return (
     <section aria-label={`${goal.title} timeline`} className={styles.laneWrap}>
       {/* The whole lane opens the goal for a mouse; the title link is the keyboard's way in. */}
@@ -101,6 +171,8 @@ export function Lane({ goal, layout, scale, today, projection, status }: LanePro
             />
           ))}
           <span className={styles.today} style={{ left: pct(todayX) }} aria-hidden="true" />
+
+          {edge}
 
           {barSpan ? (
             <Stop label={barLabel}>
@@ -151,58 +223,7 @@ export function Lane({ goal, layout, scale, today, projection, status }: LanePro
             />
           ))}
 
-          {layout.targetEdge && goal.targetDate ? (
-            <Stop
-              label={`Target ${day(goal.targetDate)}, ${layout.targetEdge === 'after' ? 'after' : 'before'} the months shown`}
-            >
-              {(a11y) => (
-                <span
-                  {...a11y}
-                  className={styles.edge}
-                  data-side={layout.targetEdge}
-                  data-testid="lane-target-edge"
-                  role="img"
-                >
-                  {layout.targetEdge === 'before' ? '← Target' : 'Target →'}
-                </span>
-              )}
-            </Stop>
-          ) : null}
-
-          {layout.target !== null && goal.targetDate !== null ? (
-            <Stop label={`Target ${day(goal.targetDate)}`}>
-              {(a11y) => (
-                <span
-                  {...a11y}
-                  className={styles.targetMark}
-                  style={{ left: pct(layout.target ?? 0) }}
-                  data-testid="lane-target"
-                  role="img"
-                />
-              )}
-            </Stop>
-          ) : null}
-
-          {layout.markers.map(({ assessment, x }) => (
-            <Stop
-              key={assessment.id}
-              label={`${MARKER_LABEL[assessment.kind]}: ${assessment.title}, ${
-                assessment.date ? day(assessment.date) : ''
-              }${assessment.done ? ', done' : ''}`}
-            >
-              {(a11y) => (
-                <span
-                  {...a11y}
-                  className={styles.marker}
-                  style={{ left: pct(x) }}
-                  data-kind={assessment.kind}
-                  data-done={assessment.done || undefined}
-                  data-testid="lane-marker"
-                  role="img"
-                />
-              )}
-            </Stop>
-          ))}
+          {flags.map((flag) => flag.node)}
 
           <ul className={styles.courses} aria-label={`${goal.title} courses`}>
             {layout.courses.map(({ course, span, row }) => (

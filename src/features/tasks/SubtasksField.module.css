@@ -84,3 +84,9 @@
 .add:focus {
   background: var(--bg-hover);
 }
+
+@media (pointer: coarse) {
+  .add {
+    height: var(--tap-min);
+  }
+}

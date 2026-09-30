@@ -53,6 +53,20 @@
   font-size: var(--fs-14);
 }
 
+/*
+ * The 460px peek: a slimmer label column (still wider than "Goal or course") and tighter segments, so
+ * the seven Length presets fit beside their label instead of running past the panel's edge.
+ */
+@media (min-width: 640px) {
+  .root[data-variant='peek'] .prop {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  .root[data-variant='peek'] .propValue [role='radio'] {
+    padding-inline: 6px;
+  }
+}
+
 .propValue {
   min-width: 0;
 }
@@ -138,9 +152,12 @@
   margin-inline-start: -56px;
 }
 
+/* Phones hide the block handles, so the notes need no gutter either (the editor's own rule loses to ours). */
 @media (max-width: 639px) {
   .notes .editor,
   .root[data-variant='page'] .notes .editor {
+    --be-gutter: 0px;
+
     margin-inline-start: 0;
   }
 }

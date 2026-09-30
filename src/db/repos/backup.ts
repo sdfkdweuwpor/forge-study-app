@@ -207,15 +207,22 @@ export async function importBackup(file: BackupFile, now: Millis): Promise<Impor
  * copy or the other devices (PLAN §4.7.4).
  */
 export async function resetAllData(): Promise<void> {
+  const wasTracking = db.syncTracker.enabled
   db.syncTracker.setEnabled(false, { broadcast: true })
-  await db.transaction(
-    'rw',
-    [...BACKUP_TABLES, ...SYNC_BOOKKEEPING_TABLES].map((name) => db.table(name)),
-    async (tx) => {
-      markUntracked(tx.idbtrans)
-      for (const name of [...SYNC_BOOKKEEPING_TABLES, ...BACKUP_TABLES])
-        await db.table(name).clear()
-    },
-  )
+  try {
+    await db.transaction(
+      'rw',
+      [...BACKUP_TABLES, ...SYNC_BOOKKEEPING_TABLES].map((name) => db.table(name)),
+      async (tx) => {
+        markUntracked(tx.idbtrans)
+        for (const name of [...SYNC_BOOKKEEPING_TABLES, ...BACKUP_TABLES])
+          await db.table(name).clear()
+      },
+    )
+  } catch (err) {
+    // Nothing was erased, so sync is still on for this device: keep tracking its writes.
+    if (wasTracking) db.syncTracker.setEnabled(true, { broadcast: true })
+    throw err
+  }
   await ensureSettings()
 }

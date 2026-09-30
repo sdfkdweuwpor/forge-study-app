@@ -534,8 +534,13 @@
 
 /* ── Phones ──────────────────────────────────────────────────────────────── */
 @media (max-width: 639px) {
+  /* 44px holds "10 AM" at 12px with a 4px inset; at 36px the hours ran out past the grid's left edge. */
   .root {
-    --gutter: 36px;
+    --gutter: 44px;
+  }
+
+  .hour {
+    right: var(--space-1);
   }
 
   .hint {

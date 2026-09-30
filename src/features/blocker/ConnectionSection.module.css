@@ -128,6 +128,15 @@
   height: 14px;
 }
 
+/* A link on its own line is a control: 44px tall on touch (BRIEF §3.8). */
+@media (pointer: coarse) {
+  .download {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+}
+
 @media (hover: hover) {
   .download:hover,
   .link:hover {

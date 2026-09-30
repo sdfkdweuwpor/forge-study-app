@@ -65,6 +65,13 @@
   width: 7.5rem;
 }
 
+/* Touch inputs use a 16px font, so "06:00 PM" needs a little more room beside the clock icon. */
+@media (pointer: coarse) {
+  .time {
+    width: 8.25rem;
+  }
+}
+
 .to {
   color: var(--text-muted);
   font-size: var(--fs-12);

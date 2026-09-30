@@ -22,6 +22,7 @@
     'icon blurb'
     'icon meta';
   gap: 2px var(--space-3);
+  align-content: start;
   align-items: start;
   width: 100%;
   height: 100%;

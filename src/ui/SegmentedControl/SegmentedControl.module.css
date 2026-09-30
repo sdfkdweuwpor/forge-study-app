@@ -139,7 +139,14 @@
 }
 
 @media (pointer: coarse) {
-  /* Square icon segments are too narrow to tap; widening the hit area would overlap neighbours. */
+  /*
+   * Square icon segments are too narrow to tap; widening the hit area would overlap neighbours. Short
+   * text segments ("On", "1h") get the same 44px floor.
+   */
+  .item {
+    min-width: var(--tap-min);
+  }
+
   .item[data-icon-only] {
     aspect-ratio: auto;
     width: var(--tap-min);

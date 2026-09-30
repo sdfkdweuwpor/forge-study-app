@@ -211,6 +211,7 @@
 .course {
   --row: 0;
   position: absolute;
+  z-index: 1;
   top: calc(var(--bar-h) + 16px + var(--row) * var(--row-h));
   display: flex;
   align-items: center;

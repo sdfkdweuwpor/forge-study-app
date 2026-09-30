@@ -19,6 +19,8 @@ const toasts = (page: Page) => page.getByRole('region', { name: 'Notifications' 
 
 interface StoredTask {
   title: string
+  doDate: string | null
+  doTime: string | null
   dueDate: string | null
   dueTime: string | null
   priority: number
@@ -77,8 +79,8 @@ test.describe('quick add', () => {
 
     const [task] = titled(await storedTasks(page), 'Read chapter 4')
     expect(task).toMatchObject({
-      dueDate: '2026-09-30',
-      dueTime: '14:00',
+      doDate: '2026-09-30',
+      doTime: '14:00',
       priority: 3,
       estimatePomodoros: 2,
       tags: ['C182'],
@@ -92,7 +94,7 @@ test.describe('quick add', () => {
     await expect(page.getByRole('main').getByText('Read chapter 4', { exact: true })).toBeVisible()
   })
 
-  test('the toast\'s Open button goes to the new task', async ({ page }) => {
+  test("the toast's Open button goes to the new task", async ({ page }) => {
     await gotoApp(page, '/', 'empty')
     await page.keyboard.press('q')
     await quickAddField(page).fill('Book a proctoring slot for D278 tomorrow')
@@ -101,6 +103,32 @@ test.describe('quick add', () => {
     await expect(page).toHaveURL(/\/task\/[^/]+$/)
     await expect(page.getByRole('main')).toContainText('Book a proctoring slot for D278')
     await expect(toasts(page)).not.toContainText('Added to Upcoming')
+  })
+
+  test('"due" makes a deadline: its own chip, and the task is planned for that day', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'empty')
+    await page.keyboard.press('q')
+    await quickAddField(page).pressSequentially('Pay phone bill due fri 5pm')
+    await expect(parsedChips(page)).toHaveText(['Due Fri, Oct 2', 'Due by 5:00 PM'])
+    await page.keyboard.press('Enter')
+    await expect(toasts(page)).toContainText('Added to Upcoming')
+    const [bill] = titled(await storedTasks(page), 'Pay phone bill')
+    expect(bill).toMatchObject({
+      doDate: null,
+      doTime: null,
+      dueDate: '2026-10-02',
+      dueTime: '17:00',
+    })
+
+    // A plain date is when to do it.
+    await page.keyboard.press('q')
+    await quickAddField(page).pressSequentially('Gym tomorrow 6am')
+    await page.keyboard.press('Enter')
+    await expect(toasts(page)).toContainText('Added to Upcoming')
+    const [gym] = titled(await storedTasks(page), 'Gym')
+    expect(gym).toMatchObject({ doDate: '2026-09-30', doTime: '06:00', dueDate: null })
   })
 
   test('a task with no date lands in the Inbox; today lands in Today', async ({ page }) => {
@@ -117,10 +145,10 @@ test.describe('quick add', () => {
     await expect(toasts(page)).toContainText('Added to Today')
 
     const tasks = await storedTasks(page)
-    expect(titled(tasks, 'Renew library card')[0]?.dueDate).toBeNull()
+    expect(titled(tasks, 'Renew library card')[0]?.doDate).toBeNull()
     expect(titled(tasks, 'Call the registrar')[0]).toMatchObject({
-      dueDate: '2026-09-29',
-      dueTime: '15:00',
+      doDate: '2026-09-29',
+      doTime: '15:00',
     })
   })
 
@@ -263,7 +291,9 @@ test.describe('command palette', () => {
     await paletteInput(page).fill('zzqxv')
     // Drawn text for sighted users, plus a live-region announcement for screen readers.
     await expect(page.locator('p', { hasText: 'No results for zzqxv' })).toBeVisible()
-    await expect(page.getByRole('status').filter({ hasText: 'No results for zzqxv' })).toBeAttached()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'No results for zzqxv' }),
+    ).toBeAttached()
     await page.keyboard.press('Escape')
     await expect(paletteInput(page)).toHaveCount(0)
   })

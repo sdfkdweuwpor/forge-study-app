@@ -63,19 +63,19 @@ const NEW_GOAL_PLAN = JSON.stringify({
   ],
 })
 
-const panel = (page: Page): Locator =>
-  page.getByRole('region', { name: 'Import plan from Claude' })
+const panel = (page: Page): Locator => page.getByRole('region', { name: 'Import plan from Claude' })
 const editor = (page: Page): Locator => page.getByLabel(/reply \(JSON\)/)
 // Exact: the preview inside the panel is a table named "Courses in this plan".
-const courses = (page: Page): Locator =>
-  page.getByRole('table', { name: 'Courses', exact: true })
+const courses = (page: Page): Locator => page.getByRole('table', { name: 'Courses', exact: true })
 const toasts = (page: Page): Locator => page.getByRole('region', { name: 'Notifications' })
 const importButton = (page: Page): Locator =>
   page.getByRole('button', { name: 'Import', exact: true })
 
 async function openPanel(page: Page): Promise<void> {
   await gotoApp(page, GOAL_URL, 'wgu')
-  await panel(page).getByRole('button', { name: /^Import plan/ }).click()
+  await panel(page)
+    .getByRole('button', { name: /^Import plan/ })
+    .click()
   await expect(panel(page).getByRole('tab', { name: '1 Copy prompt' })).toBeVisible()
 }
 
@@ -97,11 +97,15 @@ async function openNewGoalImport(page: Page): Promise<Locator> {
 }
 
 test.describe('Import plan from Claude: goal page', () => {
-  test('the panel is collapsed until asked for and says nothing is ever deleted', async ({ page }) => {
+  test('the panel is collapsed until asked for and says nothing is ever deleted', async ({
+    page,
+  }) => {
     await gotoApp(page, GOAL_URL, 'wgu')
     await expect(panel(page)).toContainText('nothing is ever deleted')
     await expect(panel(page).getByRole('tab')).toHaveCount(0)
-    await panel(page).getByRole('button', { name: /^Import plan/ }).click()
+    await panel(page)
+      .getByRole('button', { name: /^Import plan/ })
+      .click()
     await expect(panel(page).getByRole('tab')).toHaveCount(3)
     await panel(page).getByRole('button', { name: 'Close' }).click()
     await expect(panel(page).getByRole('tab')).toHaveCount(0)
@@ -123,8 +127,8 @@ test.describe('Import plan from Claude: goal page', () => {
 
     // Click-to-jump selects that whole line of the paste (not of the extracted object).
     await row.click()
-    const selected = await editor(page).evaluate(
-      (el: HTMLTextAreaElement) => el.value.slice(el.selectionStart, el.selectionEnd),
+    const selected = await editor(page).evaluate((el: HTMLTextAreaElement) =>
+      el.value.slice(el.selectionStart, el.selectionEnd),
     )
     expect(selected).toBe(BROKEN_REPLY.split('\n')[7])
     await expect(editor(page)).toBeFocused()
@@ -159,7 +163,9 @@ test.describe('Import plan from Claude: goal page', () => {
     const problems = panel(page).getByRole('button', { name: /^Line \d+:/ })
     // Stage 1: the misspelled field, with a suggestion. Cross-course checks wait for a valid shape.
     await expect(problems).toHaveCount(1)
-    await expect(problems).toContainText('courses[0].prereqs is not a known field; did you mean "prerequisites"?')
+    await expect(problems).toContainText(
+      'courses[0].prereqs is not a known field; did you mean "prerequisites"?',
+    )
 
     // Stage 2: with the typo fixed, the duplicate code and the unknown prerequisite are both reported.
     await editor(page).fill(JSON.stringify(plan, null, 2).replace('"prereqs"', '"prerequisites"'))
@@ -176,7 +182,9 @@ test.describe('Import plan from Claude: goal page', () => {
     await pasteStep(page, FENCED_MERGE)
     await expect(panel(page).getByText('Valid: 2 courses · 100 h · 4 CUs')).toBeVisible()
 
-    await panel(page).getByRole('button', { name: /^Preview/ }).click()
+    await panel(page)
+      .getByRole('button', { name: /^Preview/ })
+      .click()
     const preview = panel(page).getByRole('table', { name: 'Courses in this plan' })
     await expect(preview.getByRole('row', { name: /D278.*Updated/ })).toContainText('hours')
     await expect(preview.getByRole('row', { name: /C173.*PA.*60.*D278.*New/ })).toBeVisible()
@@ -216,13 +224,19 @@ test.describe('Import plan from Claude: goal page', () => {
   test('importing the same plan twice changes nothing the second time', async ({ page }) => {
     await openPanel(page)
     await pasteStep(page, MERGE_PLAN)
-    await panel(page).getByRole('button', { name: /^Preview/ }).click()
+    await panel(page)
+      .getByRole('button', { name: /^Preview/ })
+      .click()
     await importButton(page).click()
     await expect(toasts(page)).toContainText('Plan imported')
 
-    await panel(page).getByRole('button', { name: /^Import plan/ }).click()
+    await panel(page)
+      .getByRole('button', { name: /^Import plan/ })
+      .click()
     await pasteStep(page, MERGE_PLAN)
-    await panel(page).getByRole('button', { name: /^Preview/ }).click()
+    await panel(page)
+      .getByRole('button', { name: /^Preview/ })
+      .click()
     await expect(panel(page)).toContainText('Everything in this plan is already in the goal')
     await expect(importButton(page)).toBeDisabled()
   })
@@ -251,10 +265,16 @@ test.describe('Import plan from Claude: goal page', () => {
     await openPanel(page)
     await panel(page).getByText('Schema reference').click()
     const table = panel(page).getByRole('table', { name: 'Schema fields' })
-    await expect(table.getByRole('row', { name: /estimatedHours.*number > 0, up to 1000.*Required/ })).toBeVisible()
+    await expect(
+      table.getByRole('row', { name: /estimatedHours.*number > 0, up to 1000.*Required/ }),
+    ).toBeVisible()
     await expect(table.getByRole('row', { name: /type.*"OA" \| "PA".*Optional/ })).toBeVisible()
-    await expect(table.getByRole('row', { name: /start.*date YYYY-MM-DD.*Required in term/ })).toBeVisible()
-    await expect(table.getByRole('row', { name: /kind.*"exam" \| "project" \| "quiz"/ })).toBeVisible()
+    await expect(
+      table.getByRole('row', { name: /start.*date YYYY-MM-DD.*Required in term/ }),
+    ).toBeVisible()
+    await expect(
+      table.getByRole('row', { name: /kind.*"exam" \| "project" \| "quiz"/ }),
+    ).toBeVisible()
 
     await panel(page).getByRole('button', { name: 'Try this example' }).click()
     await expect(editor(page)).toHaveValue(/"forgePlan": 1/)
@@ -296,7 +316,9 @@ test.describe('Import plan from Claude: goal page', () => {
     await page.setViewportSize({ width: 375, height: 812 })
     await openPanel(page)
     await pasteStep(page, MERGE_PLAN)
-    await panel(page).getByRole('button', { name: /^Preview/ }).click()
+    await panel(page)
+      .getByRole('button', { name: /^Preview/ })
+      .click()
     await expect(importButton(page)).toBeVisible()
     await panel(page).getByText('Schema reference').click()
     const overflow = await page.evaluate(

@@ -20,8 +20,8 @@ describe('toTaskInput', () => {
     })
     expect(toTaskInput(parsed, C182)).toEqual({
       title: 'Read chapter 4',
-      dueDate: '2026-09-30',
-      dueTime: '14:00',
+      doDate: '2026-09-30',
+      doTime: '14:00',
       priority: 3,
       estimatePomodoros: 2,
       tags: ['C182'],
@@ -33,14 +33,29 @@ describe('toTaskInput', () => {
   it('sets nothing that was not typed', () => {
     const input = toTaskInput(parseQuickAdd('Call the registrar', { now: NOW }), undefined)
     expect(input).toEqual({ title: 'Call the registrar', priority: 0, tags: [] })
+    expect(Object.keys(input)).not.toContain('doDate')
     expect(Object.keys(input)).not.toContain('dueDate')
   })
 
-  it('carries a recurrence and its first due date', () => {
+  it('a plain date is when to do it; "due" makes it the deadline', () => {
+    expect(toTaskInput(parseQuickAdd('gym tomorrow 6am', { now: NOW }), undefined)).toMatchObject({
+      title: 'gym',
+      doDate: '2026-09-30',
+      doTime: '06:00',
+    })
+    const bill = toTaskInput(parseQuickAdd('pay bill due Fri 5pm', { now: NOW }), undefined)
+    expect(bill).toMatchObject({ title: 'pay bill', dueDate: '2026-10-02', dueTime: '17:00' })
+    expect(bill.doDate).toBeUndefined()
+    expect(toTaskInput(parseQuickAdd('pay bill Fri', { now: NOW }), undefined)).toMatchObject({
+      doDate: '2026-10-02',
+    })
+  })
+
+  it('carries a recurrence and its first date', () => {
     const input = toTaskInput(parseQuickAdd('Flashcards every weekday', { now: NOW }), undefined)
     expect(input.recurrence).toEqual({ freq: 'weekdays', interval: 1, byWeekday: [] })
-    expect(input.dueDate).toBe('2026-09-29')
-    expect(input.dueTime).toBeUndefined()
+    expect(input.doDate).toBe('2026-09-29')
+    expect(input.doTime).toBeUndefined()
   })
 
   it('keeps a tag without a course link when the code is unknown', () => {

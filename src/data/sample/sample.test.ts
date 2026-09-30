@@ -87,11 +87,11 @@ describe('the sample tasks', () => {
     expect(tasks.some((t) => /lorem|ipsum/i.test(t.title))).toBe(false)
   })
 
-  it('cover overdue, today, upcoming, undated and completed work', () => {
-    expect(open.some((t) => t.dueDate !== null && t.dueDate < TODAY)).toBe(true)
-    expect(open.some((t) => t.dueDate === TODAY)).toBe(true)
-    expect(open.some((t) => t.dueDate !== null && t.dueDate > TODAY)).toBe(true)
-    expect(open.some((t) => t.dueDate === null)).toBe(true)
+  it('cover carried-over, today, upcoming, undated and completed work', () => {
+    expect(open.some((t) => t.doDate !== null && t.doDate < TODAY)).toBe(true)
+    expect(open.some((t) => t.doDate === TODAY)).toBe(true)
+    expect(open.some((t) => t.doDate !== null && t.doDate > TODAY)).toBe(true)
+    expect(open.some((t) => t.doDate === null && t.dueDate === null)).toBe(true)
     expect(done.length).toBeGreaterThanOrEqual(10)
     expect(open.some((t) => t.status === 'doing')).toBe(true)
   })
@@ -102,8 +102,11 @@ describe('the sample tasks', () => {
       source: 'schedule',
       goalId: WGU_GOAL_ID,
       milestoneId: COURSE_IDS.C779,
-      dueDate: TODAY,
+      doDate: TODAY,
+      dueDate: null,
+      kind: 'study',
       estimateMinutes: 45,
+      durationMinutes: 45,
       estimatePomodoros: 2,
     })
     const scheduled = tasks.filter((t) => t.source === 'schedule')
@@ -123,10 +126,25 @@ describe('the sample tasks', () => {
     const review = open.find((t) => t.title === 'Weekly review')
     expect(review?.recurrence).toEqual({ freq: 'weekly', interval: 1, byWeekday: [0] })
     // Sunday.
-    expect(review?.dueDate && new Date(`${review.dueDate}T12:00:00`).getDay()).toBe(0)
+    expect(review?.doDate && new Date(`${review.doDate}T12:00:00`).getDay()).toBe(0)
     // Last week's finished instance belongs to the same series.
     const finished = done.find((t) => t.title === 'Weekly review')
     expect(finished?.seriesId).toBe(review?.seriesId)
+  })
+
+  it('give a few personal tasks a real deadline: the phone bill due Friday, some auto-slotted', () => {
+    const bill = open.find((t) => t.title === 'Pay phone bill')
+    // 2026-09-29 is a Tuesday: due Friday Oct 2, no day picked yet.
+    expect(bill).toMatchObject({ dueDate: '2026-10-02', doDate: null, autoSlot: true })
+    expect(open.filter((t) => t.autoSlot && t.doDate === null && t.dueDate !== null).length).toBe(2)
+    const tuition = open.find((t) => t.id === 'task-tuition')
+    expect(tuition?.doDate && tuition.dueDate && tuition.doDate < tuition.dueDate).toBe(true)
+    // Plan items are study or review; everything else is an everyday task.
+    for (const t of tasks) {
+      expect(t.kind).toBe(
+        t.source === 'schedule' ? 'study' : t.source === 'flashcards' ? 'review' : 'task',
+      )
+    }
   })
 
   it('link only to goals, courses and units that exist', () => {

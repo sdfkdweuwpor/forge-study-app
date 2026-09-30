@@ -42,8 +42,9 @@ interface StoredTask {
   id: string
   title: string
   status: string
+  doDate: string | null
+  doTime: string | null
   dueDate: string | null
-  dueTime: string | null
   priority: number
 }
 
@@ -112,14 +113,14 @@ test.describe('quick add on the Tasks screen', () => {
     const row = rowOf(page, 'Read chapter 4')
     await expect(row).toHaveCount(1)
     await expect(titleButton(row)).toHaveAccessibleName('Read chapter 4. Edit task title')
-    // Course, due date and time, estimate and priority, as chips on the row.
+    // Course, date and time, estimate and priority, as chips on the row.
     await expect(row).toContainText('C182')
     await expect(row).toContainText('Tomorrow, 2 PM')
     await expect(row).toContainText('~2')
     await expect(row.getByRole('img', { name: 'Priority: High' })).toBeVisible()
 
     const stored = (await storedTasks(page)).find((t) => t.title === 'Read chapter 4')
-    expect(stored).toMatchObject({ dueDate: '2026-09-30', dueTime: '14:00', priority: 3 })
+    expect(stored).toMatchObject({ doDate: '2026-09-30', doTime: '14:00', priority: 3 })
   })
 })
 
@@ -276,13 +277,13 @@ test.describe('the calendar', () => {
   }) => {
     await gotoApp(page, '/tasks/all?layout=calendar', 'wgu')
     await page.getByRole('button', { name: UNIT3_PM }).focus()
-    expect((await storedTask(page, 'task-c779-u3-3'))?.dueDate).toBe('2026-09-29')
+    expect((await storedTask(page, 'task-c779-u3-3'))?.doDate).toBe('2026-09-29')
 
     await page.keyboard.press('Alt+ArrowRight')
     await expect
-      .poll(async () => (await storedTask(page, 'task-c779-u3-3'))?.dueDate)
+      .poll(async () => (await storedTask(page, 'task-c779-u3-3'))?.doDate)
       .toBe('2026-09-30')
-    expect((await storedTask(page, 'task-c779-u3-3'))?.dueTime).toBe('14:00')
+    expect((await storedTask(page, 'task-c779-u3-3'))?.doTime).toBe('14:00')
     await expect(toasts(page)).toContainText('Wed, Sep 30')
     await expect(
       page
@@ -292,7 +293,7 @@ test.describe('the calendar', () => {
 
     await undo(page).click()
     await expect
-      .poll(async () => (await storedTask(page, 'task-c779-u3-3'))?.dueDate)
+      .poll(async () => (await storedTask(page, 'task-c779-u3-3'))?.doDate)
       .toBe('2026-09-29')
   })
 })
@@ -579,14 +580,14 @@ test.describe('a row menu keeps the page keys quiet', () => {
     await expect(toasts(page)).toContainText('Completed')
   })
 
-  test('with the due date popover open, page keys stay quiet too', async ({ page }) => {
+  test('with the date popover open, page keys stay quiet too', async ({ page }) => {
     await gotoApp(page, '/tasks/inbox', 'wgu')
     const row = rowOf(page, MENTOR)
     await expect(row).toBeVisible()
     await row.hover()
     await row.getByRole('button', { name: 'More actions' }).click()
-    await page.getByRole('menuitem', { name: /^Due date/ }).click()
-    const popover = page.getByRole('dialog', { name: 'Due date' })
+    await page.getByRole('menuitem', { name: /^Date/ }).click()
+    const popover = page.getByRole('dialog', { name: 'Date' })
     await expect(popover).toBeVisible()
     await popover.getByRole('button', { name: 'Tomorrow' }).focus()
 
@@ -665,18 +666,40 @@ test.describe('the task page', () => {
   }) => {
     await gotoApp(page, '/task/task-weekly-review-next', 'wgu')
     await expect(page.getByRole('heading', { name: /Weekly review/, level: 1 })).toBeVisible()
-    await expect(page.getByLabel('Due date', { exact: true })).not.toHaveValue('')
+    await expect(page.getByLabel('Date', { exact: true })).not.toHaveValue('')
     await expect(page.getByText('Repeating tasks need a date.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Clear Due date' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Clear Date' })).toHaveCount(0)
   })
 
   test('clearing the date of a plain task really clears it', async ({ page }) => {
     await gotoApp(page, '/task/task-tuition', 'wgu')
     await expect(page.getByRole('heading', { name: /Pay tuition/, level: 1 })).toBeVisible()
-    expect((await storedTask(page, 'task-tuition'))?.dueDate).not.toBeNull()
-    await page.getByRole('button', { name: 'Clear Due date' }).click()
-    await expect.poll(async () => (await storedTask(page, 'task-tuition'))?.dueDate).toBeNull()
-    await expect(page.getByLabel('Due date', { exact: true })).toHaveValue('')
+    expect((await storedTask(page, 'task-tuition'))?.doDate).not.toBeNull()
+    await page.getByRole('button', { name: 'Clear Date' }).click()
+    await expect.poll(async () => (await storedTask(page, 'task-tuition'))?.doDate).toBeNull()
+    await expect(page.getByLabel('Date', { exact: true })).toHaveValue('')
+    // Its deadline is a separate field and stays.
+    expect((await storedTask(page, 'task-tuition'))?.dueDate).toBe('2026-10-08')
+    await expect(page.getByLabel('Deadline', { exact: true })).toHaveValue('2026-10-08')
+  })
+
+  test('a deadline is its own calm chip, and can be set and cleared on the page', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/upcoming', 'wgu')
+    // Pay phone bill: no day picked, due Friday. It is listed on Friday, with a "Due Fri" chip.
+    const bill = rowOf(page, 'Pay phone bill')
+    await expect(bill).toContainText('Due Fri')
+    await expect(bill.locator('[data-tone="calm"]')).toBeVisible()
+
+    await gotoApp(page, '/task/task-email-mentor', 'wgu')
+    await page.getByLabel('Deadline', { exact: true }).fill('2026-09-29')
+    await expect
+      .poll(async () => (await storedTask(page, 'task-email-mentor'))?.dueDate)
+      .toBe('2026-09-29')
+    expect((await storedTask(page, 'task-email-mentor'))?.doDate).toBe('2026-09-29')
+    await page.getByRole('button', { name: 'Clear Deadline' }).click()
+    await expect.poll(async () => (await storedTask(page, 'task-email-mentor'))?.dueDate).toBeNull()
   })
 
   test('Status: Done to Doing takes the XP back with a toast and Undo', async ({ page }) => {

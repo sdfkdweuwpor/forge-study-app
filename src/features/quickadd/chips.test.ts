@@ -88,8 +88,10 @@ describe('describeChips', () => {
   it('reads the chips as a sentence for a live region', () => {
     const parsed = parseQuickAdd(BRIEF, { now: NOW })
     expect(describeChips(buildChips(parsed, undefined, undefined))).toBe(
-      'Due date Tomorrow, Due time 2:00 PM, Tag #C182, Priority High priority, Estimate 2 pomodoros',
+      'Date Tomorrow, Time 2:00 PM, Tag #C182, Priority High priority, Estimate 2 pomodoros',
     )
     expect(describeChips([])).toBe('')
+    const bill = parseQuickAdd('pay bill due fri', { now: NOW })
+    expect(describeChips(buildChips(bill, undefined, undefined))).toBe('Deadline Due Fri, Oct 2')
   })
 })

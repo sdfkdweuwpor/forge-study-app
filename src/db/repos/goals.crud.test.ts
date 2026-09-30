@@ -239,9 +239,32 @@ describe('updateGoal', () => {
     )
     const tasks = await scheduled()
     expect(
-      tasks.some((t) => (t.dueDate ?? '') >= '2026-10-06' && (t.dueDate ?? '') <= '2026-10-09'),
+      tasks.some((t) => (t.doDate ?? '') >= '2026-10-06' && (t.doDate ?? '') <= '2026-10-09'),
     ).toBe(false)
     expect((await db.goals.get('goal-1'))?.projection?.end).not.toBe(first)
+  })
+
+  it('keeps the planning windows and the weekday minutes in step', async () => {
+    await seedGoal()
+    // New minutes rebuild only the changed days' windows, from where each day started.
+    await updateGoal(
+      'goal-1',
+      { availability: avail([0, 60, 90, 60, 60, 60, 120]) },
+      { now: MON, rebalance: false },
+    )
+    let goal = await db.goals.get('goal-1')
+    expect(goal?.planning.weekly[1]).toEqual([{ start: '09:00', end: '10:00' }])
+    expect(goal?.planning.weekly[2]).toEqual([{ start: '09:00', end: '10:30' }])
+    // New windows rewrite the minutes.
+    const weekly = goal!.planning.weekly.map((d) => d.map((w) => ({ ...w })))
+    weekly[0] = [{ start: '18:00', end: '19:30' }]
+    await updateGoal(
+      'goal-1',
+      { planning: { ...goal!.planning, weekly } },
+      { now: MON, rebalance: false },
+    )
+    goal = await db.goals.get('goal-1')
+    expect(goal?.availability.minutesByWeekday).toEqual([90, 60, 90, 60, 60, 60, 120])
   })
 
   it('marking a goal done stamps the time; reopening clears it', async () => {

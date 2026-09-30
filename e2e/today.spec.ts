@@ -4,7 +4,7 @@ import { expect, gotoApp, test } from './fixtures'
 /**
  * Phase 3E: the Today screen. Sample data (`?seed=wgu`) is dated around the fixed clock, Tue
  * 2026-09-29 09:30, so today has three pieces of goal work, two tasks of your own and three
- * rolled-over tasks (1, 2 and 3 days overdue), and nothing is finished yet.
+ * carried-over tasks (from Mon, Sun and Sat), and nothing is finished yet.
  */
 
 const NOW_TITLE = 'C779 · Unit 3: CSS layout (45 min)'
@@ -39,7 +39,7 @@ test.describe('Today', () => {
     // Groups, in the brief's order, with the sample counts. Nothing is finished yet.
     await expect(rows(group(page, 'From your goals'))).toHaveCount(3)
     await expect(rows(group(page, 'Your tasks'))).toHaveCount(2)
-    await expect(rows(group(page, 'Rolled over'))).toHaveCount(3)
+    await expect(rows(group(page, 'Carried over'))).toHaveCount(3)
     await expect(group(page, 'Completed today')).toHaveCount(0)
     await expect(group(page, 'From your goals').getByText('C779').first()).toBeVisible()
 
@@ -60,16 +60,21 @@ test.describe('Today', () => {
     ).toHaveCount(14)
   })
 
-  test('rolled over tasks say how many days overdue, most urgent first', async ({ page }) => {
+  test('carried-over tasks say which day they are from (never "overdue"), most urgent first', async ({
+    page,
+  }) => {
     await gotoApp(page, '/', 'wgu')
-    const rolled = group(page, 'Rolled over')
-    await expect(rolled).toBeVisible()
-    await expect(rows(rolled)).toHaveText([
-      /Reply to Financial Aid.*1 day overdue/,
-      /Renew library card.*3 days overdue/,
-      /C779 · Unit 2.*2 days overdue/,
+    const carried = group(page, 'Carried over')
+    await expect(carried).toBeVisible()
+    await expect(rows(carried)).toHaveText([
+      /Reply to Financial Aid.*from Mon/,
+      /Renew library card.*from Sat/,
+      /C779 · Unit 2.*from Sun/,
     ])
-    await expect(rolled.getByRole('button', { name: 'Move all to today' })).toBeVisible()
+    await expect(carried).not.toContainText('overdue')
+    // A real deadline shows as a calm chip beside it: due tomorrow.
+    await expect(rows(carried).first()).toContainText('Due tomorrow')
+    await expect(carried.getByRole('button', { name: 'Move all to today' })).toBeVisible()
   })
 
   test('completing a task moves it to Completed today and adds XP; Undo puts it back', async ({
@@ -136,7 +141,7 @@ test.describe('Today', () => {
     await expect(rows(group(page, 'From your goals'))).toHaveCount(3)
   })
 
-  test('shift+n skips and shift+t moves the rolled-over tasks', async ({ page }) => {
+  test('shift+n skips and shift+t moves the carried-over tasks', async ({ page }) => {
     await gotoApp(page, '/', 'wgu')
     await expect(nowTitle(page)).toHaveText(NOW_TITLE)
 
@@ -146,22 +151,22 @@ test.describe('Today', () => {
 
     await page.keyboard.press('Shift+T')
     await expect(toasts(page)).toContainText('Moved 3 tasks to today')
-    await expect(group(page, 'Rolled over')).toHaveCount(0)
+    await expect(group(page, 'Carried over')).toHaveCount(0)
   })
 
-  test('Move all to today reschedules the rolled-over tasks, and Undo restores them', async ({
+  test('Move all to today reschedules the carried-over tasks, and Undo restores them', async ({
     page,
   }) => {
     await gotoApp(page, '/', 'wgu')
-    await group(page, 'Rolled over').getByRole('button', { name: 'Move all to today' }).click()
+    await group(page, 'Carried over').getByRole('button', { name: 'Move all to today' }).click()
 
     await expect(toasts(page)).toContainText('Moved 3 tasks to today')
-    await expect(group(page, 'Rolled over')).toHaveCount(0)
+    await expect(group(page, 'Carried over')).toHaveCount(0)
     await expect(rows(group(page, 'Your tasks'))).toHaveCount(4)
     await expect(rows(group(page, 'From your goals'))).toHaveCount(4)
 
     await toasts(page).getByRole('button', { name: 'Undo' }).click()
-    await expect(rows(group(page, 'Rolled over'))).toHaveCount(3)
+    await expect(rows(group(page, 'Carried over'))).toHaveCount(3)
     await expect(rows(group(page, 'Your tasks'))).toHaveCount(2)
   })
 
@@ -181,7 +186,7 @@ test.describe('Today', () => {
     await page.keyboard.press('?')
     const sheet = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
     await expect(sheet).toContainText('Complete the Now task')
-    await expect(sheet).toContainText('Move all rolled-over tasks to today')
+    await expect(sheet).toContainText('Move all carried-over tasks to today')
     await page.keyboard.press('Escape')
     await expect(sheet).toBeHidden()
 
@@ -189,7 +194,9 @@ test.describe('Today', () => {
     await expect(toasts(page)).toContainText(`Completed “${NOW_TITLE}”`)
   })
 
-  test('Start focus starts a session on the Now task and opens the Focus route', async ({ page }) => {
+  test('Start focus starts a session on the Now task and opens the Focus route', async ({
+    page,
+  }) => {
     await gotoApp(page, '/', 'wgu')
     await nowCard(page).getByRole('button', { name: 'Start focus' }).click()
     await expect(page).toHaveURL(/\/focus$/)
@@ -208,21 +215,21 @@ test.describe('Today', () => {
     }
     await expect(page.getByRole('heading', { name: 'You’re clear for now' })).toBeVisible()
     await expect(group(page, 'From your goals')).toHaveCount(0)
-    await expect(group(page, 'Rolled over')).toHaveCount(0)
+    await expect(group(page, 'Carried over')).toHaveCount(0)
 
     await nowCard(page).getByRole('button', { name: 'Add a task' }).click()
     await expect(page.getByRole('dialog', { name: 'Quick add task' })).toBeVisible()
   })
 
-  test('the palette moves rolled-over tasks from any page', async ({ page }) => {
+  test('the palette moves carried-over tasks from any page', async ({ page }) => {
     await gotoApp(page, '/tasks/all', 'wgu')
     await page.keyboard.press('Control+k')
-    await paletteInput(page).fill('rolled-over')
+    await paletteInput(page).fill('carried-over')
     await page.keyboard.press('Enter')
 
     await expect(page).toHaveURL(/\/$/)
     await expect(toasts(page)).toContainText('Moved 3 tasks to today')
-    await expect(group(page, 'Rolled over')).toHaveCount(0)
+    await expect(group(page, 'Carried over')).toHaveCount(0)
   })
 
   test('Esc still closes the tablet drawer, and clears a selected row when there is one', async ({

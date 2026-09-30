@@ -65,7 +65,8 @@ export function installTimestampHooks(db: Dexie, clock: Clock = Date.now): void 
     table.hook('updating', (mods: object, _key, existing: Base, tx) => {
       const changes = mods as Record<string, unknown>
       if (Object.keys(changes).length === 0) return undefined
-      if (tx.mode === 'versionchange') return undefined
+      // Dexie runs upgraders in its own 'readwrite' wrapper around the native versionchange one.
+      if (tx.idbtrans?.mode === 'versionchange') return undefined
       const extra: Partial<Base> = {}
       if ('createdAt' in changes && changes.createdAt == null) extra.createdAt = existing.createdAt
       if (changes.updatedAt == null) extra.updatedAt = clock()

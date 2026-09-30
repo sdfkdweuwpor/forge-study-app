@@ -55,5 +55,6 @@ export function reviewMinutesForScore(score: number, opts: ReviewMinutesOptions 
   const s = Math.min(1, Math.max(0, score))
   if (s >= readyAt) return 0
   const gap = (readyAt - s) / readyAt
-  return Math.ceil((gap * max) / grain) * grain
+  // The epsilon keeps float noise (0.8 − 0.7 = 0.1000…01) from rounding up a whole grain.
+  return Math.ceil((gap * max) / grain - 1e-9) * grain
 }

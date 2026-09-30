@@ -41,8 +41,11 @@ describe('applySeed("wgu")', () => {
     await applySeed('wgu')
     const today = dayOf(Date.now())
     const open = (await db.tasks.toArray()).filter((t) => t.status !== 'done')
-    expect(open.some((t) => t.dueDate === today)).toBe(true)
-    expect(open.some((t) => t.dueDate !== null && t.dueDate < today)).toBe(true)
+    expect(open.some((t) => t.doDate === today)).toBe(true)
+    expect(open.some((t) => t.doDate !== null && t.doDate < today)).toBe(true)
+    // A few real deadlines, and the WGU courses' planned OAs.
+    expect(open.some((t) => t.dueDate !== null && t.doDate === null && t.autoSlot)).toBe(true)
+    expect(await db.plannedAssessments.count()).toBe(5)
   })
 
   it('is repeatable: seeding twice gives the same rows, not duplicates', async () => {

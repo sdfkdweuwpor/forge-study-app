@@ -11,8 +11,8 @@ const column = (page: Page, id: 'todo' | 'doing' | 'done') => page.locator(`[dat
 
 interface StoredTask {
   status: string
-  dueDate: string | null
-  dueTime: string | null
+  doDate: string | null
+  doTime: string | null
   schedulePinned: boolean
   boardOrder: number
 }
@@ -88,7 +88,9 @@ test.describe('board', () => {
 
   test('dragging a card with the mouse moves it to another column, with Undo', async ({ page }) => {
     await gotoApp(page, '/tasks/all?layout=board', 'wgu')
-    const card = column(page, 'todo').getByRole('listitem').filter({ hasText: 'Renew library card' })
+    const card = column(page, 'todo')
+      .getByRole('listitem')
+      .filter({ hasText: 'Renew library card' })
     await expect(card).toBeVisible()
     const from = await card.boundingBox()
     const into = await column(page, 'doing').locator('ul').boundingBox()
@@ -125,7 +127,9 @@ test.describe('board', () => {
     // lost. Done is the last column, so pressing again until it is announced cannot overshoot.
     await expect(async () => {
       await page.keyboard.press('ArrowRight')
-      await expect(page.getByText(/CSS layout \(45 min\) is over Done/)).toBeAttached({ timeout: 400 })
+      await expect(page.getByText(/CSS layout \(45 min\) is over Done/)).toBeAttached({
+        timeout: 400,
+      })
     }).toPass({ timeout: 5000 })
     await page.keyboard.press('Space')
 
@@ -138,7 +142,9 @@ test.describe('board', () => {
 
   test('Alt+→ moves the selected card to the next column', async ({ page }) => {
     await gotoApp(page, '/tasks/all?layout=board', 'wgu')
-    const card = column(page, 'todo').getByRole('listitem').filter({ hasText: 'Renew library card' })
+    const card = column(page, 'todo')
+      .getByRole('listitem')
+      .filter({ hasText: 'Renew library card' })
     await card.getByText('Renew library card').hover()
     await card.locator('button[aria-label^="Open"]').focus()
     await page.keyboard.press('Alt+ArrowRight')
@@ -182,9 +188,9 @@ test.describe('calendar', () => {
     await block.first().focus()
 
     await page.keyboard.press('Alt+ArrowRight')
-    await expect.poll(async () => (await task(page, stamp))?.dueDate).toBe('2026-09-30')
+    await expect.poll(async () => (await task(page, stamp))?.doDate).toBe('2026-09-30')
     await page.keyboard.press('Alt+ArrowDown')
-    await expect.poll(async () => (await task(page, stamp))?.dueTime).toBe('10:15')
+    await expect.poll(async () => (await task(page, stamp))?.doTime).toBe('10:15')
     expect((await task(page, stamp))?.schedulePinned).toBe(true)
     await expect(toasts(page)).toContainText('Wed, Sep 30, 10:15 AM')
     await expect(
@@ -192,8 +198,8 @@ test.describe('calendar', () => {
     ).toBeFocused()
 
     await page.getByRole('button', { name: 'Undo' }).click()
-    await expect.poll(async () => (await task(page, stamp))?.dueDate).toBe('2026-09-29')
-    expect((await task(page, stamp))?.dueTime).toBe('10:00')
+    await expect.poll(async () => (await task(page, stamp))?.doDate).toBe('2026-09-29')
+    expect((await task(page, stamp))?.doTime).toBe('10:00')
   })
 
   test('dragging a block to another day and time reschedules it', async ({ page }) => {
@@ -210,11 +216,13 @@ test.describe('calendar', () => {
     await page.mouse.down()
     await page.mouse.move(from.x + from.width / 2 + 12, grab + 12, { steps: 4 })
     // The block's top edge lands on the 15:00 line of Thursday's column.
-    await page.mouse.move(thursday.x + thursday.width / 2, thursday.y + 8 * hour + 10, { steps: 18 })
+    await page.mouse.move(thursday.x + thursday.width / 2, thursday.y + 8 * hour + 10, {
+      steps: 18,
+    })
     await page.mouse.up()
 
-    await expect.poll(async () => (await task(page, stamp))?.dueDate).toBe('2026-10-01')
-    expect((await task(page, stamp))?.dueTime).toBe('15:00')
+    await expect.poll(async () => (await task(page, stamp))?.doDate).toBe('2026-10-01')
+    expect((await task(page, stamp))?.doTime).toBe('15:00')
     expect((await task(page, stamp))?.schedulePinned).toBe(true)
   })
 
@@ -232,8 +240,8 @@ test.describe('calendar', () => {
     await page.mouse.move(strip.x + strip.width / 2, strip.y + 12, { steps: 16 })
     await page.mouse.up()
 
-    await expect.poll(async () => (await task(page, stamp))?.dueDate).toBe('2026-09-30')
-    expect((await task(page, stamp))?.dueTime).toBeNull()
+    await expect.poll(async () => (await task(page, stamp))?.doDate).toBe('2026-09-30')
+    expect((await task(page, stamp))?.doTime).toBeNull()
   })
 
   test('shows three days on a phone and pages by them', async ({ page }) => {
@@ -287,7 +295,10 @@ test.describe('saved views', () => {
   test('rename inline and delete with Undo from the sidebar', async ({ page }) => {
     await gotoApp(page, '/tasks/all?priority=3,4', 'wgu')
     await page.getByRole('button', { name: 'Save view' }).click()
-    await page.getByRole('dialog', { name: 'Save view' }).getByRole('button', { name: 'Save view' }).click()
+    await page
+      .getByRole('dialog', { name: 'Save view' })
+      .getByRole('button', { name: 'Save view' })
+      .click()
     await expect(page).toHaveURL(/\/tasks\/views\//)
 
     await page.getByRole('button', { name: /^Actions for High priority/ }).click({ force: true })

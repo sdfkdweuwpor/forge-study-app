@@ -9,8 +9,8 @@
  * - A unit's work is its estimate (`resolveUnitEstimates`) minus its done study sessions, minus its
  *   pinned open ones; a unit or course marked done has none left. Readiness rows add extra review
  *   minutes (the hook in `readinessPlan`).
- * - Planned assessments become the planner's assessments; one whose status is not `planned`, or whose
- *   assessment item was checked off, is done.
+ * - Planned assessments become the planner's assessments; one whose status is not `planned`, whose
+ *   assessment item was checked off, or whose course is finished, is done.
  * - Pinned open items keep their slots. A pin lapses when its day has passed, when it is skipped today,
  *   or when its unit is done.
  * - Time that is taken is never planned over: other tasks with a do time (everyday tasks, other goals'
@@ -249,6 +249,7 @@ export function goalPlannerInput(rows: SlotGoalRows, today: ISODate): GoalInput 
     }),
   }))
 
+  const doneCourses = new Set(rows.milestones.filter((m) => m.status === 'done').map((m) => m.id))
   const doneAssessments = new Set(
     planTasks
       .filter((t) => t.kind === 'assessment' && t.status === 'done' && t.assessmentId !== null)
@@ -264,7 +265,11 @@ export function goalPlannerInput(rows: SlotGoalRows, today: ISODate): GoalInput 
       date: a.date,
       time: a.time,
       ...(a.durationMinutes !== null ? { durationMinutes: a.durationMinutes } : {}),
-      done: a.status !== 'planned' || doneAssessments.has(a.id),
+      // Checked off, or its course is finished (a finished course needs no exam).
+      done:
+        a.status !== 'planned' ||
+        doneAssessments.has(a.id) ||
+        (a.milestoneId !== null && doneCourses.has(a.milestoneId)),
     }))
 
   const asap = isAsap({ planning: goal.planning, targetDate: goal.targetDate })

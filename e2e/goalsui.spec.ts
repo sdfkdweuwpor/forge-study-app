@@ -347,9 +347,9 @@ test.describe('the goal page', () => {
     await gotoApp(page, GOAL, 'wgu')
     await page.getByRole('button', { name: 'Schedule' }).click()
     const dialog = page.getByRole('dialog', { name: 'Schedule settings' })
-    await expect(dialog.getByText('7 study days · 10 h a week')).toBeVisible()
+    await expect(dialog.getByText('7 study days · 14 h a week')).toBeVisible()
     await dialog.getByRole('switch', { name: 'Sunday' }).click()
-    await expect(dialog.getByText('6 study days · 9 h a week')).toBeVisible()
+    await expect(dialog.getByText('6 study days · 12.5 h a week')).toBeVisible()
     await dialog.getByRole('button', { name: 'Add days off' }).click()
     await dialog.getByRole('button', { name: 'Save and re-plan' }).click()
     await expect(

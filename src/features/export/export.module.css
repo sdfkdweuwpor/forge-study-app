@@ -68,3 +68,17 @@
 .status[data-tone='error'] {
   color: var(--danger-text);
 }
+
+/*
+ * Phones: the four calendar Range presets ("All upcoming" to "13 weeks") ran a few px past a 375px
+ * phone's content column. Tighter segments with no gap between them fit down to 360px.
+ */
+@media (max-width: 639px) {
+  .row [role='radiogroup'] {
+    gap: 0;
+  }
+
+  .section .row [role='radiogroup'] [role='radio'] {
+    padding-inline: 6px;
+  }
+}

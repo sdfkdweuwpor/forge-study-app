@@ -474,8 +474,20 @@ const ROUTES: readonly RouteCase[] = [
   { name: 'tasks inbox (empty)', url: '/tasks/inbox', seed: 'empty' },
   { name: 'goals (empty)', url: '/goals', seed: 'empty' },
   // Routes that are a dialog (the ritual) or the whole window (the first-launch tour).
-  { name: 'morning plan', url: '/rituals/morning', kind: 'dialog' },
-  { name: 'evening shutdown', url: '/rituals/evening', kind: 'dialog' },
+  // The dialog is opened by an effect after lazy chunks load, later than the page's own heading: the
+  // walk waits for the dialog itself, or Tab would walk the sidebar.
+  {
+    name: 'morning plan',
+    url: '/rituals/morning',
+    kind: 'dialog',
+    ready: (p) => p.getByRole('dialog', { name: 'Morning plan' }),
+  },
+  {
+    name: 'evening shutdown',
+    url: '/rituals/evening',
+    kind: 'dialog',
+    ready: (p) => p.getByRole('dialog', { name: 'Evening shutdown' }),
+  },
   { name: 'welcome', url: '/welcome', seed: 'empty', kind: 'bare' },
 ]
 
@@ -495,6 +507,8 @@ async function openRoute(page: Page, route: RouteCase): Promise<void> {
   else await gotoApp(page, route.url, route.seed ?? 'wgu')
   await settled(page, { demo: route.demo === true })
   if (route.ready) await expect(route.ready(page).first()).toBeVisible()
+  // A route that is a dialog is ready when the dialog is up (its page heading shows up earlier).
+  else if (route.kind === 'dialog') await expect(page.getByRole('dialog').first()).toBeVisible()
 }
 
 /** One full Tab pass over a route: skip link first, order, rings, names, no trap, and Shift+Tab back. */
@@ -594,27 +608,52 @@ const routeNamed = (name: string): RouteCase => {
   return found
 }
 
-// Defects in files this package does not own (the report has the fix for each). A test marked `fail`
-// must fail: when its owner fixes the defect Playwright says "expected to fail, but passed", which is
-// the cue to delete the test (and, for the tab bar, the `covered: 'bottom-bars-allowed'` above).
+/**
+ * Pins a defect in a file this package does not own by its symptom. The body must fail, and the failure
+ * must say `symptom`: a timeout, a changed selector or an unrelated ordering bug in the walk fails the
+ * test instead of hiding behind the known defect. When the owner fixes it the body passes, and this
+ * fails with the cue to delete the tracker.
+ */
+async function expectDefect(
+  body: () => Promise<void>,
+  symptom: RegExp,
+  fixedBy: string,
+): Promise<void> {
+  let failure: unknown
+  try {
+    await body()
+  } catch (error) {
+    failure = error
+  }
+  expect(failure, `the defect is fixed in ${fixedBy}: delete this tracker`).toBeDefined()
+  expect(failure instanceof Error ? failure.message : String(failure)).toMatch(symptom)
+}
+
+// Defects in files this package does not own (the report has the fix for each). Each tracker passes
+// while its defect exists. When the owner fixes one the tracker fails and says to delete it (and, for
+// the tab bar, the `covered: 'bottom-bars-allowed'` above).
 test.describe('known defects outside this package', () => {
   test.describe('375', () => {
     test.use({ viewport: PHONE })
 
     test('the tab bar and the + button do not hide the focused control', async ({ page }) => {
-      test.fail(true, 'src/app/layout: the page needs scroll-padding-bottom for the fixed tab bar')
-      await checkWalk(page, routeNamed('today'))
+      await expectDefect(
+        () => checkWalk(page, routeNamed('today')),
+        /is covered by .* when focused/,
+        'src/app/layout (scroll-padding-bottom for the fixed tab bar)',
+      )
     })
 
     test('progress: Tab order follows the phone layout', async ({ page }) => {
-      test.fail(
-        true,
-        'ProgressPage.module.css reorders the sections with `order` below 640px; the DOM keeps two columns',
-      )
-      await checkWalk(
-        page,
-        { name: 'progress', url: '/progress' },
-        { covered: 'bottom-bars-allowed' },
+      await expectDefect(
+        () =>
+          checkWalk(
+            page,
+            { name: 'progress', url: '/progress' },
+            { covered: 'bottom-bars-allowed' },
+          ),
+        /Tab order follows the visual order[\s\S]*but sits above it/,
+        'ProgressPage.module.css (`order` below 640px against a two-column DOM)',
       )
     })
   })
@@ -623,18 +662,38 @@ test.describe('known defects outside this package', () => {
     test.use({ viewport: DESKTOP })
 
     test('rewards: the arrow keys walk the tabs without losing focus', async ({ page }) => {
-      test.fail(
-        true,
-        'Shell remounts the page when a route param changes, and the router then moves focus to the heading',
+      await expectDefect(
+        async () => {
+          await gotoApp(page, '/rewards', 'wgu')
+          await settled(page)
+          const tabs = page.getByRole('tablist')
+          await tabs.getByRole('tab').first().focus()
+          await page.keyboard.press('ArrowRight')
+          await expect(tabs.getByRole('tab').nth(1)).toBeFocused()
+          await page.keyboard.press('ArrowRight')
+          await expect(tabs.getByRole('tab').nth(2)).toBeFocused()
+        },
+        /toBeFocused\(\) failed[\s\S]*nth\(1\)/,
+        'Shell (it remounts the page when a route param changes, and the router then focuses the heading)',
       )
-      await gotoApp(page, '/rewards', 'wgu')
-      await settled(page)
-      const tabs = page.getByRole('tablist')
-      await tabs.getByRole('tab').first().focus()
-      await page.keyboard.press('ArrowRight')
-      await expect(tabs.getByRole('tab').nth(1)).toBeFocused()
-      await page.keyboard.press('ArrowRight')
-      await expect(tabs.getByRole('tab').nth(2)).toBeFocused()
+    })
+
+    test('mod+z undoes the last action (PLAN 5.2; not built yet)', async ({ page }) => {
+      await expectDefect(
+        async () => {
+          await gotoApp(page, '/', 'wgu')
+          await settled(page)
+          await page.keyboard.press('j')
+          const title = await selectedTitle(page)
+          await page.keyboard.press('x')
+          await expect(toasts(page)).toContainText(completedToast(title))
+          await page.keyboard.press('ControlOrMeta+z')
+          await expect(doneBox(page, title), 'mod+z brings the task back').toBeVisible()
+          await expect(doneBox(page, title), 'mod+z brings the task back').not.toBeChecked()
+        },
+        /mod\+z brings the task back/,
+        'the shortcut registry (register `app.undo` and bind it to the latest toast with an Undo button)',
+      )
     })
   })
 })
@@ -1047,6 +1106,9 @@ test.describe('Esc closes an overlay and focus goes back to its opener', () => {
 const toasts = (page: Page) => page.getByRole('region', { name: 'Notifications' })
 const pathnameOf = (page: Page) => new URL(page.url()).pathname
 const pageHeading = (page: Page) => page.locator('main h1').first()
+/** What the toast for a finished task says (the app cuts a long title to 48 characters). */
+const completedToast = (title: string): string =>
+  `Completed “${title.length > 48 ? `${title.slice(0, 47).trimEnd()}…` : title}”`
 
 /** Title of the row that j / k have selected, read from its "Done: …" checkbox. */
 async function selectedTitle(page: Page): Promise<string> {
@@ -1085,7 +1147,7 @@ test.describe('shortcuts', () => {
     }
   })
 
-  test('g then a key that is not a destination does nothing, and a slow second key is ignored', async ({
+  test('g then a key that is not a destination does nothing', async ({
     page,
   }) => {
     await gotoApp(page, '/goals', 'wgu')
@@ -1318,6 +1380,34 @@ test.describe('shortcuts', () => {
     await expect(doneBox(page, title)).not.toBeChecked()
     // The toast the focus was on has gone; focus is not left on the body.
     await expect(where).toBeFocused()
+  })
+
+  test('focus that left the toast by a click is not pulled back to where F8 came from', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await expect(doneBox(page, 'Email mentor about term plan')).toBeVisible()
+    const where = page.getByRole('link', { name: 'Progress', exact: true })
+    await where.focus()
+    await page.keyboard.press('j')
+    const first = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(first))
+    await page.keyboard.press('F8')
+    await expect(toasts(page).getByRole('button', { name: 'Undo' })).toBeFocused()
+
+    // A click on an empty corner of the page clears focus on purpose.
+    await page.mouse.click(1, 1)
+    await expect(page.locator('body')).toBeFocused()
+
+    // The next toast arrives (a second task done from the keyboard) and focus stays where the user put it.
+    await page.keyboard.press('j')
+    const second = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(second))
+    await expect(page.locator('body')).toBeFocused()
+    await expect(where).not.toBeFocused()
   })
 
   test('j, k, x and Enter on a list reached with g i; Esc clears the selection, then closes the peek', async ({

@@ -357,7 +357,8 @@
 .row[data-variant='card'] .title button::before {
   content: '';
   float: right;
-  width: 56px;
+  /* From the title column's right edge to 6px short of the grip (at right: 34px, 20px wide). */
+  width: 48px;
   height: 20px;
 }
 

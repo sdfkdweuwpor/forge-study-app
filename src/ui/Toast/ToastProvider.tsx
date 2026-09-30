@@ -231,6 +231,23 @@ export function ToastProvider({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [inline])
 
+  // Leaving the stack on purpose (a click or tap anywhere else, or focus moving to another element)
+  // forgets where F8 came from, so a toast that later goes away never pulls focus back to it. When a
+  // toast with focus is simply removed no event fires, and that is the case the effect below handles.
+  useEffect(() => {
+    if (inline) return undefined
+    const forgetOrigin = (e: Event) => {
+      if (e.target instanceof Node && viewport.current?.contains(e.target)) return
+      returnTo.current = null
+    }
+    document.addEventListener('pointerdown', forgetOrigin, true)
+    document.addEventListener('focusin', forgetOrigin, true)
+    return () => {
+      document.removeEventListener('pointerdown', forgetOrigin, true)
+      document.removeEventListener('focusin', forgetOrigin, true)
+    }
+  }, [inline])
+
   // A toast that has focus goes away (Undo done, Esc, time up): focus must not fall to the page body,
   // so it goes back to where F8 came from. If focus went somewhere else on purpose, that stands.
   useEffect(() => {

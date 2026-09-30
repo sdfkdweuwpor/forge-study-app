@@ -169,6 +169,67 @@ test.describe('everyday tasks', () => {
     )
   })
 
+  test('"No open time" points to the everyday hours, and changing them changes the suggestions', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'empty')
+    await quickAdd(page, 'pay parking ticket due today 10am')
+    const ticket = await byTitle(page, 'pay parking ticket')
+    if (!ticket) throw new Error('the task was not saved')
+    await page.goto(`/task/${ticket.id}`)
+    await page.getByRole('switch', { name: 'Auto-schedule before deadline' }).click()
+    await page.goto('/tasks/inbox')
+    await page.getByRole('link', { name: 'Adjust your everyday hours' }).click()
+    await expect(page).toHaveURL(/\/settings\/everyday-hours$/)
+    await expect(page.getByRole('heading', { name: 'Everyday task hours' })).toBeFocused()
+
+    // Tuesday's window is 18:00 to 21:00 by default; start it later and the suggestion follows.
+    await quickAdd(page, 'pay phone bill due fri 30m')
+    const bill = await byTitle(page, 'pay phone bill')
+    if (!bill) throw new Error('the task was not saved')
+    await page.goto(`/task/${bill.id}`)
+    await page.getByRole('switch', { name: 'Auto-schedule before deadline' }).click()
+    await page.goto('/settings')
+    await page.getByLabel('Tuesday window 1 start').fill('20:00')
+    await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible()
+    await page.goto('/tasks/upcoming')
+    await expect(page.getByRole('region', { name: 'Suggested times' })).toContainText(
+      'pay phone bill → Today 8 PM (30 min)',
+    )
+
+    // A day can be switched off, and a bad window is not saved.
+    await page.goto('/settings')
+    await page.getByRole('switch', { name: 'Saturday' }).click()
+    await expect(page.getByRole('switch', { name: 'Saturday' })).not.toBeChecked()
+    await page.getByLabel('Tuesday window 1 end').fill('19:00')
+    await expect(page.getByText('The end must be after the start.')).toBeVisible()
+    await page.reload()
+    await expect(page.getByLabel('Tuesday window 1 end')).toHaveValue('21:00')
+    await expect(page.getByRole('switch', { name: 'Saturday' })).not.toBeChecked()
+  })
+
+  test('the "Accept suggested times" command takes you to Upcoming and shows the card', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'empty')
+    await quickAdd(page, 'pay phone bill due fri 30m')
+    const bill = await byTitle(page, 'pay phone bill')
+    if (!bill) throw new Error('the task was not saved')
+    await page.goto(`/task/${bill.id}`)
+    await page.getByRole('switch', { name: 'Auto-schedule before deadline' }).click()
+    await expect.poll(async () => (await byTitle(page, 'pay phone bill'))?.autoSlot).toBe(true)
+
+    // From a page without the card.
+    await page.goto('/goals')
+    await page.keyboard.press('Control+k')
+    await page.getByRole('combobox', { name: 'Command palette' }).fill('accept suggested')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/tasks\/upcoming/)
+    await expect(page.getByRole('region', { name: 'Suggested times' })).toBeFocused()
+    // It opened the card; nothing was scheduled without a yes.
+    expect((await byTitle(page, 'pay phone bill'))?.doDate).toBeNull()
+  })
+
   test('a deadline is calm: "Due Fri" ahead of time, "Was due Mon" after, never red', async ({
     page,
   }) => {

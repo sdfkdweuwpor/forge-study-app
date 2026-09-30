@@ -132,9 +132,21 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
     else reveal()
   })
   useEffect(() => registerSuggestionsCard(), [])
-  useEffect(() => onSuggestionsRequest(reveal), [reveal])
+  // A request that comes while the suggestions are still loading waits for them.
+  const waiting = useRef(false)
+  useEffect(
+    () =>
+      onSuggestionsRequest(() => {
+        if (ready) reveal()
+        else waiting.current = true
+      }),
+    [ready, reveal],
+  )
   useEffect(() => {
-    if (ready && takePendingRequest()) reveal()
+    if (!ready) return
+    const asked = waiting.current || takePendingRequest()
+    waiting.current = false
+    if (asked) reveal()
   }, [ready, reveal])
 
   if (state.status === 'loading') return null

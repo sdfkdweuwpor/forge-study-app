@@ -149,13 +149,14 @@
 
   /*
    * Seven Length presets, each with a 44px tap floor on touch, came to 345px: past a 375px phone's
-   * content edge. Tighter segments with no gap between them fit down to a 360px phone.
+   * content edge. Tighter segments with no gap between them fit down to a 360px phone (320 with a mouse).
+   * The extra specificity beats the small control's own segment padding.
    */
   .propValue [role='radiogroup'] {
     gap: 0;
   }
 
-  .propValue [role='radio'] {
+  .root .propValue [role='radiogroup'] [role='radio'] {
     padding-inline: 6px;
   }
 }

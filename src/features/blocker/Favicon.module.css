@@ -1,0 +1,86 @@
+.icon {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+}
+
+.icon[data-size='16'] {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+.icon[data-size='20'] {
+  width: 20px;
+  height: 20px;
+}
+.icon[data-size='24'] {
+  width: 24px;
+  height: 24px;
+  font-size: var(--fs-14);
+}
+
+.icon[data-color='gray'] {
+  --tag-bg: var(--tag-gray-bg);
+  --tag-fg: var(--tag-gray-text);
+}
+.icon[data-color='brown'] {
+  --tag-bg: var(--tag-brown-bg);
+  --tag-fg: var(--tag-brown-text);
+}
+.icon[data-color='orange'] {
+  --tag-bg: var(--tag-orange-bg);
+  --tag-fg: var(--tag-orange-text);
+}
+.icon[data-color='yellow'] {
+  --tag-bg: var(--tag-yellow-bg);
+  --tag-fg: var(--tag-yellow-text);
+}
+.icon[data-color='green'] {
+  --tag-bg: var(--tag-green-bg);
+  --tag-fg: var(--tag-green-text);
+}
+.icon[data-color='blue'] {
+  --tag-bg: var(--tag-blue-bg);
+  --tag-fg: var(--tag-blue-text);
+}
+.icon[data-color='purple'] {
+  --tag-bg: var(--tag-purple-bg);
+  --tag-fg: var(--tag-purple-text);
+}
+.icon[data-color='pink'] {
+  --tag-bg: var(--tag-pink-bg);
+  --tag-fg: var(--tag-pink-text);
+}
+.icon[data-color='red'] {
+  --tag-bg: var(--tag-red-bg);
+  --tag-fg: var(--tag-red-text);
+}
+
+.letter {
+  grid-area: 1 / 1;
+}
+
+/* The icon sits on top of the avatar and stays invisible until it has really loaded. */
+.image {
+  z-index: var(--z-raised);
+  grid-area: 1 / 1;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.icon[data-loaded] {
+  background: transparent;
+}
+
+.icon[data-loaded] .image {
+  opacity: 1;
+}

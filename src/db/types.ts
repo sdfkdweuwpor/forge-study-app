@@ -653,6 +653,8 @@ export interface Settings extends Base {
     extensionIdOverride: string | null
     lastSyncedAt: Millis | null
     eventsCursor: Millis
+    /** The default blocklist was added once; sites the user removed never come back on their own. */
+    blocklistSeeded: boolean
   }
   scheduling: {
     globalDaysOff: DateRange[]

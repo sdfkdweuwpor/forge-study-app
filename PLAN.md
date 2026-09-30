@@ -807,13 +807,15 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Done: the level meter is one line over its bar, with a tooltip in the shop's words. The level-up has a 64px headline, a denser backdrop and `--confetti-*` tokens. Unaffordable rewards show a gold progress bar, phone rows keep Redeem inline, and the redeem confirmation is a phone bottom sheet (`Modal phoneLayout`). Locked badges share the card surface, with light-mode glyphs darkened (`--locked-glyph-filter`); phones get a single column; the tooltip uses 12-hour time. History lists same-instant purchases in a fixed order (monotonic `createdAt`), and each tab has its own error boundary. Screenshots are in `screenshots/6d/`. The shell has no collapsed rail, so a collapsed sidebar shows no level badge.
 
 ### Phase 7 — Streaks, Progress, charts, weekly review
-- [ ] **7A [B] Streaks** (∥ 7B). Owns `src/logic/streaks.ts` and test, `src/db/repos/progress.ts`, `src/db/hooks/useStreak.ts` and `src/features/progress/{feature.ts,handlers.ts,Streak*}`.
+- [x] **7A [B] Streaks** (∥ 7B). Owns `src/logic/streaks.ts` and test, `src/db/repos/progress.ts`, `src/db/hooks/useStreak.ts` and `src/features/progress/{feature.ts,handlers.ts,Streak*}`.
   - streakDays handlers, `rebuildDays`, streak milestone XP.
   - Slots: sidebar flame 🔥 (`sidebar.footer`); `today.header` streak; `today.aside` 14-day mini heatmap.
-- [ ] **7B [B] Charts + Progress page** (∥ 7A; mock data until 7A lands). Owns `src/ui/charts/**`, `src/logic/stats.ts` and test, and `src/features/progress/{ProgressPage*,sections/*}`.
+  - Done: `logic/streaks.ts` (`computeStreak`, `isDayQualified`, `SCAN_DAYS`; 34 tests incl. freezes, week starts, DST, keys and a 400-day timing check) and `logic/streakDays.ts` (pure row building); `db/repos/progress.ts` (`rebuildDays`, `refreshDay`, `rebuildAll`, `needsFullRebuild`, `loadStreak`, `reconcileStreakMilestones`, tests on fake-indexeddb); `db/hooks/useStreak.ts` (`useStreak(today)`); `features/progress/{feature.ts (merges *.feature.ts), Streaks.feature.ts, handlers.ts, StreakFlame, StreakToaster}`; `computeStreakForBadges` now runs the engine. Today's streak stat and 14-day heatmap (❄️ on frozen days) read real data. `e2e/streaks.spec.ts`, `scripts/shots/streaks.ts`, `screenshots/7a/`. Palette: "Show streak" (`g p`).
+- [x] **7B [B] Charts + Progress page** (∥ 7A; mock data until 7A lands). Owns `src/ui/charts/**`, `src/logic/stats.ts` and test, and `src/features/progress/{ProgressPage*,sections/*}`.
   - Year heatmap (❄️ on frozen days).
   - Charts: focus minutes per day (30 d), tasks per week, time per goal/course, hour histogram, estimate accuracy.
   - Hand-made SVG with `<title>`/`<desc>` and a visually hidden data table.
+  - Done: `ui/charts/` (`ChartFrame`, `BarChart`, `Heatmap`, `HourHistogram`, `HBarList`, `AccuracyScatter`, `Sparkline`, pure `scale.ts`/`nav.ts`/`cluster.ts` with tests; exported from `ui/index.ts`); `logic/stats.ts` and `statsLabels.ts` (58 + 9 tests incl. DST, the autumn repeated hour and the spring missing hour); `features/progress/{ProgressPage*, queries.ts (+test), sections/*}` registered through `ProgressPage.feature.ts`; chart specimens in `/design` (Composites, "Charts"); `data/sample/progressSample.ts`; `e2e/progress.spec.ts` (+ `progressHistory.ts`), `scripts/shots/progress.ts`, `screenshots/7b/`. Shell edit: scope `progress` (`registry/types.ts`, `palette/shortcutList.ts`). Shortcuts `v g` / `v c`; palette "Show time per goal / course".
 - [ ] **7C [B] Weekly review** (after 7A). Owns `src/db/repos/reviews.ts` and `src/features/progress/WeeklyReview*`.
   - Wins, hours per goal, streak, "what got in the way?", and next week's plan preview.
   - Sunday prompt in `today.aside`.
@@ -843,7 +845,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - `blocked.html` uses the app tokens and Inter: site, time left, current task, "Back to work", random motivation line.
   - Popup: status, time left, today's attempts, "Open Forge".
   - `shared/{domains,schedule}.ts` tests; a test that the manifest `key` hashes to `DEFAULT_EXTENSION_ID` and the origins match `APP_ORIGIN`.
-- [ ] **9C [B] App Blocker** (∥ 9B). Owns `src/db/repos/blocker.ts` and `src/features/blocker/**`.
+- [x] **9C [B] App Blocker** (∥ 9B). Owns `src/db/repos/blocker.ts` and `src/features/blocker/**`.
   - Status: connected / not installed + install steps + ID override + deploy-preview note.
   - Mode and schedule editor; blocklist with favicons (letter fallback offline); allowlist; motivation lines editor.
   - Bridge; BlockerSync provider; event pulls.

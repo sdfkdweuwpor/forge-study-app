@@ -6,6 +6,12 @@ export const TIME_ZONE = 'America/New_York'
 
 type Seed = 'wgu' | 'empty'
 
+/** A 1x1 transparent PNG: what every favicon lookup gets. */
+const FAVICON_STUB = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+)
+
 interface Fixtures {
   /** Freeze `Date.now()`/`new Date()` at FIXED_NOW (timers still run). Set `false` to opt out. */
   fixedClock: boolean
@@ -31,6 +37,11 @@ export const test = base.extend<Fixtures>({
       problems.push(`pageerror: ${err.message}`)
     })
     if (fixedClock) await page.clock.setFixedTime(FIXED_NOW)
+    // The Blocker page asks DuckDuckGo for site icons. e2e never touches the network (offline, the
+    // browser would log every refused request as a console error), so answer with a 1 px image.
+    await page.route('https://icons.duckduckgo.com/**', (route) =>
+      route.fulfill({ contentType: 'image/png', body: FAVICON_STUB }),
+    )
     await use(page)
     expect(problems, 'the page logged errors').toEqual([])
   },

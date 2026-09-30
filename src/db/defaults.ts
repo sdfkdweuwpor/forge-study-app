@@ -52,6 +52,7 @@ export function defaultSettingsData(): SettingsData {
       extensionIdOverride: null,
       lastSyncedAt: null,
       eventsCursor: 0,
+      blocklistSeeded: false,
     },
     scheduling: {
       globalDaysOff: [],

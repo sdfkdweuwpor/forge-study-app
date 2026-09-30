@@ -15,6 +15,7 @@
  */
 import { addDays } from '@/logic/dates'
 import { totalCountedMinutes } from '@/logic/stats'
+import { UndoRefusedError } from '@/logic/undo'
 import {
   XP_EVENING,
   cleanReflection,
@@ -253,12 +254,13 @@ export async function focusMinutesOn(day: ISODate): Promise<number> {
 
 // ─── Moving work on ─────────────────────────────────────────────────────────
 
-/** What one task looked like before a move. */
+/** What one task looked like before a move, and what the move left it as. */
 interface Before {
   id: ID
   doDate: ISODate | null
   doTime: HHmm | null
   schedulePinned: boolean
+  after: { doDate: ISODate | null; doTime: HHmm | null; schedulePinned: boolean }
 }
 
 export interface MoveResult extends Undoable {
@@ -269,8 +271,9 @@ export interface MoveResult extends Undoable {
 /**
  * Plans the given tasks for `day` in one transaction (`updateTask` for each, so a scheduled task is
  * pinned there like any drag or "Plan for tomorrow"). A task that is done, gone, or already planned for
- * `day` is left alone. `undo()` puts back each task's exact do date, do time and pin in one transaction;
- * a task that has been moved somewhere else since is left where it is.
+ * `day` is left alone. `undo()` puts back each task's exact do date, do time and pin in one transaction.
+ * If any of them has been moved somewhere else, finished or deleted since, it throws `UndoRefusedError`
+ * and changes nothing, so a task you have since planned differently is never overwritten.
  */
 export async function moveTasksToDay(
   ids: readonly ID[],
@@ -289,6 +292,11 @@ export async function moveTasksToDay(
           doDate: task.doDate,
           doTime: task.doTime,
           schedulePinned: task.schedulePinned,
+          after: {
+            doDate: result.task.doDate,
+            doTime: result.task.doTime,
+            schedulePinned: result.task.schedulePinned,
+          },
         })
       }
     }
@@ -298,17 +306,36 @@ export async function moveTasksToDay(
   return {
     moved: before.map((b) => b.id),
     undo: async () => {
-      await db.transaction('rw', db.tasks, async () => {
+      const changed = await db.transaction('rw', db.tasks, async () => {
+        const rows = await db.tasks.bulkGet(before.map((b) => b.id))
+        const stale = before.filter((b, i) => {
+          const row = rows[i]
+          return (
+            row === undefined ||
+            row.status === 'done' ||
+            row.doDate !== b.after.doDate ||
+            row.doTime !== b.after.doTime ||
+            row.schedulePinned !== b.after.schedulePinned
+          )
+        })
+        if (stale.length > 0) return stale.length
         for (const b of before) {
-          const current = await db.tasks.get(b.id)
-          if (!current || current.doDate !== day) continue
           await updateTask(b.id, {
             doDate: b.doDate,
             doTime: b.doTime,
             schedulePinned: b.schedulePinned,
           })
         }
+        return 0
       })
+      if (changed > 0) {
+        // The toast says this as it is and offers no Retry: trying again would find the same thing.
+        throw new UndoRefusedError(
+          changed === 1 && before.length === 1
+            ? 'This task has been moved or finished since, so it stays where it is.'
+            : 'Some of these tasks have been moved or finished since, so they all stay where they are.',
+        )
+      }
     },
   }
 }

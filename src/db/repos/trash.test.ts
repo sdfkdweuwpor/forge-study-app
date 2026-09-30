@@ -14,6 +14,7 @@ import {
   trashedTasks,
 } from '@/db/repos/trash'
 import { trashExpiry } from '@/logic/retention'
+import { UndoRefusedError } from '@/logic/undo'
 import { createTask } from '@/db/repos/tasks'
 import type { Goal, Milestone, Resource, Unit } from '@/db/types'
 import { planningFromAvailability, wguPlannedAssessments } from '@/logic/schemaV2'
@@ -613,6 +614,7 @@ describe('the Undo that moveToTrash returns', () => {
     const goalEntry = await moveToTrash('goals', 'g1', { now: NOW + 1000 })
     await purgeTrashItem(goalEntry!.trashId)
 
+    await expect(unitEntry!.undo()).rejects.toThrow(UndoRefusedError)
     await expect(unitEntry!.undo()).rejects.toThrow(/deleted for good/)
     expect(await db.units.count()).toBe(0)
     expect(await db.trash.count()).toBe(1)

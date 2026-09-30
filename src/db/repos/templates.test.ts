@@ -12,6 +12,7 @@ import {
 import { completeTask, updateTask } from '@/db/repos/tasks'
 import type { Goal, Template } from '@/db/types'
 import { STARTER_ROUTINES } from '@/logic/routines'
+import { UndoRefusedError } from '@/logic/undo'
 
 const TODAY = '2026-09-29'
 const TOMORROW = '2026-09-30'
@@ -159,18 +160,26 @@ describe('applyRoutine', () => {
     expect(tasks.map((t) => t.goalId)).toEqual(['goal-wgu', null])
   })
 
-  it('undo deletes untouched tasks and sends touched ones to the Trash', async () => {
+  it('undo deletes the tasks while nobody has touched them', async () => {
+    const { tasks, undo } = await applyRoutine(PAYLOAD, TODAY, { now: NOW })
+    await undo()
+    for (const t of tasks) expect(await db.tasks.get(t.id)).toBeUndefined()
+    expect(await db.trash.count()).toBe(0)
+    // Undoing again (or after the tasks are gone some other way) is quiet.
+    await expect(undo()).resolves.toBeUndefined()
+  })
+
+  it('undo refuses, and removes nothing, once one of the tasks was edited or finished', async () => {
     const { tasks, undo } = await applyRoutine(PAYLOAD, TODAY, { now: NOW })
     const [first, second, third] = tasks
     if (!first || !second || !third) throw new Error('expected three tasks')
     await updateTask(second.id, { title: 'C182 · Practice questions (hard set)' }, { now: NOW + 5 })
-    await completeTask(third.id, { now: NOW + 10 })
+    await expect(undo()).rejects.toBeInstanceOf(UndoRefusedError)
+    expect(await db.tasks.count()).toBe(3)
 
-    await undo()
-    expect(await db.tasks.get(first.id)).toBeUndefined()
-    expect(await db.tasks.get(second.id)).toBeUndefined()
-    expect(await db.tasks.get(third.id)).toBeUndefined()
-    const trashed = (await db.trash.toArray()).map((t) => t.entityId).sort()
-    expect(trashed).toEqual([second.id, third.id].sort())
+    await completeTask(third.id, { now: NOW + 10 })
+    await expect(undo()).rejects.toThrow(/edited or finished since/)
+    expect(await db.tasks.get(first.id)).toBeDefined()
+    expect(await db.trash.count()).toBe(0)
   })
 })

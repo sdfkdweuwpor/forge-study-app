@@ -16,10 +16,11 @@ import {
   saveReflection,
   setTop3,
 } from '@/db/repos/rituals'
-import { completeTask, createTask } from '@/db/repos/tasks'
+import { completeTask, createTask, updateTask } from '@/db/repos/tasks'
 import { getXpSummary, xpNetForKey } from '@/db/repos/xp'
 import type { Session, Task } from '@/db/types'
 import { eveningXpKey } from '@/logic/rituals'
+import { UndoRefusedError } from '@/logic/undo'
 
 const TODAY = '2026-09-29'
 const TOMORROW = '2026-09-30'
@@ -317,14 +318,41 @@ describe('moveTasksToDay', () => {
     await expect(result.undo()).resolves.toBeUndefined()
   })
 
-  it('leaves a task alone on undo when it has been moved somewhere else since', async () => {
+  it('refuses to undo, and changes nothing, when a task has been moved elsewhere since', async () => {
     const a = await task('Read chapter 4')
     const b = await task('Read chapter 5')
     const result = await moveTasksToDay([a.id, b.id], TOMORROW, { now: NOW })
     await moveTasksToDay([b.id], '2026-10-02', { now: NOW })
-    await result.undo()
-    expect(await stored(a.id)).toMatchObject({ doDate: TODAY })
+    await expect(result.undo()).rejects.toBeInstanceOf(UndoRefusedError)
+    expect(await stored(a.id)).toMatchObject({ doDate: TOMORROW })
     expect(await stored(b.id)).toMatchObject({ doDate: '2026-10-02' })
+  })
+
+  it('refuses to undo when a moved task has been finished or deleted since', async () => {
+    const a = await task('Read chapter 4')
+    const b = await task('Read chapter 5')
+    const finished = await moveTasksToDay([a.id, b.id], TOMORROW, { now: NOW })
+    await completeTask(a.id, { now: NOW })
+    await expect(finished.undo()).rejects.toBeInstanceOf(UndoRefusedError)
+    expect(await stored(b.id)).toMatchObject({ doDate: TOMORROW })
+
+    const c = await task('Read chapter 6')
+    const deleted = await moveTasksToDay([c.id], TOMORROW, { now: NOW })
+    await db.tasks.delete(c.id)
+    await expect(deleted.undo()).rejects.toThrow(/moved or finished since/)
+  })
+
+  it('still undoes after edits that the undo would not overwrite', async () => {
+    const a = await task('Read chapter 4', { doTime: '16:30' })
+    const result = await moveTasksToDay([a.id], TOMORROW, { now: NOW })
+    await updateTask(a.id, { title: 'Read chapter 4, twice', priority: 3 }, { now: NOW + 5 })
+    await result.undo()
+    expect(await stored(a.id)).toMatchObject({
+      title: 'Read chapter 4, twice',
+      priority: 3,
+      doDate: TODAY,
+      doTime: '16:30',
+    })
   })
 
   it('is one transaction: a failure part-way leaves every task where it was', async () => {

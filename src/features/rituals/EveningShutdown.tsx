@@ -18,6 +18,7 @@ import {
   openHeadline,
 } from '@/logic/rituals'
 import { durationText } from '@/logic/statsLabels'
+import { isUndoRefused } from '@/logic/undo'
 import { formatTimeOfDay, formatXp } from '@/logic/taskDisplay'
 import { planDay, planTime } from '@/logic/taskDates'
 import { carriedFromText, estimateText } from '@/logic/todayStats'
@@ -131,6 +132,20 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
     setBanner({ text: `Moved “${task.title}” to ${dayWords(day, today)}.`, undo })
     setPicking(null)
     setPickedDay(null)
+  }
+
+  /** An Undo pressed in the dialog (the toast reports its own): a refusal says why, and nothing changes. */
+  async function runUndo(undo: Undo): Promise<void> {
+    try {
+      await undo()
+    } catch (error) {
+      if (isUndoRefused(error)) {
+        toast.error('Couldn’t undo', { description: error.message })
+        return
+      }
+      recordError(error, 'eveningShutdown.undo')
+      toast.error('Couldn’t undo', { description: 'Nothing was changed. Try again.' })
+    }
   }
 
   async function persistReflection(): Promise<void> {
@@ -264,7 +279,7 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
                     {banner ? (
                       <>
                         {banner.text}
-                        <Button size="sm" variant="ghost" onClick={() => void banner.undo()}>
+                        <Button size="sm" variant="ghost" onClick={() => void runUndo(banner.undo)}>
                           Undo
                         </Button>
                       </>
@@ -283,6 +298,7 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
                       picking={picking === task.id}
                       pickedDay={pickedDay}
                       tomorrow={tomorrow}
+                      onUndo={(undo) => void runUndo(undo)}
                       onTomorrow={() => void moveOne(task, tomorrow)}
                       onLeave={() => setLeft((ids) => [...ids, task.id])}
                       onStay={() => setLeft((ids) => ids.filter((id) => id !== task.id))}
@@ -336,6 +352,7 @@ interface MoveRowProps {
   undo: Undo | undefined
   picking: boolean
   pickedDay: string | null
+  onUndo: (undo: Undo) => void
   onTomorrow: () => void
   onLeave: () => void
   onStay: () => void
@@ -354,6 +371,7 @@ function MoveRow({
   undo,
   picking,
   pickedDay,
+  onUndo,
   onTomorrow,
   onLeave,
   onStay,
@@ -394,7 +412,7 @@ function MoveRow({
             {movedNow ? 'Moved to' : 'Planned for'} {dayWords(day, today)}
           </span>
           {undo ? (
-            <Button size="sm" variant="ghost" onClick={() => void undo()}>
+            <Button size="sm" variant="ghost" onClick={() => onUndo(undo)}>
               Undo
             </Button>
           ) : null}

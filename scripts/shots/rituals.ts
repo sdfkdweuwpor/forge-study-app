@@ -17,7 +17,8 @@ async function settle(page: Page): Promise<void> {
       document
         .getAnimations()
         .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-        .map((a) => a.finished),
+        // A toast that leaves cancels its animation, and `finished` then rejects: that is not a failure.
+        .map((a) => a.finished.catch(() => undefined)),
     ),
   )
 }

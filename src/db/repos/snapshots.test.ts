@@ -12,6 +12,7 @@ import {
   runDailySnapshot,
   takeSnapshot,
 } from '@/db/repos/snapshots'
+import { createPdfResource, deleteResource } from '@/db/repos/resources'
 import { createTask } from '@/db/repos/tasks'
 import { updateSettings } from '@/db/repos/settings'
 import { moveToTrash, restoreTrashItem } from '@/db/repos/trash'
@@ -325,6 +326,27 @@ describe('restoreSnapshot', () => {
     expect((await db.trash.get(trashed!.trashId))?.payload.files ?? []).toEqual([])
     expect((await restoreTrashItem(trashed!.trashId)).ok).toBe(true)
     expect(await bytesOf((await db.resources.get('r1'))!.fileId!)).toEqual(Array.from(pdfBytes))
+  })
+
+  it('a PDF deleted through the resources repo keeps its bytes across a restore, and comes back from the Trash page', async () => {
+    await applySeed('wgu')
+    const goal = (await db.goals.toArray())[0]!
+    const course = (await db.milestones.where('goalId').equals(goal.id).toArray())[0]!
+    const bytes = new TextEncoder().encode('%PDF-1.7 C779 study guide')
+    const { resource, file } = await createPdfResource(
+      course.id,
+      { name: 'C779 study guide.pdf', title: 'Study guide', notes: '', blob: new Blob([bytes]) },
+      { now: NOW },
+    )
+    const snap = await takeSnapshot('manual', { now: NOW, appVersion: VERSION })
+    const deleted = await deleteResource(resource.id)
+    expect(await db.files.get(file.id)).toBeUndefined()
+
+    await restoreSnapshot(snap!.id, { now: NOW + 1000, appVersion: VERSION })
+    // The snapshot holds the resource and no bytes; the bytes were rescued from the Trash row it replaced.
+    expect(await db.resources.get(resource.id)).toMatchObject({ fileId: file.id })
+    expect(await bytesOf(file.id)).toEqual(Array.from(bytes))
+    expect(await db.trash.get(deleted!.trashId)).toBeUndefined()
   })
 
   it('restores a snapshot made where the browser could not compress', async () => {

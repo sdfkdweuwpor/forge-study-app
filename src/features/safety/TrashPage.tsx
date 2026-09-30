@@ -277,15 +277,14 @@ function TrashScreen() {
               className={styles.group}
               aria-labelledby={`trash-${group.table}`}
             >
-              <h2 id={`trash-${group.table}`} className={styles.groupTitle}>
+              {/* Read as "Tasks, 3 items"; drawn as the label and a quiet number. */}
+              <h2
+                id={`trash-${group.table}`}
+                className={styles.groupTitle}
+                aria-label={`${group.label}, ${group.entries.length} ${group.entries.length === 1 ? 'item' : 'items'}`}
+              >
                 {group.label}
-                {/* Read as "Tasks, 3 items", drawn as a quiet number. */}
-                <span className="sr-only">
-                  , {group.entries.length} {group.entries.length === 1 ? 'item' : 'items'}
-                </span>
-                <span className={styles.groupCount} aria-hidden="true">
-                  {group.entries.length}
-                </span>
+                <span className={styles.groupCount}>{group.entries.length}</span>
               </h2>
               <ul className={styles.list}>
                 {group.entries.map((entry) => (

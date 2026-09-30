@@ -18,11 +18,11 @@ import {
   type RoutineEntry,
   type RoutinePayload,
 } from '@/logic/routines'
+import { UndoRefusedError } from '@/logic/undo'
 import { db } from '../db'
 import { emit } from '../events'
 import type { ID, ISODate, Task, Template } from '../types'
 import { createTask, type RepoOptions, type Undoable } from './tasks'
-import { moveToTrash, trashTables } from './trash'
 
 /** A saved routine, with its payload when it can be read. */
 export interface RoutineRow {
@@ -132,8 +132,8 @@ export interface AppliedRoutine extends Undoable {
 /**
  * Adds a routine's tasks to `day`, in its order, in one transaction. Each task is an ordinary task
  * (source `template`, planned for `day`, with the routine's time, length and goal; a goal that no longer
- * exists is dropped). `undo()` removes them again: one nobody has touched is deleted, and one that has
- * since been changed or finished goes to the Trash instead, so an undo never throws work away.
+ * exists is dropped). `undo()` removes them again, but only while none of them has been edited or finished
+ * since: then it throws `UndoRefusedError` and changes nothing (they are yours now).
  */
 export async function applyRoutine(
   payload: RoutinePayload,
@@ -162,18 +162,32 @@ export async function applyRoutine(
   return {
     tasks,
     undo: async () => {
-      await db.transaction('rw', trashTables(), async () => {
+      const kept = await db.transaction('rw', db.tasks, async () => {
+        const current: Task[] = []
         for (const original of tasks) {
-          const current = await db.tasks.get(original.id)
-          if (!current) continue
-          if (current.status === 'todo' && current.updatedAt === original.updatedAt) {
-            await db.tasks.delete(original.id)
-            emit({ type: 'task.deleted', taskId: original.id })
-          } else {
-            await moveToTrash('tasks', original.id)
-          }
+          const row = await db.tasks.get(original.id)
+          if (row) current.push(row)
         }
+        // Something you edited or finished is yours now: refuse, and change nothing.
+        const changed = current.filter((row) => {
+          const original = tasks.find((t) => t.id === row.id)
+          return row.status !== 'todo' || row.updatedAt !== original?.updatedAt
+        })
+        if (changed.length > 0) return changed.length
+        for (const row of current) {
+          await db.tasks.delete(row.id)
+          emit({ type: 'task.deleted', taskId: row.id })
+        }
+        return 0
       })
+      if (kept > 0) {
+        // The toast says this as it is and offers no Retry: trying again would find the same thing.
+        throw new UndoRefusedError(
+          kept === 1
+            ? 'One of these tasks has been edited or finished since, so they all stay.'
+            : `${kept} of these tasks have been edited or finished since, so they all stay.`,
+        )
+      }
     },
   }
 }

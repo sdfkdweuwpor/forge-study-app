@@ -446,6 +446,32 @@ test.describe('Evening shutdown', () => {
     expect(await eveningEvents(page)).toBe(3)
   })
 
+  test('an Undo that would overwrite a change made since is refused, with the reason, and changes nothing', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    const open = await todaysOpen(page)
+    await openEveningFromPrompt(page)
+    const dialog = evening(page)
+    await dialog.getByRole('button', { name: 'Next' }).click()
+    await dialog.getByRole('button', { name: `Move ${open.length} to tomorrow` }).click()
+    await expect(dialog.getByRole('status').filter({ hasText: 'to tomorrow.' })).toBeVisible()
+
+    // One of them is planned for another day meanwhile (say, from another tab).
+    const rows = await readTable<Record<string, unknown>>(page, 'tasks')
+    const other = rows.find((t) => t.id === open[0]?.id)
+    await putRows(page, 'tasks', [{ ...other, doDate: '2026-10-05', updatedAt: Date.now() + 1000 }])
+
+    await dialog.getByRole('status').getByRole('button', { name: 'Undo' }).click()
+    await expect(toasts(page)).toContainText('Couldn’t undo')
+    await expect(toasts(page)).toContainText('moved or finished since')
+    // Nothing was put back, and there is no Retry to press.
+    await expect(toasts(page).getByRole('button', { name: 'Retry' })).toHaveCount(0)
+    const after = await planned(page)
+    for (const t of open.slice(1)) expect(after[t.id]?.[0], t.title).toBe(TOMORROW)
+    expect(after[open[0]?.id ?? '']?.[0]).toBe('2026-10-05')
+  })
+
   test('says so calmly when nothing was planned', async ({ page }) => {
     await gotoApp(page, '/', 'empty')
     await page.keyboard.press('w')
@@ -479,6 +505,28 @@ test.describe('Routines', () => {
 
     await toastFor(page, 'Added 4 tasks').getByRole('button', { name: 'Undo' }).click()
     await expect.poll(async () => (await tasks(page)).length).toBe(before)
+  })
+
+  test('Undo of a routine is refused, with the reason, once one of its tasks was edited', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/settings/routines', 'wgu')
+    const before = (await tasks(page)).length
+    await page.getByRole('button', { name: 'Add Study day to today' }).click()
+    await expect(toasts(page)).toContainText('Added 4 tasks to Today')
+    await expect.poll(async () => (await tasks(page)).length).toBe(before + 4)
+
+    const rows = await readTable<Record<string, unknown>>(page, 'tasks')
+    const made = rows.find((t) => t.title === 'Practice questions' && t.source === 'template')
+    await putRows(page, 'tasks', [
+      { ...made, title: 'Practice questions (hard set)', updatedAt: Date.now() + 1000 },
+    ])
+
+    await toastFor(page, 'Added 4 tasks').getByRole('button', { name: 'Undo' }).click()
+    await expect(toasts(page)).toContainText('Couldn’t undo')
+    await expect(toasts(page)).toContainText('edited or finished since')
+    await expect(toasts(page).getByRole('button', { name: 'Retry' })).toHaveCount(0)
+    expect((await tasks(page)).length).toBe(before + 4)
   })
 
   test('"Add routine…" (palette, or w r) adds it to tomorrow, with Undo', async ({ page }) => {

@@ -11,6 +11,7 @@
  */
 import { newId } from '@/lib/ids'
 import { trashExpiry } from '@/logic/retention'
+import { UndoRefusedError } from '@/logic/undo'
 import {
   countContents,
   parentFields,
@@ -195,7 +196,8 @@ export async function moveToTrash(
     item,
     undo: async () => {
       const out = await restoreTrashItem(item.id)
-      if (!out.ok && out.reason !== 'missing') throw new Error(out.message)
+      // Nothing has changed by trying again, so the toast gives the reason and no Retry.
+      if (!out.ok && out.reason !== 'missing') throw new UndoRefusedError(out.message)
     },
   }
 }

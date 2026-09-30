@@ -245,7 +245,7 @@ One dated bullet per decision: what we decided, then why. Newest entries go at t
   - The Hours cell shows the plan's total for the course, which is the sum of its units when every unit has an estimate (DECISIONS: Scheduler) and `estimateHours` otherwise; editing the cell sets `estimateHours`. A course whose units all carry estimates therefore does not change on screen when its hours are edited.
   - "CUs completed this term": a course belongs to the current term when its `termId` matches, or, with none, when it finished (or is projected to finish) inside the term's dates. The bar is done CUs over planned CUs for the term.
   - The course table is ARIA `table`/`row`/`cell` on a CSS grid inside a size container, so it stacks into cards below 720px of its own width (the tablet layout included). Rows reorder with a dnd-kit handle that also works from the keyboard.
-  - Shortcuts: `n` new goal (goals list) and `c` add course, `mod+backspace` trash (goal page), `n` add unit, `shift+d` complete, `mod+backspace` trash (course page). "Go to Goals" already exists in the app's own commands, so it is not registered twice. Shared file touched: `lib/localPrefs.ts` gained two keys (`goalWizardDraft`, `goalsNavOpen`).
+  - Shortcuts: `n` new goal (goals list) and `c` add course, `mod+backspace` trash (goal page), `n` add unit, `shift+d` complete, `mod+backspace` trash (course page). "Go to Goals" already exists in the app's own commands, so it is not registered twice. The goals list places 5C's `ImportGoalButton` beside New goal (and in the empty state, where the header buttons step aside); `i` belongs to the import. Shared file touched: `lib/localPrefs.ts` gained two keys (`goalWizardDraft`, `goalsNavOpen`).
 
 ## Design system
 

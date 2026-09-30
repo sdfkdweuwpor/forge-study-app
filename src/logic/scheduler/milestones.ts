@@ -36,7 +36,6 @@ export function rangeLabel(ns: readonly number[]): string {
 
 interface CourseInfo {
   label: string
-  order: number
   /** unit id → 1-based position in the course; a course without units has its own id here. */
   unitNo: Map<string, number>
   synthetic: boolean
@@ -44,16 +43,21 @@ interface CourseInfo {
 
 function courseInfo(courses: readonly PlannerCourse[]): Map<string, CourseInfo> {
   const out = new Map<string, CourseInfo>()
-  courses.forEach((c, i) => {
+  courses.forEach((c) => {
     const units = [...c.units].sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : 1))
     const unitNo = new Map(units.map((u, k) => [u.id, k + 1]))
     const synthetic = units.length === 0 || (units.length === 1 && units[0]?.id === c.id)
-    out.set(c.id, { label: c.code && c.code.trim() !== '' ? c.code : c.title, order: i, unitNo, synthetic })
+    out.set(c.id, { label: c.code && c.code.trim() !== '' ? c.code : c.title, unitNo, synthetic })
   })
   return out
 }
 
-function describe(unitIds: ReadonlySet<string>, info: ReadonlyMap<string, CourseInfo>, courseOf: ReadonlyMap<string, string>): string {
+function describe(
+  unitIds: ReadonlySet<string>,
+  info: ReadonlyMap<string, CourseInfo>,
+  courseOf: ReadonlyMap<string, string>,
+  rank: ReadonlyMap<string, number>,
+): string {
   const byCourse = new Map<string, number[]>()
   for (const u of unitIds) {
     const c = courseOf.get(u)
@@ -64,7 +68,7 @@ function describe(unitIds: ReadonlySet<string>, info: ReadonlyMap<string, Course
     byCourse.set(c, list)
   }
   return [...byCourse.entries()]
-    .sort((a, b) => (info.get(a[0])?.order ?? 0) - (info.get(b[0])?.order ?? 0))
+    .sort((a, b) => (rank.get(a[0]) ?? 0) - (rank.get(b[0]) ?? 0))
     .map(([c, ns]) => {
       const ci = info.get(c)
       if (!ci) return ''
@@ -105,13 +109,17 @@ export function weeklyMilestones(
     w.last = Math.max(w.last, day)
     return w
   }
-  const sorted = [...items].sort((a, b) => (a.doDate < b.doDate ? -1 : a.doDate > b.doDate ? 1 : 0))
+  const at = (i: PlanItem): string => `${i.doDate} ${i.startTime ?? '99:99'}`
+  const sorted = [...items].sort((a, b) => (at(a) < at(b) ? -1 : at(a) > at(b) ? 1 : 0))
+  // Courses are listed in the order the plan reaches them, not the input order.
+  const rank = new Map<string, number>()
   for (const it of sorted) {
     if (it.kind === 'milestone') continue
     const day = dayNumber(it.doDate)
     const w = week(day)
     if (it.kind === 'study' && it.unitId !== null && it.courseId !== null) {
       courseOf.set(it.unitId, it.courseId)
+      if (!rank.has(it.courseId)) rank.set(it.courseId, rank.size)
       lastOfUnit.set(it.unitId, day)
       w.units.add(it.unitId)
     } else if (it.kind === 'review') w.reviews = true
@@ -127,8 +135,8 @@ export function weeklyMilestones(
       }),
     )
     const parts: string[] = []
-    if (finished.size > 0) parts.push(`finish ${describe(finished, info, courseOf)}`)
-    else if (w.units.size > 0) parts.push(`continue ${describe(w.units, info, courseOf)}`)
+    if (finished.size > 0) parts.push(`finish ${describe(finished, info, courseOf, rank)}`)
+    else if (w.units.size > 0) parts.push(`continue ${describe(w.units, info, courseOf, rank)}`)
     else if (w.practice) parts.push(w.reviews ? 'review and practice test' : 'practice test')
     else if (w.reviews) parts.push('review')
     parts.push(...w.assessments)

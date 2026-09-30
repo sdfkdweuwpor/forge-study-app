@@ -4,8 +4,8 @@
  *
  * Reflow is move-only and push-only. Items keep their keys, lengths and order; an item never moves
  * earlier than its current slot; an item whose slot has passed (a missed one) takes the next open slot
- * at or after the cursor, and later items move only as far as they have to. Per day the flow never goes
- * over max(pace, the longest item), so a paced plan's quiet days absorb missed sessions first.
+ * at or after the cursor, and later items move only as far as they have to. A paced plan keeps its pace
+ * with the planner's token bucket, started full, so an on-track plan reflows to itself exactly.
  * - Reviews and practice tests of an assessment keep their slots; if theirs has passed they take the
  *   nearest free slot before the assessment, or are dropped (reported) when there is none.
  * - Pinned items keep their slots until their day passes (then they flow like any other missed item).
@@ -67,7 +67,7 @@ export interface ReflowResult {
   issues: PlannerIssue[]
 }
 
-export type ProposalKind = 'extendDate' | 'addTime' | 'cutScope' | 'spread'
+export type ProposalKind = 'rollForward' | 'extendDate' | 'addTime' | 'cutScope' | 'spread'
 
 export interface ProposalApply {
   targetDate?: ISODate | null
@@ -217,9 +217,15 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
   // The flow, in its current order, push-only.
   const issues: PlannerIssue[] = []
   const maxFlow = Math.max(0, ...flow.map((c) => c.durationMinutes))
-  const pace = live.paceMinutesPerStudyDay
-  const cap = pace === null || pace === undefined ? Number.POSITIVE_INFINITY : Math.max(pace, maxFlow)
-  const used = new Map<number, number>()
+  const pace = live.paceMinutesPerStudyDay ?? null
+  const bucket = pace === null ? Number.POSITIVE_INFINITY : pace + maxFlow
+  const tk = { tokens: bucket, accrued: o.fromDay }
+  const accrue = (day: number): void => {
+    if (pace === null) return
+    for (let d = tk.accrued + 1; d <= day; d++)
+      if (dayIntervals(d).length > 0) tk.tokens = Math.min(bucket, tk.tokens + pace)
+    tk.accrued = Math.max(tk.accrued, day)
+  }
   const lastOfCourse = new Map<string | null, number>()
   const st = { day: o.fromDay, min: o.fromMinute, busy: false }
   const ordered = [...flow].sort(
@@ -242,7 +248,8 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
     }
     let spot: Slot | null = null
     for (let d = tDay; d <= horizon; d++) {
-      if ((used.get(d) ?? 0) + m > cap) continue
+      accrue(d)
+      if (pace !== null && tk.tokens < m) continue
       const floor = d === tDay ? tMin : 0
       const brk = d === st.day && st.busy ? s.breakMinutes : 0
       const lo = d === st.day ? Math.max(floor, st.min + brk) : floor
@@ -259,7 +266,7 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
       continue
     }
     book.reserve(spot.day, spot.start, spot.start + m)
-    used.set(spot.day, (used.get(spot.day) ?? 0) + m)
+    if (pace !== null) tk.tokens -= m
     if (spot.day !== st.day) st.busy = false
     st.day = spot.day
     st.min = spot.start + m
@@ -363,23 +370,44 @@ function shortDay(d: ISODate): string {
 
 /**
  * The choices for a plan that is far behind, each previewed against the stored plan and verified by
- * running the planner: move the date, add time, cut scope, spread the remaining work.
+ * running the planner: keep going (the roll-forward as is), move the date, add time, cut scope, or
+ * spread the remaining work.
  */
 export function behindProposals(live: LivePlanInput, rolled: ReflowResult): Proposal[] {
   const out: Proposal[] = []
-  const ref = live.targetDate ?? live.baselineEnd ?? null
-  const withTarget = (extra: Partial<LivePlanInput> = {}) => ({ ...live, ...extra })
+  const target = live.targetDate
+  const ref = target ?? live.baselineEnd ?? null
+  const pace = live.paceMinutesPerStudyDay ?? null
 
-  // 1. Move the date (with a target), or accept the new end (ASAP).
-  if (live.targetDate !== null) {
-    const run = planRun({ ...live, targetDate: null }, live.paceMinutesPerStudyDay)
-    let d = run.bufferedEnd === null ? null : isoOfDay(run.bufferedEnd)
-    let res = d === null ? null : planStudy(withTarget({ targetDate: d }))
-    for (let i = 0; i < 14 && d !== null && res !== null && !res.fits; i++) {
+  // 0. Keep going: apply the roll-forward (in ASAP mode that also accepts the new end date).
+  if (rolled.projectedEnd !== null) {
+    const fits = target === null || rolled.projectedEnd <= target
+    out.push({
+      kind: 'rollForward',
+      title:
+        target === null
+          ? `Accept the new finish date, ${shortDay(rolled.projectedEnd)}`
+          : 'Move the missed work forward',
+      detail: `Keep your pace and finish around ${shortDay(rolled.projectedEnd)}.`,
+      apply: target === null ? { baselineEnd: rolled.projectedEnd } : {},
+      change: rolled.change,
+      items: rolled.items,
+      projectedEnd: rolled.projectedEnd,
+      fits,
+    })
+  }
+  if (ref === null) return out
+
+  // 1. Move the date to where the current pace (with the buffer) lands, when it misses the target.
+  const atPace = planRun({ ...live, targetDate: ref }, pace)
+  if (target !== null && !atPace.fits && atPace.bufferedEnd !== null) {
+    let d = isoOfDay(atPace.bufferedEnd)
+    let res = planStudy({ ...live, targetDate: d })
+    for (let i = 0; i < 14 && !res.fits; i++) {
       d = isoOfDay(dayNumber(d) + 1)
-      res = planStudy(withTarget({ targetDate: d }))
+      res = planStudy({ ...live, targetDate: d })
     }
-    if (d !== null && res !== null && res.fits)
+    if (res.fits)
       out.push({
         kind: 'extendDate',
         title: `Move the finish date to ${shortDay(d)}`,
@@ -390,21 +418,9 @@ export function behindProposals(live: LivePlanInput, rolled: ReflowResult): Prop
         projectedEnd: res.projectedEnd,
         fits: true,
       })
-  } else if (rolled.projectedEnd !== null) {
-    out.push({
-      kind: 'extendDate',
-      title: `Accept the new finish date, ${shortDay(rolled.projectedEnd)}`,
-      detail: 'Keep your pace; the remaining work moves forward.',
-      apply: { baselineEnd: rolled.projectedEnd },
-      change: rolled.change,
-      items: rolled.items,
-      projectedEnd: rolled.projectedEnd,
-      fits: true,
-    })
   }
-  if (ref === null) return out
 
-  // 2 and 3. Add time, cut scope (verified inside checkFeasibility).
+  // 2 and 3. Add time, cut scope (both verified inside checkFeasibility).
   const f = checkFeasibility(live, ref)
   const extra = f.options.addTime.extraMinutesPerStudyDay
   if (!f.fits && extra !== null && extra > 0) {
@@ -436,15 +452,15 @@ export function behindProposals(live: LivePlanInput, rolled: ReflowResult): Prop
   }
 
   // 4. Spread: re-pace the remaining work over the days left (only a paced plan has room to).
-  if (live.paceMinutesPerStudyDay !== null) {
+  if (pace !== null && !atPace.fits) {
     const res = planStudy({ ...live, targetDate: ref })
-    const pace = res.pace.minutesPerStudyDay
-    if (res.fits && pace !== null && pace !== live.paceMinutesPerStudyDay)
+    const next = res.pace.minutesPerStudyDay
+    if (res.fits && next !== null && next !== pace)
       out.push({
         kind: 'spread',
-        title: `Spread the rest: about ${formatDuration(pace)} per study day`,
+        title: `Spread the rest: about ${formatDuration(next)} per study day`,
         detail: `Use more of your study windows to still finish by ${shortDay(ref)}.`,
-        apply: { paceMinutesPerStudyDay: pace, targetDate: live.targetDate },
+        apply: { paceMinutesPerStudyDay: next },
         change: diffPlanItems(live.current, res.items),
         items: res.items,
         projectedEnd: res.projectedEnd,

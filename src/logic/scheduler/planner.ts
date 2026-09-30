@@ -4,26 +4,29 @@
  * and a buffer. Pure and deterministic; `today`/`now` are injected.
  *
  * One run, in order:
- * 1. Pinned items keep their slots. Dated assessments are placed on their date (a booked time blocks its
- *    slot), and their practice test and spaced reviews are placed on the study days before it (−7, −3,
- *    −1 for an exam, scaled down when fewer study days are left; the practice test at −2).
- * 2. The flow: courses in prerequisite order (one queue, as in `buildSchedule`); each unit's sessions,
- *    then its readiness reviews; then the course's readiness reviews. Each item takes the earliest free
- *    slot at or after the previous one (plus a short break), so order is always kept and nothing
- *    overlaps. For an assessment without a date, its practice test and reviews are inserted into the
- *    flow where they should land (about k study days before the end of the course's work), and the
+ * 1. Pinned items keep their slots. Dated assessments go on their date (a booked time blocks its slot;
+ *    without one it is a day marker), and their practice test and spaced reviews go on the study days
+ *    before it: −7, −3, −1 for an exam, scaled down when fewer study days are left, practice at −2.
+ * 2. The flow: courses in prerequisite order (one queue, as in `buildSchedule`); each unit's study,
+ *    then its readiness reviews; then the course's readiness reviews. Every item takes the earliest free
+ *    slot at or after the previous one (after a 10-min break when there is room for one), so order is
+ *    kept and nothing overlaps. Study is split as it is placed (`pieceSize`): a session of the target
+ *    length when the window has room, else a shorter one (≥ 25 min) that fills the window, never
+ *    leaving a remainder under 25 min. For an assessment without a date, its practice test and reviews
+ *    are due at the point of the course's work that is about k study days before its end, and the
  *    assessment goes on the first study day after the course's last item.
  * 3. Pace. ASAP (no target): every free slot is used. With a target the flow is paced by a token bucket:
- *    each study day adds `pace` minutes (capped at max(pace, the longest item)), and an item waits for
- *    enough tokens. The pace is the smallest (binary search, each candidate verified by a run) that
- *    finishes with the buffer by the target; if even ASAP does not, the plan is ASAP and does not fit.
+ *    each study day adds `pace` minutes (capped at pace + the longest item), and an item waits for
+ *    enough tokens, so the average is `pace` per study day even when sessions are longer than it. The
+ *    pace is the smallest (binary search, each candidate verified by a run) that finishes with the
+ *    buffer by the target; if even ASAP does not, the plan is ASAP and does not fit.
  * 4. Buffer: `bufferPct` of the planned work is walked as free time after the last item, at the plan's
  *    pace; `bufferedEnd` is where it ends. The plan fits when that is on or before the target.
  * 5. Weekly milestones summarize what each week finishes.
  */
 import type { ISODate } from '@/db/types'
-import { ceilTo, dayNumber, floorTo, isoOfDay } from './capacity'
 import { dayOf, minutesOfDay } from '../dates'
+import { ceilTo, dayNumber, floorTo, isoOfDay } from './capacity'
 import { bufferMinutesFor, clampBufferPct } from './effort'
 import { weeklyMilestones } from './milestones'
 import type {
@@ -38,10 +41,11 @@ import type {
   PlannerResult,
   PlannerSettings,
   PlannerTotals,
+  PlannerUnit,
 } from './plannerTypes'
 import { chunkTitle } from './schedule'
 import { addBusy, busyMapOf, SlotBook, type BusyMap } from './slotBook'
-import { splitMinutes } from './split'
+import { pieceSize, splitMinutes, type SplitRules } from './split'
 import { orderCourses } from './topo'
 import type { CourseWindow } from './types'
 import {
@@ -90,7 +94,10 @@ export function resolvePlannerSettings(p: Partial<PlannerSettings> = {}): Planne
   const d = DEFAULT_PLANNER_SETTINGS
   const grain = Math.round(num(p.grain, d.grain, 1, 60))
   const minSession = ceilTo(num(p.minSessionMinutes, d.minSessionMinutes, grain, 240), grain)
-  const maxSession = Math.max(minSession, floorTo(num(p.maxSessionMinutes, d.maxSessionMinutes, grain, 480), grain))
+  const maxSession = Math.max(
+    minSession,
+    floorTo(num(p.maxSessionMinutes, d.maxSessionMinutes, grain, 480), grain),
+  )
   const ro = p.reviewOffsets
   const am = p.assessmentMinutes
   return {
@@ -132,23 +139,36 @@ export function scaledOffsets(offsets: readonly number[], gap: number): number[]
 
 // ─── Preparation (independent of the pace) ─────────────────────────────────
 
+/** A fixed-length item: a review or a practice test. */
 interface FlowItem {
   key: string
-  kind: 'study' | 'review' | 'practiceTest'
+  kind: 'review' | 'practiceTest'
   title: string
   courseId: string | null
   unitId: string | null
   assessmentId: string | null
   minutes: number
-  seq: number | null
-  seqTotal: number | null
   dueDate: ISODate | null
+}
+
+/** A unit's study, split as it is placed. */
+interface UnitWork {
+  course: PlannerCourse
+  unit: PlannerUnit
+  minutes: number
+  used: ReadonlySet<number>
+  /** Readiness reviews right after the unit. */
+  after: FlowItem[]
 }
 
 interface Segment {
   courseId: string | null
-  items: FlowItem[]
+  units: UnitWork[]
+  /** The course's readiness reviews, after its last unit. */
+  tail: FlowItem[]
   undated: PlannerAssessment[]
+  /** Study plus readiness-review minutes. */
+  flowMinutes: number
 }
 
 /** A practice test or review before an assessment, before it is placed. */
@@ -164,10 +184,7 @@ interface DatedPlan {
   extras: Array<Extra & { targetDay: number | null }>
 }
 
-interface Sizes {
-  target: number
-  min: number
-  max: number
+interface Sizes extends SplitRules {
   review: number
   practice: number
 }
@@ -190,9 +207,10 @@ interface Prepared {
   baseIssues: PlannerIssue[]
   skipKeys: ReadonlySet<string>
   courses: ReadonlyMap<string, PlannerCourse>
-  /** Study minutes a typical study day holds with whole sessions and breaks (review spacing). */
+  /** Study minutes a typical study day holds, breaks taken out (spacing of undated reviews). */
   dayThroughput: number
   maxDay: number
+  /** The longest item the flow can place. */
   maxFlow: number
   noWindows: boolean
 }
@@ -215,17 +233,18 @@ function safeDay(d: ISODate | null | undefined): number | null {
   }
 }
 
-/** Minutes of whole sessions (with breaks between) that fit in a typical study day. */
+/** Study minutes a typical study day holds: its windows less a break between target-length sessions. */
 function throughput(av: AvailabilityV2, session: number, brk: number): number {
-  const days = (av.shiftPattern && av.shiftPattern.cycle.length > 0 ? av.shiftPattern.cycle : av.weekly)
-    .map((w) => windowsToIntervals(w))
-    .filter((xs) => xs.length > 0)
+  const pattern = av.shiftPattern && av.shiftPattern.cycle.length > 0 ? av.shiftPattern.cycle : av.weekly
+  const days = pattern.map((w) => windowsToIntervals(w)).filter((xs) => xs.length > 0)
   if (days.length === 0 || session <= 0) return 0
   let sum = 0
   for (const xs of days) {
-    let n = 0
-    for (const [a, b] of xs) n += Math.floor((b - a + brk) / (session + brk))
-    sum += Math.max(1, n) * session
+    for (const [a, b] of xs) {
+      const len = b - a
+      const pieces = Math.max(1, Math.ceil(len / (session + brk)))
+      sum += Math.max(0, len - (pieces - 1) * brk)
+    }
   }
   return sum / days.length
 }
@@ -235,24 +254,23 @@ function splitReviews(
   keyBase: string,
   title: (n: number, of: number) => string,
   sizes: Sizes,
-  grain: number,
   meta: Pick<FlowItem, 'courseId' | 'unitId'>,
   skip: ReadonlySet<string>,
 ): FlowItem[] {
   if (!Number.isFinite(total) || total <= 0) return []
-  const pieces = splitMinutes(total, { target: sizes.review, min: sizes.min, max: sizes.max, grain })
+  const pieces = splitMinutes(total, { ...sizes, target: sizes.review })
   return pieces
-    .map((minutes, i) => ({
-      key: `extra:${keyBase}:${i + 1}`,
-      kind: 'review' as const,
-      title: title(i + 1, pieces.length),
-      ...meta,
-      assessmentId: null,
-      minutes,
-      seq: null,
-      seqTotal: null,
-      dueDate: null,
-    }))
+    .map(
+      (minutes, i): FlowItem => ({
+        key: `extra:${keyBase}:${i + 1}`,
+        kind: 'review',
+        title: title(i + 1, pieces.length),
+        ...meta,
+        assessmentId: null,
+        minutes,
+        dueDate: null,
+      }),
+    )
     .filter((it) => !skip.has(it.key))
 }
 
@@ -264,7 +282,7 @@ function extrasFor(
 ): Extra[] {
   const head = headOf(a.courseId ? p.courses.get(a.courseId) : undefined)
   const prefix = head ? `${head} · ` : ''
-  const due = a.date
+  const base = { courseId: a.courseId, unitId: null, assessmentId: a.id, dueDate: a.date }
   const out: Extra[] = []
   let practice: number | null = null
   if (a.kind === 'exam' && gap > 0) {
@@ -274,16 +292,11 @@ function extrasFor(
       out.push({
         offset: practice,
         item: {
+          ...base,
           key,
           kind: 'practiceTest',
           title: `${prefix}Practice test: ${a.title}`,
-          courseId: a.courseId,
-          unitId: null,
-          assessmentId: a.id,
           minutes: p.sizes.practice,
-          seq: null,
-          seqTotal: null,
-          dueDate: due,
         },
       })
   }
@@ -294,16 +307,11 @@ function extrasFor(
     out.push({
       offset,
       item: {
+        ...base,
         key,
         kind: 'review',
         title: `${prefix}Review for ${a.title}${counter(i + 1, offsets.length)}`,
-        courseId: a.courseId,
-        unitId: null,
-        assessmentId: a.id,
         minutes: p.sizes.review,
-        seq: null,
-        seqTotal: null,
-        dueDate: due,
       },
     })
   })
@@ -322,9 +330,11 @@ function prepare(input: PlannerInput): Prepared {
   const dayIntervals = makeDayIntervals(av)
   const largest = floorTo(largestWindowMinutes(av), grain)
   const noWindows = largest <= 0
+  // Nothing may be longer than the longest window, or it could never be placed.
   const cap = (m: number): number => (noWindows ? m : Math.max(grain, Math.min(m, largest)))
   const session = num(av.sessionMinutes, 50, s.minSessionMinutes, s.maxSessionMinutes)
   const sizes: Sizes = {
+    grain,
     target: cap(ceilTo(session, grain)),
     min: cap(s.minSessionMinutes),
     max: cap(s.maxSessionMinutes),
@@ -343,90 +353,68 @@ function prepare(input: PlannerInput): Prepared {
   const target = safeDay(input.targetDate)
 
   // Assessments: dated (placed first), undated per course, and goal-level.
-  const open = (input.assessments ?? []).filter((a) => !a.done)
   const undatedBy = new Map<string | null, PlannerAssessment[]>()
   const datedList: PlannerAssessment[] = []
-  for (const a of [...open].sort((x, y) => cmpStr(x.id, y.id))) {
+  for (const a of [...(input.assessments ?? [])].sort((x, y) => cmpStr(x.id, y.id))) {
+    if (a.done) continue
     const day = safeDay(a.date)
-    const courseId = a.courseId !== null && courses.has(a.courseId) ? a.courseId : null
-    const norm = { ...a, courseId }
+    const norm = { ...a, courseId: a.courseId !== null && courses.has(a.courseId) ? a.courseId : null }
     if (a.date !== null && day === null) continue
-    if (day !== null) {
-      if (day < today) {
-        baseIssues.push({ code: 'ASSESSMENT_IN_PAST', assessmentId: a.id })
-        continue
-      }
+    if (day === null) {
+      const list = undatedBy.get(norm.courseId) ?? []
+      list.push(norm)
+      undatedBy.set(norm.courseId, list)
+    } else if (day < today) {
+      baseIssues.push({ code: 'ASSESSMENT_IN_PAST', assessmentId: a.id })
+    } else {
       if (target !== null && day > target)
         baseIssues.push({ code: 'ASSESSMENT_AFTER_TARGET', assessmentId: a.id })
       datedList.push(norm)
-    } else {
-      const list = undatedBy.get(courseId) ?? []
-      list.push(norm)
-      undatedBy.set(courseId, list)
     }
   }
 
-  const prep = { s, sizes, skipKeys, courses }
   const segments: Segment[] = []
   const scheduled = new Set(order.map((c) => c.id))
-  // Undated assessments of courses that are already done come first: nothing is left to study for them.
+  // Undated assessments of courses already done come first: nothing is left to study for them.
   for (const [courseId, list] of undatedBy) {
-    if (courseId !== null && !scheduled.has(courseId)) segments.push({ courseId, items: [], undated: list })
+    if (courseId !== null && !scheduled.has(courseId))
+      segments.push({ courseId, units: [], tail: [], undated: list, flowMinutes: 0 })
   }
   for (const course of order) {
     const head = headOf(course) ?? course.title
-    const items: FlowItem[] = []
-    const units = [...course.units].sort((a, b) => a.order - b.order || cmpStr(a.id, b.id))
-    for (const unit of units) {
-      const rem = Number.isFinite(unit.remainingMinutes) && unit.remainingMinutes > 0 ? unit.remainingMinutes : 0
-      const pieces = splitMinutes(rem, { target: sizes.target, min: sizes.min, max: sizes.max, grain })
-      const used = new Set((unit.usedSeqs ?? []).filter((n) => Number.isInteger(n) && n > 0))
-      const total = used.size + pieces.length
-      let seq = 1
-      for (const minutes of pieces) {
-        while (used.has(seq)) seq++
-        items.push({
-          key: `${unit.id}:${seq}`,
-          kind: 'study',
-          title: chunkTitle(course, unit.title, seq, total),
-          courseId: course.id,
-          unitId: unit.id,
-          assessmentId: null,
-          minutes,
-          seq,
-          seqTotal: total,
-          dueDate: null,
-        })
-        seq++
-      }
-      items.push(
-        ...splitReviews(
-          unit.extraReviewMinutes ?? 0,
-          unit.id,
-          (n, of) => `${head} · Review: ${unit.title}${counter(n, of)}`,
-          sizes,
-          grain,
-          { courseId: course.id, unitId: unit.id },
-          skipKeys,
-        ),
-      )
-    }
-    items.push(
-      ...splitReviews(
-        course.extraReviewMinutes ?? 0,
-        course.id,
-        (n, of) => `${head} · Review${counter(n, of)}`,
+    const units: UnitWork[] = []
+    let flowMinutes = 0
+    for (const unit of [...course.units].sort((a, b) => a.order - b.order || cmpStr(a.id, b.id))) {
+      const raw = unit.remainingMinutes
+      const minutes = Number.isFinite(raw) && raw > 0 ? ceilTo(raw, grain) : 0
+      const after = splitReviews(
+        unit.extraReviewMinutes ?? 0,
+        unit.id,
+        (n, of) => `${head} · Review: ${unit.title}${counter(n, of)}`,
         sizes,
-        grain,
-        { courseId: course.id, unitId: null },
+        { courseId: course.id, unitId: unit.id },
         skipKeys,
-      ),
+      )
+      if (minutes === 0 && after.length === 0) continue
+      const used = new Set((unit.usedSeqs ?? []).filter((n) => Number.isInteger(n) && n > 0))
+      units.push({ course, unit, minutes, used, after })
+      flowMinutes += minutes + after.reduce((n, it) => n + it.minutes, 0)
+    }
+    const tail = splitReviews(
+      course.extraReviewMinutes ?? 0,
+      course.id,
+      (n, of) => `${head} · Review${counter(n, of)}`,
+      sizes,
+      { courseId: course.id, unitId: null },
+      skipKeys,
     )
-    segments.push({ courseId: course.id, items, undated: undatedBy.get(course.id) ?? [] })
+    flowMinutes += tail.reduce((n, it) => n + it.minutes, 0)
+    segments.push({ courseId: course.id, units, tail, undated: undatedBy.get(course.id) ?? [], flowMinutes })
   }
 
-  // Dated assessments: count the study days before each, pick the target day of every extra.
+  // Dated assessments: the study days before each, and the target day of every extra.
   const isStudyDay = (day: number): boolean => day >= start && dayIntervals(day).length > 0
+  const prep = { s, sizes, skipKeys, courses }
   const dated: DatedPlan[] = datedList
     .map((a) => ({ a, day: dayNumber(a.date as ISODate) }))
     .sort((x, y) => x.day - y.day || cmpStr(x.a.id, y.a.id))
@@ -444,10 +432,16 @@ function prepare(input: PlannerInput): Prepared {
   const pinned = (input.pinned ?? [])
     .map((p) => ({ ...p, day: safeDay(p.date) ?? -1, startMin: p.startTime ? parseClock(p.startTime) : null }))
     .filter((p) => p.day >= start && Number.isFinite(p.durationMinutes) && p.durationMinutes > 0)
-    .sort((a, b) => a.day - b.day || (a.startMin ?? DAY_MINUTES) - (b.startMin ?? DAY_MINUTES) || cmpStr(a.key, b.key))
+    .sort(
+      (a, b) =>
+        a.day - b.day ||
+        (a.startMin ?? DAY_MINUTES) - (b.startMin ?? DAY_MINUTES) ||
+        cmpStr(a.key, b.key),
+    )
 
-  let maxFlow = sizes.practice
-  for (const seg of segments) for (const it of seg.items) maxFlow = Math.max(maxFlow, it.minutes)
+  let maxFlow = Math.max(sizes.max, sizes.practice, sizes.review)
+  for (const seg of segments)
+    for (const it of [...seg.tail, ...seg.units.flatMap((u) => u.after)]) maxFlow = Math.max(maxFlow, it.minutes)
 
   return {
     input,
@@ -474,59 +468,37 @@ function prepare(input: PlannerInput): Prepared {
   }
 }
 
+interface Pending {
+  /** Due once this many minutes of the segment's (or the goal's) flow are placed. */
+  pos: number
+  offset: number
+  item: FlowItem
+}
+
 /**
- * Inserts the practice test and reviews of undated assessments into a flow, each after the item where
- * about `(gap + 1 − offset)` study days of work are done (`rate` minutes per study day).
+ * The practice tests and reviews of undated assessments, each due at the point of the flow that is about
+ * `(gap + 1 − offset)` study days in (`rate` minutes per study day), so it lands `offset` study days
+ * before the assessment. `total` = the flow's minutes.
  */
-function insertUndatedExtras(
-  list: readonly FlowItem[],
+function pendingExtras(
   assessments: readonly PlannerAssessment[],
+  total: number,
   rate: number,
   p: Prepared,
-): FlowItem[] {
-  if (assessments.length === 0) return [...list]
-  const total = list.reduce((sum, it) => sum + it.minutes, 0)
+): Pending[] {
+  if (assessments.length === 0) return []
   const r = rate > 0 ? rate : Math.max(1, total)
   const gap = Math.max(1, Math.ceil(total / r))
-  const cum: number[] = []
-  let acc = 0
-  for (const it of list) cum.push((acc += it.minutes))
-  const after = new Map<number, FlowItem[]>() // index of the item they follow (−1 = before all)
-  const placed: Array<{ at: number; pos: number; offset: number; item: FlowItem }> = []
-  for (const a of assessments) {
-    for (const e of extrasFor(a, gap, p)) {
-      const pos = Math.max(0, Math.min(total, (gap + 1 - e.offset) * r))
-      let at = -1
-      if (pos > 0) {
-        at = cum.findIndex((c) => c >= pos)
-        if (at === -1) at = list.length - 1
-      }
-      placed.push({ at, pos, offset: e.offset, item: e.item })
-    }
-  }
-  placed.sort((x, y) => x.at - y.at || y.offset - x.offset || cmpStr(x.item.key, y.item.key))
-  for (const x of placed) {
-    const l = after.get(x.at) ?? []
-    l.push(x.item)
-    after.set(x.at, l)
-  }
-  const out: FlowItem[] = [...(after.get(-1) ?? [])]
-  list.forEach((it, i) => {
-    out.push(it, ...(after.get(i) ?? []))
-  })
-  return out
+  const out: Pending[] = []
+  for (const a of assessments)
+    for (const e of extrasFor(a, gap, p))
+      out.push({ pos: Math.max(0, Math.min(total, (gap + 1 - e.offset) * r)), offset: e.offset, item: e.item })
+  return out.sort((x, y) => x.pos - y.pos || y.offset - x.offset || cmpStr(x.item.key, y.item.key))
 }
 
 // ─── One run at a given pace ────────────────────────────────────────────────
 
-interface Placed {
-  item: FlowItem | PlanItemCore
-  day: number
-  start: number | null
-}
-
-/** A placed item that is not part of the flow (assessments). */
-interface PlanItemCore {
+interface PlacedCore {
   key: string
   kind: PlanItemKind
   title: string
@@ -534,9 +506,16 @@ interface PlanItemCore {
   unitId: string | null
   assessmentId: string | null
   minutes: number
-  seq: number | null
-  seqTotal: number | null
   dueDate: ISODate | null
+  /** Study pieces: numbered after the run, when each unit's count is known. */
+  work?: UnitWork
+  seq?: number
+}
+
+interface Placed {
+  item: PlacedCore
+  day: number
+  start: number | null
 }
 
 export interface PlanRun {
@@ -552,10 +531,16 @@ export interface PlanRun {
   fits: boolean
 }
 
-type FlowEntry = { type: 'item'; item: FlowItem; seg: number } | { type: 'end'; seg: number }
+const HARD: ReadonlySet<string> = new Set([
+  'NO_AVAILABILITY',
+  'HORIZON_EXCEEDED',
+  'ASSESSMENT_TOO_EARLY',
+  'ASSESSMENT_AFTER_TARGET',
+  'TARGET_IN_PAST',
+])
 
 function run(p: Prepared, pace: number | null): PlanRun {
-  const { s } = p
+  const { s, sizes } = p
   const book = new SlotBook({
     dayIntervals: p.dayIntervals,
     busy: p.blocked,
@@ -598,7 +583,9 @@ function run(p: Prepared, pace: number | null): PlanRun {
 
   // 1b. Dated assessments, then their practice tests and reviews near their target days.
   const assessmentDays: number[] = []
-  const placeAssessment = (a: PlannerAssessment, day: number, fixedStart: number | null): void => {
+  // `fixedStart`: a booked time. Otherwise `findSlot` says whether to give it the day's first free slot
+  // (an undated assessment the plan places) or leave it a day marker (a date without a booked time).
+  const placeAssessment = (a: PlannerAssessment, day: number, fixedStart: number | null, findSlot: boolean): void => {
     const key = `assessment:${a.id}`
     assessmentDays.push(day)
     if (p.skipKeys.has(key)) return
@@ -608,7 +595,7 @@ function run(p: Prepared, pace: number | null): PlanRun {
     if (fixedStart !== null) {
       start = fixedStart
       if (minutes > 0) reserveSpill(day, start, minutes)
-    } else if (minutes > 0) {
+    } else if (findSlot && minutes > 0) {
       start = book.firstFit(day, 0, minutes)
       if (start !== null) book.reserve(day, start, start + minutes)
     }
@@ -623,15 +610,13 @@ function run(p: Prepared, pace: number | null): PlanRun {
         unitId: null,
         assessmentId: a.id,
         minutes: start === null ? 0 : minutes,
-        seq: null,
-        seqTotal: null,
         dueDate: isoOfDay(day),
       },
     })
   }
   for (const d of p.dated) {
     const t = d.a.time ? parseClock(d.a.time) : null
-    placeAssessment(d.a, d.day, t !== null && t < DAY_MINUTES ? t : null)
+    placeAssessment(d.a, d.day, t !== null && t < DAY_MINUTES ? t : null, false)
     for (const e of d.extras) {
       const spot = e.targetDay === null ? null : nearSlot(book, e.targetDay, p.start, d.day - 1, e.item.minutes)
       if (!spot) {
@@ -645,52 +630,92 @@ function run(p: Prepared, pace: number | null): PlanRun {
   }
 
   // 2. The flow.
-  const rate = pace === null ? p.dayThroughput : Math.min(pace, p.dayThroughput || pace)
-  let entries: FlowEntry[] = []
-  p.segments.forEach((seg, i) => {
-    for (const item of insertUndatedExtras(seg.items, seg.undated, rate, p)) entries.push({ type: 'item', item, seg: i })
-    entries.push({ type: 'end', seg: i })
-  })
-  if (p.goalUndated.length > 0) {
-    const flat = entries.flatMap((e) => (e.type === 'item' ? [e] : []))
-    const withGoal = insertUndatedExtras(
-      flat.map((e) => e.item),
-      p.goalUndated,
-      rate,
-      p,
-    )
-    const segOf = new Map(flat.map((e) => [e.item.key, e.seg]))
-    const ends = new Map<number, number>() // seg → index of its last item in `withGoal`
-    withGoal.forEach((it, i) => {
-      const sg = segOf.get(it.key)
-      if (sg !== undefined) ends.set(sg, i)
-    })
-    const rebuilt: FlowEntry[] = []
-    // Segments with no items end before everything else.
-    p.segments.forEach((_seg, i) => {
-      if (!ends.has(i)) rebuilt.push({ type: 'end', seg: i })
-    })
-    withGoal.forEach((it, i) => {
-      rebuilt.push({ type: 'item', item: it, seg: segOf.get(it.key) ?? -1 })
-      for (const [sg, last] of ends) if (last === i) rebuilt.push({ type: 'end', seg: sg })
-    })
-    entries = rebuilt
-  }
-
-  const bucket = pace === null ? Number.POSITIVE_INFINITY : Math.max(pace, p.maxFlow)
-  // `min` is where the last item ended (or the start); `busy` says an item was placed on `day` already.
+  const bucket = pace === null ? Number.POSITIVE_INFINITY : pace + p.maxFlow
+  // `min`: where the last item ended (or the start); `busy`: an item was already placed on `day`.
   const st = { day: p.start, min: p.startMinute, tokens: 0, accrued: p.start - 1, busy: false }
   const accrue = (day: number): void => {
     if (pace === null || st.accrued >= day) return
-    for (let d = st.accrued + 1; d <= day; d++) if (book.isStudyDay(d)) st.tokens = Math.min(bucket, st.tokens + pace)
+    for (let d = st.accrued + 1; d <= day; d++)
+      if (book.isStudyDay(d)) st.tokens = Math.min(bucket, st.tokens + pace)
     st.accrued = day
   }
-  const lastOfSeg = new Map<number, number>()
-  const lastStudyOf = new Map<string | null, number>()
-  let lastFlowDay: number | null = null
+  const nextDay = (): void => {
+    st.day += 1
+    st.min = 0
+    st.busy = false
+  }
+  const take = (day: number, start: number, minutes: number): void => {
+    book.reserve(day, start, start + minutes)
+    if (pace !== null) st.tokens -= minutes
+    st.min = start + minutes
+    st.busy = true
+  }
+  /** A fixed-length item at the next slot; a break before it when there is room. `false` past the horizon. */
+  const placeFixed = (item: FlowItem): boolean => {
+    for (; st.day <= p.lastDay; nextDay()) {
+      accrue(st.day)
+      if (pace !== null && st.tokens < item.minutes) continue
+      const brk = st.busy ? s.breakMinutes : 0
+      const at =
+        book.firstFit(st.day, st.min + brk, item.minutes) ??
+        (brk > 0 ? book.firstFit(st.day, st.min, item.minutes) : null)
+      if (at === null) continue
+      take(st.day, at, item.minutes)
+      placed.push({ item, day: st.day, start: at })
+      work(item.courseId, st.day, item.minutes)
+      return true
+    }
+    return false
+  }
+  /** The next study piece of a unit: its minutes, or 0 past the horizon. */
+  const placeStudy = (uw: UnitWork, left: number, seq: number): number => {
+    const tryAt = (from: number): { at: number; size: number } | null => {
+      for (const [a, b] of book.freeOn(st.day)) {
+        if (b <= from) continue
+        const at = ceilTo(Math.max(a, from), s.grain)
+        const size = pieceSize(left, b - at, sizes)
+        if (size !== null && (pace === null || st.tokens >= size)) return { at, size }
+      }
+      return null
+    }
+    for (; st.day <= p.lastDay; nextDay()) {
+      accrue(st.day)
+      if (pace !== null && st.tokens < Math.min(left, sizes.min)) continue
+      const hit = tryAt(st.min + (st.busy ? s.breakMinutes : 0)) ?? (st.busy ? tryAt(st.min) : null)
+      if (!hit) continue
+      take(st.day, hit.at, hit.size)
+      placed.push({
+        day: st.day,
+        start: hit.at,
+        item: {
+          key: `${uw.unit.id}:${seq}`,
+          kind: 'study',
+          title: '',
+          courseId: uw.course.id,
+          unitId: uw.unit.id,
+          assessmentId: null,
+          minutes: hit.size,
+          dueDate: null,
+          work: uw,
+          seq,
+        },
+      })
+      work(uw.course.id, st.day, hit.size)
+      return hit.size
+    }
+    return 0
+  }
+
+  const rate = pace === null ? p.dayThroughput : Math.min(pace, p.dayThroughput || pace)
+  const totalFlow = p.segments.reduce((n, sg) => n + sg.flowMinutes, 0)
+  const goalPending = pendingExtras(p.goalUndated, totalFlow, rate, p)
   let unscheduled = 0
   let failed = false
+  let lastFlowDay: number | null = null
+  const lastStudyOf = new Map<string | null, number>()
   const undatedDays: number[] = []
+  let globalProgress = 0
+
   const firstStudyDayFrom = (from: number): number | null => {
     for (let d = Math.max(from, p.start); d <= p.lastDay; d++) if (book.isStudyDay(d)) return d
     return null
@@ -699,66 +724,86 @@ function run(p: Prepared, pace: number | null): PlanRun {
     if (list.length === 0 || failed) return
     const day = firstStudyDayFrom(after === null ? st.day : after + 1)
     if (day === null) return
-    for (const a of list) placeAssessment(a, day, null)
+    for (const a of list) placeAssessment(a, day, null, true)
     undatedDays.push(day)
   }
 
-  if (!p.noWindows) {
-    for (const e of entries) {
+  if (p.noWindows) failed = true
+  for (const seg of p.segments) {
+    const pending = pendingExtras(seg.undated, seg.flowMinutes, rate, p)
+    let progress = 0
+    let lastOfSeg: number | null = null
+    const fixed = (item: FlowItem): void => {
       if (failed) {
-        if (e.type === 'item') unscheduled += e.item.minutes
-        continue
+        unscheduled += item.minutes
+        return
       }
-      if (e.type === 'end') {
-        const seg = p.segments[e.seg]
-        if (seg) placeUndated(seg.undated, lastOfSeg.get(e.seg) ?? null)
-        continue
-      }
-      const m = e.item.minutes
-      let spot: { day: number; start: number } | null = null
-      while (st.day <= p.lastDay) {
-        accrue(st.day)
-        if (pace === null || st.tokens >= m) {
-          // A break after the previous session when there is room for it; back to back when not.
-          const brk = st.busy ? s.breakMinutes : 0
-          const at = book.firstFit(st.day, st.min + brk, m) ?? (brk > 0 ? book.firstFit(st.day, st.min, m) : null)
-          if (at !== null) {
-            spot = { day: st.day, start: at }
-            break
-          }
-        }
-        st.day += 1
-        st.min = 0
-        st.busy = false
-      }
-      if (!spot) {
+      if (!placeFixed(item)) {
         failed = true
-        unscheduled += m
-        continue
+        unscheduled += item.minutes
+        return
       }
-      book.reserve(spot.day, spot.start, spot.start + m)
-      if (pace !== null) st.tokens -= m
-      st.min = spot.start + m
-      st.busy = true
-      placed.push({ item: e.item, day: spot.day, start: spot.start })
-      work(e.item.courseId, spot.day, m)
-      lastFlowDay = spot.day
-      lastOfSeg.set(e.seg, spot.day)
-      if (e.item.kind === 'study') {
-        lastStudyOf.set(e.item.courseId, spot.day)
-        lastStudyOf.set(null, spot.day)
+      lastOfSeg = lastFlowDay = st.day
+    }
+    const flush = (all: boolean): void => {
+      while (pending.length > 0 && (all || (pending[0] as Pending).pos <= progress))
+        fixed((pending.shift() as Pending).item)
+      while (goalPending.length > 0 && (goalPending[0] as Pending).pos <= globalProgress)
+        fixed((goalPending.shift() as Pending).item)
+    }
+    for (const uw of seg.units) {
+      let left = uw.minutes
+      let seq = 1
+      while (left > 0) {
+        flush(false)
+        if (failed) break
+        while (uw.used.has(seq)) seq++
+        const m = placeStudy(uw, left, seq)
+        if (m === 0) {
+          failed = true
+          break
+        }
+        seq++
+        left -= m
+        progress += m
+        globalProgress += m
+        lastOfSeg = lastFlowDay = st.day
+        lastStudyOf.set(uw.course.id, st.day)
+        lastStudyOf.set(null, st.day)
+      }
+      unscheduled += left
+      for (const it of uw.after) {
+        flush(false)
+        fixed(it)
+        progress += it.minutes
+        globalProgress += it.minutes
       }
     }
-    if (!failed) placeUndated(p.goalUndated, lastFlowDay)
-  } else {
-    for (const e of entries) if (e.type === 'item') unscheduled += e.item.minutes
+    for (const it of seg.tail) {
+      flush(false)
+      fixed(it)
+      progress += it.minutes
+      globalProgress += it.minutes
+    }
+    flush(true)
+    placeUndated(seg.undated, lastOfSeg)
   }
+  while (goalPending.length > 0) {
+    const it = (goalPending.shift() as Pending).item
+    if (failed || !placeFixed(it)) {
+      failed = true
+      unscheduled += it.minutes
+    } else lastFlowDay = st.day
+  }
+  placeUndated(p.goalUndated, lastFlowDay)
 
-  const flowMinutes = entries.reduce((n, e) => n + (e.type === 'item' ? e.item.minutes : 0), 0)
+  // Issues.
   let blocked = false
-  if (unscheduled > 0) {
+  if (failed || unscheduled > 0) {
     blocked = true
-    issues.push(p.noWindows ? { code: 'NO_AVAILABILITY' } : { code: 'HORIZON_EXCEEDED', unscheduledMinutes: unscheduled })
+    issues.push(
+      p.noWindows ? { code: 'NO_AVAILABILITY' } : { code: 'HORIZON_EXCEEDED', unscheduledMinutes: unscheduled },
+    )
   }
   if (!blocked) {
     for (const d of p.dated) {
@@ -767,16 +812,13 @@ function run(p: Prepared, pace: number | null): PlanRun {
         issues.push({ code: 'ASSESSMENT_TOO_EARLY', assessmentId: d.a.id, lastStudyDate: isoOfDay(last) })
     }
   }
-  const workLeft = flowMinutes > 0 || pinnedMinutes > 0 || assessmentDays.length > 0
+  const workLeft = totalFlow > 0 || pinnedMinutes > 0 || assessmentDays.length > 0
   if (p.target !== null && p.target < p.today && workLeft) issues.push({ code: 'TARGET_IN_PAST' })
 
   // Projection and buffer.
   let projectedEnd: number | null = null
   let bufferedEnd: number | null = null
-  const placedWork = placed.reduce(
-    (n, x) => n + (x.item.kind === 'assessment' ? 0 : x.item.minutes),
-    0,
-  )
+  const placedWork = placed.reduce((n, x) => n + (x.item.kind === 'assessment' ? 0 : x.item.minutes), 0)
   const bufferMinutes = bufferMinutesFor(placedWork + pinnedMinutes, s.bufferPct, s.grain)
   if (!blocked) {
     const ends = [workEnd, ...assessmentDays].filter((d): d is number => d !== null)
@@ -799,6 +841,7 @@ function run(p: Prepared, pace: number | null): PlanRun {
         }
       }
       if (walkEnd !== null) {
+        // An undated assessment right after the work slides with the buffer.
         const lastUndated = undatedDays.length > 0 ? Math.max(...undatedDays) : null
         if (lastUndated !== null && lastFlowDay !== null && lastUndated > lastFlowDay && walkEnd > lastFlowDay)
           walkEnd = firstStudyDayFrom(walkEnd + 1) ?? walkEnd
@@ -807,20 +850,27 @@ function run(p: Prepared, pace: number | null): PlanRun {
     }
   }
 
-  const items = placed.map(({ item, day, start }): PlanItem => ({
-    key: item.key,
-    kind: item.kind,
-    title: item.title,
-    courseId: item.courseId,
-    unitId: item.unitId,
-    assessmentId: item.assessmentId,
-    doDate: isoOfDay(day),
-    startTime: start === null ? null : formatClock(start),
-    durationMinutes: start === null ? 0 : item.minutes,
-    dueDate: item.dueDate,
-    seq: item.seq,
-    seqTotal: item.seqTotal,
-  }))
+  // Study titles need each unit's final count.
+  const counts = new Map<string, number>()
+  for (const x of placed) if (x.item.work) counts.set(x.item.work.unit.id, (counts.get(x.item.work.unit.id) ?? 0) + 1)
+  const items = placed.map(({ item, day, start }): PlanItem => {
+    const uw = item.work
+    const seqTotal = uw ? uw.used.size + (counts.get(uw.unit.id) ?? 0) : null
+    return {
+      key: item.key,
+      kind: item.kind,
+      title: uw ? chunkTitle(uw.course, uw.unit.title, item.seq ?? 1, seqTotal ?? 1) : item.title,
+      courseId: item.courseId,
+      unitId: item.unitId,
+      assessmentId: item.assessmentId,
+      doDate: isoOfDay(day),
+      startTime: start === null ? null : formatClock(start),
+      durationMinutes: start === null ? 0 : item.minutes,
+      dueDate: item.dueDate,
+      seq: uw ? (item.seq ?? null) : null,
+      seqTotal,
+    }
+  })
 
   const totals: PlannerTotals = { study: 0, review: 0, practiceTest: 0, assessment: 0, work: 0 }
   for (const it of items) {
@@ -831,19 +881,16 @@ function run(p: Prepared, pace: number | null): PlanRun {
   }
   totals.work = totals.study + totals.review + totals.practiceTest
 
-  const order = [...p.segments.map((sg) => sg.courseId), ...[...span.keys()].sort(cmpStr)]
-  const seen = new Set<string>()
   const windows: CourseWindow[] = []
-  for (const id of order) {
+  const seen = new Set<string>()
+  for (const id of [...p.segments.map((sg) => sg.courseId), ...[...span.keys()].sort(cmpStr)]) {
     if (id === null || seen.has(id)) continue
     seen.add(id)
     const w = span.get(id)
     if (w) windows.push({ courseId: id, start: isoOfDay(w.start), end: isoOfDay(w.end), minutes: w.minutes })
   }
 
-  const hard = issues.some((i) =>
-    ['NO_AVAILABILITY', 'HORIZON_EXCEEDED', 'ASSESSMENT_TOO_EARLY', 'ASSESSMENT_AFTER_TARGET', 'TARGET_IN_PAST'].includes(i.code),
-  )
+  const hard = issues.some((i) => HARD.has(i.code))
   const fits =
     !hard && (p.target === null || projectedEnd === null || (bufferedEnd !== null && bufferedEnd <= p.target))
   return { items, issues, projectedEnd, bufferedEnd, bufferMinutes, totals, windows, blocked, pace, fits }
@@ -881,6 +928,7 @@ const KIND_RANK: Record<PlanItemKind, number> = {
   milestone: 4,
 }
 
+/** Plan order: day, then start time (day markers last), then kind, then key. */
 export function comparePlanItems(a: PlanItem, b: PlanItem): number {
   if (a.doDate !== b.doDate) return a.doDate < b.doDate ? -1 : 1
   const ta = a.startTime ?? '99:99'
@@ -891,13 +939,9 @@ export function comparePlanItems(a: PlanItem, b: PlanItem): number {
 
 /** Picks the pace: ASAP without a target, else the smallest verified pace that fits (or ASAP if none does). */
 function choose(p: Prepared): PlanRun {
-  if (p.target === null) return run(p, null)
   const full = run(p, null)
-  if (!full.fits) return full
+  if (p.target === null || !full.fits) return full
   const g = p.s.grain
-  let lo = 1
-  let hi = Math.max(1, Math.ceil(Math.max(p.maxDay, p.maxFlow) / g))
-  let best: PlanRun = full
   const cache = new Map<number, PlanRun>()
   const at = (units: number): PlanRun => {
     const hit = cache.get(units)
@@ -906,17 +950,15 @@ function choose(p: Prepared): PlanRun {
     cache.set(units, r)
     return r
   }
-  if (at(hi).fits) best = at(hi)
-  else return full
+  let lo = 1
+  let hi = Math.max(1, Math.ceil(Math.max(p.maxDay, p.maxFlow) / g))
+  if (!at(hi).fits) return full
   while (lo < hi) {
     const mid = (lo + hi) >> 1
-    const r = at(mid)
-    if (r.fits) {
-      hi = mid
-      best = r
-    } else lo = mid + 1
+    if (at(mid).fits) hi = mid
+    else lo = mid + 1
   }
-  return best.pace === hi * g ? best : at(hi)
+  return at(hi)
 }
 
 /**

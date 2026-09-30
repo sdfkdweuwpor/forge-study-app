@@ -126,7 +126,7 @@ export function UnitsList({ course, units, focusRequest }: UnitsListProps) {
       <form className={styles.add} onSubmit={add}>
         <Plus className={styles.addIcon} size={16} aria-hidden="true" />
         <Input
-          ref={input as never}
+          ref={input}
           size="sm"
           aria-label="Add a unit"
           placeholder="Add a unit or chapter"

@@ -19,7 +19,8 @@ import type {
   PlannerUnit,
   WeekWindows,
 } from './plannerTypes'
-import { parseClock } from './windows'
+import { wguYearPlan } from './fixtures'
+import { fromLegacyAvailability, parseClock } from './windows'
 
 /** Monday 2026-10-05. */
 export const MON: ISODate = '2026-10-05'
@@ -189,3 +190,36 @@ export function asCurrent(items: readonly PlanItem[], done: readonly string[] = 
 /** `[date, start, key, minutes]` rows for compact assertions. */
 export const rows = (items: readonly PlanItem[]) =>
   items.filter((i) => i.kind !== 'milestone').map((i) => [i.doDate, i.startTime, i.key, i.durationMinutes])
+
+/**
+ * The 12-course WGU year from `fixtures.ts` as planner input: legacy minutes per weekday mapped to
+ * evening windows, one undated objective assessment per course, a dated one for the first course.
+ */
+export function wguPlannerInput(): PlannerInput {
+  const legacy = wguYearPlan()
+  return {
+    today: legacy.today,
+    targetDate: legacy.targetDate,
+    availability: fromLegacyAvailability(legacy.availability, { studyStart: '18:00' }),
+    courses: legacy.courses,
+    assessments: legacy.courses.map((c, i) => ({
+      id: `oa-${c.id}`,
+      courseId: c.id,
+      kind: 'exam' as const,
+      title: 'Objective assessment',
+      date: i === 0 ? '2026-11-20' : null,
+    })),
+  }
+}
+
+/** A tiny seeded PRNG (mulberry32) for property tests. */
+export function rng(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}

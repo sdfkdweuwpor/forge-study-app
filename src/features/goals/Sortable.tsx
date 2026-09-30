@@ -76,7 +76,7 @@ function SortableRow<T extends { id: string }>({
   const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition }
   return (
     <Tag
-      ref={setNodeRef as never}
+      ref={setNodeRef}
       role={role}
       className={cx(styles.row, className)}
       style={style}

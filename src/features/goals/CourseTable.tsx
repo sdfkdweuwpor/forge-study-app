@@ -287,7 +287,7 @@ function AddCourseForm({ goalId, onDone }: AddFormProps) {
           onKeyDown={onKeyDown}
         />
         <Input
-          ref={nameRef as never}
+          ref={nameRef}
           size="sm"
           aria-label="Course name"
           placeholder="Introduction to IT"

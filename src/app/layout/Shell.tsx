@@ -9,6 +9,7 @@ import { usePathname, useRoute } from '../router'
 import { useShortcutHandler } from '../shortcuts'
 import { Drawer } from './Drawer'
 import { MoreSheet } from './MoreSheet'
+import { pageKeyOf } from './pageKey'
 import { Resizer, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN } from './Resizer'
 import { RightPanel } from './RightPanel'
 import { RouteAnnouncer } from './RouteAnnouncer'
@@ -92,9 +93,9 @@ export function Shell() {
   const showRail = showOpenButton && hasRail
 
   // Pages with params (a goal, a course, a task) remount when the params change, so no state leaks between them.
-  // Settings' param only names the section to scroll to (`/settings/data`), so it stays mounted.
-  const pageKey =
-    Object.keys(route.params).length > 0 && route.name !== 'settings' ? pathname : route.name
+  // A param that only picks a tab or a section (`/settings/data`, `/rewards/badges`) keeps the page mounted:
+  // remounting would throw away the tab that has keyboard focus (see `pageKey.ts`).
+  const pageKey = pageKeyOf(route, pathname)
 
   // The first-launch flow (`/welcome`) has the whole window to itself: no sidebar, drawer or tab bar.
   if (route.name === 'welcome') {

@@ -54,6 +54,9 @@ async function startFocus(page: Page): Promise<void> {
 
 const parked = (page: Page) => readTable<StoredParking>(page, 'parkingLot')
 
+/** What the empty Today card says where there is no P key to press. */
+const TOUCH_HINT = 'Nothing parked. Park a thought from the Focus page while a session runs.'
+
 test.describe('Parking lot', () => {
   test('p parks a thought during focus; the end dialog lists it and Convert to task makes the task', async ({
     page,
@@ -405,6 +408,28 @@ test.describe('Parked thoughts on Today', () => {
     await expect(card.getByTestId('parked-list')).toHaveCount(0)
   })
 
+  test('a wide screen with a mouse says to press P on the empty card', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await openApp(page, '/')
+    const card = page.getByTestId('parked-card')
+    await expect(card).toContainText(/Nothing parked\. Press P during focus to set a thought aside/)
+    await expect(card.locator('kbd').first()).toHaveText('P')
+    await expect(card).not.toContainText('Focus page')
+  })
+
+  test('a narrow window with a mouse gets the touch words, and the key hint returns when it widens', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 600, height: 800 })
+    await openApp(page, '/')
+    const card = page.getByTestId('parked-card')
+    await expect(card).toContainText(TOUCH_HINT)
+    await expect(card.locator('kbd')).toHaveCount(0)
+    await page.setViewportSize({ width: 900, height: 800 })
+    await expect(card).toContainText(/Press P during focus/)
+    await expect(card).not.toContainText(TOUCH_HINT)
+  })
+
   test('"Review parked thoughts" in the palette lands on the card from another page', async ({
     page,
   }) => {
@@ -437,5 +462,30 @@ test.describe('Parked thoughts on Today', () => {
       .getByRole('button', { name: `Convert to task “${seeded[0]?.[1] ?? ''}”`, exact: true })
       .click()
     await expect(card).toContainText('Parked thoughts (2)')
+  })
+})
+
+test.describe('Parked thoughts card on a screen that is touched', () => {
+  test.describe('a phone', () => {
+    test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 812 } })
+
+    test('says where to park a thought, not which key to press', async ({ page }) => {
+      await openApp(page, '/')
+      const card = page.getByTestId('parked-card')
+      await expect(card).toContainText(TOUCH_HINT)
+      await expect(card).not.toContainText('Press')
+      await expect(card.locator('kbd')).toHaveCount(0)
+    })
+  })
+
+  test.describe('a tablet, wide but held in the hand', () => {
+    test.use({ hasTouch: true, isMobile: true, viewport: { width: 1024, height: 768 } })
+
+    test('has no hover, so it is told the same as a phone', async ({ page }) => {
+      await openApp(page, '/')
+      const card = page.getByTestId('parked-card')
+      await expect(card).toContainText(TOUCH_HINT)
+      await expect(card.locator('kbd')).toHaveCount(0)
+    })
   })
 })

@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
+import { useMediaQuery } from '@/app/hooks/useMediaQuery'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
 import { Skeleton } from '@/ui/Skeleton'
@@ -28,6 +29,28 @@ export function ParkedTodayCard() {
     >
       <ParkedTodayBody />
     </ErrorBoundary>
+  )
+}
+
+/**
+ * The key hint is for a keyboard: a hover-capable pointer on a screen wide enough to have one at hand.
+ * A phone or a tablet held by hand has no P key, so there the sentence points at the button instead.
+ */
+const KEYBOARD_HINT_QUERY = '(hover: hover) and (min-width: 640px)'
+
+function EmptyHint() {
+  const keyboard = useMediaQuery(KEYBOARD_HINT_QUERY)
+  return (
+    <p className={styles.quiet}>
+      {keyboard ? (
+        <>
+          Nothing parked. Press <Kbd keys="p" variant="plain" size="sm" /> during focus to set a
+          thought aside for later.
+        </>
+      ) : (
+        'Nothing parked. Park a thought from the Focus page while a session runs.'
+      )}
+    </p>
   )
 }
 
@@ -79,10 +102,7 @@ function ParkedTodayBody() {
             <Skeleton width="55%" />
           </div>
         ) : items.length === 0 ? (
-          <p className={styles.quiet}>
-            Nothing parked. Press <Kbd keys="p" variant="plain" size="sm" /> during focus to set a
-            thought aside for later.
-          </p>
+          <EmptyHint />
         ) : (
           <ParkedList items={items} label="Parked thoughts" />
         )}

@@ -148,11 +148,7 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
 
     case 'undoStart':
       return patch(state, action.id, (item) =>
-        item.undo &&
-        (item.phase === 'idle' || (item.phase === 'undoFailed' && item.undoRefusal === undefined)) &&
-        !item.leaving
-          ? { ...item, phase: 'undoing' }
-          : item,
+        canStartUndo(item) ? { ...item, phase: 'undoing' } : item,
       )
 
     case 'undoDone':
@@ -180,6 +176,29 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
           : item,
       )
   }
+}
+
+/**
+ * Whether the toast still shows a button that starts its Undo: it has one, it is not on its way out, and
+ * it is idle or failed in a way a second try could fix (the button then reads "Retry"). One that is
+ * running, done or refused ("things changed since") offers none.
+ */
+export function canStartUndo(item: ToastItem): boolean {
+  return (
+    item.undo !== undefined &&
+    !item.leaving &&
+    (item.phase === 'idle' || (item.phase === 'undoFailed' && item.undoRefusal === undefined))
+  )
+}
+
+/**
+ * The toast `mod+z` acts on: the most recent one on screen that still offers an Undo. A toast waiting in
+ * the queue has no button yet, so it is not a target; a finished ("Undone") or running one is skipped, so
+ * pressing the key twice undoes two actions, newest first.
+ */
+export function latestUndoable(state: ToastState): ToastItem | undefined {
+  const { visible } = partitionToasts(state)
+  return visible.findLast(canStartUndo)
 }
 
 /**

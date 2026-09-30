@@ -416,6 +416,49 @@ test.describe('Rewards shop', () => {
     await expect(page.getByRole('tab', { name: 'Badges' })).toHaveAttribute('aria-selected', 'true')
   })
 
+  test('switching tabs keeps the page and its focus: the tab used stays focused, the heading is not pulled back', async ({
+    page,
+  }) => {
+    await openShop(page, 1260)
+    const tab = (name: string) => page.getByRole('tab', { name })
+    const heading = page.getByRole('heading', { level: 1, name: 'Rewards' })
+    const announcer = page.locator('[data-route-announcer]')
+    // Mark the page's own heading: a remount would replace it, and the mark with it.
+    await heading.evaluate((el) => el.setAttribute('data-kept', 'yes'))
+
+    await tab('History').click()
+    await expect(page).toHaveURL(/\/rewards\/history$/)
+    await expect(tab('History')).toBeFocused()
+    await tab('Badges').click()
+    await expect(page).toHaveURL(/\/rewards\/badges$/)
+    await expect(tab('Badges')).toBeFocused()
+    await expect(tab('Badges')).toHaveAttribute('aria-selected', 'true')
+    // The keyboard carries on from where the click left it.
+    await page.keyboard.press('ArrowLeft')
+    await expect(tab('History')).toBeFocused()
+    await expect(page).toHaveURL(/\/rewards\/history$/)
+
+    await expect(heading).toHaveAttribute('data-kept', 'yes')
+    await expect(heading).not.toBeFocused()
+    // A screen reader hears the tab change, not the page's name again; the announcer (a short timer after
+    // the route changes) has had time to speak by now.
+    await page.waitForTimeout(250)
+    await expect(announcer).toHaveText('')
+  })
+
+  test('leaving Rewards for another page still moves focus to its heading and announces it', async ({
+    page,
+  }) => {
+    await openShop(page, 1260)
+    await page.getByRole('tab', { name: 'History' }).click()
+    await expect(page).toHaveURL(/\/rewards\/history$/)
+    await page.keyboard.press('g')
+    await page.keyboard.press('t')
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('[data-route-announcer]')).toHaveText('Today')
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeFocused()
+  })
+
   test('works on a phone: no sideways scroll, every button reachable', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await openShop(page, 1260)

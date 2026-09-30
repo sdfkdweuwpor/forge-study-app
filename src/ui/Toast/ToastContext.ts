@@ -48,3 +48,27 @@ export function useToast(): ToastApi {
   if (!api) throw new Error('useToast must be used inside <ToastProvider>')
   return api
 }
+
+/**
+ * The keyboard's way to a toast's Undo button (`mod+z`). Separate from `ToastApi` so that code which
+ * only shows toasts, and the fakes it is tested with, need know nothing about it.
+ */
+export interface ToastUndoApi {
+  /** Whether a toast on screen still offers an Undo (or a Retry after one that failed). */
+  canUndo: () => boolean
+  /**
+   * Runs the Undo of the most recent toast on screen that still offers one, exactly as pressing its
+   * button would: the toast then reads "Undone", or "Couldn’t undo" when that throws. Returns false, and
+   * does nothing, when no toast offers one.
+   */
+  undoLatest: () => boolean
+}
+
+export const ToastUndoContext = createContext<ToastUndoApi | null>(null)
+
+/** The latest-Undo controls of the nearest <ToastProvider>. The returned API is stable across renders. */
+export function useToastUndo(): ToastUndoApi {
+  const api = useContext(ToastUndoContext)
+  if (!api) throw new Error('useToastUndo must be used inside <ToastProvider>')
+  return api
+}

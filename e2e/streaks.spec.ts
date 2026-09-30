@@ -144,6 +144,43 @@ test.describe('Streaks', () => {
   })
 })
 
+test.describe('Streaks: the flame in the tablet drawer', () => {
+  test.use({ viewport: { width: 768, height: 1024 } })
+
+  const drawer = (page: Page) => page.getByRole('dialog', { name: 'Navigation' })
+
+  test('closes the drawer, also when the tablet is already on Progress', async ({ page }) => {
+    await gotoApp(page, '/progress', 'wgu')
+    await expect(page.getByRole('heading', { level: 1, name: 'Progress' })).toBeVisible()
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    await expect(drawer(page)).toBeVisible()
+    await flame(page).click()
+    // A link to the page you are on changes no path, so nothing else would have closed it.
+    await expect(drawer(page)).toBeHidden()
+    await expect(page).toHaveURL(/\/progress$/)
+    await expect(page.getByRole('button', { name: 'Open sidebar' })).toBeFocused()
+  })
+
+  test('closes the drawer on the way to Progress from another page', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    await expect(drawer(page)).toBeVisible()
+    await flame(page).click()
+    await expect(page).toHaveURL(/\/progress$/)
+    await expect(drawer(page)).toBeHidden()
+    await expect(page.getByRole('heading', { level: 1, name: 'Progress' })).toBeFocused()
+  })
+
+  test('from the keyboard: Enter on the flame closes the drawer too', async ({ page }) => {
+    await gotoApp(page, '/progress', 'wgu')
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    await expect(drawer(page)).toBeVisible()
+    await flame(page).focus()
+    await page.keyboard.press('Enter')
+    await expect(drawer(page)).toBeHidden()
+  })
+})
+
 test.describe('Streaks: reaching a milestone live', () => {
   // A running timer needs page.clock, not the fixture's frozen time (see focus.spec.ts).
   test.use({ fixedClock: false })

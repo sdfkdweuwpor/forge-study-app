@@ -1,7 +1,9 @@
-import { Moon, PanelLeft, Zap } from 'lucide-react'
+import { Moon, PanelLeft, Undo2, Zap } from 'lucide-react'
 import { toggleReducedMotion, toggleTheme } from '../providers/themeActions'
 import { recordError } from '../reportError'
 import { href, navigateToUrl } from '../router/router'
+import { UndoHost } from '../UndoHost'
+import { canUndoNow } from '../undoProbe'
 import type { CommandDef, FeatureManifest, ShortcutDef } from './types'
 
 /** The shell's own shortcuts and commands. Registered like any feature so the "?" sheet and palette list them. */
@@ -70,6 +72,15 @@ export const builtins: FeatureManifest = {
       allowInOverlays: ['drawer'],
     },
     {
+      id: 'app.undo',
+      keys: 'mod+z',
+      description: 'Undo last action',
+      group: 'General',
+      scope: 'global',
+      // Not in inputs: there the key is the field's own text undo (`allowInInputs` stays off). The handler
+      // is bound by `UndoHost`, which reaches the toast that offers the Undo.
+    },
+    {
       id: 'app.escape',
       keys: 'esc',
       description: 'Close overlay or exit full-screen',
@@ -80,8 +91,20 @@ export const builtins: FeatureManifest = {
     },
     ...goShortcuts,
   ],
+  slots: [{ slot: 'global.overlays', id: 'app.undo', order: 5, component: UndoHost }],
   commands: [
     ...goCommands,
+    {
+      id: 'command.undo',
+      title: 'Undo',
+      group: 'Data',
+      icon: Undo2,
+      keywords: ['revert', 'take back', 'last action', 'restore'],
+      shortcutId: 'app.undo',
+      // Listed only while a toast on screen still offers an Undo.
+      when: () => canUndoNow(),
+      run: (c) => c.invoke('app.undo'),
+    },
     {
       id: 'command.toggleSidebar',
       title: 'Toggle sidebar',

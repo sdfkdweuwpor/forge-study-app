@@ -125,6 +125,29 @@ test.describe('a phone (375 px, touch)', () => {
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
     await expect.poll(() => shownKeycapsInControls(page)).toEqual([])
   })
+
+  test('a control that takes focus (a switch, a hardware keyboard) is scrolled clear of the tab bar and the +', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/all', 'wgu')
+    const actions = page.getByRole('button', { name: 'More actions' })
+    await expect(actions.first()).toBeVisible()
+    const last = actions.last()
+    await last.focus()
+    await expect(last).toBeFocused()
+    const { bottom, bars } = await page.evaluate(() => {
+      const active = document.activeElement
+      const tops = ['nav[aria-label="Main"]', 'button[aria-label="Quick add task"]'].flatMap(
+        (q) => {
+          const el = document.querySelector(q)
+          return el ? [el.getBoundingClientRect().top] : []
+        },
+      )
+      return { bottom: active?.getBoundingClientRect().bottom ?? Infinity, bars: Math.min(...tops) }
+    })
+    expect(bars).toBeLessThan(812)
+    expect(bottom, 'the focused control ends above the highest bar').toBeLessThanOrEqual(bars)
+  })
 })
 
 test.describe('a mouse and keyboard (1440 px)', () => {

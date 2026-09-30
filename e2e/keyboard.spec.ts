@@ -1,6 +1,6 @@
-import { stripVTControlCharacters } from 'node:util'
 import type { Locator, Page } from '@playwright/test'
 import { expect, gotoApp, test } from './fixtures'
+import { readTable } from './idb'
 
 /**
  * Phase 13B: a keyboard-only walkthrough. Every main route of PLAN §5.1 (cardReview and settings/sync
@@ -23,11 +23,6 @@ import { expect, gotoApp, test } from './fixtures'
  * covers it), then checks the whole list in Node. A ring counts when the element or something around it
  * (a wrapper with :focus-within, a sibling box) is styled as a ring while it has focus and looks
  * different once focus has moved on, so a card's permanent shadow does not pass for one.
- *
- * Defects in files outside this package (the layout shell, the gamification and world features, the CSS
- * modules) cannot be fixed here. Each has a test in "known defects outside this package" marked
- * `test.fail`: it passes while the defect is there, and fails the day it is fixed, which is the cue to
- * delete it.
  */
 
 declare global {
@@ -69,8 +64,8 @@ interface Stop {
    * editor (DECISIONS, Design review 2F: "a ring around every line of a document would be noise").
    */
   caretOnly: boolean
-  /** The focus was hidden behind a fixed or sticky bar: what the bar is, and whether it sits at the bottom of the screen. */
-  covered: { by: string; atBottom: boolean } | null
+  /** The focus was hidden behind a fixed or sticky bar: what the bar is. */
+  covered: { by: string } | null
   /** Set when the next stop was read: whether the ring went away again. `null` = could not tell. */
   ringCleared: boolean | null
 }
@@ -215,7 +210,7 @@ async function readFocus(
     const ring = self ? 'self' : carriers.length > 0 ? 'nearby' : 'none'
 
     // Is what has focus actually reachable by eye, or sitting under a bar?
-    let covered: { by: string; atBottom: boolean } | null = null
+    let covered: { by: string } | null = null
     if (r.width > 0 && r.height > 0) {
       const cx = Math.min(Math.max(r.left + r.width / 2, 0), window.innerWidth - 1)
       const cy = Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1)
@@ -226,10 +221,7 @@ async function readFocus(
           // A bar over the page, not a layer the element is itself part of.
           if ((pos === 'fixed' || pos === 'sticky') && !cur.contains(el)) {
             const label = cur.getAttribute('aria-label')
-            covered = {
-              by: `${cur.tagName.toLowerCase()}${label ? ` "${label}"` : ''}`,
-              atBottom: cur.getBoundingClientRect().top > window.innerHeight / 2,
-            }
+            covered = { by: `${cur.tagName.toLowerCase()}${label ? ` "${label}"` : ''}` }
             break
           }
         }
@@ -333,13 +325,12 @@ function orderProblems(stops: readonly Stop[]): string[] {
   return problems
 }
 
-/** What a walk does about a focused control that sits under a fixed or sticky bar. */
-type CoveredBy = 'checked' | 'bottom-bars-allowed' | 'allowed'
+/** What a walk does about a focused control that sits under a fixed or sticky bar: fail (default) or allow. */
+type CoveredBy = 'checked' | 'allowed'
 
 /**
  * What is wrong with the focus indication and names along a walk, one line per stop. `covered` decides
- * whether a control hidden behind a bar counts: always, not for a bar at the bottom of the screen (the
- * phone's tab bar and +), or never.
+ * whether a control hidden behind a bar (the phone's tab bar and +, a sticky toolbar) counts.
  */
 function stopProblems(
   stops: readonly Stop[],
@@ -361,9 +352,8 @@ function stopProblems(
         `${at}: its ring is still drawn after focus moved on (a static shadow, not a focus ring)`,
       )
     if (s.name === '') problems.push(`${at} has no accessible name`)
-    const allowed =
-      covered === 'allowed' || (covered === 'bottom-bars-allowed' && s.covered?.atBottom)
-    if (s.covered && !allowed) problems.push(`${at} is covered by ${s.covered.by} when focused`)
+    if (s.covered && covered !== 'allowed')
+      problems.push(`${at} is covered by ${s.covered.by} when focused`)
   }
   return problems
 }
@@ -513,11 +503,7 @@ async function openRoute(page: Page, route: RouteCase): Promise<void> {
 }
 
 /** One full Tab pass over a route: skip link first, order, rings, names, no trap, and Shift+Tab back. */
-async function checkWalk(
-  page: Page,
-  route: RouteCase,
-  opts: { covered?: CoveredBy } = {},
-): Promise<void> {
+async function checkWalk(page: Page, route: RouteCase): Promise<void> {
   const kind = route.kind ?? 'page'
   await openRoute(page, route)
 
@@ -562,7 +548,7 @@ async function checkWalk(
     'Tab order follows the visual order',
   ).toEqual([])
   expect(
-    stopProblems(stops, { covered: route.covered ?? 'checked', ...opts }),
+    stopProblems(stops, { covered: route.covered ?? 'checked' }),
     'focus is visible and named',
   ).toEqual([])
 
@@ -589,6 +575,8 @@ const PHONE_ROUTES = [
   'tasks calendar',
   'goals',
   'goal',
+  'progress',
+  'rewards',
   'settings',
   'trash',
 ]
@@ -596,109 +584,86 @@ const TABLET_ROUTES = ['today', 'tasks inbox', 'goals']
 
 test.describe('Tab walk (375)', () => {
   test.use({ viewport: PHONE })
-  // The tab bar and the + button are fixed over the bottom of the page and hide what Tab scrolls to the
-  // bottom edge; that is tracked below (src/app/layout owns the fix), so it is left out here.
+  // The tab bar and the + button are fixed over the bottom of the page. The walk counts a control that
+  // Tab leaves underneath either of them as a failure (`covered`), so the page's scroll padding is tested
+  // by every one of these, and on its own in "phone: the tab bar and the + button" below.
   for (const route of ROUTES.filter((r) => PHONE_ROUTES.includes(r.name))) {
-    test(route.name, ({ page }) => checkWalk(page, route, { covered: 'bottom-bars-allowed' }))
+    test(route.name, ({ page }) => checkWalk(page, route))
   }
 })
 
-const routeNamed = (name: string): RouteCase => {
-  const found = ROUTES.find((r) => r.name === name)
-  if (!found) throw new Error(`no route named ${name}`)
-  return found
-}
+// The tab bar and the + button are fixed over the bottom of a phone's page. `scroll-padding-bottom` on the page
+// keeps what Tab scrolls into view clear of both (the walks above fail a control left underneath).
+test.describe('phone: the tab bar and the + button', () => {
+  test.use({ viewport: PHONE })
 
-/**
- * Pins a defect in a file this package does not own by its symptom. The body must fail, and the failure
- * must say `symptom`: a timeout, a changed selector or an unrelated ordering bug in the walk fails the
- * test instead of hiding behind the known defect. When the owner fixes it the body passes, and this
- * fails with the cue to delete the tracker.
- */
-async function expectDefect(
-  body: () => Promise<void>,
-  symptom: RegExp,
-  fixedBy: string,
-): Promise<void> {
-  let failure: unknown
-  try {
-    await body()
-  } catch (error) {
-    failure = error
-  }
-  expect(failure, `the defect is fixed in ${fixedBy}: delete this tracker`).toBeDefined()
-  // Playwright colours its messages for the terminal; the symptom is matched on the plain text.
-  expect(
-    stripVTControlCharacters(failure instanceof Error ? failure.message : String(failure)),
-  ).toMatch(symptom)
-}
-
-// Defects in files this package does not own (the report has the fix for each). Each tracker passes
-// while its defect exists. When the owner fixes one the tracker fails and says to delete it (and, for
-// the tab bar, the `covered: 'bottom-bars-allowed'` above).
-test.describe('known defects outside this package', () => {
-  test.describe('375', () => {
-    test.use({ viewport: PHONE })
-
-    test('the tab bar and the + button do not hide the focused control', async ({ page }) => {
-      await expectDefect(
-        () => checkWalk(page, routeNamed('today')),
-        /is covered by .* when focused/,
-        'src/app/layout (scroll-padding-bottom for the fixed tab bar)',
-      )
+  /** How far the bar and the + reach up from the bottom of the window, and the page's bottom scroll padding. */
+  const reserved = (page: Page) =>
+    page.evaluate(() => {
+      const reachOf = (selector: string): number => {
+        const el = document.querySelector(selector)
+        return el ? window.innerHeight - el.getBoundingClientRect().top : 0
+      }
+      return {
+        bar: reachOf('nav[aria-label="Main"]'),
+        plus: reachOf('button[aria-label="Quick add task"]'),
+        padding: parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom) || 0,
+      }
     })
 
-    test('progress: Tab order follows the phone layout', async ({ page }) => {
-      await expectDefect(
-        () =>
-          checkWalk(
-            page,
-            { name: 'progress', url: '/progress' },
-            { covered: 'bottom-bars-allowed' },
-          ),
-        /Tab order follows the visual order[\s\S]*but sits above it/,
-        'ProgressPage.module.css (`order` below 640px against a two-column DOM)',
-      )
-    })
+  test('the page keeps scroll padding for the bar and for the + above it, and drops it when they go', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    const { bar, plus, padding } = await reserved(page)
+    // The tab bar is 56 px and the + sits 16 px above it: the padding clears whichever reaches higher.
+    expect(bar).toBeGreaterThanOrEqual(56)
+    expect(plus).toBeGreaterThan(bar)
+    expect(padding, 'scroll-padding-bottom clears the + and a little air').toBeGreaterThanOrEqual(
+      plus,
+    )
+    expect(padding, 'and is not wasteful').toBeLessThanOrEqual(plus + 16)
+
+    // A tablet has neither: the padding goes with them.
+    await page.setViewportSize(TABLET)
+    await expect(page.getByRole('navigation', { name: 'Main' }).first()).toBeVisible()
+    await expect.poll(async () => (await reserved(page)).padding).toBe(0)
+    // And comes back when the window is a phone again.
+    await page.setViewportSize(PHONE)
+    await expect.poll(async () => (await reserved(page)).padding).toBeGreaterThanOrEqual(plus)
   })
 
-  test.describe('1440', () => {
-    test.use({ viewport: DESKTOP })
-
-    test('rewards: the arrow keys walk the tabs without losing focus', async ({ page }) => {
-      await expectDefect(
-        async () => {
-          await gotoApp(page, '/rewards', 'wgu')
-          await settled(page)
-          const tabs = page.getByRole('tablist')
-          await tabs.getByRole('tab').first().focus()
-          await page.keyboard.press('ArrowRight')
-          await expect(tabs.getByRole('tab').nth(1)).toBeFocused()
-          await page.keyboard.press('ArrowRight')
-          await expect(tabs.getByRole('tab').nth(2)).toBeFocused()
-        },
-        /toBeFocused\(\) failed[\s\S]*nth\(1\)/,
-        'Shell (it remounts the page when a route param changes, and the router then focuses the heading)',
+  test('Tab down a long list never leaves a control in the page under the bar or the +', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/all', 'wgu')
+    await settled(page)
+    await expect(doneBox(page, 'Renew library card')).toBeVisible()
+    let scrolled = false
+    for (let i = 0; i < 45; i++) {
+      await page.keyboard.press('Tab')
+      const at = await page.evaluate(() => {
+        const el = document.activeElement
+        if (!el || el === document.body || !el.closest('main')) return null
+        const highest = Math.min(
+          ...['nav[aria-label="Main"]', 'button[aria-label="Quick add task"]'].flatMap(
+            (selector) => {
+              const bar = document.querySelector(selector)
+              return bar ? [bar.getBoundingClientRect().top] : []
+            },
+          ),
+        )
+        const name = el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().slice(0, 40)
+        return { name, bottom: el.getBoundingClientRect().bottom, highest, scrollY: window.scrollY }
+      })
+      if (!at) continue
+      if (at.scrollY > 0) scrolled = true
+      expect(at.bottom, `"${at.name}" after Tab ${i + 1} ends above the bars`).toBeLessThanOrEqual(
+        at.highest,
       )
-    })
-
-    test('mod+z undoes the last action (PLAN 5.2; not built yet)', async ({ page }) => {
-      await expectDefect(
-        async () => {
-          await gotoApp(page, '/', 'wgu')
-          await settled(page)
-          await page.keyboard.press('j')
-          const title = await selectedTitle(page)
-          await page.keyboard.press('x')
-          await expect(toasts(page)).toContainText(completedToast(title))
-          await page.keyboard.press('ControlOrMeta+z')
-          await expect(doneBox(page, title), 'mod+z brings the task back').toBeVisible()
-          await expect(doneBox(page, title), 'mod+z brings the task back').not.toBeChecked()
-        },
-        /mod\+z brings the task back/,
-        'the shortcut registry (register `app.undo` and bind it to the latest toast with an Undo button)',
-      )
-    })
+    }
+    expect(scrolled, 'the walk scrolled the page, so the padding did its job').toBe(true)
   })
 })
 
@@ -1551,6 +1516,243 @@ test.describe('shortcuts', () => {
 })
 
 // ── Modal: focus is trapped inside and restored on close ─────────────────────────────────────────
+
+// ── Tabs: the arrow keys walk them and focus stays on the active one ────────────────────────────
+
+test.describe('tabs (Rewards)', () => {
+  test.use({ viewport: DESKTOP })
+
+  test('the arrow keys, Home and End walk the tabs: focus stays on the active tab and the address follows', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/rewards', 'wgu')
+    await settled(page)
+    const tabs = page.getByRole('tablist', { name: 'Rewards sections' })
+    const tab = (name: string) => tabs.getByRole('tab', { name })
+
+    await tab('Shop').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(tab('Badges')).toBeFocused()
+    await expect(tab('Badges')).toHaveAttribute('aria-selected', 'true')
+    await expect(page).toHaveURL(/\/rewards\/badges$/)
+    await page.keyboard.press('ArrowRight')
+    await expect(tab('History')).toBeFocused()
+    await expect(page).toHaveURL(/\/rewards\/history$/)
+    await page.keyboard.press('ArrowLeft')
+    await expect(tab('Badges')).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(tab('Shop')).toBeFocused()
+    await expect(page).toHaveURL(/\/rewards\/shop$/)
+    await page.keyboard.press('End')
+    await expect(tab('History')).toBeFocused()
+
+    // Roving tabindex: the active tab is the strip's one Tab stop.
+    await expect(tab('History')).toHaveAttribute('tabindex', '0')
+    await expect(tab('Shop')).toHaveAttribute('tabindex', '-1')
+    await expect(tab('Badges')).toHaveAttribute('tabindex', '-1')
+    // Tab leaves the strip for the panel, and Shift+Tab comes back to the active tab, not to a neighbour.
+    await page.keyboard.press('Tab')
+    await expect(tab('History')).not.toBeFocused()
+    await expect(tabs.getByRole('tab', { selected: true })).toHaveCount(1)
+    await page.keyboard.press('Shift+Tab')
+    await expect(tab('History')).toBeFocused()
+  })
+
+  test('Back and Forward follow the tabs without taking focus from the strip', async ({ page }) => {
+    await gotoApp(page, '/rewards', 'wgu')
+    await settled(page)
+    const tabs = page.getByRole('tablist', { name: 'Rewards sections' })
+    await tabs.getByRole('tab', { name: 'Shop' }).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page).toHaveURL(/\/rewards\/badges$/)
+    await page.goBack()
+    await expect(tabs.getByRole('tab', { name: 'Shop' })).toHaveAttribute('aria-selected', 'true')
+    await expect(tabs.getByRole('tab', { name: 'Shop' })).toHaveAttribute('tabindex', '0')
+    await expect(tabs.getByRole('tab', { name: 'Badges' })).toHaveAttribute('tabindex', '-1')
+  })
+})
+
+// ── mod+z: undo the last action (PLAN 5.2) ───────────────────────────────────────────────────────
+
+test.describe('mod+z undoes the latest action', () => {
+  test.use({ viewport: DESKTOP })
+
+  const undoButton = (page: Page) => toasts(page).getByRole('button', { name: 'Undo' })
+  const nothingToUndo = (page: Page) => toasts(page).getByText('Nothing to undo')
+
+  test('complete a task, press mod+z: the task comes back and the toast reads Undone', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await page.keyboard.press('j')
+    const title = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(title))
+    await expect(doneBox(page, title)).toHaveCount(0)
+
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(doneBox(page, title), 'mod+z brings the task back').toBeVisible()
+    await expect(doneBox(page, title), 'mod+z brings the task back').not.toBeChecked()
+    // The same result a click on Undo gives: the toast says so, and its button is gone.
+    await expect(toasts(page)).toContainText('Undone')
+    await expect(undoButton(page)).toHaveCount(0)
+  })
+
+  test('it is the same Undo the button runs: a task undone with the key is exactly as one undone with a click', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    const stored = async (title: string) => {
+      const rows = await readTable<{ title: string; status: string; completedAt?: number | null }>(
+        page,
+        'tasks',
+      )
+      const row = rows.find((t) => t.title === title)
+      return row ? { status: row.status, completedAt: row.completedAt ?? null } : null
+    }
+
+    await page.keyboard.press('j')
+    const first = await selectedTitle(page)
+    const before = await stored(first)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(first))
+    await expect.poll(async () => (await stored(first))?.status).toBe('done')
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(toasts(page)).toContainText('Undone')
+    await expect.poll(() => stored(first)).toEqual(before)
+  })
+
+  test('twice undoes two actions, newest first', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await page.keyboard.press('j')
+    const first = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(first))
+    // Completing moves the selection to the next row; complete that one too.
+    const second = await selectedTitle(page)
+    expect(second).not.toBe(first)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(second))
+
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(doneBox(page, second)).toBeVisible()
+    await expect(doneBox(page, first), 'the older one is still done').toHaveCount(0)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(doneBox(page, first)).toBeVisible()
+    await expect(doneBox(page, first)).not.toBeChecked()
+    await expect(doneBox(page, second)).not.toBeChecked()
+  })
+
+  test('with nothing to undo it says so quietly, once, and changes nothing', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await expect(toasts(page).getByRole('button')).toHaveCount(0)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(nothingToUndo(page)).toBeVisible()
+    // It is a plain status: no Undo, no error, and a second press updates it instead of stacking another.
+    await expect(undoButton(page)).toHaveCount(0)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(nothingToUndo(page)).toHaveCount(1)
+    await expect(doneBox(page, 'Email mentor about term plan')).not.toBeChecked()
+  })
+
+  test("inside a text field mod+z is the field's own text undo, and the app keeps its Undo", async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/inbox', 'wgu')
+    await settled(page)
+    await expect(doneBox(page, 'Renew library card')).toBeVisible()
+    await page.keyboard.press('j')
+    const done = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText('Completed “')
+    await expect(doneBox(page, done)).toHaveCount(0)
+
+    // The selection moved to the next row: edit its title, type, then undo the typing.
+    const next = await selectedTitle(page)
+    await page.keyboard.press('e')
+    const field = page.getByRole('textbox', { name: 'Task title' })
+    await expect(field).toBeFocused()
+    await expect(field).toHaveValue(next)
+    await page.keyboard.type('ZZZ')
+    await expect(field).toHaveValue(/ZZZ/)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(field, 'the field undid its own typing').toHaveValue(next)
+    // The app's Undo was not pressed: the task is still done and its toast still offers Undo.
+    await expect(doneBox(page, done)).toHaveCount(0)
+    await expect(undoButton(page)).toBeVisible()
+    await expect(toasts(page)).not.toContainText('Undone')
+    await expect(nothingToUndo(page)).toHaveCount(0)
+
+    // Out of the field (Esc), the same key is the app's Undo.
+    await page.keyboard.press('Escape')
+    await expect(field).toHaveCount(0)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(doneBox(page, done)).toBeVisible()
+    await expect(toasts(page)).toContainText('Undone')
+  })
+
+  test('it stays quiet under a dialog: the key belongs to the dialog', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await page.keyboard.press('j')
+    const title = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(title))
+    await page.keyboard.press('ControlOrMeta+k')
+    await expect(paletteDialog(page)).toBeVisible()
+    await page.keyboard.press('ControlOrMeta+z')
+    await page.keyboard.press('Escape')
+    await expect(paletteDialog(page)).toBeHidden()
+    await expect(doneBox(page, title), 'nothing was undone behind the palette').toHaveCount(0)
+    await expect(undoButton(page)).toBeVisible()
+  })
+
+  test('the palette lists "Undo" only while a toast offers one, and runs the same Undo', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    const entry = (p: Page) => p.getByRole('option', { name: /^Undo(\s|$)/ })
+    const search = page.getByRole('combobox', { name: 'Command palette' })
+
+    await page.keyboard.press('ControlOrMeta+k')
+    await search.fill('undo')
+    await expect(page.getByRole('option').first()).toBeVisible()
+    await expect(entry(page), 'nothing to undo yet: no entry').toHaveCount(0)
+    await page.keyboard.press('Escape')
+
+    await page.keyboard.press('j')
+    const title = await selectedTitle(page)
+    await page.keyboard.press('x')
+    await expect(toasts(page)).toContainText(completedToast(title))
+    await page.keyboard.press('ControlOrMeta+k')
+    await search.fill('undo')
+    await expect(entry(page)).toHaveCount(1)
+    await expect(entry(page)).toContainText('Z')
+    await page.keyboard.press('Enter')
+    await expect(paletteDialog(page)).toBeHidden()
+    await expect(doneBox(page, title)).toBeVisible()
+    await expect(doneBox(page, title)).not.toBeChecked()
+    await expect(toasts(page)).toContainText('Undone')
+  })
+
+  test('the "?" sheet lists it with its own label and keys', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await page.keyboard.press('?')
+    const sheet = shortcutSheet(page)
+    await expect(sheet).toBeVisible()
+    await sheet.getByRole('searchbox', { name: 'Filter shortcuts' }).fill('undo')
+    const row = sheet.locator('dt', { hasText: 'Undo last action' }).locator('..')
+    await expect(row).toHaveCount(1)
+    await expect(row).toContainText('Z')
+    await expect(sheet.locator('dt')).toHaveCount(1)
+  })
+})
 
 test.describe('Modal focus', () => {
   test.use({ viewport: DESKTOP })

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRoute } from '../router'
 import { ROUTES } from '../router/routes'
+import { isTabSwitch } from './pageKey'
 import styles from './RouteAnnouncer.module.css'
 
 /** How long to wait for a lazy page to render its heading before falling back to <main>. */
@@ -35,18 +36,27 @@ function focusIsFree(main: HTMLElement): boolean {
  */
 export function RouteAnnouncer() {
   const pathname = usePathname()
-  const routeTitle = ROUTES[useRoute().name].title
+  const routeName = useRoute().name
+  const routeTitle = ROUTES[routeName].title
   const [message, setMessage] = useState('')
   const previous = useRef(pathname)
+  const previousRoute = useRef(routeName)
   const titleRef = useRef(routeTitle)
+  const routeRef = useRef(routeName)
 
   useEffect(() => {
     titleRef.current = routeTitle
+    routeRef.current = routeName
   })
 
   useEffect(() => {
     if (previous.current === pathname) return undefined
     previous.current = pathname
+    // Switching a tab of the page that is already there (Rewards): the tab holds focus and announces
+    // itself, and naming the page again over it would only be noise.
+    const from = previousRoute.current
+    previousRoute.current = routeRef.current
+    if (isTabSwitch(from, routeRef.current)) return undefined
 
     const main = document.getElementById('main')
     let finished = false

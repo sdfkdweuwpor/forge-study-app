@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   TOAST_DURATION,
+  canStartUndo,
   createToastState,
+  latestUndoable,
   partitionToasts,
   resolveDuration,
   toastReducer,
@@ -212,6 +214,98 @@ describe('toastReducer: undo lifecycle', () => {
   it('does not start an undo on a toast that is already leaving', () => {
     const leaving = run([{ type: 'dismiss', id: 'a' }], withUndo())
     expect(toastReducer(leaving, { type: 'undoStart', id: 'a' })).toBe(leaving)
+  })
+})
+
+describe('latestUndoable (the toast mod+z acts on)', () => {
+  const undo = vi.fn()
+  const offers = (id: string): NewToast => toast(id, { undo })
+  const target = (state: ToastState): string | undefined => latestUndoable(state)?.id
+
+  it('is nothing when there are no toasts, or none has an Undo', () => {
+    expect(latestUndoable(createToastState(3))).toBeUndefined()
+    expect(target(run([add('a'), add('b')]))).toBeUndefined()
+  })
+
+  it('is the most recent toast that has an Undo, not simply the most recent toast', () => {
+    const state = run([
+      { type: 'add', toast: offers('first') },
+      { type: 'add', toast: offers('second') },
+      add('plain'),
+    ])
+    expect(target(state)).toBe('second')
+  })
+
+  it('keeps a toast updated in place at its place in line', () => {
+    const state = run([
+      { type: 'add', toast: offers('a') },
+      { type: 'add', toast: offers('b') },
+      { type: 'add', toast: { ...offers('a'), title: 'A, again' } },
+    ])
+    expect(target(state)).toBe('b')
+  })
+
+  it('skips the one being undone and the one already undone, so two presses undo two actions', () => {
+    const base = run([
+      { type: 'add', toast: offers('a') },
+      { type: 'add', toast: offers('b') },
+    ])
+    const running = run([{ type: 'undoStart', id: 'b' }], base)
+    expect(target(running)).toBe('a')
+    const done = run([{ type: 'undoDone', id: 'b' }], running)
+    expect(target(done)).toBe('a')
+    const allDone = run([{ type: 'undoStart', id: 'a' }, { type: 'undoDone', id: 'a' }], done)
+    expect(target(allDone)).toBeUndefined()
+  })
+
+  it('skips a toast that is leaving', () => {
+    const state = run([
+      { type: 'add', toast: offers('a') },
+      { type: 'add', toast: offers('b') },
+      { type: 'dismiss', id: 'b' },
+    ])
+    expect(target(state)).toBe('a')
+  })
+
+  it('offers a failed undo again (its button reads Retry), but not a refused one', () => {
+    const failed = run([
+      { type: 'add', toast: offers('a') },
+      { type: 'undoStart', id: 'a' },
+      { type: 'undoFailed', id: 'a' },
+    ])
+    expect(target(failed)).toBe('a')
+    const refused = run([
+      { type: 'add', toast: offers('a') },
+      { type: 'undoStart', id: 'a' },
+      { type: 'undoFailed', id: 'a', refusal: 'The task changed since' },
+    ])
+    expect(latestUndoable(refused)).toBeUndefined()
+  })
+
+  it('never reaches for a toast that is still waiting in the queue: it has no button yet', () => {
+    const state = run(
+      ['a', 'b', 'c', 'd'].map((id): ToastAction => ({ type: 'add', toast: offers(id) })),
+    )
+    expect(partitionToasts(state).queued.map((t) => t.id)).toEqual(['d'])
+    expect(target(state)).toBe('c')
+  })
+
+  it('reaches the queued toast once a slot frees up', () => {
+    const state = run([
+      ...['a', 'b', 'c', 'd'].map((id): ToastAction => ({ type: 'add', toast: offers(id) })),
+      { type: 'dismiss', id: 'a' },
+    ])
+    expect(target(state)).toBe('d')
+  })
+
+  it('canStartUndo agrees with the reducer: what it allows, undoStart starts', () => {
+    const idle = run([{ type: 'add', toast: offers('a') }])
+    const item = idle.items[0]
+    expect(item && canStartUndo(item)).toBe(true)
+    expect(toastReducer(idle, { type: 'undoStart', id: 'a' })).not.toBe(idle)
+    const plain = run([add('p')])
+    const plainItem = plain.items[0]
+    expect(plainItem && canStartUndo(plainItem)).toBe(false)
   })
 })
 

@@ -211,6 +211,51 @@ test.describe('Progress page', () => {
     expect(cells).toBeLessThan(200)
   })
 
+  test('the sections stack in document order on a phone and run in two columns on a wide page', async ({
+    page,
+  }) => {
+    // Left column, then right: the order Tab walks the page, so what the eye meets next is what Tab meets next.
+    const order = [
+      'Focus minutes',
+      /^Time per (goal|course)$/,
+      'Estimate accuracy',
+      'Tasks finished',
+      'Best time of day',
+      'Recent badges',
+    ]
+    const boxes = async () => {
+      const found = []
+      for (const name of order) {
+        const box = await page.getByRole('heading', { name, level: 2 }).boundingBox()
+        if (!box) throw new Error(`no box for ${String(name)}`)
+        found.push({ x: Math.round(box.x), y: Math.round(box.y) })
+      }
+      return found
+    }
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await withHistory(page)
+    const phone = await boxes()
+    expect(new Set(phone.map((b) => b.x)).size, 'one column').toBe(1)
+    const tops = phone.map((b) => b.y)
+    expect(tops, 'each section is below the one before it in the document').toEqual(
+      [...tops].sort((a, b) => a - b),
+    )
+    expect(new Set(tops).size).toBe(tops.length)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await expect.poll(async () => new Set((await boxes()).map((b) => b.x)).size).toBe(2)
+    const wide = await boxes()
+    const [left, right] = [wide.slice(0, 3), wide.slice(3)]
+    expect(new Set(left.map((b) => b.x)).size, 'the first three share the left column').toBe(1)
+    expect(new Set(right.map((b) => b.x)).size, 'the last three share the right column').toBe(1)
+    expect(right[0]?.x).toBeGreaterThan(left[0]?.x ?? Infinity)
+    for (const column of [left, right]) {
+      const ys = column.map((b) => b.y)
+      expect(ys).toEqual([...ys].sort((a, b) => a - b))
+    }
+  })
+
   test('a brand-new user sees one calm empty state, not six empty charts', async ({ page }) => {
     await gotoApp(page, '/progress', 'empty')
     await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible()

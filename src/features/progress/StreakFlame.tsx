@@ -4,11 +4,14 @@
  * whether this week's automatic freeze is still there ("Best: 30 days · Freeze ready ❄️", or "Your
  * best yet" while the current run is the longest). With no streak
  * running it is a neutral, unlit flame and the tooltip only invites: "Start a streak today". There is no
- * red, no countdown and no "lost" anywhere. Clicking opens Progress. Like the level meter it shows in
- * the desktop sidebar and the tablet drawer; a phone has no sidebar footer.
+ * red, no countdown and no "lost" anywhere. Clicking opens Progress and, in the tablet drawer, closes it
+ * (`onNavigate`, like the level meter: a link to the page you are on changes no path, so the drawer
+ * would never close by itself). Like the level meter it shows in the desktop sidebar and the tablet
+ * drawer; a phone has no sidebar footer.
  */
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
+import type { SlotProps } from '@/app/registry'
 import { Link } from '@/app/router'
 import { useStreak, type StreakState } from '@/db/hooks/useStreak'
 import { Skeleton } from '@/ui/Skeleton'
@@ -35,7 +38,7 @@ function FlameSkeleton() {
   )
 }
 
-function Flame() {
+function Flame({ onNavigate }: SlotProps['sidebar.footer']) {
   const today = useToday()
   const streak = useStreak(today)
   if (streak === undefined) return <FlameSkeleton />
@@ -53,6 +56,7 @@ function Flame() {
         data-testid="streak-flame"
         data-lit={lit || undefined}
         aria-label={label}
+        onClick={onNavigate}
       >
         <span className={styles.glyph} aria-hidden="true">
           🔥
@@ -66,8 +70,8 @@ function Flame() {
   )
 }
 
-/** Slot `sidebar.footer`. */
-export function StreakFlame() {
+/** Slot `sidebar.footer`. `onNavigate` closes the tablet drawer, also when it is already on Progress. */
+export function StreakFlame({ onNavigate }: SlotProps['sidebar.footer']) {
   return (
     <ErrorBoundary
       fallback={(_error, reset) => (
@@ -76,7 +80,7 @@ export function StreakFlame() {
         </button>
       )}
     >
-      <Flame />
+      <Flame onNavigate={onNavigate} />
     </ErrorBoundary>
   )
 }

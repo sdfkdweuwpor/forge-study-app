@@ -11,14 +11,23 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { newId } from '@/lib/ids'
-import { isUndoRefused } from '@/logic/undo'
 import { getFocusable } from '../Popover/focus'
+import { runUndo } from './runUndo'
 import { ToastCard } from './ToastCard'
-import { ToastContext, type ToastApi, type ToastExtras, type ToastOptions } from './ToastContext'
+import {
+  ToastContext,
+  ToastUndoContext,
+  type ToastApi,
+  type ToastExtras,
+  type ToastOptions,
+  type ToastUndoApi,
+} from './ToastContext'
 import {
   MAX_VISIBLE_TOASTS,
   TOAST_EXIT_MS,
+  canStartUndo,
   createToastState,
+  latestUndoable,
   partitionToasts,
   resolveDuration,
   toastReducer,
@@ -79,9 +88,11 @@ function useAutoDismiss(
 interface ToastEntryProps {
   item: ToastItem
   dispatch: (action: ToastAction) => void
+  /** Starts the toast's Undo: the provider's single path, shared with `mod+z`. */
+  startUndo: (id: string) => void
 }
 
-function ToastEntry({ item, dispatch }: ToastEntryProps) {
+function ToastEntry({ item, dispatch, startUndo }: ToastEntryProps) {
   const { id } = item
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -101,24 +112,6 @@ function ToastEntry({ item, dispatch }: ToastEntryProps) {
     const timer = window.setTimeout(() => dispatch({ type: 'remove', id }), TOAST_EXIT_MS)
     return () => window.clearTimeout(timer)
   }, [item.leaving, dispatch, id])
-
-  const runUndo = () => {
-    const undo = item.undo
-    if (!undo) return
-    dispatch({ type: 'undoStart', id })
-    void (async () => {
-      try {
-        await undo()
-        dispatch({ type: 'undoDone', id })
-      } catch (error) {
-        dispatch(
-          isUndoRefused(error)
-            ? { type: 'undoFailed', id, refusal: error.message }
-            : { type: 'undoFailed', id },
-        )
-      }
-    })()
-  }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Escape') return
@@ -148,7 +141,7 @@ function ToastEntry({ item, dispatch }: ToastEntryProps) {
         description={item.description}
         phase={item.phase}
         undoRefusal={item.undoRefusal}
-        onUndo={item.undo ? runUndo : undefined}
+        onUndo={item.undo ? () => startUndo(id) : undefined}
         action={
           item.action
             ? {
@@ -181,6 +174,40 @@ export function ToastProvider({
   const viewport = useRef<HTMLDivElement>(null)
   /** What had focus when F8 took it into the stack: it gets it back when the toast it was on goes away. */
   const returnTo = useRef<HTMLElement | null>(null)
+
+  // The newest state, for callers that are not rendering (a key press), and the Undos that have been
+  // started but are not yet in it.
+  const latest = useRef(state)
+  const running = useRef(new Set<string>())
+  useEffect(() => {
+    latest.current = state
+  })
+
+  /**
+   * The one way an Undo starts, for the toast's button and for `mod+z`. Ignores a toast that offers none
+   * (gone, finished, refused) and one already running, so a double press cannot undo twice.
+   */
+  const startUndo = useCallback((id: string): boolean => {
+    const item = latest.current.items.find((candidate) => candidate.id === id)
+    if (!item || !canStartUndo(item) || running.current.has(id)) return false
+    running.current.add(id)
+    void runUndo(item, dispatch).finally(() => running.current.delete(id))
+    return true
+  }, [])
+
+  const undoApi = useMemo<ToastUndoApi>(() => {
+    const target = (): ToastItem | undefined => {
+      const item = latestUndoable(latest.current)
+      return item && !running.current.has(item.id) ? item : undefined
+    }
+    return {
+      canUndo: () => target() !== undefined,
+      undoLatest: () => {
+        const item = target()
+        return item !== undefined && startUndo(item.id)
+      },
+    }
+  }, [startUndo])
 
   const api = useMemo<ToastApi>(() => {
     const show = (options: ToastOptions): string => {
@@ -281,7 +308,7 @@ export function ToastProvider({
         aria-relevant="additions text"
       >
         {errors.map((item) => (
-          <ToastEntry key={item.id} item={item} dispatch={dispatch} />
+          <ToastEntry key={item.id} item={item} dispatch={dispatch} startUndo={startUndo} />
         ))}
       </div>
       <div
@@ -292,7 +319,7 @@ export function ToastProvider({
         aria-relevant="additions text"
       >
         {others.map((item) => (
-          <ToastEntry key={item.id} item={item} dispatch={dispatch} />
+          <ToastEntry key={item.id} item={item} dispatch={dispatch} startUndo={startUndo} />
         ))}
       </div>
     </div>
@@ -300,8 +327,10 @@ export function ToastProvider({
 
   return (
     <ToastContext.Provider value={api}>
-      {children}
-      {inline ? stack : createPortal(stack, document.body)}
+      <ToastUndoContext.Provider value={undoApi}>
+        {children}
+        {inline ? stack : createPortal(stack, document.body)}
+      </ToastUndoContext.Provider>
     </ToastContext.Provider>
   )
 }

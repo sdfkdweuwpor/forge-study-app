@@ -53,12 +53,22 @@ export async function reconcileAndAnnounce(today: ISODate = dayOf(Date.now())): 
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
 
+/**
+ * Bookkeeping waits a moment before it reads and writes. A session ending or a task being finished
+ * opens a dialog, a toast and a row animation, and those read the same tables; the streak's rows and
+ * milestones are not urgent (a flame that moves a tenth of a second later is unnoticeable), so they go
+ * second instead of competing with what the person is looking at.
+ */
+const YIELD_MS = 80
+const yieldToUi = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, YIELD_MS))
+
 const sessionEnded = defineHandler({
   id: 'streaks.sessionEnded',
   event: 'session.ended',
   async handle(event) {
     // A session under the 80% rule earns nothing, so it changes no day.
     if (!event.counted) return
+    await yieldToUi()
     await refreshDay(event.day)
     await reconcileAndAnnounce()
   },
@@ -68,6 +78,7 @@ const taskCompleted = defineHandler({
   id: 'streaks.taskCompleted',
   event: 'task.completed',
   async handle(event) {
+    await yieldToUi()
     await refreshDay(event.day)
   },
 })
@@ -76,6 +87,7 @@ const taskUncompleted = defineHandler({
   id: 'streaks.taskUncompleted',
   event: 'task.uncompleted',
   async handle(event) {
+    await yieldToUi()
     await refreshDay(event.day)
   },
 })

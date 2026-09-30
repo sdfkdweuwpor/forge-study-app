@@ -11,7 +11,7 @@ import { StreakToaster } from './StreakToaster'
  * data through `useStreak` (`@/db/hooks/useStreak`) in the today feature's `queries.ts`.
  */
 const feature: FeatureContribution = {
-  domainHandlers: [],
+  domainHandlers: streakDomainHandlers,
   onAppStart: streaksAppStart,
   slots: [
     { slot: 'sidebar.footer', id: 'streaks.flame', order: 20, component: StreakFlame },

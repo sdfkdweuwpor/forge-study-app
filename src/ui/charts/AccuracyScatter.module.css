@@ -1,0 +1,59 @@
+.grid,
+.baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.baseline {
+  stroke: var(--border-strong);
+}
+
+.tick {
+  fill: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.axis {
+  fill: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+/* "Exactly as planned": a dashed diagonal, so the ±20% band reads as a corridor around it. */
+.diagonal {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.band {
+  fill: var(--success-soft);
+}
+
+/* Filled = within the corridor, open ring = outside it: not colour alone, and never red. */
+.dotWithin {
+  fill: var(--success);
+  fill-opacity: 0.9;
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.dotOutside {
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

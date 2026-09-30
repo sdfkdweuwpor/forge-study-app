@@ -1,0 +1,97 @@
+/* Five steps from "nothing" to "most": accent mixed into the page colour, so it follows the theme and
+   the chosen accent. Level 0 is the quiet hover tone, not a colour. */
+.root {
+  --heat-0: var(--bg-hover);
+  --heat-1: color-mix(in srgb, var(--accent) 24%, var(--bg));
+  --heat-2: color-mix(in srgb, var(--accent) 44%, var(--bg));
+  --heat-3: color-mix(in srgb, var(--accent) 68%, var(--bg));
+  --heat-4: color-mix(in srgb, var(--accent) 92%, var(--bg));
+}
+
+.label {
+  fill: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.cell {
+  fill: var(--heat-0);
+}
+
+.cell[data-level='1'] {
+  fill: var(--heat-1);
+}
+
+.cell[data-level='2'] {
+  fill: var(--heat-2);
+}
+
+.cell[data-level='3'] {
+  fill: var(--heat-3);
+}
+
+.cell[data-level='4'] {
+  fill: var(--heat-4);
+}
+
+/* Today gets a hairline so "where am I" is never a guess. */
+.cell[data-today] {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+}
+
+/* Text, not colour alone: a frozen day has no focus time, so the glyph sits on the quiet level-0 tone. */
+.glyph {
+  fill: var(--accent-text);
+  pointer-events: none;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.swatches {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--heat-0);
+}
+
+.swatch[data-level='1'] {
+  background: var(--heat-1);
+}
+
+.swatch[data-level='2'] {
+  background: var(--heat-2);
+}
+
+.swatch[data-level='3'] {
+  background: var(--heat-3);
+}
+
+.swatch[data-level='4'] {
+  background: var(--heat-4);
+}
+
+.legendGlyph {
+  color: var(--accent-text);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-reduced-motion='on']) .cell {
+    transition: fill var(--dur-2) var(--ease);
+  }
+}

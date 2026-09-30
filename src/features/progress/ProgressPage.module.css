@@ -1,0 +1,111 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.lede {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+/*
+ * Two independent columns, so a short section never leaves a hole beside a tall one. Narrower than
+ * 640px the columns dissolve (display: contents) and `order` puts the six sections back in reading
+ * order: focus, tasks, time, hours, accuracy, badges.
+ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-8);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+@container (max-width: 639px) {
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+
+  .column {
+    display: contents;
+  }
+
+  .column:nth-child(1) > :nth-child(1) {
+    order: 1;
+  }
+  .column:nth-child(2) > :nth-child(1) {
+    order: 2;
+  }
+  .column:nth-child(1) > :nth-child(2) {
+    order: 3;
+  }
+  .column:nth-child(2) > :nth-child(2) {
+    order: 4;
+  }
+  .column:nth-child(1) > :nth-child(3) {
+    order: 5;
+  }
+  .column:nth-child(2) > :nth-child(3) {
+    order: 6;
+  }
+}
+
+.skeletonPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
+}
+
+@container (max-width: 639px) {
+  .skeletonPair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+@media (max-width: 639px) {
+  .title {
+    font-size: var(--fs-32);
+  }
+
+  .page {
+    gap: var(--space-8);
+  }
+}

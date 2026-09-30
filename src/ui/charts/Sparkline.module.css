@@ -1,0 +1,36 @@
+.root {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+}
+
+.line,
+.flat {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.line {
+  stroke: var(--accent);
+}
+
+.flat {
+  stroke: var(--border-strong);
+}
+
+.area {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.dot {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 2;
+  paint-order: stroke;
+}

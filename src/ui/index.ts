@@ -100,3 +100,24 @@ export {
 export type { CoverPickerProps, CoverPresetId, PageCover, PageHeaderProps } from './PageHeader'
 export { BlockEditor } from './BlockEditor'
 export type { BlockEditorProps } from './BlockEditor'
+export {
+  BarChart,
+  Heatmap,
+  HourHistogram,
+  HBarList,
+  AccuracyScatter,
+  Sparkline,
+  ChartFrame,
+} from './charts'
+export type {
+  BarChartProps,
+  BarDatum,
+  HeatmapProps,
+  HourHistogramProps,
+  HBarItem,
+  HBarListProps,
+  AccuracyScatterProps,
+  ScatterPoint,
+  SparklineProps,
+  ChartFrameProps,
+} from './charts'

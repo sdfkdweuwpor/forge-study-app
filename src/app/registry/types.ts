@@ -27,6 +27,8 @@ export type ScopeId =
   | 'review'
   | 'cards'
   | 'rewards'
+  | 'progress'
+  | 'blocker'
   | 'modal'
   | 'menu'
   | 'palette'

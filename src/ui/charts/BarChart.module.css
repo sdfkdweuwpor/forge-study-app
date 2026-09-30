@@ -1,0 +1,50 @@
+.grid,
+.baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.baseline {
+  stroke: var(--border-strong);
+}
+
+.tick {
+  fill: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The column under the active bar: a quiet wash, so a zero day can be selected too. */
+.band {
+  fill: var(--bg-hover);
+}
+
+.bar {
+  fill: color-mix(in srgb, var(--accent) 52%, var(--bg));
+  transition: fill var(--dur-1) var(--ease);
+}
+
+.bar[data-highlight] {
+  fill: var(--accent);
+}
+
+/* A day with no time is a hairline on the baseline, not a gap. */
+.zero {
+  fill: var(--border-strong);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-reduced-motion='on']) .bar {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: rise var(--dur-3) var(--ease) both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: scaleY(0.6);
+  }
+}

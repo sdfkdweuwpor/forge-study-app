@@ -1,0 +1,90 @@
+.row {
+  --fill: var(--accent);
+  --track: var(--bg-hover);
+}
+
+/* One rule per tag colour: the bar is the hue's text colour on its soft background. */
+.row[data-color='gray'] {
+  --fill: var(--tag-gray-text);
+  --track: var(--tag-gray-bg);
+}
+
+.row[data-color='brown'] {
+  --fill: var(--tag-brown-text);
+  --track: var(--tag-brown-bg);
+}
+
+.row[data-color='orange'] {
+  --fill: var(--tag-orange-text);
+  --track: var(--tag-orange-bg);
+}
+
+.row[data-color='yellow'] {
+  --fill: var(--tag-yellow-text);
+  --track: var(--tag-yellow-bg);
+}
+
+.row[data-color='green'] {
+  --fill: var(--tag-green-text);
+  --track: var(--tag-green-bg);
+}
+
+.row[data-color='blue'] {
+  --fill: var(--tag-blue-text);
+  --track: var(--tag-blue-bg);
+}
+
+.row[data-color='purple'] {
+  --fill: var(--tag-purple-text);
+  --track: var(--tag-purple-bg);
+}
+
+.row[data-color='pink'] {
+  --fill: var(--tag-pink-text);
+  --track: var(--tag-pink-bg);
+}
+
+.row[data-color='red'] {
+  --fill: var(--tag-red-text);
+  --track: var(--tag-red-bg);
+}
+
+.wash {
+  fill: transparent;
+}
+
+.row[data-active] .wash {
+  fill: var(--bg-hover);
+}
+
+.label {
+  fill: var(--text);
+}
+
+.value {
+  fill: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  fill: var(--track);
+}
+
+.fill {
+  fill: var(--fill);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-reduced-motion='on']) .fill {
+    transform-box: fill-box;
+    transform-origin: 0 50%;
+    animation: grow var(--dur-3) var(--ease) both;
+  }
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0.4);
+    opacity: 0;
+  }
+}

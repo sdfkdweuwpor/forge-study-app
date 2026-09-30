@@ -39,7 +39,10 @@
   height: var(--sub-row-h, 28px);
 }
 
+/* 24 px wide at least (WCAG 2.2 target size, axe target-size); the negative margin keeps the row as it was. */
 .toggle {
+  width: 24px;
+  margin-inline: -2px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -60,6 +63,10 @@
   .toggle,
   .toggleSpace {
     width: var(--tap-min);
+  }
+
+  .toggle {
+    margin-inline: 0;
   }
 }
 

@@ -1,10 +1,16 @@
 import { Trophy } from 'lucide-react'
+import { lazy } from 'react'
 import type { FeatureContribution } from './feature'
 import { dailyGoalHandler, gamificationAppStart } from './handlers'
-import { LevelBadge, LevelRow } from './LevelCompact'
-import { LevelMeter } from './LevelMeter'
 import { LevelUp } from './LevelUp'
 import { DailyGoalToast } from './XpFloatToasts'
+
+const LevelBadge = lazy(() => import('./LevelCompact').then((m) => ({ default: m.LevelBadge })))
+const LevelRow = lazy(() => import('./LevelCompact').then((m) => ({ default: m.LevelRow })))
+
+// The sidebar meter is drawn from a live query, so it is its own chunk (fetched while the shell paints,
+// see app/bootPreload.ts) and not part of the first download.
+const LevelMeter = lazy(() => import('./LevelMeter').then((m) => ({ default: m.LevelMeter })))
 
 /**
  * XP and levels (6A): the level meter in the sidebar footer, the level-up moment, the daily-goal bonus

@@ -94,7 +94,7 @@ async function handleAppMessage(message: AppMessage): Promise<AppResponse> {
   }
 }
 
-/** The app (Netlify origin or localhost) talking to the extension. */
+/** The app (GitHub Pages, the Netlify fallback or localhost) talking to the extension. */
 chrome.runtime.onMessageExternal.addListener((message: unknown, sender, sendResponse) => {
   if (!isAllowedOrigin(sender.url)) {
     sendResponse({ ok: false, error: 'Unauthorized origin' } satisfies AppResponse)

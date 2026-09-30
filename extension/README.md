@@ -63,7 +63,7 @@ extension does not know the theme chosen in the app.
 
 ## Message protocol (app to extension)
 
-`chrome.runtime.sendMessage(EXTENSION_ID, message, callback)` from the Netlify origin, `http://localhost:*` or
+`chrome.runtime.sendMessage(EXTENSION_ID, message, callback)` from the app's origin (GitHub Pages, or the Netlify fallback), `http://localhost:*` or
 `http://127.0.0.1:*`. Every message has `v: 1`, and the whole payload is validated (`isAppMessage` in
 `src/shared/protocol.ts`); anything else gets `{ ok: false, error }`.
 

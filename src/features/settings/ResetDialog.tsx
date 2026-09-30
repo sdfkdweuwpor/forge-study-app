@@ -1,5 +1,6 @@
 import { Download } from 'lucide-react'
 import { useState } from 'react'
+import { useSyncOn } from '@/db/hooks/useSyncState'
 import { Button } from '@/ui/Button'
 import { Input } from '@/ui/Input'
 import { Modal } from '@/ui/Modal'
@@ -19,6 +20,7 @@ interface ResetDialogProps {
 export function ResetDialog({ open, busy, error, onCancel, onConfirm }: ResetDialogProps) {
   const [typed, setTyped] = useState('')
   const exporter = useBackupExport()
+  const syncOn = useSyncOn()
   const ready = isResetPhrase(typed)
 
   function close() {
@@ -59,6 +61,12 @@ export function ResetDialog({ open, busy, error, onCancel, onConfirm }: ResetDia
           Forge keeps a snapshot of your data inside the app first, but a file on your device is
           safer.
         </p>
+        {syncOn ? (
+          <p className={styles.safety}>
+            Sync will be turned off on this device. Your other devices and the cloud copy keep their
+            data.
+          </p>
+        ) : null}
         <div>
           <Button
             size="sm"

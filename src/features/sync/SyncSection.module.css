@@ -1,0 +1,278 @@
+/*
+ * Settings → Sync. It matches the sections next to it: a small muted heading over a hairline, then plain
+ * rows. Hierarchy comes from type and spacing; the only tinted blocks are the notices, and those are the
+ * things that need the person.
+ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  scroll-margin-top: var(--space-8);
+}
+
+.heading {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.lead {
+  max-width: 42rem;
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.help {
+  max-width: 42rem;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-wrap: pretty;
+}
+
+.title {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 32rem;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The project the person chose, as one quiet line. */
+.project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--fs-14);
+}
+
+.projectLabel {
+  color: var(--text-muted);
+}
+
+.host {
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+}
+
+/* The one line that says how syncing is going. */
+.statusRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-faint);
+  transform: translateY(-1px);
+}
+
+.dot[data-tone='ok'] {
+  background: var(--success);
+}
+
+.dot[data-tone='attention'] {
+  background: var(--warning);
+}
+
+.status {
+  min-width: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  text-wrap: pretty;
+}
+
+.tail {
+  color: var(--text-muted);
+  font-weight: var(--fw-regular);
+}
+
+/* What the first sync is doing: a spinner and a quiet count. */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-6);
+  margin: 0;
+  font-size: var(--fs-14);
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Something the person can act on: tinted, never red. */
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 42rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.notice[data-tone='attention'] {
+  background: var(--warning-soft);
+}
+
+.codeInput input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-md);
+  color: var(--accent-text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link svg {
+  width: 14px;
+  height: 14px;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 32rem;
+}
+
+/* The disclosures at the bottom: "What sync can't do" and the free-plan notes. */
+.disclosures {
+  display: flex;
+  flex-direction: column;
+  max-width: 42rem;
+  border-top: 1px solid var(--border);
+}
+
+.disclosure {
+  border-bottom: 1px solid var(--border);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  color: var(--text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.summary:hover {
+  color: var(--accent-text);
+}
+
+.limits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 0 var(--space-4);
+  list-style: none;
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.limits strong {
+  font-weight: var(--fw-semibold);
+}
+
+.limits span {
+  color: var(--text-muted);
+}
+
+.sql {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 14rem;
+  margin: 0;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  line-height: var(--lh-body);
+  resize: vertical;
+  white-space: pre;
+}
+
+@media (pointer: coarse) {
+  .link {
+    min-height: var(--tap-min);
+  }
+}
+
+@media (max-width: 639px) {
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .facts dd {
+    margin-bottom: var(--space-2);
+  }
+}

@@ -2,19 +2,22 @@ import { BookOpen, Check, Plus, Target } from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest, SearchProvider } from '@/app/registry'
 import { recordError } from '@/app/reportError'
+import { currentPath } from '@/app/router'
 import { defineHandler } from '@/db/events'
 import { waitForStartupSync } from '@/db/repos/syncGate'
-import { GoalsNav } from './GoalsNav'
-import { withPlanImport } from './import'
+import { withPlanImport } from './import/manifest'
 import { openNewGoalFlow } from './newGoal'
-import { searchGoals } from './queries'
 import { goalShortcuts } from './shortcuts'
+
+/** The goal tree in the sidebar: its own chunk, fetched while the shell paints (app/bootPreload.ts). */
+const GoalsNav = lazy(() => import('./GoalsNav').then((m) => ({ default: m.GoalsNav })))
 
 /** Palette search over goal titles and course titles and codes ("c182", "web dev"). */
 const goalSearch: SearchProvider = {
   id: 'goals',
   group: 'Goals',
   async search(query, limit) {
+    const { searchGoals } = await import('./queries')
     const hits = await searchGoals(query, limit)
     return hits.map((hit) => ({
       id: `${hit.kind}:${hit.courseId ?? hit.goalId}`,
@@ -30,10 +33,10 @@ const goalSearch: SearchProvider = {
 }
 
 const onGoalPage = (): boolean =>
-  /^\/goals\/[^/]+\/?$/.test(window.location.pathname) &&
-  !window.location.pathname.startsWith('/goals/new')
+  /^\/goals\/[^/]+\/?$/.test(currentPath()) &&
+  !currentPath().startsWith('/goals/new')
 const onCoursePage = (): boolean =>
-  /^\/goals\/[^/]+\/courses\/[^/]+\/?$/.test(window.location.pathname)
+  /^\/goals\/[^/]+\/courses\/[^/]+\/?$/.test(currentPath())
 
 const commands: CommandDef[] = [
   {

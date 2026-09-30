@@ -1,17 +1,13 @@
 import { useEffect } from 'react'
 import { useToast } from '@/ui'
-import {
-  downloadCalendar,
-  exportTasksCsv,
-  exportTasksMarkdown,
-  type ExportOutcome,
-} from './actions'
+import type { ExportOutcome } from './actions'
 import { EXPORT_EVENT, type ExportCommand } from './commandBus'
 
+// The exporters (repositories, CSV, Markdown, .ics) load when the first export is asked for.
 const RUN: Record<ExportCommand, () => Promise<ExportOutcome>> = {
-  csv: () => exportTasksCsv(),
-  markdown: () => exportTasksMarkdown(),
-  ics: () => downloadCalendar(),
+  csv: async () => (await import('./actions')).exportTasksCsv(),
+  markdown: async () => (await import('./actions')).exportTasksMarkdown(),
+  ics: async () => (await import('./actions')).downloadCalendar(),
 }
 
 /** Renders nothing; runs exports requested from the palette or the keyboard and reports them in a toast. */

@@ -292,7 +292,9 @@ test.describe('app-wide toasts', () => {
   test('one toast region with live regions exists on every page', async ({ page }) => {
     for (const path of ['/', '/settings']) {
       await gotoApp(page, path)
-      const region = page.getByRole('region', { name: 'Notifications' })
+      // `exact`: the Notifications row in Settings has a region of its own whose name contains the word, and
+      // the page now draws it on the first render (its chunk is fetched while the database opens).
+      const region = page.getByRole('region', { name: 'Notifications', exact: true })
       await expect(region, `${path} has the toast region`).toHaveCount(1)
       await expect(region.locator('[aria-live="polite"]')).toHaveCount(1)
       await expect(region.locator('[aria-live="assertive"]')).toHaveCount(1)

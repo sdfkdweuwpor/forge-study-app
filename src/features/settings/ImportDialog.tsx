@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useSyncOn } from '@/db/hooks/useSyncState'
 import { BACKUP_CONTEXT } from '@/db/repos/backup'
 import { summarizeBackup, type BackupFile } from '@/logic/backup'
 import { Button } from '@/ui/Button'
@@ -32,6 +33,7 @@ export function ImportDialog({
   onConfirm,
 }: ImportDialogProps) {
   const summary = useMemo(() => summarizeBackup(file, BACKUP_CONTEXT), [file])
+  const syncOn = useSyncOn()
   return (
     <Modal
       open={open}
@@ -81,6 +83,11 @@ export function ImportDialog({
           Importing <strong>replaces everything</strong> on this device. Before it does, Forge
           downloads your current data as a file and keeps a snapshot inside the app.
         </p>
+        {syncOn ? (
+          <p className={styles.note}>
+            Sync is on: this also replaces the data on your other devices.
+          </p>
+        ) : null}
         {error ? (
           <p className={styles.error} role="alert">
             Nothing was changed. {error}

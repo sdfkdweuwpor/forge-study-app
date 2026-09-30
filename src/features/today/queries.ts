@@ -6,15 +6,12 @@
  * (`streakDays` rows kept by the progress feature, freezes computed by `computeStreak`).
  */
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo } from 'react'
 import { db } from '@/db/db'
 import { useStreak as useStreakState } from '@/db/hooks/useStreak'
-import { useOpenTasks } from '@/db/hooks/useTasks'
 import { loadStreak } from '@/db/repos/progress'
-import type { ID, ISODate, Task } from '@/db/types'
+import type { ID, ISODate } from '@/db/types'
 import { addDays, startOfWeekISO } from '@/logic/dates'
 import { timePerGoal, type GoalTime } from '@/logic/timeLogged'
-import { pickNow } from '@/logic/today'
 import {
   buildHeatmap,
   pomodorosDone,
@@ -22,7 +19,6 @@ import {
   type Countdown,
   type Heatmap,
 } from '@/logic/todayStats'
-import { useToday } from '@/app/hooks/useToday'
 import { useSettings } from '@/db/hooks/useSettings'
 
 /** What a task's chip needs to name its course. */
@@ -114,18 +110,7 @@ export function useUpcomingTargets(today: ISODate, limit = 3): Countdown[] | und
   }, [today, limit])
 }
 
-/**
- * The single task to do next (`pickNow`), live. `null` when nothing is actionable, `undefined` while
- * loading. Other features (Phase 4's Start focus shortcut, a sidebar timer) can read it through the
- * `@/features/today` index.
- */
-export function useNowTask(): Task | null | undefined {
-  // Only open tasks can be next (`pickNow` drops the rest), and this runs on every page (the Start focus
-  // hotkey): reading every task ever finished on each write would be wasted work.
-  const tasks = useOpenTasks()
-  const today = useToday()
-  return useMemo(() => (tasks ? pickNow(tasks, { today }) : undefined), [tasks, today])
-}
+export { useNowTask } from './nowTask'
 
 export interface GoalLabel {
   title: string

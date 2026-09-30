@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import manifest from '../manifest.json'
-import { APP_ORIGIN, DEFAULT_EXTENSION_ID } from './shared/config.js'
+import { APP_ORIGIN, DEFAULT_EXTENSION_ID, FALLBACK_ORIGIN } from './shared/config.js'
 import { deriveExtensionId } from './shared/extensionId.js'
 
 describe('manifest.json', () => {
@@ -8,9 +8,10 @@ describe('manifest.json', () => {
     expect(await deriveExtensionId(manifest.key)).toBe(DEFAULT_EXTENSION_ID)
   })
 
-  it('lets only the app and localhost talk to the extension, matching APP_ORIGIN', () => {
+  it('lets only the app (GitHub Pages and Netlify) and localhost talk to the extension', () => {
     expect(manifest.externally_connectable.matches).toEqual([
       `${APP_ORIGIN}/*`,
+      `${FALLBACK_ORIGIN}/*`,
       'http://localhost/*',
       'http://127.0.0.1/*',
     ])

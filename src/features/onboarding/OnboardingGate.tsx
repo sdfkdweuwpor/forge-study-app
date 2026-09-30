@@ -3,10 +3,9 @@ import { recordError } from '@/app/reportError'
 import { navigate, usePathname } from '@/app/router'
 import { useSettings } from '@/db/hooks/useSettings'
 import { getSettings } from '@/db/repos/settings'
-import { markOnboarded } from './actions'
-import { gateDecision } from '@/logic/onboarding'
+import { gateDecision } from '@/logic/onboardingGate'
 import { PREF_KEYS, readPref } from '@/lib/localPrefs'
-import { useHasUserData } from './queries'
+import { syncIsOn, useHasUserData } from './queries'
 
 /**
  * Test builds (`VITE_ENABLE_SEED=1`: dev, Playwright) can switch the gate off with a device pref, so a
@@ -26,7 +25,7 @@ const bypassRequested = (): boolean => BYPASS_ENABLED && readPref(PREF_KEYS.skip
 export function OnboardingGate({ children }: { children: ReactNode }) {
   const settings = useSettings()
   const pathname = usePathname()
-  const bypass = bypassRequested()
+  const bypass = bypassRequested() || syncIsOn()
   const onboardedAt = settings?.onboardedAt
   // Looking for data is only needed while onboarding has not happened.
   const hasData = useHasUserData(onboardedAt === null && !bypass)
@@ -34,7 +33,10 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (decision === 'mark') {
-      markOnboarded(Date.now()).catch((e: unknown) => recordError(e, 'onboarding.gate'))
+      // The writer (and the sample-task code beside it) loads only for the rare person who needs it.
+      import('./actions')
+        .then(({ markOnboarded }) => markOnboarded(Date.now()))
+        .catch((e: unknown) => recordError(e, 'onboarding.gate'))
     }
     if (decision !== 'redirect') return undefined
     // A page that has just finished onboarding writes the date and then navigates; this component's

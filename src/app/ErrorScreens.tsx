@@ -4,10 +4,9 @@ import { copyText } from '@/lib/clipboard'
 import { isChunkLoadError } from '@/logic/chunkError'
 import { buildErrorReport } from '@/logic/errorReport'
 import { reloadOnceForChunkError } from './chunkReload'
-import { exportAllData } from './exportData'
 import type { FatalState } from './fatal'
 import { getRecordedErrors } from './reportError'
-import { href } from './router'
+import { currentPath, href } from './router'
 import styles from './ErrorScreens.module.css'
 
 /** Reports what a recovery button did, in the one status line under the buttons. */
@@ -20,6 +19,8 @@ function ExportButton({ onStatus }: { onStatus: OnStatus }) {
     setBusy(true)
     onStatus('')
     try {
+      // The backup code is only for this button, so it loads when the button is pressed.
+      const { exportAllData } = await import('./exportData')
       const r = await exportAllData()
       // A note means something was left out (attached files over the size limit): say so, don't hide it.
       const left = r.notes.length > 0 ? ` ${r.notes.join(' ')}` : ''
@@ -59,7 +60,7 @@ function CopyDetailsButton({
         where,
         appVersion: appVersion(),
         userAgent: navigator.userAgent,
-        url: `${window.location.pathname}${window.location.search}`,
+        url: `${currentPath()}${window.location.search}`,
         at: Date.now(),
         recent: getRecordedErrors(),
       })

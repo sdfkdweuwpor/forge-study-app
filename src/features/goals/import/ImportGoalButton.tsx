@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
-import { href, navigate, setQuery, useQuery } from '@/app/router'
+import { appPath, currentPath, navigate, setQuery, useQuery } from '@/app/router'
 import { Button } from '@/ui/Button'
 import { EmptyState } from '@/ui/EmptyState'
 import { Modal } from '@/ui/Modal'
@@ -40,7 +40,7 @@ export function ImportGoalButton({ variant = 'secondary', size = 'md' }: ImportG
   }
   // Undo removes a goal the page may be showing: go back to the list instead of a missing goal.
   const onUndone = (run: ImportRun): void => {
-    if (window.location.pathname === href('goal', { goalId: run.goalId })) navigate('goals')
+    if (currentPath() === appPath('goal', { goalId: run.goalId })) navigate('goals')
   }
 
   return (

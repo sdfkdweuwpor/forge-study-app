@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSyncOn } from '@/db/hooks/useSyncState'
 import { formatBytes, snapshotContents, snapshotKindLabel, whenLabel } from '@/logic/retention'
 import type { SnapshotInfo } from '@/db/repos/snapshots'
 import { Button } from '@/ui/Button'
@@ -21,6 +22,7 @@ export function RestoreDialog({ snapshot: asked, now, busy, error, onCancel, onC
   if (asked && asked !== kept) setKept(asked)
   const snapshot = asked ?? kept
   const inside = snapshot ? snapshotContents(snapshot.counts) : ''
+  const syncOn = useSyncOn()
   return (
     <Modal
       open={asked !== null}
@@ -71,6 +73,11 @@ export function RestoreDialog({ snapshot: asked, now, busy, error, onCancel, onC
           Attached PDFs aren’t part of a snapshot: the ones on this device, including any in the
           Trash, stay as they are.
         </p>
+        {syncOn ? (
+          <p className={styles.note}>
+            Sync is on: this also replaces the data on your other devices.
+          </p>
+        ) : null}
         {error ? (
           <p className={styles.error} role="alert">
             {error}

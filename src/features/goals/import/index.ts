@@ -10,27 +10,9 @@
  * This file is imported by the app on every load, so it must not import Zod or the Dexie queries: the flow
  * (and everything with them) is loaded lazily when a panel or dialog is opened.
  */
-import type { FeatureManifest, SlotContribution } from '@/app/registry'
-import { importCommands } from './commands'
-import { ImportPanel } from './ImportPanel'
-import { importShortcuts } from './shortcuts'
-
 export { ImportGoalButton } from './ImportGoalButton'
 export type { ImportGoalButtonProps } from './ImportGoalButton'
 export { ImportPanel } from './ImportPanel'
 export { importCommands } from './commands'
 export { importShortcuts } from './shortcuts'
-
-export const importSlots: SlotContribution[] = [
-  { slot: 'goal.panels', id: 'goals.import', order: 90, component: ImportPanel },
-]
-
-/** The manifest plus the import's slots, commands and shortcuts (the manifest's own are kept). */
-export function withPlanImport(manifest: FeatureManifest): FeatureManifest {
-  return {
-    ...manifest,
-    slots: [...(manifest.slots ?? []), ...importSlots],
-    commands: [...(manifest.commands ?? []), ...importCommands],
-    shortcuts: [...(manifest.shortcuts ?? []), ...importShortcuts],
-  }
-}
+export { importSlots, withPlanImport } from './manifest'

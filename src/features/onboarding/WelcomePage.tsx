@@ -331,7 +331,13 @@ export default function WelcomePage() {
     <div className={styles.root}>
       <div className={styles.top}>
         <div className={styles.brand}>
-          <img className={styles.mark} src="/favicon.svg" alt="" width={22} height={22} />
+          <img
+            className={styles.mark}
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
+            alt=""
+            width={22}
+            height={22}
+          />
           <span>Forge</span>
         </div>
         <Button variant="ghost" loading={leaving} onClick={() => void skipSetup()}>

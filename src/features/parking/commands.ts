@@ -1,5 +1,6 @@
 import { CircleParking, Inbox } from 'lucide-react'
 import type { CommandDef } from '@/app/registry'
+import { currentPath } from '@/app/router'
 import { isFocusSessionRunning, openParking, requestParkedReview, waitingThoughts } from './store'
 
 /**
@@ -8,7 +9,7 @@ import { isFocusSessionRunning, openParking, requestParkedReview, waitingThought
  * ("prog" finds "Park a thought"), so a command that is always there would sit above "Go to Progress"
  * for anyone who types the start of a page name.
  */
-const onFocusPage = (): boolean => window.location.pathname.startsWith('/focus')
+const onFocusPage = (): boolean => currentPath().startsWith('/focus')
 
 export const parkingCommands: CommandDef[] = [
   {

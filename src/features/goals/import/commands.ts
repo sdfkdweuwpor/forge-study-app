@@ -1,6 +1,6 @@
 import { Sparkles } from 'lucide-react'
 import type { CommandDef } from '@/app/registry'
-import { setQuery } from '@/app/router'
+import { currentPath, setQuery } from '@/app/router'
 
 export type ImportPlace =
   /** On a goal page: open its import panel by setting the flag in place. */
@@ -32,7 +32,7 @@ export const importCommands: CommandDef[] = [
     keywords: ['claude', 'json', 'paste', 'outline', 'courses', 'prompt', 'ai', 'import'],
     shortcutId: 'goals.import',
     run: (c) => {
-      const place = whereToImport(window.location.pathname)
+      const place = whereToImport(currentPath())
       if (place.kind === 'goalPage') setQuery({ import: '1' })
       else if (place.kind === 'coursePage') {
         c.navigate('goal', { goalId: place.goalId }, { query: { import: '1' } })

@@ -1,11 +1,23 @@
 import { CalendarArrowUp, Check, Play, SkipForward } from 'lucide-react'
 import { lazy } from 'react'
 import type { FeatureManifest, ShortcutDef } from '@/app/registry'
-import { MilestoneCountdown, MiniHeatmap } from './Aside'
-import { DailyGoalStat, StreakStat, XpTodayStat } from './HeaderStats'
-import { TimePerGoalCard } from './TimeAside'
 import { StartFocusHotkey } from './StartFocusHotkey'
 import { requestTodayAction } from './todayActions'
+
+// Slot components load as their own chunks (fetched while the page does, see app/bootPreload.ts), so the
+// first download holds the shell and not every page's cards.
+const MilestoneCountdown = lazy(() =>
+  import('./Aside').then((m) => ({ default: m.MilestoneCountdown })),
+)
+const MiniHeatmap = lazy(() => import('./Aside').then((m) => ({ default: m.MiniHeatmap })))
+const DailyGoalStat = lazy(() =>
+  import('./HeaderStats').then((m) => ({ default: m.DailyGoalStat })),
+)
+const StreakStat = lazy(() => import('./HeaderStats').then((m) => ({ default: m.StreakStat })))
+const XpTodayStat = lazy(() => import('./HeaderStats').then((m) => ({ default: m.XpTodayStat })))
+const TimePerGoalCard = lazy(() =>
+  import('./TimeAside').then((m) => ({ default: m.TimePerGoalCard })),
+)
 
 /**
  * Today's own shortcuts. They live in the `today` scope, so they only exist while the page is open,

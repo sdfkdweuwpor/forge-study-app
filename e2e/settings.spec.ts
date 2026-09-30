@@ -178,6 +178,7 @@ test.describe('the page', () => {
       'Routines',
       'Site blocker',
       'Export & calendar',
+      'Sync',
       'Snapshots',
       'Data',
     ])

@@ -1,7 +1,8 @@
 import { Sparkles, SkipForward } from 'lucide-react'
 import { lazy } from 'react'
 import type { FeatureManifest } from '@/app/registry'
-import { isWelcomePath } from '@/logic/onboarding'
+import { currentPath } from '@/app/router'
+import { isWelcomePath } from '@/logic/onboardingGate'
 import { OnboardingGate } from './OnboardingGate'
 import { onboardingShortcuts } from './shortcuts'
 
@@ -23,7 +24,7 @@ const manifest: FeatureManifest = {
       icon: Sparkles,
       keywords: ['welcome', 'setup', 'set up', 'tour', 'intro', 'getting started', 'first run'],
       // Already there: nothing to replay.
-      when: () => !isWelcomePath(window.location.pathname),
+      when: () => !isWelcomePath(currentPath()),
       run: (c) => c.navigate('welcome'),
     },
     {
@@ -33,7 +34,7 @@ const manifest: FeatureManifest = {
       icon: SkipForward,
       keywords: ['onboarding', 'welcome', 'later', 'close', 'leave'],
       shortcutId: 'onboarding.skipSetup',
-      when: () => isWelcomePath(window.location.pathname),
+      when: () => isWelcomePath(currentPath()),
       run: (c) => c.invoke('onboarding.skipSetup'),
     },
   ],

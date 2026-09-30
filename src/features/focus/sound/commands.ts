@@ -1,10 +1,13 @@
 import { AudioLines, Bell, CloudRain, Coffee, VolumeX, Waves } from 'lucide-react'
 import type { CommandDef, ShortcutDef } from '@/app/registry'
 import { getSettings } from '@/db/repos/settings'
-import { unlockAudio } from '@/lib/audio'
-import { notifyPermission } from '@/lib/notify'
+import { unlockAudio } from '@/lib/audio/engine'
 import { runtime } from '../runtime'
-import { allowNotifications, chooseAmbient, toggleAmbient, toggleSounds } from './actions'
+
+// What the commands do lives in `./actions` with the ambient beds and the settings code behind them, which
+// load when a sound command first runs (not with the app). `unlockAudio` stays a static import: it has to
+// run before the first `await`, while the key press that chose the command still counts as a gesture.
+const soundActions = () => import('./actions')
 
 /** Shortcut ids. `soundCommands` points at `AMBIENT_SHORTCUT_ID`, so register both lists together. */
 export const AMBIENT_SHORTCUT_ID = 'focus.ambient'
@@ -18,7 +21,7 @@ export const soundShortcuts: ShortcutDef[] = [
     group: 'Focus',
     scope: 'focus',
     run: () => {
-      void toggleAmbient()
+      void soundActions().then((a) => a.toggleAmbient())
     },
   },
 ]
@@ -40,7 +43,7 @@ function ambientCommand(
     run: async () => {
       if (runtime()?.soundEnabled()) void unlockAudio()
       const { sound } = await getSettings()
-      await chooseAmbient(kind, sound.ambientVolume)
+      await (await soundActions()).chooseAmbient(kind, sound.ambientVolume)
     },
   }
 }
@@ -54,7 +57,7 @@ export const soundCommands: CommandDef[] = [
     icon: Waves,
     keywords: ['ambient', 'sound', 'noise', 'music', 'mute'],
     shortcutId: AMBIENT_SHORTCUT_ID,
-    run: () => toggleAmbient(),
+    run: async () => (await soundActions()).toggleAmbient(),
   },
   ambientCommand('command.sound.brown', 'Ambient sound: brown noise', 'brown', AudioLines, [
     'brown',
@@ -74,7 +77,7 @@ export const soundCommands: CommandDef[] = [
     group: 'Focus',
     icon: VolumeX,
     keywords: ['mute', 'unmute', 'silent', 'chime', 'volume'],
-    run: () => toggleSounds(),
+    run: async () => (await soundActions()).toggleSounds(),
   },
   {
     id: 'command.sound.notifications',
@@ -82,9 +85,11 @@ export const soundCommands: CommandDef[] = [
     group: 'Focus',
     icon: Bell,
     keywords: ['notification', 'notify', 'ping', 'alert', 'permission'],
-    when: () => notifyPermission() === 'default',
+    // `lib/notify` (with the prompt code) loads with the first sound command; the question here is only
+    // whether the browser has the API and has not been asked.
+    when: () => typeof Notification !== 'undefined' && Notification.permission === 'default',
     run: async () => {
-      await allowNotifications()
+      await (await soundActions()).allowNotifications()
     },
   },
 ]

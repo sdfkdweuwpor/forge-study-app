@@ -1,6 +1,7 @@
 import { Download, Maximize, ZoomIn, ZoomOut } from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest, ShortcutDef } from '@/app/registry'
+import { currentPath } from '@/app/router'
 
 /**
  * My World (Phase 8A): `/world`, the isometric city that grows as work gets finished. The engine is
@@ -20,7 +21,7 @@ const shortcuts: ShortcutDef[] = [
   { id: 'world.export', keys: 'e', description: 'Export the city as a PNG', group, scope },
 ]
 
-const onWorldPage = (): boolean => /^\/world\/?$/.test(window.location.pathname)
+const onWorldPage = (): boolean => /^\/world\/?$/.test(currentPath())
 
 const commands: CommandDef[] = [
   {

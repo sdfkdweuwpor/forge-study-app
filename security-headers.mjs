@@ -18,7 +18,10 @@ const csp = [
   // The favicon lookup origin is here too, though the page only loads those icons as <img> (img-src).
   // The service worker caches them (vite.config.ts, runtime caching), and a fetch() made inside a worker
   // is checked against the worker script's own connect-src, whatever the request was for.
-  "connect-src 'self' https://icons.duckduckgo.com",
+  // Cloud sync (PLAN §4.7.2): a static wildcard, because a CSP is fixed at build time and cannot follow the
+  // project URL a person types into Settings later. It covers every hosted Supabase project and nothing
+  // else (no wss:, realtime is not used); custom domains and self-hosted Supabase cannot sync.
+  "connect-src 'self' https://icons.duckduckgo.com https://*.supabase.co",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",

@@ -1,11 +1,17 @@
+import { lazy } from 'react'
 import type { FeatureManifest } from '@/app/registry'
 import { parkingCommands } from './commands'
-import { FocusParking } from './FocusAside'
-import { ParkingHost } from './ParkingHost'
-import { SessionParked } from './SessionParked'
-import { SidebarPark } from './SidebarPark'
 import { parkingShortcuts } from './shortcuts'
-import { ParkedTodayCard } from './TodayCard'
+
+const FocusParking = lazy(() => import('./FocusAside').then((m) => ({ default: m.FocusParking })))
+const ParkingHost = lazy(() => import('./ParkingHost').then((m) => ({ default: m.ParkingHost })))
+const SessionParked = lazy(() =>
+  import('./SessionParked').then((m) => ({ default: m.SessionParked })),
+)
+const SidebarPark = lazy(() => import('./SidebarPark').then((m) => ({ default: m.SidebarPark })))
+const ParkedTodayCard = lazy(() =>
+  import('./TodayCard').then((m) => ({ default: m.ParkedTodayCard })),
+)
 
 /**
  * The distraction parking lot (Phase 11a, BRIEF §5.11). A thought or urge typed during focus is saved for

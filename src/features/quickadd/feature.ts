@@ -1,6 +1,11 @@
 import { Plus } from 'lucide-react'
+import { lazy } from 'react'
 import type { CommandCtx, FeatureManifest } from '@/app/registry'
-import { QuickAddOverlay } from './QuickAddOverlay'
+
+/** The dialog, the parser and the task repository load the first time quick add opens (or when idle). */
+const QuickAddOverlay = lazy(() =>
+  import('./QuickAddOverlay').then((m) => ({ default: m.QuickAddOverlay })),
+)
 
 /** The palette's native dialog and the shortcut sheet sit above quick add, so they close first. */
 function openQuickAdd(c: CommandCtx): void {

@@ -9,7 +9,15 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react'
-import { consumeScrollFlag, getUrl, pushUrl, serverUrl, subscribeLocation } from './location'
+import {
+  consumeScrollFlag,
+  currentPath,
+  getUrl,
+  pushUrl,
+  serverUrl,
+  subscribeLocation,
+  toHref,
+} from './location'
 import { buildPath, buildQuery, matchRoute, parseQuery } from './match'
 import {
   ROUTES,
@@ -48,9 +56,22 @@ function routeDocumentTitle(name: RouteName): string {
 
 type LooseParams = Record<string, string | undefined>
 
-export function href<N extends RouteName>(name: N, ...args: RouteArgs<N, Query>): string {
+/**
+ * The base-less app path of a route (`/tasks/inbox`): the form routes, saved views and `navigate` use,
+ * and the one to compare with `currentPath()`.
+ */
+export function appPath<N extends RouteName>(name: N, ...args: RouteArgs<N, Query>): string {
   const [params, query] = args as [LooseParams | undefined, Query | undefined]
   return `${buildPath(ROUTES[name].path, params)}${buildQuery(query)}`
+}
+
+/**
+ * The URL of a route as the browser needs it (`/forge-study-app/tasks/inbox` on GitHub Pages, the same
+ * as `appPath` on Netlify). Use it for a real `<a href>` so opening in a new tab works; do not compare it
+ * with `currentPath()` or store it (use `appPath`).
+ */
+export function href<N extends RouteName>(name: N, ...args: RouteArgs<N, Query>): string {
+  return toHref(appPath(name, ...args))
 }
 
 export interface NavigateOptions {
@@ -67,8 +88,9 @@ export function navigate<N extends RouteName>(
 }
 
 /**
- * Navigate to an already-built app URL (e.g. one stored in a saved view). Only same-origin paths with a
- * single leading `/` are accepted; `//host`, absolute URLs and control characters return false.
+ * Navigate to an already-built app URL (e.g. one stored in a saved view, which is base-less; a `href()`
+ * result also works). Only same-origin paths with a single leading `/` are accepted; `//host`, absolute
+ * URLs and control characters return false.
  */
 export function navigateToUrl(url: string, replace = false): boolean {
   return pushUrl(url, replace)
@@ -77,7 +99,7 @@ export function navigateToUrl(url: string, replace = false): boolean {
 /** Merge `patch` into the current query string (undefined/'' removes a key), keeping the path. */
 export function setQuery(patch: Query, replace = true): void {
   const next = { ...parseQuery(window.location.search), ...patch }
-  pushUrl(`${window.location.pathname}${buildQuery(next)}`, replace)
+  pushUrl(`${currentPath()}${buildQuery(next)}`, replace)
 }
 
 // ── Provider + hooks ────────────────────────────────────────────────────────────────────────────
@@ -174,6 +196,7 @@ interface LinkImplProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'h
 /** A real `<a href>`: modified clicks (⌘/Ctrl/Shift/middle) and target=_blank keep native behaviour. */
 export function Link<N extends RouteName>(props: LinkProps<N>) {
   const { to, params, query, replace, onClick, target, children, ...rest } = props as LinkImplProps
+  // `url` is the base-less app path that `pushUrl` takes; only the anchor's `href` gets the base.
   const url = `${buildPath(ROUTES[to].path, params)}${buildQuery(query)}`
 
   function handleClick(e: MouseEvent<HTMLAnchorElement>) {
@@ -194,7 +217,7 @@ export function Link<N extends RouteName>(props: LinkProps<N>) {
   }
 
   return (
-    <a {...rest} href={url} target={target} onClick={handleClick}>
+    <a {...rest} href={toHref(url)} target={target} onClick={handleClick}>
       {children}
     </a>
   )

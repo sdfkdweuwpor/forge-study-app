@@ -9,6 +9,7 @@ import {
   gateDecision,
   initialChips,
   isEmptyPlan,
+  isSyncSetupPath,
   isWelcomePath,
   nextStep,
   planBlocklist,
@@ -61,6 +62,14 @@ describe('gateDecision', () => {
   it('keeps someone who is already on the welcome page there', () => {
     expect(gateDecision({ ...base, pathname: '/welcome' })).toBe('pass')
     expect(gateDecision({ ...base, pathname: '/welcome/' })).toBe('pass')
+  })
+
+  it('lets a first launch stay on Settings, Sync, so a phone can set up sync before any data exists', () => {
+    expect(gateDecision({ ...base, pathname: '/settings/sync' })).toBe('pass')
+    expect(gateDecision({ ...base, pathname: '/settings/sync/' })).toBe('pass')
+    expect(gateDecision({ ...base, pathname: '/settings/data' })).toBe('redirect')
+    // Nothing is marked while the first sync brings the data in.
+    expect(gateDecision({ ...base, hasData: true, pathname: '/settings/sync' })).toBe('pass')
   })
 
   it('marks a person with existing data as onboarded without showing the flow', () => {
@@ -243,5 +252,15 @@ describe('first goal', () => {
     expect(choiceTemplate('wgu')).toBe('wgu-term')
     expect(choiceTemplate('other')).toBeNull()
     expect(choiceTemplate('none')).toBeNull()
+  })
+})
+
+describe('isSyncSetupPath', () => {
+  it('is the Sync section and nothing else', () => {
+    expect(isSyncSetupPath('/settings/sync')).toBe(true)
+    expect(isSyncSetupPath('/settings/sync/')).toBe(true)
+    expect(isSyncSetupPath('/settings')).toBe(false)
+    expect(isSyncSetupPath('/settings/synchronise')).toBe(false)
+    expect(isSyncSetupPath('/welcome')).toBe(false)
   })
 })

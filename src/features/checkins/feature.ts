@@ -1,7 +1,13 @@
+import { lazy } from 'react'
 import type { FeatureManifest } from '@/app/registry'
-import { BestHoursCard } from './BestHoursCard'
-import { CheckInPrompt } from './CheckInPrompt'
 import { checkInShortcuts } from './shortcuts'
+
+const BestHoursCard = lazy(() =>
+  import('./BestHoursCard').then((m) => ({ default: m.BestHoursCard })),
+)
+const CheckInPrompt = lazy(() =>
+  import('./CheckInPrompt').then((m) => ({ default: m.CheckInPrompt })),
+)
 
 /**
  * Focus check-ins (Phase 11b, BRIEF §5.11). After a session, a one-line "How was your focus?" (1 to 5,

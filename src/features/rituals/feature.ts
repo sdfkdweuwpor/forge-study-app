@@ -1,11 +1,11 @@
 import { lazy } from 'react'
 import type { FeatureManifest } from '@/app/registry'
 import { ritualCommands } from './commands'
-import { RitualPrompt } from './TodayPrompt'
 import { ritualShortcuts } from './shortcuts'
-import { Top3Card } from './Top3Card'
 
-// The dialogs, the Settings sections and the Progress card are not needed for the first paint.
+// The dialogs, the Today cards, the Settings sections and the Progress card are not needed for the first paint.
+const RitualPrompt = lazy(() => import('./TodayPrompt').then((m) => ({ default: m.RitualPrompt })))
+const Top3Card = lazy(() => import('./Top3Card').then((m) => ({ default: m.Top3Card })))
 const RitualRoute = lazy(() => import('./RitualRoute'))
 const RitualsHost = lazy(() => import('./RitualsHost').then((m) => ({ default: m.RitualsHost })))
 const RitualsSection = lazy(() =>

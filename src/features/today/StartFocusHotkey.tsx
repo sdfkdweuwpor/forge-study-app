@@ -1,5 +1,5 @@
 import { useShortcutHandler } from '@/app/shortcuts'
-import { useNowTask } from './queries'
+import { useNowTask } from './nowTask'
 import { startFocus } from './startFocus'
 
 /**

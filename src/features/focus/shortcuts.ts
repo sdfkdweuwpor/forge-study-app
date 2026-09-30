@@ -1,5 +1,4 @@
 import type { ShortcutDef } from '@/app/registry'
-import { toggleAmbient } from './sound/actions'
 
 const group = 'Focus'
 const fsGroup = 'Full-screen focus'
@@ -31,7 +30,8 @@ export const focusShortcuts: ShortcutDef[] = [
     group: fsGroup,
     scope: 'fullscreen',
     run: () => {
-      void toggleAmbient()
+      // The ambient beds load with the first press, not with the app.
+      void import('./sound/actions').then((a) => a.toggleAmbient())
     },
   },
   { id: 'focus.fs.exit', keys: 'f', description: 'Leave full screen', group: fsGroup, scope: 'fullscreen' },

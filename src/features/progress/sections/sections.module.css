@@ -22,16 +22,11 @@
   text-wrap: pretty;
 }
 
+/* A link inside a sentence is underlined: colour alone does not show it (WCAG 1.4.1, axe link-in-text-block). */
 .link {
   color: var(--accent-text);
-  text-decoration: none;
-}
-
-@media (hover: hover) {
-  .link:hover {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .heading {

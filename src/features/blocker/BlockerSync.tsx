@@ -16,7 +16,8 @@ import { syncEngine } from './sync'
 
 export const PULL_INTERVAL_MS = 60_000
 
-function SyncRunner() {
+/** The sync itself; the manifest loads it after the first screen (see `feature.ts`). */
+export function SyncRunner() {
   const config = useBlockerConfig()
   const session = useSessionState()
 

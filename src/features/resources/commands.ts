@@ -1,9 +1,10 @@
 import { FileText, Link as LinkIcon, StickyNote } from 'lucide-react'
 import type { CommandDef } from '@/app/registry'
+import { currentPath } from '@/app/router'
 
 /** True on a course page, where the resources panel is. */
 const onCoursePage = (): boolean =>
-  /^\/goals\/[^/]+\/courses\/[^/]+\/?$/.test(window.location.pathname)
+  /^\/goals\/[^/]+\/courses\/[^/]+\/?$/.test(currentPath())
 
 /**
  * Palette entries for adding to the course you are on. Each calls a handler the panel binds (see

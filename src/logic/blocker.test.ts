@@ -108,12 +108,18 @@ describe('checkBlockDomain', () => {
       problem: 'self',
     })
     expect(checkBlockDomain('netlify.app', [])).toMatchObject({ ok: false, problem: 'self' })
+    expect(checkBlockDomain('sdfkdweuwpor.github.io', [])).toMatchObject({
+      ok: false,
+      problem: 'self',
+    })
+    expect(checkBlockDomain('github.io', [])).toMatchObject({ ok: false, problem: 'self' })
     expect(checkBlockDomain('http://127.0.0.1:5173', [])).toMatchObject({
       ok: false,
       problem: 'self',
     })
     expect(checkBlockDomain('localhost', [])).toMatchObject({ ok: false, problem: 'invalid' })
     // A sibling site on the same host is fine.
+    expect(checkBlockDomain('other.github.io', [])).toEqual({ ok: true, value: 'other.github.io' })
     expect(checkBlockDomain('other.netlify.app', [])).toEqual({
       ok: true,
       value: 'other.netlify.app',

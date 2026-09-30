@@ -1,7 +1,6 @@
 import { ArchiveRestore, Camera, Trash2 } from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest } from '@/app/registry'
-import { scheduleSafetyChores } from './chores'
 import { requestSnapshotNow } from './commandBus'
 import { safetyShortcuts } from './shortcuts'
 import { trashIsKnownEmpty } from './trashCount'
@@ -69,6 +68,7 @@ const manifest: FeatureManifest = {
   ],
   onAppStart: async ({ now, today }) => {
     // Scheduled, not awaited: the app's start-up runs every feature's hook one after the other.
+    const { scheduleSafetyChores } = await import('./chores')
     scheduleSafetyChores({ now, today })
   },
 }

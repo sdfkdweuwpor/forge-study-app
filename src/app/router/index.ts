@@ -1,7 +1,9 @@
 export * from './routes'
+export { currentPath } from './location'
 export {
   Link,
   RouterProvider,
+  appPath,
   href,
   navigate,
   navigateToUrl,

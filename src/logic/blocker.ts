@@ -9,7 +9,7 @@
  * extension id). Nothing here reads a clock or the database.
  */
 import type { BlockWindow, BlocklistEntry, Session, Settings } from '@/db/types'
-import { APP_ORIGIN } from '@ext/config'
+import { APP_ORIGIN, FALLBACK_ORIGIN } from '@ext/config'
 import {
   hostMatchesDomain,
   normalizeAllowEntry,
@@ -21,8 +21,13 @@ import { clockOf, plannedEndAt } from './timer'
 
 // ─── Domains ────────────────────────────────────────────────────────────────
 
-/** The address Forge itself lives at: blocking it (or a parent of it) would lock the app out. */
-const APP_HOST = new URL(APP_ORIGIN).hostname
+/**
+ * The addresses Forge itself lives at (GitHub Pages and the Netlify fallback): blocking one of them, or a
+ * parent of one, would lock the app out.
+ */
+const APP_HOSTS: readonly string[] = [APP_ORIGIN, FALLBACK_ORIGIN].map(
+  (origin) => new URL(origin).hostname,
+)
 
 /** Hosts the app is served from during development. They can never be blocked either. */
 const LOCAL_HOSTS: readonly string[] = ['localhost', '127.0.0.1']
@@ -71,7 +76,7 @@ export function checkBlockDomain(raw: string, existing: readonly DomainRow[]): C
   const domain = normalizeBlockDomain(raw)
   if (domain === null)
     return fail('invalid', 'That doesn’t look like a website. Try something like reddit.com.')
-  if (LOCAL_HOSTS.includes(domain) || hostMatchesDomain(APP_HOST, domain)) {
+  if (LOCAL_HOSTS.includes(domain) || APP_HOSTS.some((host) => hostMatchesDomain(host, domain))) {
     return fail('self', 'That would block Forge itself, so it can’t be added.')
   }
   if (existing.some((row) => row.domain === domain)) {

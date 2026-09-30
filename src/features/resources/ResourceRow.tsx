@@ -8,6 +8,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
+import { useSyncOn } from '@/db/hooks/useSyncState'
 import { hostLabel, KIND_LABELS, notePreview, safeHref } from '@/logic/resources'
 import { formatBytes } from '@/logic/retention'
 import { Checkbox } from '@/ui/Checkbox'
@@ -17,6 +18,14 @@ import type { ResourceView } from './queries'
 import styles from './ResourceRow.module.css'
 
 const KIND_ICON = { link: LinkIcon, pdf: FileText, note: StickyNote } as const
+
+/** Why a PDF has no file here: with sync on, because PDFs stay on the device they were added on. */
+function MissingFile() {
+  const syncOn = useSyncOn()
+  return syncOn
+    ? "This PDF isn't on this device. PDFs stay on the device they were added on."
+    : 'File missing. It wasn’t included in the backup this came from.'
+}
 
 export interface ResourceRowProps {
   resource: ResourceView
@@ -100,13 +109,13 @@ export function ResourceRow({
 
   const preview = notePreview(notes, 140, kind === 'note' ? title : undefined)
   const facts: string[] = []
-  let warning: string | null = null
+  let warning: ReactNode = null
   if (kind === 'link') {
     if (href !== null) facts.push(hostLabel(href))
     else warning = 'Not a web link, so it can’t be opened.'
   } else if (kind === 'pdf') {
     if (resource.file) facts.push(`PDF · ${formatBytes(resource.file.size)}`)
-    else warning = 'File missing. It wasn’t included in the backup this came from.'
+    else warning = <MissingFile />
   }
   if (kind !== 'note' && preview !== '') facts.push(preview)
   const meta = kind === 'note' ? (expanded ? '' : preview) : facts.join(' · ')

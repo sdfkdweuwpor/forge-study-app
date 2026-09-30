@@ -9,23 +9,24 @@ import {
 } from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest, SearchProvider } from '@/app/registry'
-import { navigate, setQuery } from '@/app/router'
+import { currentPath, navigate, setQuery } from '@/app/router'
 import { dayOf } from '@/logic/dates'
-import { relativeDay } from '@/logic/taskDisplay'
-import { listFromParam, type TaskListId } from '@/logic/taskLists'
-import { searchTasks } from './queries'
-import { SavedViewsNav } from './SavedViewsNav'
+import type { TaskListId } from '@/logic/taskLists'
 import { taskShortcuts } from './shortcuts'
 import { isSuggestionsCardMounted, openSuggestionsCard } from './suggestionsCard'
-import { rememberLayout } from './views/LayoutSwitch'
 import { viewShortcuts } from './views/viewShortcuts'
-import { canSaveView, type TaskLayout } from '@/logic/taskViews'
+import type { TaskLayout } from '@/logic/taskViews'
 
 /** Palette search over task titles, notes, checklists and tags. Choosing a result opens the task's page. */
 const taskSearch: SearchProvider = {
   id: 'tasks',
   group: 'Tasks',
   async search(query, limit) {
+    // The repository, the text search and the date wording load with the first search, not with the app.
+    const [{ searchTasks }, { relativeDay }] = await Promise.all([
+      import('./queries'),
+      import('@/logic/taskDisplay'),
+    ])
     const hits = await searchTasks(query, limit)
     return hits.map(({ task, in: where }) => ({
       id: task.id,
@@ -46,6 +47,11 @@ const taskSearch: SearchProvider = {
   },
 }
 
+/** The saved views under Tasks in the sidebar. */
+const SavedViewsNav = lazy(() =>
+  import('./SavedViewsNav').then((m) => ({ default: m.SavedViewsNav })),
+)
+
 /** Loads with Settings, not with the app. */
 const EverydayHoursSection = lazy(() =>
   import('./EverydayHours').then((m) => ({ default: m.EverydayHoursSection })),
@@ -54,13 +60,15 @@ const EverydayHoursSection = lazy(() =>
 /** Both routes are one page: `/tasks/views/:viewId` is the Tasks screen showing a saved view. */
 const TasksPage = lazy(() => import('./TasksPage'))
 
-const onTasksPage = (): boolean => window.location.pathname.startsWith('/tasks')
+const onTasksPage = (): boolean => currentPath().startsWith('/tasks')
 
 /** Saved views cover open tasks, so Completed has nothing to save. */
 const canSaveHere = (): boolean => {
   if (!onTasksPage()) return false
-  const [, second] = window.location.pathname.split('/').filter(Boolean)
-  return second === 'views' || canSaveView(listFromParam(second))
+  const [, second] = currentPath().split('/').filter(Boolean)
+  // Every other list and every saved view can be saved (`canSaveView` in `logic/taskViews`, which is not in
+  // the first download, says the same).
+  return second !== 'completed'
 }
 
 /**
@@ -69,16 +77,21 @@ const canSaveHere = (): boolean => {
  */
 function showAs(layout: TaskLayout): (c: { navigate: typeof navigate }) => void {
   return (c) => {
-    const segments = window.location.pathname.split('/').filter(Boolean)
+    const segments = currentPath().split('/').filter(Boolean)
     if (segments[0] === 'tasks' && segments[1] === 'views') {
       setQuery({ layout })
       return
     }
     if (onTasksPage()) {
-      const list: TaskListId = listFromParam(segments[1])
-      rememberLayout(list, layout)
-      // Written into the address even for the list, so the page re-renders whatever it showed before.
-      setQuery({ layout })
+      // The remembered layout is written first, then the address, so the page re-renders with both.
+      void Promise.all([import('@/logic/taskLists'), import('./views/LayoutSwitch')]).then(
+        ([{ listFromParam }, { rememberLayout }]) => {
+          const list: TaskListId = listFromParam(segments[1])
+          rememberLayout(list, layout)
+          // Written into the address even for the list, so the page re-renders whatever it showed before.
+          setQuery({ layout })
+        },
+      )
       return
     }
     c.navigate('tasks', { list: 'all' }, { query: { layout } })

@@ -1,10 +1,12 @@
 import { Route } from 'lucide-react'
 import { lazy } from 'react'
 import type { FeatureManifest } from '@/app/registry'
-import { href, navigateToUrl } from '@/app/router'
-import { cycleZoom } from './zoom'
+import { currentPath, href, navigateToUrl } from '@/app/router'
 
-const onRoadmap = (): boolean => window.location.pathname.replace(/\/$/, '') === '/roadmap'
+/** The zoom preference and its list of zooms load when the key is pressed (or with the page). */
+const cycleZoom = (): void => void import('./zoom').then((m) => m.cycleZoom())
+
+const onRoadmap = (): boolean => currentPath().replace(/\/$/, '') === '/roadmap'
 
 /**
  * The Roadmap: one lane per active goal over the coming months. `g r` is Rewards, so "Go to Roadmap" is

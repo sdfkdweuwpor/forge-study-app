@@ -1,4 +1,5 @@
 import type { Ref } from 'react'
+import { Link } from '@/app/router'
 import { DAILY_GOAL_MAX, DAILY_GOAL_MIN, NAME_MAX, focusHint } from '@/logic/onboarding'
 import { Input } from '@/ui/Input'
 import { Stepper } from './Stepper'
@@ -49,6 +50,12 @@ export function NameStep({ name, onName, goal, onGoal, pomodoroMin, nameRef }: N
           {focusHint(goal, pomodoroMin)}
         </p>
       </section>
+
+      <p className={styles.small}>
+        <Link to="settings" params={{ section: 'sync' }} className={styles.link}>
+          Already use Forge on another device? Set up sync first.
+        </Link>
+      </p>
     </div>
   )
 }

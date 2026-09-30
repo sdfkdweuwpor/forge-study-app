@@ -3,46 +3,14 @@
  * stepper says, and how the distracting-sites step turns a person's picks into blocklist changes. Nothing
  * here reads a clock or the database; the onboarding feature feeds it and applies the result.
  */
-import type { BlocklistEntry, ID, Millis } from '@/db/types'
+import type { BlocklistEntry, ID } from '@/db/types'
 import { checkBlockDomain, normalizeBlockDomain, type Checked } from './blocker'
 
 // ─── The gate ───────────────────────────────────────────────────────────────
+// Kept in `onboardingGate.ts` so the app shell does not load the rest of this file; re-exported here.
 
-/** The path of the full-page onboarding route. */
-export const WELCOME_PATH = '/welcome'
-
-export function isWelcomePath(pathname: string): boolean {
-  return pathname === WELCOME_PATH || pathname === `${WELCOME_PATH}/`
-}
-
-export interface GateInput {
-  /** `undefined` while settings are loading; `null` when the person has never been through onboarding. */
-  onboardedAt: Millis | null | undefined
-  /** Whether any task or goal exists. `undefined` while it is being checked. */
-  hasData: boolean | undefined
-  pathname: string
-  /** A test build asked to skip the gate (`localPrefs.skipOnboarding`). */
-  bypass: boolean
-}
-
-/**
- * - `wait`: not enough is known yet; render nothing rather than flash the wrong page.
- * - `pass`: render the app as it is.
- * - `redirect`: first launch on an empty database: go to `/welcome`.
- * - `mark`: someone with data who was never onboarded (an update, an import): record it silently and
- *   render the app; they never see the flow.
- */
-export type GateDecision = 'wait' | 'pass' | 'redirect' | 'mark'
-
-export function gateDecision({ onboardedAt, hasData, pathname, bypass }: GateInput): GateDecision {
-  if (bypass) return 'pass'
-  if (onboardedAt === undefined) return 'wait'
-  if (onboardedAt !== null) return 'pass'
-  if (hasData === undefined) return 'wait'
-  const onWelcome = isWelcomePath(pathname)
-  if (hasData) return onWelcome ? 'pass' : 'mark'
-  return onWelcome ? 'pass' : 'redirect'
-}
+export { WELCOME_PATH, gateDecision, isSyncSetupPath, isWelcomePath } from './onboardingGate'
+export type { GateDecision, GateInput } from './onboardingGate'
 
 // ─── Steps ──────────────────────────────────────────────────────────────────
 

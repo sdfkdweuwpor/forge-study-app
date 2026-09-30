@@ -1,9 +1,13 @@
 import { CalendarCheck } from 'lucide-react'
 import { lazy } from 'react'
-import { navigate } from '@/app/router'
+import { currentPath, navigate } from '@/app/router'
 import type { CommandDef, ShortcutDef } from '@/app/registry'
 import type { FeatureContribution } from './feature'
-import { WeeklyReviewPrompt } from './WeeklyReviewPrompt'
+
+// The Sunday card is one of Today's aside cards: its own chunk, fetched with the page.
+const WeeklyReviewPrompt = lazy(() =>
+  import('./WeeklyReviewPrompt').then((m) => ({ default: m.WeeklyReviewPrompt })),
+)
 
 /**
  * The weekly review (7C): `/review/:weekStart?`, a Sunday card in Today's right-hand column, the palette
@@ -11,7 +15,7 @@ import { WeeklyReviewPrompt } from './WeeklyReviewPrompt'
  * `shift+d` marks the review done; each of them is also a palette command that works while the page is
  * open. The page binds their handlers, so the keys do nothing anywhere else.
  */
-const onReviewPage = (): boolean => window.location.pathname.startsWith('/review')
+const onReviewPage = (): boolean => currentPath().startsWith('/review')
 
 const shortcuts: ShortcutDef[] = [
   {

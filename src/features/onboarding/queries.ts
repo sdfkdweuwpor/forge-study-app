@@ -27,3 +27,11 @@ export function useHasUserData(enabled: boolean): boolean | undefined {
 export async function hasStarterTasks(): Promise<boolean> {
   return (await db.tasks.filter((t) => t.source === 'onboarding').count()) > 0
 }
+
+/**
+ * Whether sync is on for this device (an in-memory flag). Then the account's settings decide whether
+ * onboarding happened, so the gate must neither mark this device onboarded nor send it to the welcome
+ * page while the first sync brings the data: a settings write made in the middle of it would be newer than
+ * the account's row, and the first sync would push this device's defaults over the account's settings.
+ */
+export const syncIsOn = (): boolean => db.syncTracker.enabled

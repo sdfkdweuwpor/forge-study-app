@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { celebrate } from '@/app/celebrate'
 import { onDomainEvent } from '@/db/events'
 import { dayOf } from '@/logic/dates'
-import { formatXp } from '@/logic/taskDisplay'
 
 /**
  * Slot `global.overlays`: says so when the daily goal pays out, in gold: "Daily goal hit · +25 XP". It
@@ -17,7 +16,10 @@ export function DailyGoalToast() {
       onDomainEvent('xp.changed', (e) => {
         if (e.source !== 'dailyGoal' || e.amount <= 0) return
         if (e.day !== dayOf(Date.now())) return
-        celebrate({ id: `dailyGoal:${e.day}`, title: `Daily goal hit · ${formatXp(e.amount)}` })
+        // The wording helper (with the task display code around it) is not in the first download.
+        void import('@/logic/taskDisplay').then(({ formatXp }) => {
+          celebrate({ id: `dailyGoal:${e.day}`, title: `Daily goal hit · ${formatXp(e.amount)}` })
+        })
       }),
     [],
   )

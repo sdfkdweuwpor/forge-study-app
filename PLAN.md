@@ -1,7 +1,7 @@
 # Forge — Execution Plan
 
 > `BRIEF.md` is the source of truth. This file covers **how** we build it. `DECISIONS.md` explains the reasons behind non-obvious choices.
-> Branch: `claude/sharp-thompson-tklurt` · Deploy: **Netlify** (`https://forge-study-app.netlify.app`, single constant `APP_ORIGIN`).
+> Branch: `claude/sharp-thompson-tklurt` · Deploy: **GitHub Pages** (`https://sdfkdweuwpor.github.io/forge-study-app/`, built with `--base /forge-study-app/`; constants `APP_ORIGIN` + `APP_PATH` = `APP_URL`), Netlify (`https://forge-study-app.netlify.app`, root) kept as a fallback.
 > Extension ID (stable, from the manifest `key`): **`gpinhblnpebjbiodblihfpjbffacipbd`**.
 
 ---
@@ -52,7 +52,7 @@ logic/      PURE functions: no React, Dexie, DOM or Date.now(); time is injected
   - `getEvents {since}` → `{events: BlockEvent[], cursor}`
 - A `BlockerSync` provider watches the active session and the blocker settings/blocklist through liveQuery and pushes changes. That makes it decoupled from the focus feature. On app start, on `visibilitychange` and every 60 s it pulls events and `bulkPut`s them into `blockEvents`. Event ids come from the extension, so this is idempotent.
 - The extension keeps everything in `chrome.storage.local`, so blocking works with the app closed. The service worker rebuilds DNR dynamic rules on config/session/unlock change and at schedule boundaries (`chrome.alarms`). `onMessageExternal` checks `sender.url` against the allowed origins.
-- `externally_connectable.matches`: `https://forge-study-app.netlify.app/*`, `http://localhost/*`, `http://127.0.0.1/*`. Netlify deploy previews won't match, and the Blocker page says so.
+- `externally_connectable.matches`: `https://sdfkdweuwpor.github.io/*`, `https://forge-study-app.netlify.app/*`, `http://localhost/*`, `http://127.0.0.1/*`. `isAllowedOrigin` narrows the Pages origin to the `/forge-study-app/` path. Netlify deploy previews won't match, and the Blocker page says so.
 
 ### 1.5 Plug-in shell (so parallel builders rarely touch shared files)
 - `src/app/router/routes.ts` holds the **complete typed route table for all phases**, written in Phase 1. Features never edit it.
@@ -105,9 +105,11 @@ export interface SlotContribution<S extends SlotId = SlotId> { slot: S; id: stri
 ├─ .github/workflows/
 │   ├─ ci.yml                     # push/PR: typecheck, lint, test, build
 │   ├─ deploy.yml                 # push to main → netlify-cli deploy --prod (skips if secrets missing)
+│   ├─ pages.yml                  # push to main → vite build --base /forge-study-app/ → scripts/pages-postbuild.mjs → GitHub Pages
 │   └─ extension-release.yml      # push to main (extension/**) + dispatch → forge-extension.zip Release
 ├─ scripts/
 │   ├─ shoot.spec.ts              # screenshot runner (light/dark × 1440/375; 768 in P13)
+│   ├─ pages-postbuild.mjs        # GitHub Pages: 404.html = app, meta CSP from security-headers.mjs, .nojekyll
 │   ├─ shots/<feature>.ts         # per-feature shot lists (auto-discovered; no shared edits)
 │   ├─ build-extension.mjs        # tsc output + static files + Inter woff2 + tokens.css → extension/dist
 │   ├─ extension-id.mjs           # prints ID derived from manifest key (sanity check)

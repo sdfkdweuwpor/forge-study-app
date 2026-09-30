@@ -2,7 +2,7 @@
 
 Forge helps you stay focused, plan your day, and break big goals (like a WGU bachelor's degree spanning 1+ years) into small daily tasks. It protects your focus with a Chrome extension that blocks distracting sites during study sessions, rewards progress with XP, streaks, and badges, and grows a visual world as you complete work. Single user, no login, works offline.
 
-**Live app:** https://forge-study-app.netlify.app
+**Live app:** https://sdfkdweuwpor.github.io/forge-study-app/
 
 ## Status
 
@@ -35,18 +35,16 @@ npm run format           # Prettier
 
 Seeding replaces the stored data, so it only exists in builds compiled with `VITE_ENABLE_SEED=1`: `npm run dev` and the Playwright web servers set it. A deployed build ignores `?seed=`.
 
-## Deploy (Netlify)
+## Hosting
 
-The site is deployed to Netlify as `forge-study-app`.
+The app is hosted on GitHub Pages at https://sdfkdweuwpor.github.io/forge-study-app/ and deploys on every push to `main` (`.github/workflows/pages.yml`; you can also run it by hand from the Actions tab).
 
-- **Build:** `npm run build` → `dist/`
-- **SPA:** `netlify.toml` rewrites all routes to `/index.html`
-- **Headers:** Security headers (CSP, etc.) are written by `security-headers.mjs` → `dist/_headers`
-- **GitHub Actions (optional):** `.github/workflows/deploy.yml` pushes to `main` branch if secrets are set:
-  - `NETLIFY_AUTH_TOKEN`
-  - `NETLIFY_SITE_ID` (the app ID, not the site name)
-  
-  If these secrets are absent, the workflow skips. Alternatively, connect the repo in Netlify's UI and delete `.github/workflows/deploy.yml` to avoid double deploys.
+One-time setup: in the repo, **Settings → Pages → Build and deployment → Source: GitHub Actions**. Nothing else is needed, and there are no secrets.
+
+- **Base path:** the Pages build is `vite build --base /forge-study-app/`; the same code built with the default base serves from `/` (Netlify, `npm run preview`). The app keeps paths base-less inside and adds the base only at the URL boundary (`src/app/router/location.ts`).
+- **Deep links:** Pages answers an unknown path with `404.html`, so `scripts/pages-postbuild.mjs` makes that file a copy of the app (`/forge-study-app/tasks` loads Tasks). On the very first visit the browser logs a 404 for the page; once the service worker is installed it does not.
+- **Headers:** Pages cannot send response headers, so the script puts the Content-Security-Policy from `security-headers.mjs` into a `<meta>` tag. A meta policy cannot carry `frame-ancestors`, and the other headers (`nosniff`, `Referrer-Policy`, …) are not sent on Pages.
+- **Netlify fallback:** `netlify.toml` and the optional `.github/workflows/deploy.yml` (repo secrets `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID`) still deploy the same code to https://forge-study-app.netlify.app from the root.
 
 ## Install the app on your phone (PWA)
 

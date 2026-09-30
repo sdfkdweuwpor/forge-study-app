@@ -20,3 +20,4 @@ playwright.*.tmp.config.ts
 test-results-*/
 playwright.*.config.ts
 !playwright.shoot.config.ts
+dist-e2e-*/

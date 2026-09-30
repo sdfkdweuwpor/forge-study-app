@@ -58,13 +58,23 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
   const gone = session === null
   const taskOpen = task != null && task.status !== 'done'
 
-  // The dialog opens before its session and task have loaded, when the only button is Close. Once the
-  // answers are there, focus (which fell to the page when Close went away) moves to the likely one.
+  // The dialog opens before its session and task have loaded, when the only button is Close. When the
+  // answers replace it, the Modal's focus trap can catch the lost focus on the first control ("Add note")
+  // before this effect runs, so don't test where focus is: whenever the answers (re)appear, after
+  // loading or after leaving the note editor, focus moves to the likely one.
   const answer = useRef<HTMLButtonElement | null>(null)
+  const refocus = useRef(true)
   useEffect(() => {
-    if (!open || loading || noting) return
-    const active = document.activeElement
-    if (active === null || active === document.body || active.getAttribute('role') === 'dialog') {
+    if (!open) {
+      refocus.current = true
+      return
+    }
+    if (loading || noting) {
+      refocus.current = true
+      return
+    }
+    if (refocus.current) {
+      refocus.current = false
       answer.current?.focus({ preventScroll: true })
     }
   }, [open, loading, noting])

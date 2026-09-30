@@ -1,0 +1,146 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+  padding-bottom: var(--space-8);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  scroll-margin-top: var(--space-8);
+}
+
+.topActions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stepCount {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--fs-32);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* ── Step bar ─────────────────────────────────────────────────────────────── */
+.steps ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-14);
+  cursor: pointer;
+}
+
+.steps button:disabled {
+  cursor: default;
+}
+
+.steps li[aria-current='step'] button {
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+
+.stepNumber {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.steps li[data-done] .stepNumber {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.steps li[aria-current='step'] .stepNumber {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+@media (pointer: coarse) {
+  .steps button {
+    min-height: var(--tap-min);
+  }
+}
+
+@media (max-width: 639px) {
+  /* Only the current step keeps its name; the rest are numbers. */
+  .steps li:not([aria-current='step']) .stepName {
+    display: none;
+  }
+}
+
+.body {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.keyHint {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.footerActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+@media (max-width: 639px) {
+  .keyHint {
+    display: none;
+  }
+}

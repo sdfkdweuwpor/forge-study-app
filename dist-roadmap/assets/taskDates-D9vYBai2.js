@@ -1,1 +1,0 @@
-var e={doDate:null,doTime:null,durationMinutes:null,autoSlot:!1,kind:`task`,assessmentId:null,sync:null};function t(e){return e===`schedule`?`study`:e===`flashcards`?`review`:`task`}function n(e){return e.doDate??e.dueDate}function r(e){return e.doDate===null?null:e.doTime}export{r as i,t as n,n as r,e as t};

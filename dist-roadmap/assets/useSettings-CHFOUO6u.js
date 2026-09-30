@@ -1,1 +1,0 @@
-import{t as e}from"./dexie-react-hooks-DJIBecl1.js";import{n as t}from"./settings-6nWNNCFX.js";function n(){return e(t)}export{n as t};

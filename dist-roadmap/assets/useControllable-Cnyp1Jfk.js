@@ -1,1 +1,0 @@
-import{Y as e}from"./db-BvUt9GDY.js";import{r as t}from"./dexie-react-hooks-DJIBecl1.js";var n=e(t(),1);function r(e,t,r){let[i,a]=(0,n.useState)(t),o=e!==void 0;return[o?e:i,(0,n.useCallback)(e=>{o||a(e),r?.(e)},[o,r])]}export{r as t};

@@ -21,8 +21,8 @@ export const PREF_KEYS = {
   focusMode: 'forge:focus:mode',
   /** Id of a session whose "Done with this task?" dialog has not been answered (survives a refresh). */
   focusPendingEnd: 'forge:focus:pending-end',
-  /** A half-finished new-goal wizard (JSON, see logic/goalWizard.ts); written by the goals feature. */
-  goalWizardDraft: 'forge:goals:wizard-draft',
+  /** A half-finished new-goal plan (JSON, see logic/plannerPersist.ts); written by the planner feature. */
+  plannerDraft: 'forge:planner:draft',
   /** Goal ids whose course list is expanded in the sidebar (JSON array); written by the goals feature. */
   goalsNavOpen: 'forge:goals:nav-open',
   /** Today's list layout ('one' | 'grouped'); written by the today feature. */

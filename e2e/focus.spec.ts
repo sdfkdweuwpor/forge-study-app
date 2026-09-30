@@ -216,11 +216,9 @@ test.describe('Focus timer', () => {
     await expect(toasts(page)).toContainText('+20 XP')
     await expect.poll(() => pendingEnd(page)).toBeNull()
 
-    // On Today the task has left "Your tasks" and sits in "Completed today"; the XP is the session's plus the task's.
+    // On Today the task has left the list (5 rows, now 4) and sits in "Completed today"; the XP is the session's plus the task's.
     await goToToday(page)
-    await expect(
-      page.getByRole('region', { name: /^Your tasks/ }).getByRole('listitem'),
-    ).toHaveCount(1)
+    await expect(page.getByRole('region', { name: /^Today/ }).getByRole('listitem')).toHaveCount(4)
     const completed = page.getByRole('region', { name: /^Completed today/ })
     await completed.getByRole('button', { name: /Completed today/ }).click()
     await expect(completed.getByRole('listitem')).toContainText(MENTOR)

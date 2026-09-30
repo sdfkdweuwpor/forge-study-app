@@ -84,6 +84,7 @@ export function CalendarEventFace({
   const minutes = span ? span.end - span.start : 0
   const long = minutes >= TWO_LINES_MIN_MINUTES
   const roomForTime = minutes >= TIME_LINE_MIN_MINUTES
+  // Planned for a day that has passed and still open: carried over (said plainly, no alarm).
   const overdue = !done && day < today
   const when = span ? timeText(span) : 'all day'
 
@@ -109,7 +110,7 @@ export function CalendarEventFace({
         type="button"
         className={styles.open}
         tabIndex={preview ? -1 : 0}
-        aria-label={`Open ${task.title}, ${when}${done ? ', done' : ''}${overdue ? ', overdue' : ''}`}
+        aria-label={`Open ${task.title}, ${when}${done ? ', done' : ''}${overdue ? ', carried over' : ''}`}
         onClick={() => openTask(task.id)}
       />
       <Checkbox

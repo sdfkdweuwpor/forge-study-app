@@ -7,7 +7,7 @@ import { Tooltip } from '@/ui/Tooltip'
 import { TaskRow, useTaskMotion } from '@/features/tasks'
 import styles from './TodayGroups.module.css'
 
-/** One row of a group: the task, and words to show in place of its due date. */
+/** One row of a group: the task, and words to show in place of its date. */
 export interface GroupItem {
   task: Task
   /** "from Tue" for a carried-over task. */

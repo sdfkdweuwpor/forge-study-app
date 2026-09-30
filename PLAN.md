@@ -314,7 +314,7 @@ export type TableName = keyof typeof STORES_V1;
 **Relationships:** Goal 1–n Milestone 1–n Unit. Tasks link to goal, milestone and unit (nullable). Sessions link to task, goal and milestone. Assessments, flashcards and resources link to milestone and goal. Resource links to a file. Redemption links to a reward. CheckIn and ParkingItem link to a session. Deleting a goal cascades to its milestones, units, goal tasks, assessments, flashcards, resources and files, all in **one** trash entry.
 
 ### 3.4 Migrations
-- **v2 (planner) is designed in §4.6** and is applied in 5G.
+- **v2 (planner) is §4.6, applied in 5G** (`migrations/v2.ts`; the recipe and version table are in `migrations/README.md`).
 - `db.version(1).stores(STORES_V1)`. **Never edit a released version string.** To add a v2, create `src/db/migrations/v2.ts` exporting `STORES_V2_DELTA` (only the changed tables, with `null` to drop one) and `upgradeV2(tx)`. Then add `db.version(2).stores(STORES_V2_DELTA).upgrade(upgradeV2)` in `db.ts`, bump `SCHEMA_VERSION`, and add `migrateBackupV1toV2()` in `logic/backup.ts` so old backup files and snapshots still import.
 - Every migration needs a fake-indexeddb test that opens a v(N−1) DB seeded with a fixture, reopens it at vN, and asserts the upgraded rows.
 
@@ -581,6 +581,12 @@ readiness: 'id, goalId, milestoneId',
 
 **Test:** a fake-indexeddb test that opens a v1 DB seeded with the WGU sample, reopens it at v2 and asserts the rows above, plus a `migrateBackupV1toV2` round trip.
 
+**As built (5G), additions to the design above:**
+- The upgrade keeps `createdAt`/`updatedAt` (the timestamp hook skips the native `versionchange` transaction), maps trash payloads (`trashToV2`), and creates the WGU planned assessments with ids `${courseId}:oa|pa` (done when the course is). `settings.scheduling.taskWindows` is filled by the upgrade and by `ensureSettings()`.
+- A task with a deadline and no do date is planned for its deadline (`planDay = doDate ?? dueDate`) in Today, the lists, the board and the calendar. "Overdue" is gone from the UI: a past do date is "Carried over … from Tue" (neutral), and a deadline is a calm "Due Fri" chip, amber only on the due day.
+- `rebalanceGoal`: plan items become tasks by key (`diffPlanTasks`: study matched per unit with the skip passes, everything else by exact key); everyday tasks with a do time (and other goals' sessions) are blocked slots; a session finished today keeps its slot blocked; a session skipped today takes its length off the end of today; a planned assessment is done when its item is checked off or its course is done. `planning.paceMinutesPerStudyDay` stores the accepted pace. Titles and minutes-based editors keep `planning.weekly` and `availability.minutesByWeekday` in step (`logic/goalPlanning.ts`).
+- Proposals store `apply` (validated on accept by `parseProposalApply`) with the items for move-only kinds (roll forward, "life happened"); `baseRevision` is `planRevision` of the open items. Applying marks the goal's other pending proposals stale; Undo restores the goal, units, plan tasks and proposals.
+
 ---
 
 ## 5. Routes & keyboard shortcuts
@@ -774,7 +780,9 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Shortcuts `n shift+r i`.
 - [ ] **5E [B] e2e** `goals.spec.ts`: wizard with WGU sample → chunks appear on Today; import JSON with an error shows the line number; completing a course early moves the projection earlier.
 - [x] **5F [A] Goal Breakdown Planner logic** (§4.5). Owns `src/logic/scheduler/{plannerTypes,windows,effort,split,slotBook,planner,milestones,feasibility,planDiff,reflow,autoSlot,plannerFixtures}.ts` and their tests, plus `src/logic/planParse/**`. Pure; no schema change. 65 new scheduler tests and 13 parse tests.
-- [ ] **5G [A] Schema v2 + wiring** (after 5B/5C land). Apply §4.6 (migration, backup migration, tests). Add a rows → `PlannerInput` adapter and a `diffPlanTasks` over `doDate/doTime/durationMinutes`; switch `rebalanceGoal` to `planStudy`. At first open each day, `rollForward` applies only when `autoApply`; otherwise it writes `planProposals`.
+- [x] **5G [A] Schema v2 + wiring** (after 5B/5C land). Apply §4.6 (migration, backup migration, tests). Add a rows → `PlannerInput` adapter and a `diffPlanTasks` over `doDate/doTime/durationMinutes`; switch `rebalanceGoal` to `planStudy`. At first open each day, `rollForward` applies only when `autoApply`; otherwise it writes `planProposals`.
+  - Done: `db/migrations/v2.ts` + pure `logic/schemaV2.ts` (shared by `logic/backup.ts` `migrateBackupV1toV2`); `STORES` = v1 + deltas; trash cascade and payloads cover the new tables. `logic/scheduler/goalSlots.ts` (`planGoalSlots`, `goalPlannerInput`, `goalLivePlan`) and `planTasks.ts` (`diffPlanTasks`, `planItemFields`, `currentPlanItems`, `planRevision`); `rebalanceGoal` runs the slot planner; `db/repos/planning.ts` (load rows, write a diff); `db/repos/proposals.ts` (`rollForwardGoal`, `proposeReplanWeek`, `applyProposal`/`dismissProposal` with Undo, `pendingProposals`, `runDailyPlanning` wired to the goals feature's `onAppStart`). Every `dueDate` consumer reads `doDate` (via `logic/taskDates.planDay`); "Carried over" with "from Tue"; a calm deadline chip; quick add `due/by/deadline`. Hooks: `logic/readinessPlan.ts`, `logic/practice.ts` (`wrongAnswerQueue`). Tests: migration (fake-indexeddb, v1 WGU sample), repos (scheduling, proposals, trash, tasks), pure (adapter, diff, hooks, mapping).
+  - Left for 5H: the proposals banner and "Life happened" UI (the repo API is ready), the auto-slot toggle and applying `autoSlotTasks`, planning windows/shift/session/buffer editors (the minutes editors keep `planning.weekly` in step through `logic/goalPlanning.ts`), storing plan-import assessments in `plannedAssessments`.
 - [ ] **5H [B] Planner UI** (after 5G). Paste/upload → `parsePlanText` → a review screen (edit, reorder, delete, self-rating, "We couldn't read these lines", and templates or the Claude prompt when `needsBreakdown`). Then availability windows, shift pattern, session length and buffer; a preview with feasibility and its three choices; the goal page's behind banner with proposals; "Life happened"; the task do-date/deadline split and the auto-slot toggle. PDF/photo upload is text extraction only (a dependency decision for 5H, recorded in DECISIONS).
 
 ### Phase 6 — Gamification

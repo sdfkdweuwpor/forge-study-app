@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { formatHours, plural, summarizeFinish } from '@/logic/goalDisplay'
 import { parseCus, previewPlan, type DraftGoal } from '@/logic/goalDraft'
-import type { DateRange, ISODate } from '@/db/types'
+import type { DateRange, HHmm, ISODate } from '@/db/types'
 import styles from './wizard.module.css'
 
 /**
@@ -12,14 +12,17 @@ export function WizardPreview({
   draft,
   today,
   globalDaysOff,
+  studyStart,
 }: {
   draft: DraftGoal
   today: ISODate
   globalDaysOff: readonly DateRange[]
+  /** Where each study day's window starts (`settings.scheduling.defaultStudyStart`). */
+  studyStart?: HHmm | undefined
 }) {
   const plan = useMemo(
-    () => previewPlan(draft, today, globalDaysOff),
-    [draft, today, globalDaysOff],
+    () => previewPlan(draft, today, globalDaysOff, studyStart),
+    [draft, today, globalDaysOff, studyStart],
   )
   const summary = summarizeFinish(
     {

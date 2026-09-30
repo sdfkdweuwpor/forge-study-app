@@ -193,7 +193,9 @@ describe('suggestViewName', () => {
       'High priority',
     )
     expect(suggestViewName({ groupBy: 'date', sort, filter: { priority: [4] } })).toBe('Urgent')
-    expect(suggestViewName({ groupBy: 'date', sort, filter: { due: 'overdue' } })).toBe('Carried over')
+    expect(suggestViewName({ groupBy: 'date', sort, filter: { due: 'overdue' } })).toBe(
+      'Carried over',
+    )
     expect(
       suggestViewName(
         {

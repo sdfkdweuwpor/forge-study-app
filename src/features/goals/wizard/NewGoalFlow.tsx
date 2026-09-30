@@ -92,7 +92,12 @@ export function NewGoalFlow({ open, onClose }: NewGoalFlowProps) {
     setFailed(false)
     try {
       const now = Date.now()
-      const rows = draftToRows(draft, { today, now, newId })
+      const rows = draftToRows(draft, {
+        today,
+        now,
+        newId,
+        ...(settings ? { studyStart: settings.scheduling.defaultStudyStart } : {}),
+      })
       const created = await createGoalWithCourses(rows, { now })
       removePref(PREF_KEYS.goalWizardDraft)
       dispatch({ type: 'replace', draft: initialWizard(today).draft })
@@ -302,6 +307,7 @@ export function NewGoalFlow({ open, onClose }: NewGoalFlowProps) {
             draft={draft}
             today={today}
             globalDaysOff={settings?.scheduling.globalDaysOff ?? []}
+            studyStart={settings?.scheduling.defaultStudyStart}
           />
         ) : null}
       </div>

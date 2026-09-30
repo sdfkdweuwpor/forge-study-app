@@ -1,5 +1,5 @@
 /**
- * The small pickers a row opens from its `…` menu or a shortcut: due date, priority, and goal/course.
+ * The small pickers a row opens from its `…` menu or a shortcut: date, priority, and goal/course.
  * Each acts on one task and closes itself when a choice is made.
  */
 import { Check } from 'lucide-react'

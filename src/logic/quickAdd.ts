@@ -792,8 +792,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     } else if (p.kind === 'time') {
       if (p.deadline) deadlineTimeToken = p.time
       else timeToken = p.time
-    }
-    else if (p.kind === 'priority') priority = p.priority
+    } else if (p.kind === 'priority') priority = p.priority
     else if (p.kind === 'estimate') estimate = p.pomodoros
     else if (p.kind === 'recurrence') recurrence = p.rule
     else if (p.kind === 'tag' && !seenTags.has(normalizeTag(p.tag))) {

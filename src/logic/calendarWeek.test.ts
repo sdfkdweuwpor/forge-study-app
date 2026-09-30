@@ -238,7 +238,9 @@ describe('now line', () => {
 
 describe('nudgeSlot', () => {
   it('moves whole days, keeping the time', () => {
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { days: 1 })).toEqual({
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { days: 1 }),
+    ).toEqual({
       doDate: '2026-09-30',
       doTime: '14:00',
     })
@@ -246,37 +248,45 @@ describe('nudgeSlot', () => {
       doDate: '2026-09-28',
       doTime: null,
     })
-    expect(nudgeSlot({ doDate: '2026-10-31', doTime: null, dueDate: null }, { days: 1 })?.doDate).toBe(
-      '2026-11-01',
-    )
+    expect(
+      nudgeSlot({ doDate: '2026-10-31', doTime: null, dueDate: null }, { days: 1 })?.doDate,
+    ).toBe('2026-11-01')
   })
 
   it('moves a quarter hour, landing on quarter hours', () => {
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { minutes: 15 })?.doTime).toBe(
-      '14:15',
-    )
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { minutes: -15 })?.doTime).toBe(
-      '13:45',
-    )
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:10', dueDate: null }, { minutes: 15 })?.doTime).toBe(
-      '14:15',
-    )
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:10', dueDate: null }, { minutes: -15 })?.doTime).toBe(
-      '14:00',
-    )
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { minutes: 15 })?.doTime,
+    ).toBe('14:15')
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, { minutes: -15 })?.doTime,
+    ).toBe('13:45')
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '14:10', dueDate: null }, { minutes: 15 })?.doTime,
+    ).toBe('14:15')
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '14:10', dueDate: null }, { minutes: -15 })?.doTime,
+    ).toBe('14:00')
   })
 
   it('gives an untimed task 09:00 when nudged later, and leaves it when nudged earlier', () => {
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { minutes: 15 })).toEqual({
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { minutes: 15 }),
+    ).toEqual({
       doDate: '2026-09-29',
       doTime: '09:00',
     })
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { minutes: -15 })).toBeNull()
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: null, dueDate: null }, { minutes: -15 }),
+    ).toBeNull()
   })
 
   it('stays inside the day', () => {
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '23:45', dueDate: null }, { minutes: 15 })).toBeNull()
-    expect(nudgeSlot({ doDate: '2026-09-29', doTime: '00:00', dueDate: null }, { minutes: -15 })).toBeNull()
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '23:45', dueDate: null }, { minutes: 15 }),
+    ).toBeNull()
+    expect(
+      nudgeSlot({ doDate: '2026-09-29', doTime: '00:00', dueDate: null }, { minutes: -15 }),
+    ).toBeNull()
   })
 
   it('does nothing for a task without a date or a no-op change', () => {

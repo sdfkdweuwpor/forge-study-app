@@ -750,7 +750,10 @@ describe('bare daily / weekly / weekdays', () => {
     ]) {
       const r = parse(input)
       expect(r.recurrence, input).toBeUndefined()
-      expect(r.tokens.map((t) => t.kind), input).not.toContain('recurrence')
+      expect(
+        r.tokens.map((t) => t.kind),
+        input,
+      ).not.toContain('recurrence')
     }
     expect(parse('Review weekly notes').title).toBe('Review weekly notes')
   })

@@ -63,6 +63,7 @@ export function defaultSettingsData(): SettingsData {
     backup: { lastExportAt: null, remindWeekly: true },
     tagColors: {},
     lastCelebratedLevel: 1,
+    rewardsSeeded: false,
     sync: { enabled: false, url: null, anonKey: null, lastSyncAt: null },
   }
 }

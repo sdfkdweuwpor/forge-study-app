@@ -665,6 +665,8 @@ export interface Settings extends Base {
   backup: { lastExportAt: Millis | null; remindWeekly: boolean }
   tagColors: Record<string, TagColor>
   lastCelebratedLevel: number
+  /** The three starter rewards were offered once (or the shop already had rewards); never seed again. */
+  rewardsSeeded: boolean
   sync: { enabled: boolean; url: string | null; anonKey: string | null; lastSyncAt: Millis | null }
 }
 /** Settings without the row bookkeeping (`id`, timestamps). */

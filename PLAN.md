@@ -828,7 +828,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 
 ### Phase 9 — Chrome extension + Blocker
 - [ ] **9A [A] Protocol** (first, small). Owns `extension/src/shared/{protocol,config}.ts`: message types, guards, `APP_ORIGIN`, `DEFAULT_EXTENSION_ID`.
-- [ ] **9B [B] Extension** (∥ 9C). Owns `extension/**` except `shared/{protocol,config}.ts`, and `scripts/{build-extension,extension-id}.mjs`.
+- [x] **9B [B] Extension** (∥ 9C) — from Gemini draft, reworked. Owns `extension/**` except `shared/{protocol,config}.ts`, and `scripts/{build-extension,extension-id}.mjs`.
   - Manifest:
     - MV3 with `"key"` = the public key in §8.
     - Permissions `declarativeNetRequest`, `storage`, `alarms`, `tabs`; host_permissions `*://*/*` (needed for redirects).

@@ -18,8 +18,11 @@ import { UNLOCK_PHRASE } from '../extension/src/shared/unlock'
  * headless shell. If this environment cannot load one, every test here skips with the reason.
  *
  * Playwright's clock belongs to the whole browser context, so the tests that move time run in their
- * own browser (the second describe) and cannot skew the others.
+ * own browser (the second describe) and cannot skew the others. Every browser starts from a fresh
+ * `build-extension.mjs` run, which rewrites extension/dist, so the file runs in one worker, in order,
+ * even under `fullyParallel`.
  */
+test.describe.configure({ mode: 'serial' })
 
 const root = path.resolve(import.meta.dirname, '..')
 const extPath = path.join(root, 'extension', 'dist')
@@ -191,7 +194,6 @@ function useExtension(): () => Harness {
 }
 
 test.describe('Chrome extension', () => {
-  test.describe.configure({ mode: 'serial' })
   const ext = useExtension()
 
   test('loads with the stable extension ID and installs one rule per default domain', async () => {
@@ -399,7 +401,6 @@ test.describe('Chrome extension', () => {
 })
 
 test.describe('Chrome extension: time', () => {
-  test.describe.configure({ mode: 'serial' })
   const ext = useExtension()
 
   test('emergency unlock: 60 seconds, the exact phrase, then the original page', async () => {

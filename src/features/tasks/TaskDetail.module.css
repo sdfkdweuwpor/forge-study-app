@@ -67,6 +67,18 @@
   }
 }
 
+/*
+ * A touch tablet: every segment keeps its 44px tap floor (SegmentedControl), so the seven Length presets
+ * need about 340px, more than the value column beside a label. Stack label over value, as on phones.
+ */
+@media (min-width: 640px) and (pointer: coarse) {
+  .root[data-variant='peek'] .prop {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+    padding-block: var(--space-1);
+  }
+}
+
 .propValue {
   min-width: 0;
 }

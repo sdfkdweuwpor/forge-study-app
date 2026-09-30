@@ -132,7 +132,11 @@ describe('describeSync', () => {
   })
 
   it('shows a note from a cycle that worked as it is', () => {
-    const note = error('server', 'Vocab deck is too large to sync, so it stays on this device.', NOW - 9_000)
+    const note = error(
+      'server',
+      'Vocab deck is too large to sync, so it stays on this device.',
+      NOW - 9_000,
+    )
     expect(full({ lastError: note, lastSyncAt: NOW - 8_000 })).toBe(note.message)
     expect(full({ lastError: { ...note, kind: 'tooLarge' }, lastSyncAt: NOW - 8_000 })).toBe(
       note.message,
@@ -166,7 +170,9 @@ describe('describeSync', () => {
   })
 
   it('suggests a paused project only when the engine says the answers repeated', () => {
-    expect(describeSync({ ...base, lastError: error('server'), retryAt: NOW + MIN }).need).toBeNull()
+    expect(
+      describeSync({ ...base, lastError: error('server'), retryAt: NOW + MIN }).need,
+    ).toBeNull()
     const line = describeSync({ ...base, lastError: error('server'), paused: true })
     expect(line.need).toBe('paused')
     expect(line.lead).toBe(PAUSED_TEXT)

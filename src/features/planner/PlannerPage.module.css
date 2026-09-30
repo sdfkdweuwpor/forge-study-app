@@ -147,7 +147,8 @@
   margin-left: auto;
 }
 
-@media (max-width: 639px) {
+/* A keyboard hint means nothing on a touch screen (a tablet too) and costs room on a phone. */
+@media (hover: none), (max-width: 639px) {
   .keyHint {
     display: none;
   }

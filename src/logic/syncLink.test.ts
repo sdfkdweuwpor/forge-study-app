@@ -16,9 +16,10 @@ describe('parseLinkReturn', () => {
   })
 
   it('finds an error in the query or the fragment, and prefers its code', () => {
-    expect(
-      parseLinkReturn({ error: 'access_denied', error_code: 'otp_expired' }, ''),
-    ).toEqual({ kind: 'error', errorCode: 'otp_expired' })
+    expect(parseLinkReturn({ error: 'access_denied', error_code: 'otp_expired' }, '')).toEqual({
+      kind: 'error',
+      errorCode: 'otp_expired',
+    })
     expect(parseLinkReturn({}, '#error=access_denied&error_code=otp_expired')).toEqual({
       kind: 'error',
       errorCode: 'otp_expired',

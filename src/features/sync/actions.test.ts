@@ -3,11 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetAllData } from '@/db/repos/backup'
 import { getSyncSession, getSyncState, pendingChangeCount } from '@/db/repos/sync'
 import { createTask } from '@/db/repos/tasks'
-import { OTHER_BROWSER_TEXT } from '@/logic/syncLink'
+import { NEEDS_CODE_TEXT, NEEDS_EMAIL_TEXT, OTHER_BROWSER_TEXT } from '@/logic/syncLink'
 import {
   EMAIL_OFF_TEXT,
-  NEEDS_CODE_TEXT,
-  NEEDS_EMAIL_TEXT,
   NEEDS_PROJECT_TEXT,
   NEEDS_SEND_TEXT,
   checkAndSaveProject,
@@ -22,7 +20,7 @@ import { syncIsOn } from './queries'
 import { createHttp, type FetchLike } from './supabase/http'
 
 const URL_OK = 'https://abcdefghijklmnopqrst.supabase.co'
-const ORIGIN = 'https://forge-study-app.netlify.app'
+const REDIRECT = 'https://sdfkdweuwpor.github.io/forge-study-app/settings/sync'
 const NOW = 1_790_000_000_000
 
 const b64url = (value: object): string => Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -58,7 +56,8 @@ function harness(handler: (call: Call) => Response | Promise<Response>) {
       url,
       method: String(init.method),
       headers: init.headers as Record<string, string>,
-      body: typeof init.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : null,
+      body:
+        typeof init.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : null,
     }
     calls.push(call)
     return handler(call)
@@ -68,7 +67,7 @@ function harness(handler: (call: Call) => Response | Promise<Response>) {
   const deps: ActionDeps = {
     send: createHttp({ fetch: fetchLike }),
     now: () => NOW,
-    origin: ORIGIN,
+    redirectTo: REDIRECT,
     resume,
     halt,
   }
@@ -185,7 +184,7 @@ describe('sendSignInLink', () => {
     await expect(sendSignInLink(' ana@example.com ', h.deps)).resolves.toEqual({ ok: true })
     const otp = h.calls.find((c) => c.url.includes('/auth/v1/otp'))
     expect(otp?.method).toBe('POST')
-    expect(new URL(otp?.url ?? '').searchParams.get('redirect_to')).toBe(`${ORIGIN}/settings/sync`)
+    expect(new URL(otp?.url ?? '').searchParams.get('redirect_to')).toBe(REDIRECT)
     expect(otp?.body).toMatchObject({
       email: 'ana@example.com',
       create_user: true,
@@ -301,9 +300,11 @@ describe('exchangeLinkCode', () => {
     await saveProject(h)
     await sendSignInLink('ana@example.com', h.deps)
     const verifier = (await getSyncState())?.pendingLogin?.codeVerifier
-    await expect(exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)).resolves.toEqual({
-      ok: true,
-    })
+    await expect(exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)).resolves.toEqual(
+      {
+        ok: true,
+      },
+    )
     const exchange = h.calls.find((c) => c.url.includes('grant_type=pkce'))
     expect(exchange?.body).toEqual({
       auth_code: '3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10',
@@ -317,10 +318,12 @@ describe('exchangeLinkCode', () => {
     const h = harness(healthy)
     await saveProject(h)
     const before = h.calls.length
-    await expect(exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)).resolves.toEqual({
-      ok: false,
-      message: OTHER_BROWSER_TEXT,
-    })
+    await expect(exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)).resolves.toEqual(
+      {
+        ok: false,
+        message: OTHER_BROWSER_TEXT,
+      },
+    )
     expect(h.calls).toHaveLength(before)
     expect(h.resume).not.toHaveBeenCalled()
   })
@@ -378,7 +381,9 @@ describe('signOutAndStop', () => {
   it('signs out even when the server cannot be reached', async () => {
     const h = await signedIn()
     const offline = harness(() => Promise.reject(new TypeError('Failed to fetch')))
-    await expect(signOutAndStop({ ...h.deps, send: offline.deps.send, halt: h.halt })).resolves.toEqual({
+    await expect(
+      signOutAndStop({ ...h.deps, send: offline.deps.send, halt: h.halt }),
+    ).resolves.toEqual({
       ok: true,
     })
     expect(await getSyncState()).toMatchObject({ enabled: false, session: null })

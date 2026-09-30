@@ -6,8 +6,7 @@
  */
 
 export type LinkReturn =
-  | { kind: 'code'; code: string }
-  | { kind: 'error'; errorCode: string | null }
+  { kind: 'code'; code: string } | { kind: 'error'; errorCode: string | null }
 
 /** What GoTrue's auth code looks like (a UUID today); anything odder is not exchanged. */
 const AUTH_CODE = /^[A-Za-z0-9._~-]{8,200}$/
@@ -37,6 +36,10 @@ export const LINK_EXPIRED_TEXT = 'That link has expired or was already used. Sen
 
 export const LINK_FAILED_TEXT =
   "That sign-in link didn't work. Send a new one, or type the code from the email."
+
+/** What the two sign-in fields say when what was typed cannot be sent. */
+export const NEEDS_EMAIL_TEXT = 'Enter the email address you sign in with.'
+export const NEEDS_CODE_TEXT = 'Type the code from the email: 6 to 10 digits.'
 
 /** When something fails on this device and the cause is ours to log, not the person's to read. */
 export const GENERIC_TEXT = 'Something went wrong on this device. Nothing was changed. Try again.'

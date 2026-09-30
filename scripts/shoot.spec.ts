@@ -42,6 +42,7 @@ for (const { feature, shots } of lists) {
             locale: 'en-US',
             // A close-up is taken at 2x so single pixels (a snowflake, a ring) can be judged.
             deviceScaleFactor: shot.element ? 2 : 1,
+            ignoreConsoleErrors: shot.ignoreConsoleErrors ?? [],
           })
 
           test(`${colorScheme} ${viewport.width}`, async ({ page }) => {

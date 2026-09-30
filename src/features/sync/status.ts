@@ -58,7 +58,17 @@ export function useSyncStatus(view: SyncStateView): SyncStatus {
         retryAt: engine.retryAt,
         paused: engine.paused,
       }),
-    [now, online, engine.running, engine.retryAt, engine.paused, pending, signedIn, lastSyncAt, lastError],
+    [
+      now,
+      online,
+      engine.running,
+      engine.retryAt,
+      engine.paused,
+      pending,
+      signedIn,
+      lastSyncAt,
+      lastError,
+    ],
   )
   return { line, engine, pending }
 }

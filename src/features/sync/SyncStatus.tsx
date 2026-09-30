@@ -73,7 +73,7 @@ function SignOutDialog({ open, onClose }: { open: boolean; onClose: () => void }
             Cancel
           </Button>
           <Button loading={busy} onClick={() => void confirm()}>
-            Sign out and stop syncing
+            Stop syncing
           </Button>
         </>
       }
@@ -114,7 +114,11 @@ function On({ view }: { view: SyncStateView }) {
       <div className={styles.actions}>
         {line.need === 'setup' || line.need === 'forbidden' ? <CopySqlButton /> : null}
         {line.need === 'update' ? (
-          <Button variant="primary" iconLeft={<RotateCw />} onClick={() => window.location.reload()}>
+          <Button
+            variant="primary"
+            iconLeft={<RotateCw />}
+            onClick={() => window.location.reload()}
+          >
             Reload
           </Button>
         ) : null}

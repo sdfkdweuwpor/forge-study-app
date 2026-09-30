@@ -165,6 +165,14 @@
   background: var(--warning-soft);
 }
 
+/* A message with its own "Dismiss": text on the left, the button on the right. */
+.notice[data-dismissible] {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .codeInput input {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.12em;
@@ -212,11 +220,34 @@
 .summary {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   min-height: var(--tap-min);
+  list-style: none;
   color: var(--text);
   font-size: var(--fs-14);
   font-weight: var(--fw-medium);
   cursor: pointer;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A quiet chevron: the only sign that a line unfolds. */
+.summary::after {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-muted);
+  border-bottom: 1.5px solid var(--text-muted);
+  content: '';
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur-1) var(--ease);
+}
+
+details[open] > .summary::after {
+  transform: translateY(1px) rotate(-135deg);
 }
 
 .summary:hover {

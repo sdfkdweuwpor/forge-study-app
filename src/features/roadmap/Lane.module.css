@@ -208,10 +208,15 @@
   list-style: none;
 }
 
+/*
+ * A course pill sits above the Today line and the month gridlines. Its tint is laid over the page colour
+ * so the pill is opaque: the line stops at the pill's edge instead of running through the label.
+ */
 .course {
   --row: 0;
+  --_fill: var(--bg-hover);
   position: absolute;
-  z-index: 1;
+  z-index: var(--z-raised);
   top: calc(var(--bar-h) + 16px + var(--row) * var(--row-h));
   display: flex;
   align-items: center;
@@ -219,7 +224,7 @@
   padding-inline: var(--space-2);
   overflow: hidden;
   border-radius: var(--radius-sm);
-  background: var(--bg-hover);
+  background: linear-gradient(var(--_fill), var(--_fill)), var(--bg);
   color: var(--text);
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
@@ -228,11 +233,11 @@
 }
 
 .course[data-status='active'] {
-  background: var(--accent-soft);
+  --_fill: var(--accent-soft);
 }
 
 .course[data-status='done'] {
-  background: var(--success-soft);
+  --_fill: var(--success-soft);
   color: var(--text-muted);
 }
 

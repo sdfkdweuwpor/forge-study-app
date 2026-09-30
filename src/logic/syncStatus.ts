@@ -74,7 +74,8 @@ export interface SyncStatusLine {
  * They are repeated here, and checked equal in the tests, so the Settings section does not have to load
  * the engine's rules (`syncApply` reaches the scheduler and the level rules) just to say them.
  */
-export const SIGNED_OUT_TEXT = 'Sign in again to keep syncing. Your changes are kept on this device.'
+export const SIGNED_OUT_TEXT =
+  'Sign in again to keep syncing. Your changes are kept on this device.'
 export const UPDATE_NEEDED_TEXT =
   'Another device runs a newer Forge. Reload to update this one; sync picks up where it left off.'
 

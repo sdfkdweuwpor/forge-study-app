@@ -310,6 +310,7 @@
 
 /* ── Board cards (variant="card"): the title over its chips, a hairline border instead of a hover fill ── */
 .row[data-variant='card'] {
+  grid-template-columns: 18px minmax(0, 1fr);
   padding: 10px var(--space-3);
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -343,11 +344,34 @@
   row-gap: var(--space-2);
 }
 
-/* The right padding keeps the first line clear of the grip, which sits beside the … menu. */
 .row[data-variant='card'] .title {
   flex: 0 0 auto;
-  padding-right: var(--space-3);
   line-height: 20px;
+}
+
+/*
+ * The grip and … menu float over the card's top-right corner instead of taking a column, so the title
+ * only steps around them on its first line: an invisible one-line float. Later lines and the chips get
+ * the card's full width (a narrow board column no longer wraps titles into four or five lines).
+ */
+.row[data-variant='card'] .title button::before {
+  content: '';
+  float: right;
+  width: 56px;
+  height: 20px;
+}
+
+.row[data-variant='card'] .actions {
+  position: absolute;
+  top: 8px;
+  right: var(--space-3);
+  margin: 0;
+}
+
+/* While the title is a textarea (full width, no float), the corner controls step aside. */
+.row[data-variant='card']:has(.title[data-editing]) :is(.actions, .handle) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .row[data-variant='card'] .meta {

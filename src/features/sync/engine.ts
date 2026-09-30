@@ -185,10 +185,7 @@ export class Scheduler {
   private armWrite(): void {
     const now = this.env.now()
     this.writeSince ??= now
-    const wait = Math.min(
-      WRITE_DEBOUNCE_MS,
-      Math.max(0, this.writeSince + WRITE_MAX_WAIT_MS - now),
-    )
+    const wait = Math.min(WRITE_DEBOUNCE_MS, Math.max(0, this.writeSince + WRITE_MAX_WAIT_MS - now))
     if (this.writeTimer !== null) clearTimeout(this.writeTimer)
     this.writeTimer = setTimeout(() => {
       this.writeTimer = null
@@ -348,7 +345,11 @@ export function createEngine(p: Platform, options: EngineOptions = {}): Engine {
   let progress: EngineShare['progress'] = null
   let cancelStart: (() => void) | null = null
 
-  const share = (s: { running: boolean; retryAt: number | null; paused: boolean }): EngineShare => ({
+  const share = (s: {
+    running: boolean
+    retryAt: number | null
+    paused: boolean
+  }): EngineShare => ({
     running: s.running,
     retryAt: s.retryAt,
     paused: s.paused,
@@ -527,7 +528,10 @@ export interface FlushDeps {
   pending(): Promise<readonly PushRow[]>
   /** The signed-in session and the project, or null. */
   connection(): Promise<{ session: SyncSession; config: TransportConfig } | null>
-  push(rows: readonly PushRow[], connection: { session: SyncSession; config: TransportConfig }): Promise<void>
+  push(
+    rows: readonly PushRow[],
+    connection: { session: SyncSession; config: TransportConfig },
+  ): Promise<void>
 }
 
 /**

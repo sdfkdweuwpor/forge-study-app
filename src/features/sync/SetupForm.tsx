@@ -39,7 +39,9 @@ export function CopySqlButton({ variant = 'secondary' }: { variant?: 'secondary'
         description: 'Paste it into the SQL editor of your Supabase project and run it once.',
       })
     } else {
-      toast.error('Couldn’t copy the setup SQL', { description: 'Use “Show the SQL” and copy it by hand.' })
+      toast.error('Couldn’t copy the setup SQL', {
+        description: 'Use “Show the SQL” and copy it by hand.',
+      })
     }
   }
 
@@ -55,7 +57,13 @@ export function SqlPreview() {
   return (
     <details>
       <summary className={styles.summary}>Show the SQL</summary>
-      <textarea className={styles.sql} aria-label="Setup SQL" readOnly rows={12} value={SETUP_SQL} />
+      <textarea
+        className={styles.sql}
+        aria-label="Setup SQL"
+        readOnly
+        rows={12}
+        value={SETUP_SQL}
+      />
     </details>
   )
 }
@@ -195,8 +203,8 @@ export function SetupForm({ initial, onSaved, onCancel }: SetupFormProps) {
         ) : null}
       </div>
       <p className={styles.help}>
-        Run the setup SQL once in your project’s SQL editor. It is safe to run again. Your address and key
-        stay on this device.
+        Run the setup SQL once in your project’s SQL editor. It is safe to run again. Your address
+        and key stay on this device.
       </p>
       <SqlPreview />
     </form>

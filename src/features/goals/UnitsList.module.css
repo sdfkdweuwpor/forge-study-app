@@ -97,8 +97,11 @@
 }
 
 /*
- * Touch: the grip is squeezed to its 20px column, so it gets its 44px target from an invisible square
- * centred on it instead. It reaches into the row padding and the gap, not over the checkbox.
+ * Touch: the grip is squeezed to its 20px column, so it borrows a taller target from an invisible 44px
+ * square centred on it, reaching into the row padding and the gap. The checkbox's own 44px target is
+ * painted later and wins where the two meet, so the grip really gets about 30x44 (above the 24px
+ * minimum). A full 44 would need an 18px wider handle column, pushing units further out of line with
+ * the Tasks list below.
  */
 @media (pointer: coarse) {
   .handle > button {

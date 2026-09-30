@@ -84,9 +84,7 @@ export function createLeader({ locks, onChange }: LeaderOptions): Leader {
         .request(LOCK_NAME, { ifAvailable: true }, async (lock) => {
           if (lock !== null) return hold()
           onChange(false)
-          await locks
-            .request(LOCK_NAME, { signal: abort.signal }, () => hold())
-            .catch(ignore)
+          await locks.request(LOCK_NAME, { signal: abort.signal }, () => hold()).catch(ignore)
         })
         .catch(ignore)
     },

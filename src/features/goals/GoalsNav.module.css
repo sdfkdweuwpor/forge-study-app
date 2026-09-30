@@ -30,19 +30,17 @@
   font-weight: var(--fw-medium);
 }
 
+/* 24 px wide: the smallest target WCAG 2.2 accepts without spacing around it (axe target-size). */
 .toggle,
 .toggleSpace {
   display: grid;
   flex: none;
   place-items: center;
-  width: 20px;
+  width: 24px;
   height: var(--sub-row-h, 28px);
 }
 
-/* 24 px wide at least (WCAG 2.2 target size, axe target-size); the negative margin keeps the row as it was. */
 .toggle {
-  width: 24px;
-  margin-inline: -2px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -63,10 +61,6 @@
   .toggle,
   .toggleSpace {
     width: var(--tap-min);
-  }
-
-  .toggle {
-    margin-inline: 0;
   }
 }
 

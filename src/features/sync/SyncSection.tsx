@@ -66,8 +66,8 @@ function Connected({ view, onChange }: { view: SyncStateView; onChange?: () => v
       </p>
       {view.pendingLogin === null ? (
         <p className={styles.lead}>
-          Sign in with the email you use for this project. Forge sends a link and a code; there is no
-          password.
+          Sign in with the email you use for this project. Forge sends a link and a code; there is
+          no password.
         </p>
       ) : null}
       <SignIn view={view} />
@@ -95,7 +95,11 @@ function Body({ view }: { view: SyncStateView | null }) {
   }
   if (state === 'configured') {
     return editing ? (
-      <SetupForm initial={saved} onSaved={() => setEditing(false)} onCancel={() => setEditing(false)} />
+      <SetupForm
+        initial={saved}
+        onSaved={() => setEditing(false)}
+        onCancel={() => setEditing(false)}
+      />
     ) : (
       <Connected view={view} onChange={() => setEditing(true)} />
     )
@@ -140,7 +144,7 @@ export function SyncSection() {
         </p>
       ) : null}
       {link.message !== null ? (
-        <div className={styles.notice} data-tone="attention" role="alert">
+        <div className={styles.notice} data-tone="attention" data-dismissible role="alert">
           <span>{link.message}</span>
           <Button size="sm" variant="ghost" onClick={clearLinkMessage}>
             Dismiss

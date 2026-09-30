@@ -7,6 +7,7 @@
  * `deps` lets a test pass a fake `fetch` and clock.
  */
 import { recordError } from '@/app/reportError'
+import { href } from '@/app/router'
 import {
   getSyncSession,
   getSyncState,
@@ -19,6 +20,8 @@ import type { SyncSession } from '@/db/types'
 import { validateSyncConfig, type ConfigIssue } from '@/logic/syncConfig'
 import {
   GENERIC_TEXT,
+  NEEDS_CODE_TEXT,
+  NEEDS_EMAIL_TEXT,
   OTHER_BROWSER_TEXT,
   cleanEmailCode,
   looksLikeEmail,
@@ -37,8 +40,8 @@ import { SupabaseError, type Send } from './supabase/http'
 export interface ActionDeps {
   send: Send
   now: () => number
-  /** `location.origin`: the magic link comes back to `${origin}/settings/sync`. */
-  origin: string
+  /** Where the magic link comes back to: this app's Settings, Sync, with the host's base path. */
+  redirectTo: string
   /** The engine's hooks, so a test does not start one. */
   resume: () => void
   halt: () => void
@@ -47,7 +50,8 @@ export interface ActionDeps {
 const withDefaults = (deps: Partial<ActionDeps>): ActionDeps => ({
   send: deps.send ?? browserSend(),
   now: deps.now ?? (() => Date.now()),
-  origin: deps.origin ?? window.location.origin,
+  redirectTo:
+    deps.redirectTo ?? `${window.location.origin}${href('settings', { section: 'sync' })}`,
   resume: deps.resume ?? resumeAfterSignIn,
   halt: deps.halt ?? stopEngine,
 })
@@ -57,8 +61,6 @@ export type Outcome = { ok: true } | { ok: false; message: string }
 export const EMAIL_OFF_TEXT =
   'Email sign-in is switched off in this project. In Supabase, open Authentication, then Providers, and turn on Email.'
 export const NEEDS_PROJECT_TEXT = 'Set up the project first.'
-export const NEEDS_EMAIL_TEXT = 'Enter the email address you sign in with.'
-export const NEEDS_CODE_TEXT = 'Type the code from the email: 6 to 10 digits.'
 export const NEEDS_SEND_TEXT = 'Send a sign-in email first.'
 
 /** A transport failure already carries a fixed, calm sentence; anything else is ours to log, not to show. */
@@ -115,7 +117,7 @@ export async function sendSignInLink(
   email: string,
   deps: Partial<ActionDeps> = {},
 ): Promise<Outcome> {
-  const { send, now, origin } = withDefaults(deps)
+  const { send, now, redirectTo } = withDefaults(deps)
   const address = email.trim()
   if (!looksLikeEmail(address)) return { ok: false, message: NEEDS_EMAIL_TEXT }
   try {
@@ -123,7 +125,7 @@ export async function sendSignInLink(
     if (config === null) return { ok: false, message: NEEDS_PROJECT_TEXT }
     const { codeVerifier } = await sendSignInEmail(send, config, {
       email: address,
-      redirectTo: `${origin}/settings/sync`,
+      redirectTo,
     })
     await saveSyncConfig({ url: config.url, anonKey: config.anonKey, email: address })
     await savePendingLogin({ email: address, codeVerifier, requestedAt: now() })

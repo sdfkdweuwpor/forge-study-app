@@ -59,7 +59,12 @@ export function SyncLimits() {
           {LIMITS.map((l) => (
             <li key={l.title}>
               <strong>{l.title}</strong>
-              {l.text === '' ? null : <> <span>{l.text}</span></>}
+              {l.text === '' ? null : (
+                <>
+                  {' '}
+                  <span>{l.text}</span>
+                </>
+              )}
             </li>
           ))}
         </ul>

@@ -19,7 +19,9 @@ export function browserSend(): Send {
  * The stored project as the request builders want it, or null when there is none (or it no longer passes
  * the checks it passed when it was saved). The key kind decides whether the key may double as a bearer.
  */
-export function transportOf(state: Pick<SyncStateRow, 'url' | 'anonKey'> | undefined): TransportConfig | null {
+export function transportOf(
+  state: Pick<SyncStateRow, 'url' | 'anonKey'> | undefined,
+): TransportConfig | null {
   if (!state?.url || !state.anonKey) return null
   const url = parseProjectUrl(state.url)
   if (!url.ok) return null

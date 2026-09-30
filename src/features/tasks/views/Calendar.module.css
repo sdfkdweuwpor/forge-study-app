@@ -532,6 +532,13 @@
   border-left: 1px solid var(--border);
 }
 
+/* The Alt+arrow hint means nothing on a touch screen (a tablet too) and costs room on a phone. */
+@media (hover: none), (max-width: 639px) {
+  .hint {
+    display: none;
+  }
+}
+
 /* ── Phones ──────────────────────────────────────────────────────────────── */
 @media (max-width: 639px) {
   /* 44px holds "10 AM" at 12px with a 4px inset; at 36px the hours ran out past the grid's left edge. */
@@ -541,10 +548,6 @@
 
   .hour {
     right: var(--space-1);
-  }
-
-  .hint {
-    display: none;
   }
 
   .gutterLabel {

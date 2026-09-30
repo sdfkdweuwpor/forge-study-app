@@ -36,6 +36,13 @@
   display: inline-flex;
 }
 
+/* The Z keycap means nothing on a touch screen (a tablet too) and costs room on a phone. */
+@media (hover: none), (max-width: 639px) {
+  .hint {
+    display: none;
+  }
+}
+
 .chart {
   margin-top: var(--space-8);
 }

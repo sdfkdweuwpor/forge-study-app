@@ -14,6 +14,11 @@ export interface Shot {
   fullPage?: boolean
   /** Capture only this element (a close-up), e.g. `figure:has(#heat)`. Taken at 2x device pixels. */
   element?: string
+  /**
+   * `console.error` messages this shot provokes on purpose. The browser logs every 4xx answer to a fetch
+   * ("Failed to load resource…"), so a shot that stages one (a faked 429) must name it, as an e2e spec does.
+   */
+  ignoreConsoleErrors?: string[]
 }
 
 /** Default export of every `scripts/shots/<feature>.ts`. */

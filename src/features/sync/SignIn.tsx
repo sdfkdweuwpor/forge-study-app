@@ -3,6 +3,7 @@ import { useNow } from '@/app/hooks/useNow'
 import type { SyncStateView } from '@/db/hooks/useSyncState'
 import { Button } from '@/ui/Button'
 import { Input } from '@/ui/Input'
+import { NEEDS_CODE_TEXT, NEEDS_EMAIL_TEXT, cleanEmailCode, looksLikeEmail } from '@/logic/syncLink'
 import { clearLinkMessage } from './linkReturn'
 import styles from './SyncSection.module.css'
 
@@ -18,6 +19,8 @@ const actions = () => import('./actions')
 function EmailStep({ email: initial, again }: { email: string | null; again: boolean }) {
   const [email, setEmail] = useState(initial ?? '')
   const [busy, setBusy] = useState(false)
+  // What is typed cannot be sent (under the field), or Supabase would not send it (a calm notice below).
+  const [fieldError, setFieldError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const field = useRef<HTMLInputElement>(null)
 
@@ -29,8 +32,13 @@ function EmailStep({ email: initial, again }: { email: string | null; again: boo
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (busy) return
-    setBusy(true)
     setMessage(null)
+    if (!looksLikeEmail(email)) {
+      setFieldError(NEEDS_EMAIL_TEXT)
+      return
+    }
+    setFieldError(null)
+    setBusy(true)
     try {
       const result = await (await actions()).sendSignInLink(email)
       if (result.ok) clearLinkMessage()
@@ -53,10 +61,15 @@ function EmailStep({ email: initial, again }: { email: string | null; again: boo
         autoCapitalize="off"
         spellCheck={false}
         hint="Forge emails a sign-in link and a code. There is no password."
-        error={message}
+        error={fieldError}
         disabled={busy}
         onChange={(e) => setEmail(e.target.value)}
       />
+      {message !== null ? (
+        <p className={styles.notice} data-tone="attention" role="alert">
+          {message}
+        </p>
+      ) : null}
       <div className={styles.actions}>
         <Button type="submit" variant="primary" loading={busy}>
           Send sign-in link
@@ -74,6 +87,7 @@ function WaitingStep({ email, requestedAt }: { email: string; requestedAt: numbe
   const now = useNow('second')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState<'code' | 'again' | null>(null)
+  const [fieldError, setFieldError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
 
@@ -85,8 +99,13 @@ function WaitingStep({ email, requestedAt }: { email: string; requestedAt: numbe
   async function signIn(e: FormEvent) {
     e.preventDefault()
     if (busy) return
-    setBusy('code')
     setMessage(null)
+    if (cleanEmailCode(code) === null) {
+      setFieldError(NEEDS_CODE_TEXT)
+      return
+    }
+    setFieldError(null)
+    setBusy('code')
     try {
       const result = await (await actions()).signInWithEmailCode(code)
       if (!result.ok) setMessage(result.message)
@@ -120,8 +139,8 @@ function WaitingStep({ email, requestedAt }: { email: string; requestedAt: numbe
   return (
     <div className={styles.step}>
       <p className={styles.lead}>
-        We sent a sign-in link to <strong>{email}</strong>. Open it on this device. In the phone app,
-        type the code from the email instead.
+        We sent a sign-in link to <strong>{email}</strong>. Open it on this device. In the phone
+        app, type the code from the email instead.
       </p>
       <form className={styles.form} onSubmit={(e) => void signIn(e)} noValidate>
         <Input
@@ -134,7 +153,7 @@ function WaitingStep({ email, requestedAt }: { email: string; requestedAt: numbe
           spellCheck={false}
           maxLength={12}
           placeholder="123456"
-          error={message}
+          error={fieldError}
           disabled={busy === 'code'}
           onChange={(e) => setCode(e.target.value)}
         />
@@ -150,6 +169,11 @@ function WaitingStep({ email, requestedAt }: { email: string; requestedAt: numbe
           </Button>
         </div>
       </form>
+      {message !== null ? (
+        <p className={styles.notice} data-tone="attention" role="alert">
+          {message}
+        </p>
+      ) : null}
       <p className={styles.help} role="status">
         {sent ? 'Sent again. The newest email is the one that works.' : ''}
       </p>

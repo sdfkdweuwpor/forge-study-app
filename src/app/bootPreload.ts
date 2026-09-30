@@ -38,6 +38,9 @@ const ROUTE_SLOT_PREFIXES: Partial<Record<RouteName, readonly string[]>> = {
   rewards: ['rewards.'],
   blocker: ['blocker.'],
   settings: ['settings.'],
+  // The morning and evening plans are dialogs: this page is only the address that opens one, and the dialog
+  // is drawn by a host in `global.overlays`, so the hosts come with it.
+  ritual: ['global.'],
 }
 
 /** What the shell draws around every page, and the first render needs: the sidebar, the rail, the sheets. */

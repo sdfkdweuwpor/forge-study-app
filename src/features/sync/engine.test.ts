@@ -226,7 +226,15 @@ describe('Scheduler: what starts a cycle', () => {
 
 describe('Scheduler: after a failure', () => {
   it('backs off 15 s, 1 min, 5 min, then 15 min, and starts over after a success', async () => {
-    const cycle = scripted(fail('server'), fail('server'), fail('server'), fail('server'), fail('server'), OK, fail('server'))
+    const cycle = scripted(
+      fail('server'),
+      fail('server'),
+      fail('server'),
+      fail('server'),
+      fail('server'),
+      OK,
+      fail('server'),
+    )
     const { scheduler, states } = rig(cycle, 0.5)
     scheduler.trigger('manual')
     await vi.advanceTimersByTimeAsync(0)
@@ -651,7 +659,7 @@ describe('createEngine: the tab that syncs', () => {
     t.engine.stop()
   })
 
-  it('shows what the cycle is doing, and the first sync\'s progress', async () => {
+  it("shows what the cycle is doing, and the first sync's progress", async () => {
     let report: (p: { step: 'pull'; rows: number }) => void = () => undefined
     let done: () => void = () => undefined
     const t = tab({
@@ -851,7 +859,11 @@ const session = (over: Partial<SyncSession> = {}): SyncSession => ({
   ...over,
 })
 
-const config = { url: 'https://abcdefghijklmnopqrst.supabase.co', anonKey: 'k', keyKind: 'anonJwt' as const }
+const config = {
+  url: 'https://abcdefghijklmnopqrst.supabase.co',
+  anonKey: 'k',
+  keyKind: 'anonJwt' as const,
+}
 
 describe('flushPending', () => {
   const deps = (over: Partial<FlushDeps> = {}) => {

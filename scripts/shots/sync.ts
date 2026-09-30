@@ -29,7 +29,11 @@ const USER = '3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10'
 const LINK_CODE = '9d1e5c2a-7b34-4f08-a6c1-2e8b0f7d3a59'
 
 const b64 = (value: object): string => Buffer.from(JSON.stringify(value)).toString('base64url')
-const ANON_KEY = [b64({ alg: 'HS256', typ: 'JWT' }), b64({ role: 'anon', ref: REF }), 'c2hvdA'].join('.')
+const ANON_KEY = [
+  b64({ alg: 'HS256', typ: 'JWT' }),
+  b64({ role: 'anon', ref: REF }),
+  'c2hvdA',
+].join('.')
 const SERVICE_KEY = [
   b64({ alg: 'HS256', typ: 'JWT' }),
   b64({ role: 'service_role', ref: REF }),
@@ -125,7 +129,11 @@ const on = (over: Record<string, unknown> = {}) =>
 
 const waitingRow = () =>
   row({
-    pendingLogin: { email: 'ana@example.com', codeVerifier: 'shot-verifier', requestedAt: NOW - 20_000 },
+    pendingLogin: {
+      email: 'ana@example.com',
+      codeVerifier: 'shot-verifier',
+      requestedAt: NOW - 20_000,
+    },
   })
 
 const engineSays = (over: Record<string, unknown> = {}) => ({
@@ -178,13 +186,22 @@ async function open(
 
 const SECTION = '#settings-sync'
 
+/** The browser logs a staged 4xx answer, or a request made while offline; these shots stage one on purpose. */
+const STAGED_FAILURES = ['Failed to load resource']
+
 // ─── The shots ──────────────────────────────────────────────────────────────
 
 const list: ShotList = {
   feature: 'sync',
   shots: [
     // Off, nothing saved: what sync is, and the way in.
-    { name: 'off', path: '/settings/sync?seed=wgu', waitFor: 'main h1', element: SECTION, prepare: settle },
+    {
+      name: 'off',
+      path: '/settings/sync?seed=wgu',
+      waitFor: 'main h1',
+      element: SECTION,
+      prepare: settle,
+    },
     { name: 'off-page', path: '/settings/sync?seed=wgu', waitFor: 'main h1', prepare: settle },
     {
       name: 'loading',
@@ -248,6 +265,7 @@ const list: ShotList = {
       path: '/settings/sync?seed=wgu',
       waitFor: 'main h1',
       element: SECTION,
+      ignoreConsoleErrors: STAGED_FAILURES,
       prepare: async (page) => {
         await fakeSupabase(page, () => ({ status: 401, body: { message: 'Invalid API key' } }))
         await page.getByRole('button', { name: 'Set up sync' }).click()
@@ -276,6 +294,7 @@ const list: ShotList = {
       path: '/settings/sync?seed=wgu',
       waitFor: 'main h1',
       element: SECTION,
+      ignoreConsoleErrors: STAGED_FAILURES,
       prepare: async (page) => {
         await fakeSupabase(page, () => ({
           status: 429,
@@ -304,6 +323,7 @@ const list: ShotList = {
       path: '/settings/sync?seed=wgu',
       waitFor: 'main h1',
       element: SECTION,
+      ignoreConsoleErrors: STAGED_FAILURES,
       prepare: async (page) => {
         await fakeSupabase(page, () => ({
           status: 403,
@@ -418,6 +438,7 @@ const list: ShotList = {
       path: '/settings/sync?seed=wgu',
       waitFor: 'main h1',
       element: SECTION,
+      ignoreConsoleErrors: STAGED_FAILURES,
       prepare: async (page) => {
         await open(page, on(), { outbox: 3 })
         await page.context().setOffline(true)

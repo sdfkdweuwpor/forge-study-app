@@ -9,7 +9,7 @@ import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
-import { href, navigate, navigateToUrl, usePageTitle } from '@/app/router'
+import { href, navigate, navigateToUrl, setQuery, useQuery, usePageTitle } from '@/app/router'
 import { useShortcutHandler } from '@/app/shortcuts'
 import { createGoalWithCourses, trashGoal } from '@/db/repos/goals'
 import { newId } from '@/lib/ids'
@@ -33,6 +33,7 @@ import {
   type PlannerStep,
 } from '@/logic/plannerDraft'
 import { restorePlanner, serializePlanner } from '@/logic/plannerPersist'
+import { withTemplateParam } from '@/logic/plannerTemplateParam'
 import { Breadcrumbs, type BreadcrumbLinkProps } from '@/ui/Breadcrumbs'
 import { Button } from '@/ui/Button'
 import { IconButton } from '@/ui/IconButton'
@@ -91,11 +92,14 @@ function crumbLink({ item, className, children }: BreadcrumbLinkProps): ReactNod
 function PlannerScreen() {
   const today = useToday()
   const toast = useToast()
-  const [state, dispatch] = useReducer(
-    plannerReducer,
-    today,
-    (t): PlannerState =>
+  // `?template=wgu-term` opens the planner with that template chosen (the onboarding flow's link).
+  const templateParam = useQuery().template
+  const [state, dispatch] = useReducer(plannerReducer, today, (t): PlannerState =>
+    withTemplateParam(
       restorePlanner(readPref(PREF_KEYS.plannerDraft), t) ?? initialPlannerState(t),
+      templateParam,
+      { newKey: newId, today: t },
+    ),
   )
   const { draft, step, reached, attempted } = state
   const [tab, setTab] = useState<InputTab>(() =>
@@ -109,6 +113,11 @@ function PlannerScreen() {
   const done = useRef(false)
   const top = useRef<HTMLDivElement | null>(null)
   usePageTitle('New goal')
+
+  // The param has done its job: a refresh must not load the template again over a draft that was cleared.
+  useEffect(() => {
+    if (templateParam !== undefined) setQuery({ template: undefined })
+  }, [templateParam])
 
   // Keep a half-finished draft across a refresh; a fresh one leaves nothing behind.
   useEffect(() => {

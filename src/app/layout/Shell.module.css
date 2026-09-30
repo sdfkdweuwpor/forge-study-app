@@ -4,6 +4,12 @@
   min-height: 100dvh;
 }
 
+/* `/welcome`: the page itself fills the window. */
+.bare {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .shell[data-resizing] {
   cursor: col-resize;
   user-select: none;

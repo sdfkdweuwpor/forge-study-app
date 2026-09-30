@@ -147,6 +147,12 @@ async function start(): Promise<Harness> {
   })
   app.on('pageerror', (err) => problems.push(`pageerror: ${err.message}`))
 
+  // A fresh profile is a first launch: leave the welcome flow the way a person would, so the pages
+  // below open as themselves. (This spec serves a production build, which has no test bypass.)
+  await app.goto(`${appUrl}/welcome`)
+  await app.getByRole('button', { name: 'Skip setup' }).click()
+  await app.waitForURL(`${appUrl}/`)
+
   return {
     context,
     appUrl,

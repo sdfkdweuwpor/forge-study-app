@@ -64,7 +64,8 @@ describe('applySeed("empty")', () => {
     const { settings, ...rest } = c
     expect(settings).toBe(1)
     expect(Object.values(rest).every((n) => n === 0)).toBe(true)
-    expect((await db.settings.get('app'))?.onboardedAt).toBeNull()
+    // Seeded data is an app that has been set up, so the first-launch flow stays out of the way.
+    expect((await db.settings.get('app'))?.onboardedAt).not.toBeNull()
   })
 
   it('works on a database that was never used', async () => {

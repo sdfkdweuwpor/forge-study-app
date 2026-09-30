@@ -1,0 +1,83 @@
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-14);
+  cursor: pointer;
+  transition:
+    background var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.chip[aria-pressed='true'] {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+@media (hover: hover) {
+  .chip:hover {
+    background: var(--bg-hover);
+  }
+
+  .chip[aria-pressed='true']:hover {
+    background: var(--accent-soft);
+  }
+}
+
+.chip:active {
+  transform: scale(var(--scale-press));
+}
+
+.chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.name {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The check is only there while the site is picked, so the state is not carried by colour alone. */
+.check {
+  width: 14px;
+  height: 14px;
+  margin-right: -2px;
+  display: none;
+}
+
+.chip[aria-pressed='true'] .check {
+  display: block;
+}
+
+@media (pointer: coarse) {
+  .chip {
+    min-height: var(--tap-min);
+  }
+}
+
+.add {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 460px;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+}

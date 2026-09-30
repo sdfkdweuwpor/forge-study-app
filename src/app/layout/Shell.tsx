@@ -88,7 +88,22 @@ export function Shell() {
   const showOpenButton = sidebarHidden || mode === 'tablet'
 
   // Pages with params (a goal, a course, a task) remount when the params change, so no state leaks between them.
-  const pageKey = Object.keys(route.params).length > 0 ? pathname : route.name
+  // Settings' param only names the section to scroll to (`/settings/data`), so it stays mounted.
+  const pageKey =
+    Object.keys(route.params).length > 0 && route.name !== 'settings' ? pathname : route.name
+
+  // The first-launch flow (`/welcome`) has the whole window to itself: no sidebar, drawer or tab bar.
+  if (route.name === 'welcome') {
+    return (
+      <div className={styles.bare}>
+        <main id="main" tabIndex={-1} className={styles.main}>
+          <RouteView />
+        </main>
+        <RouteAnnouncer />
+        <Slot id="global.overlays" />
+      </div>
+    )
+  }
 
   return (
     <div

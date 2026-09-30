@@ -8,6 +8,7 @@ import type {
   Availability,
   DateRange,
   Goal,
+  HHmm,
   ID,
   ISODate,
   Millis,
@@ -17,7 +18,8 @@ import type {
   WguTerm,
 } from '@/db/types'
 import { addDays, addMonths, compareISODate, isISODate, type Weekday } from './dates'
-import { planGoal, type GoalPlan } from './scheduler'
+import { planningFromAvailability } from './schemaV2'
+import { planGoalSlots, type SlotPlan } from './scheduler'
 
 export type CourseType = NonNullable<Milestone['courseType']>
 export const COURSE_TYPES: readonly CourseType[] = ['OA', 'PA', 'OA+PA']
@@ -344,6 +346,8 @@ export interface RowsContext {
   newId: () => ID
   /** `goal.order`; the repo appends after the last goal when it saves. */
   goalOrder?: number
+  /** Where each study day's window starts (`settings.scheduling.defaultStudyStart`). */
+  studyStart?: HHmm
 }
 
 function validRanges(ranges: readonly DraftRange[]): DateRange[] {
@@ -461,6 +465,7 @@ export function draftToRows(draft: DraftGoal, ctx: RowsContext): DraftRows {
       projectedStart: null,
       projectedEnd: null,
       completedAt: null,
+      selfRating: null,
     })
     parseUnits(course.units)
       .slice(0, UNITS_MAX)
@@ -477,6 +482,10 @@ export function draftToRows(draft: DraftGoal, ctx: RowsContext): DraftRows {
           difficulty: 2,
           status: 'todo',
           completedAt: null,
+          selfRating: null,
+          estimateSource: 'course',
+          baseEstimateMinutes: null,
+          optional: false,
         })
       })
   })
@@ -493,6 +502,7 @@ export function draftToRows(draft: DraftGoal, ctx: RowsContext): DraftRows {
     startDate: ctx.today,
     targetDate: schedule.targetDate,
     availability: schedule.availability,
+    planning: planningFromAvailability(schedule.availability, schedule.targetDate, ctx.studyStart),
     terms: schedule.terms,
     notes: [],
     order: ctx.goalOrder ?? 0,
@@ -505,15 +515,17 @@ export function draftToRows(draft: DraftGoal, ctx: RowsContext): DraftRows {
 }
 
 /**
- * The plan the draft would produce today: the scheduler over the draft's rows with no tasks. Ids are
- * throwaway, so call it as often as the draft changes.
+ * The plan the draft would produce today: the slot planner over the draft's rows with no tasks (the
+ * same planner `rebalanceGoal` runs when the goal is saved). Ids are throwaway, so call it as often as
+ * the draft changes.
  */
 export function previewPlan(
   draft: DraftGoal,
   today: ISODate,
   globalDaysOff: readonly DateRange[] = [],
-): GoalPlan {
+  studyStart?: HHmm,
+): SlotPlan {
   let n = 0
-  const rows = draftToRows(draft, { today, now: 0, newId: () => `preview-${n++}` })
-  return planGoal({ ...rows, tasks: [], globalDaysOff }, today)
+  const rows = draftToRows(draft, { today, now: 0, newId: () => `preview-${n++}`, studyStart })
+  return planGoalSlots({ ...rows, tasks: [], globalDaysOff }, today)
 }

@@ -11,7 +11,8 @@ import { dayOf } from '@/logic/dates'
 import { deepEqual } from '@/logic/deepEqual'
 import { evenOrders, isCrowded, orderBetween } from '@/logic/order'
 import { firstOccurrence } from '@/logic/recurrence'
-import { buildNextInstance, nextDueAfterCompletion } from '@/logic/taskFlow'
+import { kindForSource } from '@/logic/taskDates'
+import { buildNextInstance, nextDateAfterCompletion, shiftedDeadline } from '@/logic/taskFlow'
 import { cleanTags } from '@/logic/tagColor'
 import { xpForTask } from '@/logic/xp'
 import { db } from '../db'
@@ -41,7 +42,8 @@ function cleanTitle(title: string): string {
 }
 
 /**
- * Creates a task at the end of the list. A recurring task with no date is anchored to the first day
+ * Creates a task at the end of the list. `doDate`/`doTime` say when to do it; `dueDate`/`dueTime` are a
+ * hard deadline, only when there is one. A recurring task with no do date is anchored to the first day
  * its rule allows, on or after today. Does not award XP; finishing a task does (`completeTask`).
  */
 export async function createTask(input: TaskInput, opts: RepoOptions = {}): Promise<Task> {
@@ -50,7 +52,8 @@ export async function createTask(input: TaskInput, opts: RepoOptions = {}): Prom
   if (title === '') throw new RangeError('A task needs a title')
 
   const recurrence = input.recurrence ?? null
-  const dueDate = input.dueDate ?? (recurrence ? firstOccurrence(recurrence, dayOf(now)) : null)
+  const doDate = input.doDate ?? (recurrence ? firstOccurrence(recurrence, dayOf(now)) : null)
+  const source = input.source ?? 'user'
   const status = input.status ?? 'todo'
   // Time-based order keeps appends O(1): no scan for the largest existing value.
   const order = input.order ?? now
@@ -63,7 +66,10 @@ export async function createTask(input: TaskInput, opts: RepoOptions = {}): Prom
     notes: input.notes ?? [],
     status,
     priority: input.priority ?? 0,
-    dueDate,
+    doDate,
+    doTime: input.doTime ?? null,
+    durationMinutes: input.durationMinutes ?? null,
+    dueDate: input.dueDate ?? null,
     dueTime: input.dueTime ?? null,
     estimatePomodoros: input.estimatePomodoros ?? null,
     estimateMinutes: input.estimateMinutes ?? null,
@@ -71,7 +77,7 @@ export async function createTask(input: TaskInput, opts: RepoOptions = {}): Prom
     goalId: input.goalId ?? null,
     milestoneId: input.milestoneId ?? null,
     unitId: input.unitId ?? null,
-    source: input.source ?? 'user',
+    source,
     scheduleKey: input.scheduleKey ?? null,
     schedulePinned: input.schedulePinned ?? false,
     skippedOn: input.skippedOn ?? null,
@@ -84,6 +90,10 @@ export async function createTask(input: TaskInput, opts: RepoOptions = {}): Prom
     startedAt: input.startedAt ?? (status === 'doing' ? now : null),
     completedAt: input.completedAt ?? (status === 'done' ? now : null),
     completedDay: input.completedDay ?? (status === 'done' ? dayOf(now) : null),
+    autoSlot: input.autoSlot ?? false,
+    kind: input.kind ?? kindForSource(source),
+    assessmentId: input.assessmentId ?? null,
+    sync: input.sync ?? null,
   }
 
   return db.transaction('rw', db.tasks, async () => {
@@ -102,8 +112,12 @@ export type TaskPatch = Partial<
     | 'title'
     | 'notes'
     | 'priority'
+    | 'doDate'
+    | 'doTime'
+    | 'durationMinutes'
     | 'dueDate'
     | 'dueTime'
+    | 'autoSlot'
     | 'estimatePomodoros'
     | 'estimateMinutes'
     | 'tags'
@@ -136,11 +150,11 @@ function settle(before: Task, patch: TaskPatch, now: Millis): Partial<Task> {
   }
   if (patch.tags) next.tags = cleanTags(patch.tags)
 
-  // A recurring task with no date is anchored to its rule.
+  // A recurring task with no do date is anchored to its rule.
   const recurrence = 'recurrence' in patch ? patch.recurrence : before.recurrence
-  const dueDate = 'dueDate' in patch ? patch.dueDate : before.dueDate
-  if (recurrence && (dueDate === null || dueDate === undefined)) {
-    next.dueDate = firstOccurrence(recurrence, dayOf(now))
+  const doDate = 'doDate' in patch ? patch.doDate : before.doDate
+  if (recurrence && (doDate === null || doDate === undefined)) {
+    next.doDate = firstOccurrence(recurrence, dayOf(now))
   }
   return next
 }
@@ -181,8 +195,9 @@ function restoreFields(id: ID, previous: Partial<Task>): () => Promise<void> {
 
 /**
  * Edits fields in place. Returns the saved task and an `undo()` that puts the changed fields back, or
- * `null` when the task no longer exists. A patch that changes nothing writes nothing. Editing the date
- * or time of a scheduled task pins it, so a rebalance leaves it where you put it.
+ * `null` when the task no longer exists. A patch that changes nothing writes nothing. Editing the do
+ * date or time of a scheduled task pins it, so a rebalance leaves it where you put it; its deadline
+ * belongs to the plan and is not the user's to move.
  */
 export async function updateTask(
   id: ID,
@@ -198,7 +213,7 @@ export async function updateTask(
     if (
       before.source === 'schedule' &&
       !('schedulePinned' in patch) &&
-      ('dueDate' in changes || 'dueTime' in changes)
+      ('doDate' in changes || 'doTime' in changes)
     ) {
       changes.schedulePinned = true
       previous.schedulePinned = before.schedulePinned
@@ -262,15 +277,15 @@ interface ReopenState {
 const REOPEN_TODO: ReopenState = { status: 'todo', startedAt: null }
 
 /**
- * Whether an open instance of the series already has `dueDate`. Completing a recurring task again
- * (complete, edit the generated instance, reopen, complete) must not stack a duplicate on top of it.
+ * Whether an open instance of the series is already planned for `doDate`. Completing a recurring task
+ * again (complete, edit the generated instance, reopen, complete) must not stack a duplicate on it.
  */
-async function openSiblingDueOn(task: Task, dueDate: ISODate): Promise<boolean> {
+async function openSiblingOn(task: Task, doDate: ISODate): Promise<boolean> {
   const siblings = await db.tasks
     .where('seriesId')
     .equals(task.seriesId ?? task.id)
     .toArray()
-  return siblings.some((t) => t.id !== task.id && t.status !== 'done' && t.dueDate === dueDate)
+  return siblings.some((t) => t.id !== task.id && t.status !== 'done' && t.doDate === doDate)
 }
 
 /**
@@ -295,10 +310,10 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
     let next: Task | null = null
     const changes: Partial<Task> = { status: 'done', completedAt: now, completedDay: day }
     if (task.recurrence) {
-      const due = nextDueAfterCompletion(task.recurrence, task.dueDate, day)
+      const on = nextDateAfterCompletion(task.recurrence, task.doDate, day)
       changes.seriesId = task.seriesId ?? task.id
-      if (!(await openSiblingDueOn(task, due))) {
-        next = buildNextInstance(task, { id: newId(), dueDate: due, now, newId })
+      if (!(await openSiblingOn(task, on))) {
+        next = buildNextInstance(task, { id: newId(), doDate: on, now, newId })
       }
     }
     await db.tasks.update(id, changes)
@@ -338,14 +353,14 @@ export async function completeTask(id: ID, opts: RepoOptions = {}): Promise<Comp
  */
 async function generatedInstance(task: Task, completedDay: ISODate): Promise<Task | null> {
   if (!task.recurrence || task.seriesId === null) return null
-  const due = nextDueAfterCompletion(task.recurrence, task.dueDate, completedDay)
+  const on = nextDateAfterCompletion(task.recurrence, task.doDate, completedDay)
   const siblings = await db.tasks.where('seriesId').equals(task.seriesId).toArray()
   return (
     siblings.find(
       (t) =>
         t.id !== task.id &&
         t.status !== 'done' &&
-        t.dueDate === due &&
+        t.doDate === on &&
         t.title === task.title &&
         t.updatedAt === t.createdAt,
     ) ?? null
@@ -423,9 +438,9 @@ export async function uncompleteTask(
 }
 
 /**
- * Skips a task for today: it drops off Today and, when it belongs to a goal's plan, gives its minutes
- * back to the scheduler. A recurring task of your own moves to its next occurrence. `undo()` puts the
- * skip and any date change back.
+ * Skips a task for today: it drops off Today and, when it belongs to a goal's plan, gives its slot
+ * back to the planner. A recurring task of your own moves to its next occurrence (its deadline moves
+ * with it). `undo()` puts the skip and any date change back.
  */
 export async function skipTask(id: ID, opts: RepoOptions = {}): Promise<TaskUpdate | null> {
   const now = opts.now ?? Date.now()
@@ -435,7 +450,8 @@ export async function skipTask(id: ID, opts: RepoOptions = {}): Promise<TaskUpda
     if (!before || before.status === 'done') return null
     const next: Partial<Task> = { skippedOn: today }
     if (before.recurrence && before.source !== 'schedule') {
-      next.dueDate = nextDueAfterCompletion(before.recurrence, before.dueDate, today)
+      next.doDate = nextDateAfterCompletion(before.recurrence, before.doDate, today)
+      next.dueDate = shiftedDeadline(before, next.doDate)
     }
     const { changes, previous } = diff(before, next)
     if (Object.keys(changes).length === 0) return { task: before, undo: noop }
@@ -449,10 +465,10 @@ export async function skipTask(id: ID, opts: RepoOptions = {}): Promise<TaskUpda
 export type OrderKey = 'order' | 'orderInDay' | 'boardOrder'
 
 export interface MoveTarget {
-  /** Change the due day (`null` clears it). */
-  dueDate?: ISODate | null
-  /** Change the time of day (`null` clears it). */
-  dueTime?: HHmm | null
+  /** Change the do day (`null` clears it). The deadline never moves with a drag. */
+  doDate?: ISODate | null
+  /** Change the planned time of day (`null` clears it). */
+  doTime?: HHmm | null
   /** Reorder: put the task between these two neighbours (either is `null` at the ends of a list). */
   reorder?: { above: ID | null; below: ID | null; key?: OrderKey }
 }
@@ -532,7 +548,7 @@ async function positionBetween(
 }
 
 /**
- * Moves a task: reorder it between two neighbours, and/or change its date or time. Reordering only
+ * Moves a task: reorder it between two neighbours, and/or change its do date or time. Reordering only
  * rewrites the moved row (fractional ordering); when neighbours have grown too close the whole list is
  * renumbered once. A date change on a scheduled task pins it. `undo()` puts the date and time back and
  * puts the task back between the neighbours it had (not at its old number, which a renumber may have
@@ -548,8 +564,8 @@ export async function moveTask(
     const before = await db.tasks.get(id)
     if (!before) return null
     const patch: Partial<Task> = {}
-    if ('dueDate' in target) patch.dueDate = target.dueDate ?? null
-    if ('dueTime' in target) patch.dueTime = target.dueTime ?? null
+    if ('doDate' in target) patch.doDate = target.doDate ?? null
+    if ('doTime' in target) patch.doTime = target.doTime ?? null
 
     const reorder = target.reorder
     const key: OrderKey = reorder?.key ?? 'order'
@@ -573,7 +589,7 @@ export async function moveTask(
       Object.assign(previous, { [field]: before[field] })
     }
     if (Object.keys(changes).length === 0) return { task: fresh, undo: noop }
-    if (before.source === 'schedule' && ('dueDate' in changes || 'dueTime' in changes)) {
+    if (before.source === 'schedule' && ('doDate' in changes || 'doTime' in changes)) {
       changes.schedulePinned = true
       previous.schedulePinned = before.schedulePinned
     }
@@ -622,6 +638,9 @@ export async function duplicateTask(id: ID, opts: RepoOptions = {}): Promise<Tas
       notes,
       status: 'todo',
       source: original.source === 'schedule' ? 'user' : original.source,
+      kind: original.source === 'schedule' ? 'task' : original.kind,
+      assessmentId: original.source === 'schedule' ? null : original.assessmentId,
+      sync: null,
       scheduleKey: null,
       schedulePinned: false,
       skippedOn: null,

@@ -4,8 +4,9 @@
  * deployed build has neither the flag nor this module.
  *
  * Both kinds first wipe every table, then make sure the settings row exists. `wgu` then loads a
- * B.S. Computer Science goal with its courses and units, about thirty tasks around today (overdue,
- * today, upcoming, no date, and two weeks of finished work) and the XP those finished tasks earned.
+ * B.S. Computer Science goal with its courses, units and planned OAs, about thirty tasks around today
+ * (carried over, today, upcoming, a few real deadlines, no date, and two weeks of finished work) and the
+ * XP those finished tasks earned.
  */
 import { buildStarterData } from '@/data/sample/starterTasks'
 import { buildWguBsCs } from '@/data/sample/wguBsCs'
@@ -28,16 +29,17 @@ export async function applySeed(kind: SeedKind): Promise<void> {
 
   const now = Date.now()
   const today = dayOf(now)
-  const { goal, milestones, units } = buildWguBsCs(today, now)
+  const { goal, milestones, units, plannedAssessments } = buildWguBsCs(today, now)
   const { tasks, xpEvents } = buildStarterData({ today, now })
 
   await db.transaction(
     'rw',
-    [db.goals, db.milestones, db.units, db.tasks, db.xpEvents],
+    [db.goals, db.milestones, db.units, db.plannedAssessments, db.tasks, db.xpEvents],
     async () => {
       await db.goals.add(goal)
       await db.milestones.bulkAdd(milestones)
       await db.units.bulkAdd(units)
+      await db.plannedAssessments.bulkAdd(plannedAssessments)
       await db.tasks.bulkAdd(tasks)
       await db.xpEvents.bulkAdd(xpEvents)
     },

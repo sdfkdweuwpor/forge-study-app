@@ -146,7 +146,7 @@ export type DiffTask = Pick<
   | 'scheduleKey'
   | 'schedulePinned'
   | 'skippedOn'
-  | 'dueDate'
+  | 'doDate'
   | 'title'
   | 'estimateMinutes'
   | 'estimatePomodoros'
@@ -163,7 +163,7 @@ export type DiffTask = Pick<
 export type ChunkFields = Pick<
   Task,
   | 'title'
-  | 'dueDate'
+  | 'doDate'
   | 'estimateMinutes'
   | 'estimatePomodoros'
   | 'orderInDay'

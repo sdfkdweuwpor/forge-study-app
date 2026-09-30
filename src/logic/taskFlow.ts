@@ -4,30 +4,46 @@
  * without a database.
  */
 import type { ID, ISODate, Millis, RecurrenceRule, Task } from '@/db/types'
+import { addDays, diffDays } from './dates'
 import { nextOccurrence } from './recurrence'
 
 /** Safety net for a task that has been overdue for years; each step is one occurrence. */
 const MAX_CATCH_UP_STEPS = 800
 
 /**
- * The due date of the instance that follows one completed on `today`. It is the first occurrence
- * strictly after both the finished instance's due date and today, so a daily task finished three days
- * late is next due tomorrow (not in the past), while the weekly/interval phase of the series is kept.
- * A task with no due date recurs from today.
+ * The do date of the instance that follows one completed (or skipped) on `today`. It is the first
+ * occurrence strictly after both the finished instance's do date and today, so a daily task finished
+ * three days late is next planned for tomorrow (not in the past), while the weekly/interval phase of the
+ * series is kept. A task with no date recurs from today.
  */
-export function nextDueAfterCompletion(
+export function nextDateAfterCompletion(
   rule: RecurrenceRule,
-  dueDate: ISODate | null,
+  doDate: ISODate | null,
   today: ISODate,
 ): ISODate {
-  let next = nextOccurrence(rule, dueDate ?? today)
+  let next = nextOccurrence(rule, doDate ?? today)
   for (let i = 0; i < MAX_CATCH_UP_STEPS && next <= today; i++) next = nextOccurrence(rule, next)
   return next <= today ? nextOccurrence(rule, today) : next
 }
 
+/**
+ * The deadline that goes with a task moved from `fromDo` to `toDo`: it keeps its distance from the do
+ * date (a bill planned two days before it is due stays two days ahead). `null` without a deadline; a
+ * deadline without a do date moves with the recurrence by the same rule.
+ */
+export function shiftedDeadline(
+  task: Pick<Task, 'doDate' | 'dueDate'>,
+  toDo: ISODate,
+): ISODate | null {
+  if (task.dueDate === null) return null
+  if (task.doDate === null) return toDo
+  return addDays(toDo, diffDays(task.dueDate, task.doDate))
+}
+
 export interface NextInstanceOptions {
   id: ID
-  dueDate: ISODate
+  /** The new instance's do date; its deadline (if any) keeps its distance from it. */
+  doDate: ISODate
   now: Millis
   /** Ids for the fresh (unchecked) copies of the checklist. */
   newId: () => ID
@@ -35,7 +51,8 @@ export interface NextInstanceOptions {
 
 /**
  * The next instance of a recurring task: the same title, notes, priority, estimate, tags, links, time
- * and rule, with the checklist unchecked and the completion fields cleared. It joins the finished
+ * and rule, on its next do date (a deadline moves along with it), with the checklist unchecked and the
+ * completion fields cleared. It joins the finished
  * instance's series (`seriesId`, or the finished task's id when it started the series).
  */
 export function buildNextInstance(task: Task, opts: NextInstanceOptions): Task {
@@ -45,7 +62,8 @@ export function buildNextInstance(task: Task, opts: NextInstanceOptions): Task {
     createdAt: opts.now,
     updatedAt: opts.now,
     status: 'todo',
-    dueDate: opts.dueDate,
+    doDate: opts.doDate,
+    dueDate: shiftedDeadline(task, opts.doDate),
     notes: task.notes.map((block) => ({
       ...block,
       ...(block.type === 'todo' ? { checked: false } : {}),
@@ -59,6 +77,7 @@ export function buildNextInstance(task: Task, opts: NextInstanceOptions): Task {
     scheduleKey: null,
     schedulePinned: false,
     skippedOn: null,
+    sync: null,
     startedAt: null,
     completedAt: null,
     completedDay: null,

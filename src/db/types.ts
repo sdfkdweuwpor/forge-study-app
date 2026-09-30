@@ -2,6 +2,7 @@
  * Row types for every Dexie table (PLAN §3.2). Type-only: `src/logic` may `import type` from here.
  * Conventions: ids are strings, instants are epoch ms, calendar days are local `'YYYY-MM-DD'`.
  */
+import type { PlanChange } from '@/logic/scheduler/plannerTypes'
 import type { TableName } from './schema'
 
 export type { TableName } from './schema'
@@ -62,16 +63,56 @@ export interface RecurrenceRule {
   byWeekday: number[]
 }
 
+/** A window of wall-clock time on one day. `start < end`; `'24:00'` may end a window. */
+export interface TimeWindow {
+  start: HHmm
+  end: HHmm
+}
+
+/** How well the student already knows a unit or course (scales its estimate). */
+export type SelfRating = 'know' | 'somewhat' | 'new'
+
+/** A link from a flashcard or practice question to the note it came from (hook, schema v2). */
+export interface NoteRef {
+  kind: 'goal' | 'course' | 'task' | 'resource'
+  id: ID
+  /** A block inside that note, or `null` for the whole note. */
+  blockId: ID | null
+}
+
 // ─── Tasks ──────────────────────────────────────────────────────────────────
 
 export type TaskStatus = 'todo' | 'doing' | 'done'
 export type TaskSource = 'user' | 'schedule' | 'flashcards' | 'ritual' | 'template' | 'onboarding'
+/** Planner item kinds (schema v2). Everyday tasks are `'task'`. */
+export type PlanItemKind = 'study' | 'review' | 'practiceTest' | 'assessment' | 'milestone'
+export type TaskKind = 'task' | PlanItemKind
+
+/** Calendar-sync hook (schema v2; not built): where a task lives in an outside calendar. */
+export interface TaskSync {
+  provider: 'google' | 'caldav' | 'ics'
+  calendarId: string | null
+  externalId: string
+  etag: string | null
+  lastSyncedAt: Millis | null
+  direction: 'push' | 'pull' | 'both'
+}
 
 export interface Task extends Base {
   title: string
   notes: Block[]
   status: TaskStatus
   priority: Priority
+  /**
+   * When I plan to do it (schema v2): Today, Upcoming, the calendar and "Carried over" read this.
+   * A task with no do date but a due date is planned for its due date (`logic/taskDates.planDay`).
+   */
+  doDate: ISODate | null
+  /** Planned start on `doDate` (a slot); `null` = any time that day. */
+  doTime: HHmm | null
+  /** Length of the planned slot (planner items: the session length). */
+  durationMinutes: number | null
+  /** The hard deadline only (schema v2). Shown as a calm "Due Fri" chip. */
   dueDate: ISODate | null
   dueTime: HHmm | null
   /** Scheduler chunks set both estimates. */
@@ -96,6 +137,14 @@ export interface Task extends Base {
   startedAt: Millis | null
   completedAt: Millis | null
   completedDay: ISODate | null
+  /** An everyday task with a due date and no do date that `autoSlotTasks` may place (opt-in). */
+  autoSlot: boolean
+  /** `'task'` for everyday tasks; the plan item kind for planner items. */
+  kind: TaskKind
+  /** The `plannedAssessments` row a review, practice test or assessment item belongs to. */
+  assessmentId: ID | null
+  /** Calendar-sync hook (not built). */
+  sync: TaskSync | null
 }
 
 /**
@@ -136,6 +185,24 @@ export interface WguTerm {
   start: ISODate
   end: ISODate
 }
+/** Slot-level planning settings of a goal (schema v2, the Goal Breakdown Planner). */
+export interface GoalPlanning {
+  /** Target study-session length, 25–90 min (default 50). */
+  sessionMinutes: number
+  /** Study windows per weekday, 7 entries, index 0 = Sunday. */
+  weekly: TimeWindow[][]
+  /** A rotating shift cycle that replaces `weekly` (day `anchor` is cycle day 0; `null` = no study). */
+  shiftPattern: { anchor: ISODate; cycle: (TimeWindow[] | null)[] } | null
+  /** Share of the planned work reserved as slack at the end, 0.10–0.15 (default 0.12). */
+  bufferPct: number
+  /** Study hours per competency unit when a course has only CUs (default 15). */
+  cuHoursMultiplier: number
+  /** `true`: full speed, the target is only checked. `false`: paced to the target (needs one). */
+  asap: boolean
+  /** The accepted plan's pace in minutes per study day (roll-forward keeps it); `null` = ASAP. */
+  paceMinutesPerStudyDay: number | null
+}
+
 export interface GoalProjection {
   end: ISODate | null
   slipDays: number | null
@@ -153,7 +220,12 @@ export interface Goal extends Base {
   status: 'active' | 'paused' | 'done' | 'archived'
   startDate: ISODate
   targetDate: ISODate | null
+  /**
+   * `daysOff` is the goal's blackout list. `minutesByWeekday` mirrors `planning.weekly` (the repo keeps
+   * the two in sync) for the minutes-based editors.
+   */
   availability: Availability
+  planning: GoalPlanning
   terms: WguTerm[]
   notes: Block[]
   order: number
@@ -184,7 +256,11 @@ export interface Milestone extends Base {
   projectedStart: ISODate | null
   projectedEnd: ISODate | null
   completedAt: Millis | null
+  /** For a course without units: how well it is already known. */
+  selfRating: SelfRating | null
 }
+
+export type UnitEstimateSource = 'hours' | 'cus' | 'course' | 'import' | 'parsed'
 
 export interface Unit extends Base {
   goalId: ID
@@ -195,6 +271,57 @@ export interface Unit extends Base {
   difficulty: 1 | 2 | 3
   status: 'todo' | 'done'
   completedAt: Millis | null
+  selfRating: SelfRating | null
+  /** How `estimateMinutes` was derived. */
+  estimateSource: UnitEstimateSource
+  /** The estimate before the self-rating factor, so a re-rating recomputes. */
+  baseEstimateMinutes: number | null
+  /** A cut-scope hint: the unit may be dropped when the plan does not fit. */
+  optional: boolean
+}
+
+/** A planned exam, project or quiz (the plan; attempt logs with scores stay in `assessments`). */
+export interface PlannedAssessment extends Base {
+  goalId: ID
+  milestoneId: ID | null
+  kind: 'exam' | 'project' | 'quiz'
+  title: string
+  /** `null` = the planner places it after its course's work. */
+  date: ISODate | null
+  /** A booked time; the assessment then blocks its slot. */
+  time: HHmm | null
+  durationMinutes: number | null
+  status: 'planned' | 'done' | 'skipped'
+  completedAt: Millis | null
+  order: number
+  source: 'user' | 'syllabus' | 'import' | 'wgu'
+}
+
+export type PlanProposalKind =
+  | 'rollForward'
+  | 'extendDate'
+  | 'addTime'
+  | 'cutScope'
+  | 'spread'
+  | 'lifeHappened'
+  | 'aiSuggestion'
+
+/** A pending plan change: nothing is applied until the user accepts it. */
+export interface PlanProposal extends Base {
+  /** `null` = everyday tasks (auto-slot). */
+  goalId: ID | null
+  kind: PlanProposalKind
+  status: 'pending' | 'accepted' | 'dismissed' | 'stale'
+  /** The day it was computed for; a proposal from an earlier day is stale. */
+  computedFor: ISODate
+  title: string
+  detail: string
+  /** What accepting does (`ProposalApplyData`), validated on accept. */
+  apply: unknown
+  preview: PlanChange
+  /** Hash of the open plan items it was computed from: if the plan changed since, recompute. */
+  baseRevision: string
+  decidedAt: Millis | null
 }
 
 // ─── Focus ──────────────────────────────────────────────────────────────────
@@ -335,12 +462,24 @@ export interface Assessment extends Base {
   areas: { name: string; scorePct: number }[]
   notes: string
 }
+/** FSRS memory state (hook, schema v2; not built). */
+export interface FsrsState {
+  stability: number
+  difficulty: number
+  elapsedDays: number
+  scheduledDays: number
+  reps: number
+  lapses: number
+  state: 'new' | 'learning' | 'review' | 'relearning'
+  lastReview: Millis | null
+}
 export interface Flashcard extends Base {
   goalId: ID
   milestoneId: ID
   front: string
   back: string
   tags: string[]
+  /** SM-2 fields. */
   ease: number
   intervalDays: number
   repetitions: number
@@ -348,6 +487,52 @@ export interface Flashcard extends Base {
   dueDate: ISODate
   lastReviewedAt: Millis | null
   suspended: boolean
+  /** Which scheduler owns the card (v2 hook). */
+  scheduler: 'sm2' | 'fsrs'
+  fsrs: FsrsState | null
+  noteRef: NoteRef | null
+}
+/** A practice question (hook, schema v2; not built). */
+export interface PracticeQuestion extends Base {
+  goalId: ID
+  milestoneId: ID
+  unitId: ID | null
+  prompt: string
+  /** Multiple choice, or `null` for a typed answer. */
+  choices: string[] | null
+  answer: string
+  explanation: string
+  tags: string[]
+  source: 'user' | 'import'
+  noteRef: NoteRef | null
+  suspended: boolean
+}
+/** One answer to a practice question. A miss sets `requeueOn`; answering it right later clears it. */
+export interface QuestionAttempt extends Base {
+  questionId: ID
+  goalId: ID
+  milestoneId: ID
+  at: Millis
+  day: ISODate
+  correct: boolean
+  answer: string
+  requeueOn: ISODate | null
+}
+/** Readiness per course (id = milestoneId) or unit (id = unitId); feeds the planner's extra reviews. */
+export interface Readiness extends Base {
+  goalId: ID
+  milestoneId: ID
+  unitId: ID | null
+  /** 0–1. */
+  score: number
+  extraReviewMinutes: number
+  inputs: {
+    paPct: number | null
+    cardRetention: number | null
+    questionAccuracy: number | null
+    unitsDonePct: number
+  }
+  computedAt: Millis
 }
 export interface Resource extends Base {
   goalId: ID
@@ -474,6 +659,8 @@ export interface Settings extends Base {
     defaultStudyStart: HHmm
     bestHour: number | null
     lastDailyRunDay: ISODate | null
+    /** When everyday tasks may be auto-slotted, per weekday (index 0 = Sunday). v2. */
+    taskWindows: TimeWindow[][]
   }
   backup: { lastExportAt: Millis | null; remindWeekly: boolean }
   tagColors: Record<string, TagColor>
@@ -512,6 +699,11 @@ export interface TableRows {
   rituals: Ritual
   weeklyReviews: WeeklyReview
   templates: Template
+  plannedAssessments: PlannedAssessment
+  planProposals: PlanProposal
+  practiceQuestions: PracticeQuestion
+  questionAttempts: QuestionAttempt
+  readiness: Readiness
 }
 
 // Compile-time guard (type-only): TableRows and the schema's table list must stay in sync.

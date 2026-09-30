@@ -1,12 +1,14 @@
 /**
  * Dexie store definitions (PLAN §3.3). Released version strings are append-only: NEVER edit
- * STORES_V1. A schema change adds `migrations/vN.ts` (see migrations/README.md).
+ * STORES_V1 or a later delta. A schema change adds `migrations/vN.ts` (see migrations/README.md).
  *
  * Index rules: never index booleans, `null` or `undefined` (IndexedDB can't key them). Nullable
  * fields such as `dueDate` simply drop out of their index.
  */
+import { STORES_V2_DELTA } from './migrations/v2'
+
 export const DB_NAME = 'forge'
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export const STORES_V1 = {
   settings: 'id',
@@ -38,7 +40,10 @@ export const STORES_V1 = {
   templates: 'id, kind',
 } as const
 
-export type TableName = keyof typeof STORES_V1
+/** The current stores: v1 with every later delta applied (what the latest version declares). */
+export const STORES = { ...STORES_V1, ...STORES_V2_DELTA } as const
+
+export type TableName = keyof typeof STORES
 
 /** Every table name, in schema order (backup/export/reset iterate this). */
-export const TABLE_NAMES = Object.keys(STORES_V1) as TableName[]
+export const TABLE_NAMES = Object.keys(STORES) as TableName[]

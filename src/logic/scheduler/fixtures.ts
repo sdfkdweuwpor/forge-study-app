@@ -14,6 +14,8 @@ import type {
   WeekMinutes,
 } from '@/db/types'
 import { eachDay, isInAnyRange, weekdayOf } from '../dates'
+import { planningFromAvailability } from '../schemaV2'
+import { TASK_V2_DEFAULTS } from '../taskDates'
 import { ceilTo, floorTo, resolveOptions } from './capacity'
 import { chunkFields } from './diff'
 import type {
@@ -235,8 +237,9 @@ export function wguYearPlan(today: ISODate = '2026-09-29'): ScheduleInput {
 export const GOAL_ID: ID = 'goal-1'
 const T0 = 1_700_000_000_000
 
+/** A goal row; its `planning` follows its availability (windows from 09:00) unless given. */
 export function goalRow(extra: Partial<Goal> = {}): Goal {
-  return {
+  const row: Omit<Goal, 'planning'> & { planning?: Goal['planning'] } = {
     id: GOAL_ID,
     createdAt: T0,
     updatedAt: T0,
@@ -256,6 +259,11 @@ export function goalRow(extra: Partial<Goal> = {}): Goal {
     lastRebalancedOn: null,
     completedAt: null,
     ...extra,
+  }
+  return {
+    ...row,
+    planning:
+      row.planning ?? planningFromAvailability(row.availability, row.targetDate, '09:00'),
   }
 }
 
@@ -282,6 +290,7 @@ export function milestoneRow(id: ID, extra: Partial<Milestone> = {}): Milestone 
     projectedStart: null,
     projectedEnd: null,
     completedAt: null,
+    selfRating: null,
     ...extra,
   }
 }
@@ -304,6 +313,10 @@ export function unitRow(
     difficulty: 1,
     status: 'todo',
     completedAt: null,
+    selfRating: null,
+    estimateSource: minutes === null ? 'course' : 'hours',
+    baseEstimateMinutes: minutes,
+    optional: false,
     ...extra,
   }
 }
@@ -338,6 +351,8 @@ export function taskRow(id: ID, extra: Partial<Task> = {}): Task {
     startedAt: null,
     completedAt: null,
     completedDay: null,
+    ...TASK_V2_DEFAULTS,
+    kind: extra.source === undefined || extra.source === 'schedule' ? 'study' : 'task',
     ...extra,
   }
 }

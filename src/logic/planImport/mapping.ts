@@ -29,6 +29,8 @@ import type {
   WeekMinutes,
   WguTerm,
 } from '@/db/types'
+import { planningForAvailability } from '../goalPlanning'
+import { planningFromAvailability } from '../schemaV2'
 import { describeDaysOff, describeWeek, formatMinutes, termLabel, weeklyMinutes } from './format'
 import type { KnownCourse } from './relations'
 import type { Plan, PlanCourse, PlanUnit } from './schema'
@@ -275,18 +277,24 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
         projectedStart: null,
         projectedEnd: null,
         completedAt: null,
+        selfRating: null,
       })
       planUnits.forEach((u, order) => {
+        const minutes = unitMinutes(u)
         unitsAdd.push({
           id: ctx.newId(),
           goalId,
           milestoneId: id,
           title: u.title,
           order,
-          estimateMinutes: unitMinutes(u),
+          estimateMinutes: minutes,
           difficulty: 2,
           status: 'todo',
           completedAt: null,
+          selfRating: null,
+          estimateSource: minutes === null ? 'course' : 'import',
+          baseEstimateMinutes: minutes,
+          optional: false,
         })
       })
       unitsAddedHere = planUnits.length
@@ -338,7 +346,14 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
         const minutes = unitMinutes(u)
         if (match) {
           if (minutes !== null && minutes !== match.estimateMinutes) {
-            unitsUpdate.push({ id: match.id, changes: { estimateMinutes: minutes } })
+            unitsUpdate.push({
+              id: match.id,
+              changes: {
+                estimateMinutes: minutes,
+                baseEstimateMinutes: minutes,
+                estimateSource: 'import',
+              },
+            })
             unitsUpdatedHere++
           }
         } else {
@@ -352,6 +367,10 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
             difficulty: 2,
             status: 'todo',
             completedAt: null,
+            selfRating: null,
+            estimateSource: minutes === null ? 'course' : 'import',
+            baseEstimateMinutes: minutes,
+            optional: false,
           })
           unitsAddedHere++
         }
@@ -386,6 +405,7 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
     availability = planAvailability
       ? toAvailability(planAvailability, null)
       : { minutesByWeekday: [...DEFAULT_WEEK] as WeekMinutes, daysOff: [] }
+    const target = plan.goal.targetDate ?? term?.end ?? null
     goalAdd = {
       id: goalId,
       title: plan.goal.name,
@@ -394,8 +414,9 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
       kind: term || plan.courses.some((c) => c.cus !== undefined) ? 'degree' : 'custom',
       status: 'active',
       startDate: term?.start ?? ctx.today,
-      targetDate: plan.goal.targetDate ?? term?.end ?? null,
+      targetDate: target,
       availability,
+      planning: planningFromAvailability(availability, target),
       terms: termRow ? [termRow] : [],
       notes: [],
       order: ctx.nextGoalOrder,
@@ -420,6 +441,11 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
       const next = toAvailability(planAvailability, g.availability)
       if (!sameAvailability(next, g.availability)) {
         changes.availability = next
+        changes.planning = planningForAvailability(
+          g.planning,
+          next,
+          changes.targetDate ?? g.targetDate,
+        )
         availability = next
         goalChangeLines.push(`Availability: ${describeWeek(next.minutesByWeekday)}`)
         if (planAvailability.daysOff) goalChangeLines.push(`Days off: ${describeDaysOff(next.daysOff)}`)

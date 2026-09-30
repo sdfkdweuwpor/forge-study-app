@@ -27,14 +27,14 @@ import type {
 
 /** A pin the rebalancer must respect: open, not skipped today, and not dated in the past. */
 export function isActivePin(
-  task: Pick<Task, 'status' | 'schedulePinned' | 'dueDate' | 'skippedOn'>,
+  task: Pick<Task, 'status' | 'schedulePinned' | 'doDate' | 'skippedOn'>,
   today: ISODate,
 ): boolean {
   return (
     task.status !== 'done' &&
     task.schedulePinned &&
     task.skippedOn !== today &&
-    (task.dueDate === null || task.dueDate >= today)
+    (task.doDate === null || task.doDate >= today)
   )
 }
 
@@ -57,7 +57,7 @@ export function hasUserContent(
 export function chunkFields(chunk: PlannedChunk): ChunkFields {
   return {
     title: chunk.title,
-    dueDate: chunk.date,
+    doDate: chunk.date,
     estimateMinutes: chunk.minutes,
     estimatePomodoros: pomodorosFor(chunk.minutes),
     orderInDay: chunk.orderInDay,
@@ -69,7 +69,7 @@ export function chunkFields(chunk: PlannedChunk): ChunkFields {
 
 const FIELDS: ReadonlyArray<keyof ChunkFields> = [
   'title',
-  'dueDate',
+  'doDate',
   'estimateMinutes',
   'estimatePomodoros',
   'orderInDay',

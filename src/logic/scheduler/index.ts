@@ -53,8 +53,11 @@ export {
   type DiffContext,
 } from './diff'
 export {
+  courseUnits,
   goalWork,
+  isStudyTask,
   planGoal,
+  type CourseUnits,
   type CourseWork,
   type GoalPlan,
   type GoalRows,
@@ -156,6 +159,23 @@ export {
   type WeekProposal,
 } from './reflow'
 export { diffPlanItems, isChangeEmpty } from './planDiff'
+// ─── Schema v2 wiring: rows ↔ planner, plan items ↔ tasks ───────────────────
+export { goalAvailability, planGoalSlots, type SlotGoalRows, type SlotPlan } from './goalSlots'
+export {
+  currentPlanItems,
+  diffPlanTasks,
+  isPlanDiffEmpty,
+  isPlanTask,
+  ordersInDay,
+  planItemFields,
+  planRevision,
+  type PlanDiffContext,
+  type PlanTask,
+  type PlanTaskDiff,
+  type PlanTaskFields,
+  type PlanTaskPatch,
+  type PlanTaskUpdate,
+} from './planTasks'
 export {
   autoSlotTasks,
   DEFAULT_TASK_MINUTES,

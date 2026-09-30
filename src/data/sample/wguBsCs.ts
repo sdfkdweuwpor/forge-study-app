@@ -3,8 +3,18 @@
  * worked on. Dates are relative to `today` (the seed passes the app's clock), so the data looks current
  * whenever it is loaded. Used by `src/dev/seed.ts`; not imported by the shipped app.
  */
-import type { Goal, ID, ISODate, Milestone, Millis, Unit } from '@/db/types'
+import type {
+  Availability,
+  Goal,
+  ID,
+  ISODate,
+  Milestone,
+  Millis,
+  PlannedAssessment,
+  Unit,
+} from '@/db/types'
 import { addDays, addMonths, dayStartMs } from '@/logic/dates'
+import { planningFromAvailability, wguPlannedAssessments } from '@/logic/schemaV2'
 
 export const WGU_GOAL_ID: ID = 'goal-wgu-bscs'
 export const WGU_TERM_ID: ID = 'term-1'
@@ -126,12 +136,19 @@ export interface WguSample {
   goal: Goal
   milestones: Milestone[]
   units: Unit[]
+  /** The OA of every course (undated; the finished course's is done). */
+  plannedAssessments: PlannedAssessment[]
 }
 
 /** The goal, its five courses and their units, dated around `today` (`now` stamps the rows). */
 export function buildWguBsCs(today: ISODate, now: Millis): WguSample {
   const termStart = addDays(today, -57)
   const termEnd = addDays(addMonths(termStart, 6), -1)
+  // Sunday to Saturday: a lighter Sunday and Friday, a longer Saturday.
+  const availability: Availability = {
+    minutesByWeekday: [60, 90, 90, 90, 90, 60, 120],
+    daysOff: [],
+  }
 
   const goal: Goal = {
     id: WGU_GOAL_ID,
@@ -144,8 +161,8 @@ export function buildWguBsCs(today: ISODate, now: Millis): WguSample {
     status: 'active',
     startDate: termStart,
     targetDate: termEnd,
-    // Sunday to Saturday: a lighter Sunday and Friday, a longer Saturday.
-    availability: { minutesByWeekday: [60, 90, 90, 90, 90, 60, 120], daysOff: [] },
+    availability,
+    planning: planningFromAvailability(availability, termEnd, '09:00'),
     terms: [{ id: WGU_TERM_ID, label: 'Term 1', start: termStart, end: termEnd }],
     notes: [
       {
@@ -191,6 +208,7 @@ export function buildWguBsCs(today: ISODate, now: Millis): WguSample {
     projectedStart: addDays(today, c.startsIn),
     projectedEnd: addDays(today, c.endsIn),
     completedAt: c.status === 'done' ? dayStartMs(addDays(today, c.endsIn)) + 15 * 3_600_000 : null,
+    selfRating: null,
   }))
 
   const units: Unit[] = COURSES.flatMap((c) =>
@@ -208,10 +226,15 @@ export function buildWguBsCs(today: ISODate, now: Millis): WguSample {
       completedAt: u.done
         ? dayStartMs(addDays(today, Math.min(-1, c.startsIn + i * 3))) + 12 * 3_600_000
         : null,
+      selfRating: null,
+      estimateSource: 'hours' as const,
+      baseEstimateMinutes: u.minutes,
+      optional: false,
     })),
   )
 
-  return { goal, milestones, units }
+  const plannedAssessments = wguPlannedAssessments(milestones, dayStartMs(termStart))
+  return { goal, milestones, units, plannedAssessments }
 }
 
 /** "C779" → its course title, for building task titles. */

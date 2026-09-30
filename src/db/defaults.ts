@@ -1,4 +1,5 @@
 /** Factory defaults (PLAN §3.2). Factories return fresh objects so callers can never share arrays. */
+import { defaultTaskWindows } from '@/logic/schemaV2'
 import type { Millis, Settings, SettingsData } from './types'
 
 export const SETTINGS_ID = 'app'
@@ -57,6 +58,7 @@ export function defaultSettingsData(): SettingsData {
       defaultStudyStart: '09:00',
       bestHour: null,
       lastDailyRunDay: null,
+      taskWindows: defaultTaskWindows(),
     },
     backup: { lastExportAt: null, remindWeekly: true },
     tagColors: {},

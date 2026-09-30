@@ -5,8 +5,9 @@
  *
  * What goes with a row:
  *  - a task: itself (its checklist is embedded in the row);
- *  - a course (milestone): its units, tasks, assessments, flashcards, resources and their files;
- *  - a goal: its courses and everything under them, plus the goal's own tasks.
+ *  - a course (milestone): its units, tasks, assessments (logs and planned), flashcards, practice
+ *    questions and their attempts, readiness rows, resources and their files;
+ *  - a goal: its courses and everything under them, plus the goal's own tasks and plan proposals.
  */
 import { newId } from '@/lib/ids'
 import type { Table } from 'dexie'
@@ -43,6 +44,15 @@ function titleOf(name: TableName, row: Record<string, unknown>, id: ID): string 
   return title || (typeof row.name === 'string' ? row.name : '') || id
 }
 
+/** Every attempt at the given questions. */
+async function attemptsOf(questionIds: readonly ID[]): Promise<unknown[]> {
+  if (questionIds.length === 0) return []
+  return db.questionAttempts
+    .where('questionId')
+    .anyOf([...questionIds])
+    .toArray()
+}
+
 async function gather(name: TableName, id: ID): Promise<Gathered | null> {
   const row = await table(name).get(id)
   if (!row) return null
@@ -56,13 +66,25 @@ async function gather(name: TableName, id: ID): Promise<Gathered | null> {
     add('units', await db.units.where('goalId').equals(id).toArray())
     add('tasks', await db.tasks.where('goalId').equals(id).toArray())
     add('assessments', await db.assessments.where('goalId').equals(id).toArray())
+    add('plannedAssessments', await db.plannedAssessments.where('goalId').equals(id).toArray())
+    add('planProposals', await db.planProposals.where('goalId').equals(id).toArray())
     add('flashcards', await db.flashcards.where('goalId').equals(id).toArray())
+    add('practiceQuestions', await db.practiceQuestions.where('goalId').equals(id).toArray())
+    add(
+      'questionAttempts',
+      await attemptsOf(await db.practiceQuestions.where('goalId').equals(id).primaryKeys()),
+    )
+    add('readiness', await db.readiness.where('goalId').equals(id).toArray())
     add('resources', await db.resources.where('goalId').equals(id).toArray())
   } else if (name === 'milestones') {
     add('units', await db.units.where('milestoneId').equals(id).toArray())
     add('tasks', await db.tasks.where('milestoneId').equals(id).toArray())
     add('assessments', await db.assessments.where('milestoneId').equals(id).toArray())
+    add('plannedAssessments', await db.plannedAssessments.where('milestoneId').equals(id).toArray())
     add('flashcards', await db.flashcards.where('milestoneId').equals(id).toArray())
+    add('practiceQuestions', await db.practiceQuestions.where('milestoneId').equals(id).toArray())
+    add('questionAttempts', await db.questionAttempts.where('milestoneId').equals(id).toArray())
+    add('readiness', await db.readiness.where('milestoneId').equals(id).toArray())
     add('resources', await db.resources.where('milestoneId').equals(id).toArray())
   }
 
@@ -86,7 +108,12 @@ export function trashTables(): Table[] {
     db.milestones,
     db.units,
     db.assessments,
+    db.plannedAssessments,
+    db.planProposals,
     db.flashcards,
+    db.practiceQuestions,
+    db.questionAttempts,
+    db.readiness,
     db.resources,
     db.files,
     db.trash,

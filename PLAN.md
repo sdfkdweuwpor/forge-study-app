@@ -748,7 +748,9 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Generated brown noise, rain and café via Web Audio, plus a soft chime.
   - Notification permission asked once, gently, after the first completed session.
   - Contract with 4A: `playChime()`, `startAmbient(kind, vol)`, `stopAmbient()`, `notify(title, body)`.
-- [ ] **4C [B] e2e** `focus.spec.ts` with `page.clock`: fast-forward to the end (dialog shows, XP granted); reload mid-session keeps the remaining time; a session stopped at 50% is not counted.
+- [x] **4C [B] e2e** `focus.spec.ts` with `page.clock`: fast-forward to the end (dialog shows, XP granted); reload mid-session keeps the remaining time; a session stopped at 50% is not counted.
+  - Done: 24 tests. The clock starts at 09:30 (`page.clock.install`, pinned with `setSystemTime` once the page has loaded) and runs in real time; `fastForward` jumps the page's `Date.now()`; a reload freezes it with `setFixedTime` so the remaining time can be checked exactly. Covers the pomodoro to its end (dialog, +25 XP, log row 9:30–9:55, break offered), Yes, reload mid-session and paused, stop at 50%, pause and resume, full screen (`f`, Esc, focus trap and return, idle break label), stopwatch, `shift+s` from Today, the mini timer (sidebar and phone pill), the dialog after a refresh and in a second tab, Undo after an early stop, the break, skip break and the custom length.
+  - Review nits fixed with it (20): exact 80% rule and 4 h stopwatch cap (`logic/timer.ts`), `endedAt` capped at the planned end and `reopenSession` (`repos/sessions.ts`), end-dialog queue and cross-tab sync, one elected tab plays the ambient bed, the audio unlocks only with sounds on, per-session notification tag, a PNG notification icon (`scripts/icons.mjs`, `npm run icons`), and the a11y and layout fixes in the focus screens.
 
 ### Phase 5 — Goals, scheduler, rebalancing, Claude import
 - [x] **5A [A] Scheduler** (∥ 5B, 5C). Owns `src/logic/scheduler/**` and `rebalanceGoal`/`computeRemaining` wiring in `src/db/repos/goals.ts` (the section marked `// scheduling`). Implements §4 exactly with all §4.4 tests.

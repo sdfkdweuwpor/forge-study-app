@@ -50,7 +50,7 @@ export interface GoalRows {
   milestones: readonly Milestone[]
   /** The goal's units. */
   units: readonly Unit[]
-  /** The goal's tasks; only `source: 'schedule'` ones are used. */
+  /** The goal's tasks; only its study sessions (`source: 'schedule'`, `kind: 'study'`) are used. */
   tasks: readonly Task[]
   /** `settings.scheduling.globalDaysOff`. */
   globalDaysOff?: readonly DateRange[]
@@ -88,13 +88,18 @@ export interface GoalPlan {
 
 const cmpStr = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
-interface CourseUnits {
+export interface CourseUnits {
   course: Milestone
   /** Sorted units, or one synthetic unit for a course without any. */
   units: Array<UnitEstimate & { title: string; order: number }>
 }
 
-function courseUnits(
+/** A study session of the goal's plan (v1 chunks and v2 study items; not reviews or markers). */
+export const isStudyTask = (t: Pick<Task, 'source' | 'kind'>): boolean =>
+  t.source === 'schedule' && t.kind === 'study'
+
+/** The goal's courses with their units' estimates (a course without units is one synthetic unit). */
+export function courseUnits(
   milestones: readonly Milestone[],
   units: readonly Unit[],
   grain: number,
@@ -155,7 +160,7 @@ export function planGoal(
   const courseOfUnit = new Map<string, ID>()
   for (const c of courses) for (const u of c.units) courseOfUnit.set(u.id, c.course.id)
 
-  const scheduled = rows.tasks.filter((t) => t.source === 'schedule')
+  const scheduled = rows.tasks.filter(isStudyTask)
   const done: Task[] = []
   const pinned: Task[] = []
   const pinnedIds = new Set<ID>()
@@ -202,9 +207,9 @@ export function planGoal(
   }))
 
   const pinnedWork: PinnedWork[] = pinned
-    .filter((t) => t.dueDate !== null)
+    .filter((t) => t.doDate !== null)
     .map((t) => ({
-      date: t.dueDate as ISODate,
+      date: t.doDate as ISODate,
       minutes: taskMinutes(t),
       courseId: courseOfUnit.get(taskUnitId(t) as string) ?? t.milestoneId ?? '',
     }))
@@ -302,7 +307,7 @@ export function goalWork(
 ): GoalWork {
   const { grain } = resolveOptions(options)
   const courses = courseUnits(rows.milestones, rows.units, grain)
-  const done = rows.tasks.filter((t) => t.source === 'schedule' && t.status === 'done')
+  const done = rows.tasks.filter((t) => isStudyTask(t) && t.status === 'done')
   return sumWork(
     courses,
     computeRemaining(

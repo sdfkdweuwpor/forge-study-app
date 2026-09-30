@@ -6,16 +6,21 @@
  * Plain data in, plain data out; `today` (and optionally `now`) is injected. Times are wall-clock
  * `'HH:mm'` on local calendar days.
  */
-import type { DateRange, HHmm, ISODate, Millis } from '@/db/types'
+import type {
+  DateRange,
+  HHmm,
+  ISODate,
+  Millis,
+  PlanItemKind,
+  SelfRating,
+  TimeWindow,
+} from '@/db/types'
 import type { CourseStatus, CourseWindow, SchedulerIssue } from './types'
 
 // ─── Availability v2 ────────────────────────────────────────────────────────
 
-/** A study window on one day. `start < end`; `'24:00'` may end a window. Overnight = two windows. */
-export interface TimeWindow {
-  start: HHmm
-  end: HHmm
-}
+/** A study window on one day (`@/db/types`). Overnight = two windows. */
+export type { PlanItemKind, SelfRating, TimeWindow }
 export type DayWindows = readonly TimeWindow[]
 /** Index 0 = Sunday … 6 = Saturday. */
 export type WeekWindows = readonly [
@@ -61,9 +66,7 @@ export interface BusyBlock {
 
 // ─── Work ───────────────────────────────────────────────────────────────────
 
-export type SelfRating = 'know' | 'somewhat' | 'new'
 export type AssessmentKind = 'exam' | 'project' | 'quiz'
-export type PlanItemKind = 'study' | 'review' | 'practiceTest' | 'assessment' | 'milestone'
 
 export interface PlannerUnit {
   id: string

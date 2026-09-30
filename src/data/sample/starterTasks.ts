@@ -2,10 +2,15 @@
  * Sample tasks for the dev seed: about thirty tasks around `today`, the way a WGU student's week
  * looks. Scheduled goal chunks (source `schedule`, linked to a course and unit), the student's own
  * errands, one weekly recurring task, and two weeks of finished work with the XP it earned. Dates are
- * relative to `today`, so the list always has overdue, today, upcoming and completed work.
+ * relative to `today`, so the list always has carried-over, today, upcoming and completed work.
+ *
+ * Dates (schema v2): `doDate` is when a task is planned. A few personal tasks also have a real hard
+ * deadline (`dueDate`): the phone bill due Friday, the tuition installment, the car registration; two of
+ * them have no do date yet and are opted in to auto-slotting (`autoSlot`).
  */
 import type { Block, ID, ISODate, Millis, Task, XpEvent } from '@/db/types'
-import { addDays, atTime, dayStartMs } from '@/logic/dates'
+import { addDays, atTime, dayStartMs, weekdayOf } from '@/logic/dates'
+import { TASK_V2_DEFAULTS } from '@/logic/taskDates'
 import { xpForTask, XP_COURSE_COMPLETE, XP_DAILY_GOAL } from '@/logic/xp'
 import { COURSE_IDS, WGU_GOAL_ID, unitId, unitTitle, type CourseCode } from './wguBsCs'
 
@@ -46,12 +51,15 @@ const BASE: Omit<Task, 'id' | 'title' | 'createdAt' | 'updatedAt'> = {
   startedAt: null,
   completedAt: null,
   completedDay: null,
+  ...TASK_V2_DEFAULTS,
 }
 
 const note = (id: string, text: string): Block => ({ id, type: 'p', text })
 
 export function buildStarterData({ today, now }: StarterContext): StarterData {
   const day = (offset: number): ISODate => addDays(today, offset)
+  /** The coming Friday (today when today is a Friday). */
+  const friday = addDays(today, (5 - weekdayOf(today) + 7) % 7)
   let seq = 0
   const specs: Spec[] = []
   const add = (spec: Spec): void => {
@@ -73,19 +81,22 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
     milestoneId: COURSE_IDS[code],
     unitId: unitId(code, unit),
     scheduleKey: `${unitId(code, unit)}:${part}`,
+    kind: 'study',
     estimateMinutes: minutes,
     estimatePomodoros: Math.max(1, Math.round(minutes / 25)),
+    durationMinutes: minutes,
     ...extra,
   })
 
-  // ── Rolled over ──────────────────────────────────────────────────────────────
+  // ── Carried over ──────────────────────────────────────────────────────────────
   add({
-    ...chunk('C779', 2, 30, 3, { dueDate: day(-2), dueTime: '09:00', orderInDay: 0 }),
+    ...chunk('C779', 2, 30, 3, { doDate: day(-2), doTime: '09:00', orderInDay: 0 }),
   })
   add({
     id: 'task-financial-aid',
     title: 'Reply to Financial Aid about the term 2 disbursement',
-    dueDate: day(-1),
+    doDate: day(-1),
+    dueDate: day(1),
     priority: 3,
     estimatePomodoros: 1,
     tags: ['admin'],
@@ -99,15 +110,15 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   add({
     id: 'task-library-card',
     title: 'Renew library card',
-    dueDate: day(-3),
+    doDate: day(-3),
     tags: ['errands'],
   })
 
   // ── Today ────────────────────────────────────────────────────────────────────
   add(
     chunk('C779', 3, 45, 2, {
-      dueDate: day(0),
-      dueTime: '10:00',
+      doDate: day(0),
+      doTime: '10:00',
       status: 'doing',
       startedAt: now - 12 * 60_000,
       orderInDay: 0,
@@ -118,15 +129,17 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
       ],
     }),
   )
-  add(chunk('C779', 3, 30, 3, { dueDate: day(0), dueTime: '14:00', orderInDay: 1 }))
+  add(chunk('C779', 3, 30, 3, { doDate: day(0), doTime: '14:00', orderInDay: 1 }))
   add({
     id: 'task-cards-c779',
     title: 'Review 14 C779 flashcards (~10 min)',
     source: 'flashcards',
+    kind: 'review',
+    durationMinutes: 10,
     goalId: WGU_GOAL_ID,
     milestoneId: COURSE_IDS.C779,
-    dueDate: day(0),
-    dueTime: '16:30',
+    doDate: day(0),
+    doTime: '16:30',
     estimatePomodoros: 1,
     estimateMinutes: 10,
     orderInDay: 2,
@@ -134,7 +147,7 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   add({
     id: 'task-email-mentor',
     title: 'Email mentor about term plan',
-    dueDate: day(0),
+    doDate: day(0),
     priority: 3,
     estimatePomodoros: 1,
     tags: ['mentor'],
@@ -146,7 +159,7 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   add({
     id: 'task-schedule-oa',
     title: 'Schedule the C779 objective assessment',
-    dueDate: day(0),
+    doDate: day(0),
     priority: 2,
     estimatePomodoros: 1,
     tags: ['admin'],
@@ -155,26 +168,26 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   })
 
   // ── Upcoming ─────────────────────────────────────────────────────────────────
-  add(chunk('C779', 3, 60, 4, { dueDate: day(1), dueTime: '09:00' }))
-  add(chunk('C779', 4, 45, 1, { dueDate: day(1), dueTime: '14:00', orderInDay: 1 }))
+  add(chunk('C779', 3, 60, 4, { doDate: day(1), doTime: '09:00' }))
+  add(chunk('C779', 4, 45, 1, { doDate: day(1), doTime: '14:00', orderInDay: 1 }))
   add({
     id: 'task-proctor-d278',
     title: 'Book a proctoring slot for the D278 exam',
-    dueDate: day(2),
+    doDate: day(2),
     priority: 2,
     estimatePomodoros: 1,
     tags: ['admin'],
     goalId: WGU_GOAL_ID,
     milestoneId: COURSE_IDS.D278,
   })
-  add(chunk('C779', 4, 60, 2, { dueDate: day(2), dueTime: '09:00' }))
-  add(chunk('C779', 5, 45, 1, { dueDate: day(3), dueTime: '09:00' }))
-  add(chunk('C779', 5, 90, 2, { dueDate: day(4), dueTime: '10:00' }))
+  add(chunk('C779', 4, 60, 2, { doDate: day(2), doTime: '09:00' }))
+  add(chunk('C779', 5, 45, 1, { doDate: day(3), doTime: '09:00' }))
+  add(chunk('C779', 5, 90, 2, { doDate: day(4), doTime: '10:00' }))
   add({
     id: 'task-weekly-review-next',
     title: 'Weekly review',
-    dueDate: day(5),
-    dueTime: '18:00',
+    doDate: day(5),
+    doTime: '18:00',
     priority: 2,
     estimatePomodoros: 1,
     recurrence: { freq: 'weekly', interval: 1, byWeekday: [0] },
@@ -187,8 +200,17 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
     ],
   })
   add({
+    id: 'task-phone-bill',
+    title: 'Pay phone bill',
+    dueDate: friday,
+    estimateMinutes: 10,
+    autoSlot: true,
+    tags: ['finance'],
+  })
+  add({
     id: 'task-tuition',
     title: 'Pay tuition installment',
+    doDate: day(7),
     dueDate: day(9),
     priority: 4,
     tags: ['finance'],
@@ -197,12 +219,15 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
     id: 'task-car-registration',
     title: 'Renew car registration',
     dueDate: day(15),
+    dueTime: '17:00',
+    estimateMinutes: 30,
+    autoSlot: true,
     tags: ['errands'],
   })
   add({
     id: 'task-transcript',
     title: 'Request transcript from Portland CC for transfer credits',
-    dueDate: day(23),
+    doDate: day(23),
     priority: 1,
     tags: ['admin'],
   })
@@ -230,7 +255,7 @@ export function buildStarterData({ today, now }: StarterContext): StarterData {
   // ── Finished in the last two weeks ───────────────────────────────────────────
   const done = (offset: number, time: string, spec: Spec): Spec => ({
     status: 'done',
-    dueDate: day(offset),
+    doDate: day(offset),
     completedDay: day(offset),
     completedAt: atTime(day(offset), time),
     ...spec,

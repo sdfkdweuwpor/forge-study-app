@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pause, Play } from 'lucide-react'
 import { updateSettings } from '@/db/repos/settings'
 import type { AmbientSound } from '@/db/types'
-import { armAudioUnlock, setAmbientVolume, unlockAudio } from '@/lib/audio'
+import { armAudioUnlock, isAmbientPlaying, setAmbientVolume, unlockAudio } from '@/lib/audio'
 import { Button, IconButton, SegmentedControl, Skeleton } from '@/ui'
-import { chooseAmbient, setSoundsEnabled, toggleAmbient } from './actions'
+import { chooseAmbient, setSoundsEnabled, stopPreview, toggleAmbient } from './actions'
 import { useAmbientKind, useSoundSettings } from './hooks'
 import { LoadBoundary } from './LoadBoundary'
 import { AMBIENT_OPTIONS } from './options'
@@ -33,9 +33,22 @@ function AmbientControlBody({ className }: AmbientControlProps) {
   const playing = useAmbientKind()
   const [error, setError] = useState(false)
 
+  // The audio context is only ever created for someone who has sounds on.
+  const soundOn = settings?.sound.enabled === true
   useEffect(() => {
-    armAudioUnlock()
-  }, [])
+    if (soundOn) armAudioUnlock()
+  }, [soundOn])
+
+  // A bed tried out here (picked, or played with the button) stops when the control goes away, unless a
+  // focus session is running: that one plays its own bed, and one that was already playing when this
+  // opened is not ours to stop.
+  const playingAtMount = useRef(isAmbientPlaying())
+  useEffect(
+    () => () => {
+      if (!playingAtMount.current) stopPreview()
+    },
+    [],
+  )
 
   const root = className ? `${styles.root} ${className}` : styles.root
 

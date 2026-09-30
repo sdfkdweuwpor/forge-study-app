@@ -10,6 +10,7 @@ import {
   logNote,
   pauseSession,
   reconcileRunning,
+  reopenSession,
   resumeSession,
   setSessionTask,
   startSession,
@@ -64,12 +65,20 @@ describe('startSession', () => {
   })
 
   it('copies the task, its goal and its course onto the row', async () => {
-    const task = await createTask({ title: 'C779 · Unit 3', goalId: 'g1', milestoneId: 'm1' }, { now: T0 })
+    const task = await createTask(
+      { title: 'C779 · Unit 3', goalId: 'g1', milestoneId: 'm1' },
+      { now: T0 },
+    )
     const s = await startSession(
       { mode: 'custom', kind: 'focus', plannedMin: 50, taskId: task.id },
       { now: T0 },
     )
-    expect(s).toMatchObject({ taskId: task.id, goalId: 'g1', milestoneId: 'm1', plannedMinutes: 50 })
+    expect(s).toMatchObject({
+      taskId: task.id,
+      goalId: 'g1',
+      milestoneId: 'm1',
+      plannedMinutes: 50,
+    })
   })
 
   it('does not link a task that no longer exists', async () => {
@@ -83,7 +92,10 @@ describe('startSession', () => {
   })
 
   it('allows only one running or paused session', async () => {
-    const first = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
+    const first = await startSession(
+      { mode: 'pomodoro', kind: 'focus', plannedMin: 25 },
+      { now: T0 },
+    )
     const clash = startSession({ mode: 'custom', kind: 'focus', plannedMin: 50 }, { now: T0 + MIN })
     await expect(clash).rejects.toBeInstanceOf(SessionActiveError)
     await expect(clash).rejects.toMatchObject({ active: { id: first.id } })
@@ -126,19 +138,24 @@ describe('startSession', () => {
   })
 
   it('takes an explicit round, and a break follows the round it comes after', async () => {
-    const s = await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 15, round: 4 }, { now: T0 })
+    const s = await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 15, round: 4 },
+      { now: T0 },
+    )
     expect(s.round).toBe(4)
   })
 
   it('rejects a bad plan, and a stopwatch break', async () => {
     await expect(startSession({ mode: 'pomodoro', kind: 'focus' })).rejects.toThrow(RangeError)
-    await expect(startSession({ mode: 'custom', kind: 'focus', plannedMin: 0 })).rejects.toThrow(RangeError)
-    await expect(startSession({ mode: 'custom', kind: 'focus', plannedMin: Number.NaN })).rejects.toThrow(
+    await expect(startSession({ mode: 'custom', kind: 'focus', plannedMin: 0 })).rejects.toThrow(
       RangeError,
     )
-    await expect(startSession({ mode: 'custom', kind: 'focus', plannedMin: 24 * 60 + 1 })).rejects.toThrow(
-      RangeError,
-    )
+    await expect(
+      startSession({ mode: 'custom', kind: 'focus', plannedMin: Number.NaN }),
+    ).rejects.toThrow(RangeError)
+    await expect(
+      startSession({ mode: 'custom', kind: 'focus', plannedMin: 24 * 60 + 1 }),
+    ).rejects.toThrow(RangeError)
     await expect(startSession({ mode: 'stopwatch', kind: 'break' })).rejects.toThrow(RangeError)
     expect(await db.sessions.count()).toBe(0)
   })
@@ -198,7 +215,12 @@ describe('finishSession and XP', () => {
     })
     expect((await getXpSummary(TODAY)).today).toBe(25)
     await settleDomainEvents()
-    expect(events).toContainEqual({ type: 'session.ended', sessionId: s.id, day: TODAY, counted: true })
+    expect(events).toContainEqual({
+      type: 'session.ended',
+      sessionId: s.id,
+      day: TODAY,
+      counted: true,
+    })
   })
 
   it('anti-cheat: a session stopped at 50% of the plan is not counted and earns no XP', async () => {
@@ -208,7 +230,12 @@ describe('finishSession and XP', () => {
     expect(result?.session).toMatchObject({ actualMinutes: 25, counted: false, interrupted: true })
     expect(await xpEvents()).toHaveLength(0)
     await settleDomainEvents()
-    expect(events).toContainEqual({ type: 'session.ended', sessionId: s.id, day: TODAY, counted: false })
+    expect(events).toContainEqual({
+      type: 'session.ended',
+      sessionId: s.id,
+      day: TODAY,
+      counted: false,
+    })
   })
 
   it('anti-cheat: counts from exactly 80% (20 of 25) and not a second earlier', async () => {
@@ -217,7 +244,10 @@ describe('finishSession and XP', () => {
     expect(under?.session).toMatchObject({ actualMinutes: 19, counted: false })
     expect(under?.xp).toBe(0)
 
-    const b = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 + 30 * MIN })
+    const b = await startSession(
+      { mode: 'pomodoro', kind: 'focus', plannedMin: 25 },
+      { now: T0 + 30 * MIN },
+    )
     const exact = await finishSession(b.id, { now: T0 + 50 * MIN, interrupted: true })
     expect(exact?.session).toMatchObject({ actualMinutes: 20, counted: true, interrupted: true })
     expect(exact?.xp).toBe(20)
@@ -257,7 +287,10 @@ describe('finishSession and XP', () => {
   })
 
   it('a break never earns XP, counts, or emits session.ended', async () => {
-    const b = await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 }, { now: T0 })
+    const b = await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 },
+    )
     const result = await finishSession(b.id, { now: T0 + 5 * MIN })
     expect(result?.xp).toBe(0)
     expect(result?.session).toMatchObject({ status: 'completed', actualMinutes: 5, counted: false })
@@ -273,6 +306,60 @@ describe('finishSession and XP', () => {
     expect(await xpEvents()).toHaveLength(1)
   })
 
+  it('a planned session finished late ends at its planned end, not at now', async () => {
+    const s = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
+    const result = await finishSession(s.id, { now: T0 + 40 * MIN })
+    expect(result?.session).toMatchObject({
+      endedAt: T0 + 25 * MIN,
+      actualMinutes: 25,
+      counted: true,
+      interrupted: false,
+    })
+    expect(result?.xp).toBe(25)
+
+    // With a pause behind it, the planned end has moved later by the pause.
+    const p = await startSession(
+      { mode: 'custom', kind: 'focus', plannedMin: 50 },
+      { now: T0 + 60 * MIN },
+    )
+    await pauseSession(p.id, { now: T0 + 70 * MIN })
+    await resumeSession(p.id, { now: T0 + 75 * MIN })
+    const late = await finishSession(p.id, { now: T0 + 300 * MIN })
+    expect(late?.session).toMatchObject({
+      endedAt: T0 + 60 * MIN + 50 * MIN + 5 * MIN,
+      pausedMs: 5 * MIN,
+      actualMinutes: 50,
+    })
+    expect(late?.xp).toBe(50)
+  })
+
+  it('a stopwatch has no plan to cap at, and a finish at an earlier time is kept', async () => {
+    const s = await startSession({ mode: 'stopwatch', kind: 'focus' }, { now: T0 })
+    const result = await finishSession(s.id, { now: T0 + 30 * MIN })
+    expect(result?.session.endedAt).toBe(T0 + 30 * MIN)
+    const early = await startSession(
+      { mode: 'pomodoro', kind: 'focus', plannedMin: 25 },
+      { now: T0 + 40 * MIN },
+    )
+    const r = await finishSession(early.id, { now: T0 + 50 * MIN, interrupted: true })
+    expect(r?.session.endedAt).toBe(T0 + 50 * MIN)
+  })
+
+  it('a stopwatch left running for a day pays for 4 hours, not 24', async () => {
+    const s = await startSession({ mode: 'stopwatch', kind: 'focus' }, { now: T0 })
+    const result = await finishSession(s.id, { now: T0 + 24 * 60 * MIN })
+    expect(result?.session).toMatchObject({ actualMinutes: 240, counted: true })
+    expect(result?.xp).toBe(240)
+    expect((await xpEvents())[0]?.amount).toBe(240)
+  })
+
+  it('anti-cheat compares the exact time: 9:59 of a 12-minute plan counts', async () => {
+    const s = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 12 }, { now: T0 })
+    const result = await finishSession(s.id, { now: T0 + 9 * MIN + 59_000, interrupted: true })
+    expect(result?.session).toMatchObject({ actualMinutes: 9, counted: true, interrupted: true })
+    expect(result?.xp).toBe(9)
+  })
+
   it('never ends before it started', async () => {
     const s = await startSession({ mode: 'stopwatch', kind: 'focus' }, { now: T0 })
     const result = await finishSession(s.id, { now: T0 - 5 * MIN })
@@ -284,10 +371,85 @@ describe('finishSession and XP', () => {
     const s = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
     vi.spyOn(db.xpEvents, 'add').mockRejectedValueOnce(new Error('disk full'))
     await expect(finishSession(s.id, { now: T0 + 25 * MIN })).rejects.toThrow('disk full')
-    expect(await db.sessions.get(s.id)).toMatchObject({ status: 'running', endedAt: null, counted: false })
+    expect(await db.sessions.get(s.id)).toMatchObject({
+      status: 'running',
+      endedAt: null,
+      counted: false,
+    })
     expect(await xpEvents()).toHaveLength(0)
     await settleDomainEvents()
     expect(events.filter((e) => e.type === 'session.ended')).toEqual([])
+  })
+})
+
+describe('reopenSession', () => {
+  it('takes back a finish that did not count: it runs again, and the wait is not focus time', async () => {
+    const s = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
+    await finishSession(s.id, { now: T0 + 10 * MIN, interrupted: true })
+    expect(await getActiveSession()).toBeNull()
+
+    const back = await reopenSession(s.id, { now: T0 + 12 * MIN })
+    expect(back).toMatchObject({
+      status: 'running',
+      endedAt: null,
+      actualMinutes: null,
+      counted: false,
+      interrupted: false,
+      pausedAt: null,
+      pausedMs: 2 * MIN,
+    })
+    expect((await getActiveSession())?.id).toBe(s.id)
+    // It picks up where it stopped: 10 of 25 minutes were done, so the end is 15 minutes after the undo.
+    const done = await reconcileRunning(T0 + 12 * MIN + 15 * MIN)
+    expect(done?.session).toMatchObject({
+      endedAt: T0 + 27 * MIN,
+      actualMinutes: 25,
+      counted: true,
+    })
+    expect(done?.xp).toBe(25)
+    // The XP is paid once, for the finished session (the early stop paid nothing).
+    expect(await xpEvents()).toHaveLength(1)
+  })
+
+  it('keeps the pauses already taken', async () => {
+    const s = await startSession({ mode: 'stopwatch', kind: 'focus' }, { now: T0 })
+    await pauseSession(s.id, { now: T0 + 3 * MIN })
+    await finishSession(s.id, { now: T0 + 5 * MIN })
+    const back = await reopenSession(s.id, { now: T0 + 6 * MIN })
+    // 2 minutes of pause up to the finish (which closed it) plus 1 minute before the undo.
+    expect(back?.pausedMs).toBe(3 * MIN)
+  })
+
+  it('does nothing for a session that counted (its XP is paid), a break, a missing one or a running one', async () => {
+    const counted = await startSession(
+      { mode: 'pomodoro', kind: 'focus', plannedMin: 25 },
+      { now: T0 },
+    )
+    await finishSession(counted.id, { now: T0 + 24 * MIN, interrupted: true })
+    expect(await reopenSession(counted.id, { now: T0 + 25 * MIN })).toBeNull()
+    expect((await db.sessions.get(counted.id))?.status).toBe('completed')
+    expect(await xpEvents()).toHaveLength(1)
+
+    const brk = await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 + 30 * MIN },
+    )
+    await finishSession(brk.id, { now: T0 + 31 * MIN })
+    expect(await reopenSession(brk.id, { now: T0 + 32 * MIN })).toBeNull()
+    expect(await reopenSession('missing', { now: T0 })).toBeNull()
+
+    const early = await startSession(
+      { mode: 'pomodoro', kind: 'focus', plannedMin: 50 },
+      { now: T0 + 40 * MIN },
+    )
+    await finishSession(early.id, { now: T0 + 45 * MIN, interrupted: true })
+    const other = await startSession(
+      { mode: 'pomodoro', kind: 'focus', plannedMin: 25 },
+      { now: T0 + 46 * MIN },
+    )
+    expect(await reopenSession(early.id, { now: T0 + 47 * MIN })).toBeNull()
+    expect((await getActiveSession())?.id).toBe(other.id)
+    expect(await reopenSession(other.id, { now: T0 + 48 * MIN })).toBeNull()
   })
 })
 
@@ -295,7 +457,12 @@ describe('cancelSession', () => {
   it('throws a session away: abandoned, no XP, not counted, no session.ended', async () => {
     const s = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
     const gone = await cancelSession(s.id, { now: T0 + 20 * 1000 })
-    expect(gone).toMatchObject({ status: 'abandoned', counted: false, interrupted: true, actualMinutes: 0 })
+    expect(gone).toMatchObject({
+      status: 'abandoned',
+      counted: false,
+      interrupted: true,
+      actualMinutes: 0,
+    })
     expect(await getActiveSession()).toBeNull()
     expect(await xpEvents()).toHaveLength(0)
     await settleDomainEvents()
@@ -304,7 +471,10 @@ describe('cancelSession', () => {
   })
 
   it('cancels a running break so the next round can start', async () => {
-    const b = await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 }, { now: T0 })
+    const b = await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 },
+    )
     await cancelSession(b.id, { now: T0 + MIN })
     await expect(
       startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 + MIN }),
@@ -327,7 +497,12 @@ describe('reconcileRunning', () => {
     expect(result?.xp).toBe(25)
     expect((await xpEvents())[0]).toMatchObject({ amount: 25, at: T0 + 25 * MIN, day: TODAY })
     await settleDomainEvents()
-    expect(events).toContainEqual({ type: 'session.ended', sessionId: s.id, day: TODAY, counted: true })
+    expect(events).toContainEqual({
+      type: 'session.ended',
+      sessionId: s.id,
+      day: TODAY,
+      counted: true,
+    })
   })
 
   it('the end moves later by the pauses: it finishes at startedAt + planned + pausedMs', async () => {
@@ -336,7 +511,11 @@ describe('reconcileRunning', () => {
     await resumeSession(s.id, { now: T0 + 14 * MIN })
     expect(await reconcileRunning(T0 + 28 * MIN)).toBeNull() // end is at 29 minutes
     const result = await reconcileRunning(T0 + 5 * 60 * MIN)
-    expect(result?.session).toMatchObject({ endedAt: T0 + 29 * MIN, actualMinutes: 25, pausedMs: 4 * MIN })
+    expect(result?.session).toMatchObject({
+      endedAt: T0 + 29 * MIN,
+      actualMinutes: 25,
+      pausedMs: 4 * MIN,
+    })
   })
 
   it('leaves a session that is not due, a paused one, and a stopwatch alone', async () => {
@@ -363,16 +542,29 @@ describe('notes and links', () => {
   it('logNote saves, trims and clears a note, also after the session ended', async () => {
     const s = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
     await finishSession(s.id, { now: T0 + 25 * MIN })
-    expect((await logNote(s.id, '  Finished the CSS grid unit  '))?.note).toBe('Finished the CSS grid unit')
+    expect((await logNote(s.id, '  Finished the CSS grid unit  '))?.note).toBe(
+      'Finished the CSS grid unit',
+    )
     expect((await logNote(s.id, '   '))?.note).toBeNull()
     expect(await logNote('missing', 'x')).toBeNull()
   })
 
   it('setSessionTask links, re-links and unlinks a running session', async () => {
-    const task = await createTask({ title: 'D278 · Ch. 4', goalId: 'g1', milestoneId: 'm2' }, { now: T0 })
+    const task = await createTask(
+      { title: 'D278 · Ch. 4', goalId: 'g1', milestoneId: 'm2' },
+      { now: T0 },
+    )
     const s = await startSession({ mode: 'stopwatch', kind: 'focus' }, { now: T0 })
-    expect(await setSessionTask(s.id, task.id)).toMatchObject({ taskId: task.id, goalId: 'g1', milestoneId: 'm2' })
-    expect(await setSessionTask(s.id, null)).toMatchObject({ taskId: null, goalId: null, milestoneId: null })
+    expect(await setSessionTask(s.id, task.id)).toMatchObject({
+      taskId: task.id,
+      goalId: 'g1',
+      milestoneId: 'm2',
+    })
+    expect(await setSessionTask(s.id, null)).toMatchObject({
+      taskId: null,
+      goalId: null,
+      milestoneId: null,
+    })
     expect(await setSessionTask('missing', null)).toBeNull()
   })
 })
@@ -382,7 +574,10 @@ describe('getLastFinishedSession', () => {
     expect(await getLastFinishedSession()).toBeNull()
     const a = await startSession({ mode: 'pomodoro', kind: 'focus', plannedMin: 25 }, { now: T0 })
     await finishSession(a.id, { now: T0 + 25 * MIN })
-    const b = await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 }, { now: T0 + 26 * MIN })
+    const b = await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 + 26 * MIN },
+    )
     expect((await getLastFinishedSession())?.id).toBe(a.id)
     await cancelSession(b.id, { now: T0 + 27 * MIN })
     expect(await getLastFinishedSession()).toMatchObject({ id: b.id, status: 'abandoned' })

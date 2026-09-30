@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { Availability } from '@/db/types'
 import { addDays } from '../dates'
 import { dayNumber } from './capacity'
-import { bufferMinutesFor, clampBufferPct, estimateUnitMinutes, SELF_RATING_FACTORS } from './effort'
+import {
+  bufferMinutesFor,
+  clampBufferPct,
+  estimateUnitMinutes,
+  SELF_RATING_FACTORS,
+} from './effort'
 import { avail2, MON, weekWin, win } from './plannerFixtures'
 import { splitMinutes } from './split'
 import {
@@ -31,12 +36,28 @@ describe('clock and intervals', () => {
   })
 
   it('merges, clips and subtracts intervals', () => {
-    expect(normalizeIntervals([[600, 700], [650, 800], [800, 900], [-5, 10], [1400, 1500]])).toEqual([
+    expect(
+      normalizeIntervals([
+        [600, 700],
+        [650, 800],
+        [800, 900],
+        [-5, 10],
+        [1400, 1500],
+      ]),
+    ).toEqual([
       [0, 10],
       [600, 900],
       [1400, 1440],
     ])
-    expect(subtractIntervals([[600, 900]], [[650, 700], [850, 1000]])).toEqual([
+    expect(
+      subtractIntervals(
+        [[600, 900]],
+        [
+          [650, 700],
+          [850, 1000],
+        ],
+      ),
+    ).toEqual([
       [600, 650],
       [700, 850],
     ])
@@ -122,7 +143,9 @@ describe('legacy availability', () => {
     expect(av.blackouts).toEqual(legacy.daysOff)
     expect(av.sessionMinutes).toBe(50)
     // A late start moves earlier so the window still ends by midnight.
-    expect(fromLegacyAvailability(legacy, { studyStart: '23:30' }).weekly[1]).toEqual([{ start: '23:00', end: '24:00' }])
+    expect(fromLegacyAvailability(legacy, { studyStart: '23:30' }).weekly[1]).toEqual([
+      { start: '23:00', end: '24:00' },
+    ])
   })
 
   it('adds time to every study day: later end first, then earlier start', () => {

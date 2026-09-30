@@ -12,8 +12,12 @@ export interface FocusRuntime {
   /** Says something to screen readers through the polite live region. */
   announce(text: string): void
   toast: ToastApi
-  /** Opens the "Done with this task?" dialog for a finished session. */
+  /** Opens the "Done with this task?" dialog for a finished session (after any that are still unanswered). */
   openEndDialog(sessionId: ID): void
+  /** Withdraws that dialog, on screen or waiting: the finish was taken back. */
+  closeEndDialog(sessionId: ID): void
+  /** Whether sounds are on in settings, as last read: the audio is only unlocked for someone who wants it. */
+  soundEnabled(): boolean
   snapshot(): TimerSnapshot
   /** Picks the task the next session will be linked to (`null` for none). */
   setDraftTask(taskId: ID | null): void

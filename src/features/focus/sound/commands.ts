@@ -3,6 +3,7 @@ import type { CommandDef, ShortcutDef } from '@/app/registry'
 import { getSettings } from '@/db/repos/settings'
 import { unlockAudio } from '@/lib/audio'
 import { notifyPermission } from '@/lib/notify'
+import { runtime } from '../runtime'
 import { allowNotifications, chooseAmbient, toggleAmbient, toggleSounds } from './actions'
 
 /** Shortcut ids. `soundCommands` points at `AMBIENT_SHORTCUT_ID`, so register both lists together. */
@@ -37,7 +38,7 @@ function ambientCommand(
     icon,
     keywords: ['ambient', 'sound', 'noise', ...keywords],
     run: async () => {
-      void unlockAudio()
+      if (runtime()?.soundEnabled()) void unlockAudio()
       const { sound } = await getSettings()
       await chooseAmbient(kind, sound.ambientVolume)
     },

@@ -44,7 +44,10 @@ export function firstSplitPiece(total: number, rules: SplitRules): number {
   const t = ceilTo(total, grain)
   if (t <= max) return t
   const fewest = Math.ceil(t / max)
-  const n = Math.min(Math.max(fewest, Math.floor(t / min)), Math.max(fewest, Math.round(t / target)))
+  const n = Math.min(
+    Math.max(fewest, Math.floor(t / min)),
+    Math.max(fewest, Math.round(t / target)),
+  )
   const grains = t / grain
   return (Math.floor(grains / n) + (grains % n > 0 ? 1 : 0)) * grain
 }

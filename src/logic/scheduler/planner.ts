@@ -108,7 +108,10 @@ export function resolvePlannerSettings(p: Partial<PlannerSettings> = {}): Planne
     grain,
     horizonDays: Math.round(num(p.horizonDays, d.horizonDays, 1, 3660)),
     reviewMinutes: ceilTo(num(p.reviewMinutes, d.reviewMinutes, grain, 240), grain),
-    practiceTestMinutes: ceilTo(num(p.practiceTestMinutes, d.practiceTestMinutes, grain, 480), grain),
+    practiceTestMinutes: ceilTo(
+      num(p.practiceTestMinutes, d.practiceTestMinutes, grain, 480),
+      grain,
+    ),
     practiceOffset: Math.round(num(p.practiceOffset, d.practiceOffset, 1, 14)),
     reviewOffsets: {
       exam: offsetsOf(ro?.exam, d.reviewOffsets.exam),
@@ -235,7 +238,8 @@ function safeDay(d: ISODate | null | undefined): number | null {
 
 /** Study minutes a typical study day holds: its windows less a break between target-length sessions. */
 function throughput(av: AvailabilityV2, session: number, brk: number): number {
-  const pattern = av.shiftPattern && av.shiftPattern.cycle.length > 0 ? av.shiftPattern.cycle : av.weekly
+  const pattern =
+    av.shiftPattern && av.shiftPattern.cycle.length > 0 ? av.shiftPattern.cycle : av.weekly
   const days = pattern.map((w) => windowsToIntervals(w)).filter((xs) => xs.length > 0)
   if (days.length === 0 || session <= 0) return 0
   let sum = 0
@@ -260,17 +264,15 @@ function splitReviews(
   if (!Number.isFinite(total) || total <= 0) return []
   const pieces = splitMinutes(total, { ...sizes, target: sizes.review })
   return pieces
-    .map(
-      (minutes, i): FlowItem => ({
-        key: `extra:${keyBase}:${i + 1}`,
-        kind: 'review',
-        title: title(i + 1, pieces.length),
-        ...meta,
-        assessmentId: null,
-        minutes,
-        dueDate: null,
-      }),
-    )
+    .map((minutes, i): FlowItem => ({
+      key: `extra:${keyBase}:${i + 1}`,
+      kind: 'review',
+      title: title(i + 1, pieces.length),
+      ...meta,
+      assessmentId: null,
+      minutes,
+      dueDate: null,
+    }))
     .filter((it) => !skip.has(it.key))
 }
 
@@ -325,7 +327,12 @@ function prepare(input: PlannerInput): Prepared {
   const today = dayNumber(input.today)
   const start = Math.max(today, safeDay(input.startDate) ?? today)
   let startMinute = 0
-  if (input.now !== undefined && input.now !== null && start === today && dayOf(input.now) === input.today)
+  if (
+    input.now !== undefined &&
+    input.now !== null &&
+    start === today &&
+    dayOf(input.now) === input.today
+  )
     startMinute = Math.min(DAY_MINUTES, ceilTo(minutesOfDay(input.now), grain))
   const dayIntervals = makeDayIntervals(av)
   const largest = floorTo(largestWindowMinutes(av), grain)
@@ -358,7 +365,10 @@ function prepare(input: PlannerInput): Prepared {
   for (const a of [...(input.assessments ?? [])].sort((x, y) => cmpStr(x.id, y.id))) {
     if (a.done) continue
     const day = safeDay(a.date)
-    const norm = { ...a, courseId: a.courseId !== null && courses.has(a.courseId) ? a.courseId : null }
+    const norm = {
+      ...a,
+      courseId: a.courseId !== null && courses.has(a.courseId) ? a.courseId : null,
+    }
     if (a.date !== null && day === null) continue
     if (day === null) {
       const list = undatedBy.get(norm.courseId) ?? []
@@ -409,7 +419,13 @@ function prepare(input: PlannerInput): Prepared {
       skipKeys,
     )
     flowMinutes += tail.reduce((n, it) => n + it.minutes, 0)
-    segments.push({ courseId: course.id, units, tail, undated: undatedBy.get(course.id) ?? [], flowMinutes })
+    segments.push({
+      courseId: course.id,
+      units,
+      tail,
+      undated: undatedBy.get(course.id) ?? [],
+      flowMinutes,
+    })
   }
 
   // Dated assessments: the study days before each, and the target day of every extra.
@@ -430,7 +446,11 @@ function prepare(input: PlannerInput): Prepared {
     })
 
   const pinned = (input.pinned ?? [])
-    .map((p) => ({ ...p, day: safeDay(p.date) ?? -1, startMin: p.startTime ? parseClock(p.startTime) : null }))
+    .map((p) => ({
+      ...p,
+      day: safeDay(p.date) ?? -1,
+      startMin: p.startTime ? parseClock(p.startTime) : null,
+    }))
     .filter((p) => p.day >= start && Number.isFinite(p.durationMinutes) && p.durationMinutes > 0)
     .sort(
       (a, b) =>
@@ -441,7 +461,8 @@ function prepare(input: PlannerInput): Prepared {
 
   let maxFlow = Math.max(sizes.max, sizes.practice, sizes.review)
   for (const seg of segments)
-    for (const it of [...seg.tail, ...seg.units.flatMap((u) => u.after)]) maxFlow = Math.max(maxFlow, it.minutes)
+    for (const it of [...seg.tail, ...seg.units.flatMap((u) => u.after)])
+      maxFlow = Math.max(maxFlow, it.minutes)
 
   return {
     input,
@@ -492,7 +513,11 @@ function pendingExtras(
   const out: Pending[] = []
   for (const a of assessments)
     for (const e of extrasFor(a, gap, p))
-      out.push({ pos: Math.max(0, Math.min(total, (gap + 1 - e.offset) * r)), offset: e.offset, item: e.item })
+      out.push({
+        pos: Math.max(0, Math.min(total, (gap + 1 - e.offset) * r)),
+        offset: e.offset,
+        item: e.item,
+      })
   return out.sort((x, y) => x.pos - y.pos || y.offset - x.offset || cmpStr(x.item.key, y.item.key))
 }
 
@@ -590,7 +615,12 @@ function run(p: Prepared, pace: number | null): PlanRun {
   const assessmentDays: number[] = []
   // `fixedStart`: a booked time. Otherwise `findSlot` says whether to give it the day's first free slot
   // (an undated assessment the plan places) or leave it a day marker (a date without a booked time).
-  const placeAssessment = (a: PlannerAssessment, day: number, fixedStart: number | null, findSlot: boolean): void => {
+  const placeAssessment = (
+    a: PlannerAssessment,
+    day: number,
+    fixedStart: number | null,
+    findSlot: boolean,
+  ): void => {
     const key = `assessment:${a.id}`
     assessmentDays.push(day)
     if (p.skipKeys.has(key)) return
@@ -623,7 +653,10 @@ function run(p: Prepared, pace: number | null): PlanRun {
     const t = d.a.time ? parseClock(d.a.time) : null
     placeAssessment(d.a, d.day, t !== null && t < DAY_MINUTES ? t : null, false)
     for (const e of d.extras) {
-      const spot = e.targetDay === null ? null : nearSlot(book, e.targetDay, p.start, d.day - 1, e.item.minutes)
+      const spot =
+        e.targetDay === null
+          ? null
+          : nearSlot(book, e.targetDay, p.start, d.day - 1, e.item.minutes)
       if (!spot) {
         issues.push({ code: 'REVIEW_UNPLACED', key: e.item.key })
         continue
@@ -807,14 +840,20 @@ function run(p: Prepared, pace: number | null): PlanRun {
   if (failed || unscheduled > 0) {
     blocked = true
     issues.push(
-      p.noWindows ? { code: 'NO_AVAILABILITY' } : { code: 'HORIZON_EXCEEDED', unscheduledMinutes: unscheduled },
+      p.noWindows
+        ? { code: 'NO_AVAILABILITY' }
+        : { code: 'HORIZON_EXCEEDED', unscheduledMinutes: unscheduled },
     )
   }
   if (!blocked) {
     for (const d of p.dated) {
       const last = lastStudyOf.get(d.a.courseId)
       if (last !== undefined && last >= d.day)
-        issues.push({ code: 'ASSESSMENT_TOO_EARLY', assessmentId: d.a.id, lastStudyDate: isoOfDay(last) })
+        issues.push({
+          code: 'ASSESSMENT_TOO_EARLY',
+          assessmentId: d.a.id,
+          lastStudyDate: isoOfDay(last),
+        })
     }
   }
   const workLeft = totalFlow > 0 || pinnedMinutes > 0 || assessmentDays.length > 0
@@ -824,7 +863,10 @@ function run(p: Prepared, pace: number | null): PlanRun {
   let projectedEnd: number | null = null
   let bufferedEnd: number | null = null
   let bufferByTarget = 0
-  const placedWork = placed.reduce((n, x) => n + (x.item.kind === 'assessment' ? 0 : x.item.minutes), 0)
+  const placedWork = placed.reduce(
+    (n, x) => n + (x.item.kind === 'assessment' ? 0 : x.item.minutes),
+    0,
+  )
   const bufferMinutes = bufferMinutesFor(placedWork + pinnedMinutes, s.bufferPct, s.grain)
   if (!blocked) {
     const ends = [workEnd, ...assessmentDays].filter((d): d is number => d !== null)
@@ -850,7 +892,12 @@ function run(p: Prepared, pace: number | null): PlanRun {
       if (walkEnd !== null) {
         // An undated assessment right after the work slides with the buffer.
         const lastUndated = undatedDays.length > 0 ? Math.max(...undatedDays) : null
-        if (lastUndated !== null && lastFlowDay !== null && lastUndated > lastFlowDay && walkEnd > lastFlowDay)
+        if (
+          lastUndated !== null &&
+          lastFlowDay !== null &&
+          lastUndated > lastFlowDay &&
+          walkEnd > lastFlowDay
+        )
           walkEnd = firstStudyDayFrom(walkEnd + 1) ?? walkEnd
         bufferedEnd = Math.max(walkEnd, projectedEnd)
       }
@@ -859,7 +906,8 @@ function run(p: Prepared, pace: number | null): PlanRun {
 
   // Study titles need each unit's final count.
   const counts = new Map<string, number>()
-  for (const x of placed) if (x.item.work) counts.set(x.item.work.unit.id, (counts.get(x.item.work.unit.id) ?? 0) + 1)
+  for (const x of placed)
+    if (x.item.work) counts.set(x.item.work.unit.id, (counts.get(x.item.work.unit.id) ?? 0) + 1)
   const items = placed.map(({ item, day, start }): PlanItem => {
     const uw = item.work
     const seqTotal = uw ? uw.used.size + (counts.get(uw.unit.id) ?? 0) : null
@@ -894,27 +942,55 @@ function run(p: Prepared, pace: number | null): PlanRun {
     if (id === null || seen.has(id)) continue
     seen.add(id)
     const w = span.get(id)
-    if (w) windows.push({ courseId: id, start: isoOfDay(w.start), end: isoOfDay(w.end), minutes: w.minutes })
+    if (w)
+      windows.push({
+        courseId: id,
+        start: isoOfDay(w.start),
+        end: isoOfDay(w.end),
+        minutes: w.minutes,
+      })
   }
 
   let shortfall = 0
   if (blocked) shortfall = unscheduled
   else if (p.target !== null) {
     const target = p.target
-    for (const x of placed) if (x.item.kind !== 'assessment' && x.day > target) shortfall += x.item.minutes
+    for (const x of placed)
+      if (x.item.kind !== 'assessment' && x.day > target) shortfall += x.item.minutes
     shortfall += Math.max(0, bufferMinutes - bufferByTarget)
     for (const d of p.dated) {
-      if (!issues.some((i) => i.code === 'ASSESSMENT_TOO_EARLY' && i.assessmentId === d.a.id)) continue
+      if (!issues.some((i) => i.code === 'ASSESSMENT_TOO_EARLY' && i.assessmentId === d.a.id))
+        continue
       for (const x of placed)
-        if (x.item.kind === 'study' && x.day >= d.day && x.day <= target && (d.a.courseId === null || x.item.courseId === d.a.courseId))
+        if (
+          x.item.kind === 'study' &&
+          x.day >= d.day &&
+          x.day <= target &&
+          (d.a.courseId === null || x.item.courseId === d.a.courseId)
+        )
           shortfall += x.item.minutes
     }
   }
 
   const hard = issues.some((i) => HARD.has(i.code))
   const fits =
-    !hard && (p.target === null || projectedEnd === null || (bufferedEnd !== null && bufferedEnd <= p.target))
-  return { items, issues, projectedEnd, bufferedEnd, bufferMinutes, totals, windows, blocked, pace, fits, shortfall }
+    !hard &&
+    (p.target === null ||
+      projectedEnd === null ||
+      (bufferedEnd !== null && bufferedEnd <= p.target))
+  return {
+    items,
+    issues,
+    projectedEnd,
+    bufferedEnd,
+    bufferMinutes,
+    totals,
+    windows,
+    blocked,
+    pace,
+    fits,
+    shortfall,
+  }
 }
 
 /**
@@ -1037,7 +1113,8 @@ export function freeMinutesUntil(input: PlannerInput, until: ISODate): number {
     grain: p.s.grain,
   })
   for (const pin of p.pinned)
-    if (pin.startMin !== null) book.reserve(pin.day, pin.startMin, pin.startMin + pin.durationMinutes)
+    if (pin.startMin !== null)
+      book.reserve(pin.day, pin.startMin, pin.startMin + pin.durationMinutes)
   let n = 0
   for (let d = p.start; d <= end; d++) n += book.freeMinutesFrom(d, 0)
   return n

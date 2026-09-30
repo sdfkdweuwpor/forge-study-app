@@ -35,24 +35,53 @@ describe('autoSlotTasks', () => {
   })
 
   it('never ends after the due time on the due day', () => {
-    const [r] = autoSlotTasks([{ id: 'x', estimateMinutes: 60, dueDate: MON, dueTime: '10:30' }], busy, hours, now)
+    const [r] = autoSlotTasks(
+      [{ id: 'x', estimateMinutes: 60, dueDate: MON, dueTime: '10:30' }],
+      busy,
+      hours,
+      now,
+    )
     expect(r).toEqual({ taskId: 'x', reason: 'noRoom' }) // 10:00–11:00 would end after 10:30
-    const [ok] = autoSlotTasks([{ id: 'y', estimateMinutes: 30, dueDate: MON, dueTime: '10:30' }], busy, hours, now)
+    const [ok] = autoSlotTasks(
+      [{ id: 'y', estimateMinutes: 30, dueDate: MON, dueTime: '10:30' }],
+      busy,
+      hours,
+      now,
+    )
     expect(ok).toEqual({ taskId: 'y', doDate: MON, startTime: '10:00' })
   })
 
   it('uses later days, skips blackouts and time already past', () => {
     const later = atTime(MON, '11:40')
-    const off = avail2(weekWin(win(['09:00', '12:00'])), { blackouts: [{ start: '2026-10-06', end: '2026-10-06' }] })
-    const res = autoSlotTasks([{ id: 'z', estimateMinutes: 45, dueDate: '2026-10-09' }], [], off, later)
+    const off = avail2(weekWin(win(['09:00', '12:00'])), {
+      blackouts: [{ start: '2026-10-06', end: '2026-10-06' }],
+    })
+    const res = autoSlotTasks(
+      [{ id: 'z', estimateMinutes: 45, dueDate: '2026-10-09' }],
+      [],
+      off,
+      later,
+    )
     expect(res).toEqual([{ taskId: 'z', doDate: '2026-10-07', startTime: '09:00' }])
   })
 
   it('never overlaps busy time or other slotted tasks', () => {
-    const tasks = Array.from({ length: 8 }, (_, i) => ({ id: `t${i}`, estimateMinutes: 25 + (i % 3) * 20, dueDate: '2026-10-09' }))
+    const tasks = Array.from({ length: 8 }, (_, i) => ({
+      id: `t${i}`,
+      estimateMinutes: 25 + (i % 3) * 20,
+      dueDate: '2026-10-09',
+    }))
     const res = autoSlotTasks(tasks, busy, hours, now)
     const spans = res.flatMap((r, i) =>
-      'doDate' in r ? [[r.doDate, Number(r.startTime.slice(0, 2)) * 60 + Number(r.startTime.slice(3)), (tasks[i]?.estimateMinutes ?? 0)] as const] : [],
+      'doDate' in r
+        ? [
+            [
+              r.doDate,
+              Number(r.startTime.slice(0, 2)) * 60 + Number(r.startTime.slice(3)),
+              tasks[i]?.estimateMinutes ?? 0,
+            ] as const,
+          ]
+        : [],
     )
     const all = [...spans.map(([d, s, m]) => [d, s, s + m] as const), [MON, 540, 600] as const]
     for (const a of all)

@@ -26,7 +26,13 @@ import { parseScheduleKey } from './estimates'
 import { checkFeasibility, formatDuration, withoutUnits } from './feasibility'
 import { weeklyMilestones } from './milestones'
 import { diffPlanItems } from './planDiff'
-import { comparePlanItems, flowHeadroom, planRun, planStudy, resolvePlannerSettings } from './planner'
+import {
+  comparePlanItems,
+  flowHeadroom,
+  planRun,
+  planStudy,
+  resolvePlannerSettings,
+} from './planner'
 import type {
   CurrentPlanItem,
   LivePlanInput,
@@ -36,13 +42,20 @@ import type {
   PlannerSettings,
 } from './plannerTypes'
 import { busyMapOf, SlotBook } from './slotBook'
-import { addMinutesToWindows, formatClock, makeDayIntervals, parseClock, type Interval } from './windows'
+import {
+  addMinutesToWindows,
+  formatClock,
+  makeDayIntervals,
+  parseClock,
+  type Interval,
+} from './windows'
 
 export const FAR_BEHIND_SLIP_DAYS = 7
 export const FAR_BEHIND_MISSED_SHARE = 0.15
 
 export type BehindLevel = 'onTrack' | 'slightlyBehind' | 'farBehind'
-export type BehindReason = 'missedWork' | 'slip' | 'pastTarget' | 'assessmentAtRisk' | 'reviewDropped'
+export type BehindReason =
+  'missedWork' | 'slip' | 'pastTarget' | 'assessmentAtRisk' | 'reviewDropped'
 
 export interface BehindStatus {
   level: BehindLevel
@@ -141,14 +154,17 @@ function toItem(c: CurrentPlanItem, slot: Slot, minutes = c.durationMinutes): Pl
 
 function endOf(items: ReadonlyArray<{ doDate: ISODate; kind: string }>): ISODate | null {
   let end: ISODate | null = null
-  for (const i of items) if (i.kind !== 'milestone' && (end === null || i.doDate > end)) end = i.doDate
+  for (const i of items)
+    if (i.kind !== 'milestone' && (end === null || i.doDate > end)) end = i.doDate
   return end
 }
 
 function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
   const s: PlannerSettings = resolvePlannerSettings(live.settings)
   const base = makeDayIntervals(live.availability)
-  const dayIntervals = o.override ? (d: number) => (o.override as NonNullable<ReflowOptions['override']>)(d, base(d)) : base
+  const dayIntervals = o.override
+    ? (d: number) => (o.override as NonNullable<ReflowOptions['override']>)(d, base(d))
+    : base
   const book = new SlotBook({
     dayIntervals,
     busy: busyMapOf(live.blockedSlots),
@@ -156,14 +172,19 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
     startMinute: o.fromMinute,
     grain: s.grain,
   })
-  const dated = new Map((live.assessments ?? []).filter((a) => a.date !== null && !a.done).map((a) => [a.id, a]))
+  const dated = new Map(
+    (live.assessments ?? []).filter((a) => a.date !== null && !a.done).map((a) => [a.id, a]),
+  )
   const undated = new Set((live.assessments ?? []).filter((a) => a.date === null).map((a) => a.id))
   const passed = (sl: Slot): boolean =>
     sl.day < o.fromDay || (sl.day === o.fromDay && sl.start !== null && sl.start < o.fromMinute)
   const inside = (sl: Slot, minutes: number): boolean =>
     sl.start !== null &&
-    dayIntervals(sl.day).some(([a, b]) => (sl.start as number) >= a && (sl.start as number) + minutes <= b)
-  const recheck = (sl: Slot, minutes: number): boolean => !!o.recheck?.(sl.day) && !inside(sl, minutes)
+    dayIntervals(sl.day).some(
+      ([a, b]) => (sl.start as number) >= a && (sl.start as number) + minutes <= b,
+    )
+  const recheck = (sl: Slot, minutes: number): boolean =>
+    !!o.recheck?.(sl.day) && !inside(sl, minutes)
 
   const out: PlanItem[] = []
   const flow: CurrentPlanItem[] = []
@@ -174,12 +195,14 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
   for (const c of live.current) {
     const sl = slotOf(c)
     if (c.status === 'done') {
-      if (sl.start !== null && sl.day >= o.fromDay) book.reserve(sl.day, sl.start, sl.start + c.durationMinutes)
+      if (sl.start !== null && sl.day >= o.fromDay)
+        book.reserve(sl.day, sl.start, sl.start + c.durationMinutes)
       continue
     }
     if (c.kind === 'milestone') continue
     const keepHere = (): void => {
-      if (sl.start !== null && c.durationMinutes > 0) book.reserve(sl.day, sl.start, sl.start + c.durationMinutes)
+      if (sl.start !== null && c.durationMinutes > 0)
+        book.reserve(sl.day, sl.start, sl.start + c.durationMinutes)
       out.push(toItem(c, sl))
     }
     if (c.kind === 'assessment') {
@@ -231,7 +254,10 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
   const lastOfCourse = new Map<string | null, number>()
   const st = { day: o.fromDay, min: o.fromMinute, busy: false }
   const ordered = [...flow].sort(
-    (a, b) => cmpStr(a.doDate, b.doDate) || cmpStr(a.startTime ?? '', b.startTime ?? '') || cmpStr(a.key, b.key),
+    (a, b) =>
+      cmpStr(a.doDate, b.doDate) ||
+      cmpStr(a.startTime ?? '', b.startTime ?? '') ||
+      cmpStr(a.key, b.key),
   )
   let failed = false
   for (const c of ordered) {
@@ -255,7 +281,9 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
       const floor = d === tDay ? tMin : 0
       const brk = d === st.day && st.busy ? s.breakMinutes : 0
       const lo = d === st.day ? Math.max(floor, st.min + brk) : floor
-      const at = book.firstFit(d, lo, m) ?? (brk > 0 && d === st.day ? book.firstFit(d, Math.max(floor, st.min), m) : null)
+      const at =
+        book.firstFit(d, lo, m) ??
+        (brk > 0 && d === st.day ? book.firstFit(d, Math.max(floor, st.min), m) : null)
       if (at !== null) {
         spot = { day: d, start: at }
         break
@@ -286,7 +314,10 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
     while (day <= horizon && dayIntervals(day).length === 0) day++
     let start: number | null = null
     if (own.start !== null && c.durationMinutes > 0) {
-      const keep = day === own.day && !passed(own) && book.firstFit(day, own.start, c.durationMinutes) === own.start
+      const keep =
+        day === own.day &&
+        !passed(own) &&
+        book.firstFit(day, own.start, c.durationMinutes) === own.start
       start = keep ? own.start : book.firstFit(day, 0, c.durationMinutes)
       if (start !== null) book.reserve(day, start, start + c.durationMinutes)
     }
@@ -297,20 +328,31 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
   for (const a of dated.values()) {
     const d = dayNumber(a.date as ISODate)
     if (d < o.fromDay) continue
-    const late = out.find((i) => i.kind === 'study' && (a.courseId === null || i.courseId === a.courseId) && i.doDate >= (a.date as ISODate))
-    if (late) issues.push({ code: 'ASSESSMENT_TOO_EARLY', assessmentId: a.id, lastStudyDate: late.doDate })
+    const late = out.find(
+      (i) =>
+        i.kind === 'study' &&
+        (a.courseId === null || i.courseId === a.courseId) &&
+        i.doDate >= (a.date as ISODate),
+    )
+    if (late)
+      issues.push({ code: 'ASSESSMENT_TOO_EARLY', assessmentId: a.id, lastStudyDate: late.doDate })
   }
 
-  const items = [...out, ...weeklyMilestones(out, live.courses, s.weekStartsOn)].sort(comparePlanItems)
+  const items = [...out, ...weeklyMilestones(out, live.courses, s.weekStartsOn)].sort(
+    comparePlanItems,
+  )
   const change = diffPlanItems(live.current, items)
   const noSlot = new Set(removedNoSlot)
-  change.removed = change.removed.map((r) => (noSlot.has(r.key) ? { ...r, reason: 'noSlotBeforeAssessment' as const } : r))
-  const datedEnds = [...dated.values()]
-    .map((a) => a.date as ISODate)
-    .filter((d) => d >= live.today)
+  change.removed = change.removed.map((r) =>
+    noSlot.has(r.key) ? { ...r, reason: 'noSlotBeforeAssessment' as const } : r,
+  )
+  const datedEnds = [...dated.values()].map((a) => a.date as ISODate).filter((d) => d >= live.today)
   const withDates = (xs: ReadonlyArray<{ doDate: ISODate; kind: string }>): ISODate | null => {
     const e = endOf(xs)
-    return [e, ...datedEnds].reduce<ISODate | null>((m, d) => (d !== null && (m === null || d > m) ? d : m), null)
+    return [e, ...datedEnds].reduce<ISODate | null>(
+      (m, d) => (d !== null && (m === null || d > m) ? d : m),
+      null,
+    )
   }
   return {
     items,
@@ -323,7 +365,12 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
 
 // ─── Status and proposals ───────────────────────────────────────────────────
 
-function statusOf(live: LivePlanInput, r: ReflowResult, fromDay: number, fromMinute: number): BehindStatus {
+function statusOf(
+  live: LivePlanInput,
+  r: ReflowResult,
+  fromDay: number,
+  fromMinute: number,
+): BehindStatus {
   let missedCount = 0
   let missedMinutes = 0
   for (const c of live.current) {
@@ -334,24 +381,31 @@ function statusOf(live: LivePlanInput, r: ReflowResult, fromDay: number, fromMin
       missedMinutes += c.durationMinutes
     }
   }
-  const remainingMinutes = r.items.filter((i) => WORK.has(i.kind)).reduce((n, i) => n + i.durationMinutes, 0)
+  const remainingMinutes = r.items
+    .filter((i) => WORK.has(i.kind))
+    .reduce((n, i) => n + i.durationMinutes, 0)
   const reference = live.baselineEnd ?? r.previousEnd
   const slipDays =
-    r.projectedEnd !== null && reference !== null ? dayNumber(r.projectedEnd) - dayNumber(reference) : null
+    r.projectedEnd !== null && reference !== null
+      ? dayNumber(r.projectedEnd) - dayNumber(reference)
+      : null
   const reasons: BehindReason[] = []
   if (missedCount > 0) reasons.push('missedWork')
   if (slipDays !== null && slipDays > 0) reasons.push('slip')
-  const pastTarget = live.targetDate !== null && r.projectedEnd !== null && r.projectedEnd > live.targetDate
+  const pastTarget =
+    live.targetDate !== null && r.projectedEnd !== null && r.projectedEnd > live.targetDate
   if (pastTarget) reasons.push('pastTarget')
   const atRisk = r.issues.some((i) => i.code === 'ASSESSMENT_TOO_EARLY')
   if (atRisk) reasons.push('assessmentAtRisk')
-  if (r.change.removed.some((x) => x.reason === 'noSlotBeforeAssessment')) reasons.push('reviewDropped')
+  if (r.change.removed.some((x) => x.reason === 'noSlotBeforeAssessment'))
+    reasons.push('reviewDropped')
   const far =
     (slipDays !== null && slipDays > FAR_BEHIND_SLIP_DAYS) ||
     missedMinutes > FAR_BEHIND_MISSED_SHARE * remainingMinutes ||
     pastTarget ||
     atRisk
-  const behind = missedCount > 0 || (slipDays !== null && slipDays > 0) || reasons.includes('reviewDropped')
+  const behind =
+    missedCount > 0 || (slipDays !== null && slipDays > 0) || reasons.includes('reviewDropped')
   return {
     level: far ? 'farBehind' : behind ? 'slightlyBehind' : 'onTrack',
     reasons,
@@ -366,7 +420,20 @@ function statusOf(live: LivePlanInput, r: ReflowResult, fromDay: number, fromMin
 }
 
 function shortDay(d: ISODate): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
   return `${months[Number(d.slice(5, 7)) - 1] ?? ''} ${Number(d.slice(8, 10))}`
 }
 
@@ -426,7 +493,11 @@ export function behindProposals(live: LivePlanInput, rolled: ReflowResult): Prop
   const f = checkFeasibility(live, ref)
   const extra = f.options.addTime.extraMinutesPerStudyDay
   if (!f.fits && extra !== null && extra > 0) {
-    const res = planStudy({ ...live, targetDate: ref, availability: addMinutesToWindows(live.availability, extra) })
+    const res = planStudy({
+      ...live,
+      targetDate: ref,
+      availability: addMinutesToWindows(live.availability, extra),
+    })
     out.push({
       kind: 'addTime',
       title: `Add ${formatDuration(extra)} to each study day`,

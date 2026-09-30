@@ -53,12 +53,17 @@ function SoundSectionBody() {
   /** True when the Preview button, not a focus session, started the ambient bed. */
   const startedHere = useRef(false)
 
+  // The audio context is only ever created for someone who has sounds on.
+  const soundOn = settings?.sound.enabled === true
   useEffect(() => {
-    armAudioUnlock()
-    return () => {
+    if (soundOn) armAudioUnlock()
+  }, [soundOn])
+  useEffect(
+    () => () => {
       if (startedHere.current && isAmbientPlaying()) void stopAmbient(300)
-    }
-  }, [])
+    },
+    [],
+  )
 
   async function save(patch: SettingsPatch): Promise<void> {
     try {

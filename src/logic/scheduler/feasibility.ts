@@ -62,7 +62,12 @@ export function formatDuration(minutes: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`
 }
 
-const REASON_RANK: Record<CutReason, number> = { optional: 0, alreadyKnown: 1, partlyKnown: 2, lateInPlan: 3 }
+const REASON_RANK: Record<CutReason, number> = {
+  optional: 0,
+  alreadyKnown: 1,
+  partlyKnown: 2,
+  lateInPlan: 3,
+}
 
 function reasonFor(optional: boolean | undefined, rating: SelfRating | undefined): CutReason {
   if (optional) return 'optional'
@@ -82,7 +87,14 @@ export function cutCandidates(courses: readonly PlannerCourse[]): CutCandidate[]
       pos++
       const minutes = Math.max(0, u.remainingMinutes) + Math.max(0, u.extraReviewMinutes ?? 0)
       if (minutes <= 0) continue
-      ranked.push({ unitId: u.id, courseId: c.id, title: u.title, minutes, reason: reasonFor(u.optional, u.selfRating), pos })
+      ranked.push({
+        unitId: u.id,
+        courseId: c.id,
+        title: u.title,
+        minutes,
+        reason: reasonFor(u.optional, u.selfRating),
+        pos,
+      })
     }
   }
   return ranked
@@ -97,7 +109,9 @@ export function withoutUnits(input: PlannerInput, unitIds: readonly string[]): P
     ...input,
     courses: input.courses.map((c) => ({
       ...c,
-      units: c.units.map((u) => (cut.has(u.id) ? { ...u, remainingMinutes: 0, extraReviewMinutes: 0 } : u)),
+      units: c.units.map((u) =>
+        cut.has(u.id) ? { ...u, remainingMinutes: 0, extraReviewMinutes: 0 } : u,
+      ),
     })),
   }
 }
@@ -177,7 +191,10 @@ export function findCut(
  * Checks the plan against its target (or `reference` when given, e.g. the baseline end in ASAP mode).
  * With no date to meet, it fits unless nothing can be placed.
  */
-export function checkFeasibility(input: PlannerInput, reference?: ISODate | null): FeasibilityResult {
+export function checkFeasibility(
+  input: PlannerInput,
+  reference?: ISODate | null,
+): FeasibilityResult {
   const ref = reference ?? input.targetDate
   const target = { ...input, targetDate: ref }
   const base = planStudy(target)
@@ -204,7 +221,10 @@ export function checkFeasibility(input: PlannerInput, reference?: ISODate | null
   const shortfallMinutes = Math.max(fast.shortfall, g)
 
   const extra = findExtraMinutes(input, ref)
-  const extended = extra === null ? null : planStudy({ ...target, availability: addMinutesToWindows(input.availability, extra) })
+  const extended =
+    extra === null
+      ? null
+      : planStudy({ ...target, availability: addMinutesToWindows(input.availability, extra) })
   const moveTo = findEarliestDate(input)
   const cut = findCut(input, ref, candidates, shortfallMinutes)
   const cutRun = cut.length > 0 ? planStudy({ ...withoutUnits(input, cut), targetDate: ref }) : null

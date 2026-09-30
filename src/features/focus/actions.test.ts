@@ -7,15 +7,18 @@ import {
   finishSession,
   getActiveSession,
   getLastFinishedSession,
+  reconcileRunning,
   startSession,
 } from '@/db/repos/sessions'
-import { ensureSettings, updateSettings } from '@/db/repos/settings'
+import { ensureSettings, getSettings, updateSettings } from '@/db/repos/settings'
 import { createTask } from '@/db/repos/tasks'
 import type { Session } from '@/db/types'
+import type { ToastOptions } from '@/ui/Toast'
 import {
   beginFocus,
   finishNow,
   keepGoing,
+  setCustomMinutes,
   skipBreak,
   skipPhase,
   startUpNext,
@@ -29,9 +32,17 @@ const T0 = new Date(2026, 8, 29, 9, 30).getTime()
 
 let store: TimerStore
 let openEndDialog: ReturnType<typeof vi.fn>
+let closeEndDialog: ReturnType<typeof vi.fn>
 let unregister: () => void
 
-const toast = { show: vi.fn(), success: vi.fn(), error: vi.fn(), xp: vi.fn(), dismiss: vi.fn(), dismissAll: vi.fn() }
+const toast = {
+  show: vi.fn(),
+  success: vi.fn(),
+  error: vi.fn(),
+  xp: vi.fn(),
+  dismiss: vi.fn(),
+  dismissAll: vi.fn(),
+}
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -42,10 +53,13 @@ beforeEach(async () => {
   store = new TimerStore()
   store.setSession(null, T0)
   openEndDialog = vi.fn()
+  closeEndDialog = vi.fn()
   const runtime: FocusRuntime = {
     announce: vi.fn(),
     toast,
     openEndDialog: openEndDialog as unknown as FocusRuntime['openEndDialog'],
+    closeEndDialog: closeEndDialog as unknown as FocusRuntime['closeEndDialog'],
+    soundEnabled: () => false,
     snapshot: store.getSnapshot,
     setDraftTask: (id) => store.setDraftTask(id),
   }
@@ -66,7 +80,12 @@ describe('beginFocus', () => {
     await updateSettings({ timer: { pomodoroMin: 30 } })
     const task = await createTask({ title: 'C779 · Unit 3' })
     const session = await beginFocus({ taskId: task.id, mode: 'pomodoro', go: false })
-    expect(session).toMatchObject({ kind: 'focus', mode: 'pomodoro', plannedMinutes: 30, taskId: task.id })
+    expect(session).toMatchObject({
+      kind: 'focus',
+      mode: 'pomodoro',
+      plannedMinutes: 30,
+      taskId: task.id,
+    })
     expect(await getActiveSession()).toMatchObject({ id: session?.id })
   })
 
@@ -98,7 +117,10 @@ describe('beginFocus', () => {
   })
 
   it('throws away a running break to start focus', async () => {
-    const brk = await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 }, { now: T0 })
+    const brk = await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 },
+    )
     const session = await beginFocus({ mode: 'pomodoro', go: false })
     expect(session?.kind).toBe('focus')
     expect(await db.sessions.get(brk.id)).toMatchObject({ status: 'abandoned' })
@@ -144,6 +166,58 @@ describe('finishNow', () => {
     const result = await finishNow()
     expect(result?.session).toMatchObject({ actualMinutes: 12, interrupted: false, counted: true })
     expect(result?.xp).toBe(12)
+  })
+
+  it('a finish that did not count offers an Undo that resumes the session and withdraws the dialog', async () => {
+    await beginFocus({ mode: 'pomodoro', go: false })
+    at(10)
+    const result = await finishNow()
+    expect(result?.session.counted).toBe(false)
+    const shown = toast.show.mock.calls.map(([options]) => options as ToastOptions)
+    const offer = shown.find((options) => options.title === 'Session ended early')
+    expect(offer?.undo).toBeTypeOf('function')
+    expect(await getActiveSession()).toBeNull()
+
+    at(12)
+    await offer?.undo?.()
+    expect(closeEndDialog).toHaveBeenCalledWith(result?.session.id)
+    const back = await getActiveSession()
+    expect(back).toMatchObject({ id: result?.session.id, status: 'running', pausedMs: 2 * MIN })
+    // Ten of the 25 minutes were done; the two minutes waiting for the Undo do not count.
+    at(27)
+    expect(await reconcileRunning(Date.now())).toMatchObject({
+      session: { counted: true, actualMinutes: 25 },
+    })
+  })
+
+  it('a stopwatch under ten minutes offers the same Undo, a counted finish does not', async () => {
+    await beginFocus({ mode: 'stopwatch', go: false })
+    at(5)
+    await finishNow()
+    expect(toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Session ended early' }),
+    )
+
+    toast.show.mockClear()
+    at(6)
+    await beginFocus({ mode: 'pomodoro', go: false })
+    at(6 + 24)
+    const counted = await finishNow()
+    expect(counted?.session.counted).toBe(true)
+    expect(toast.show).not.toHaveBeenCalled()
+  })
+
+  it('the Undo fails (so the toast says so) when something else is running by then', async () => {
+    await beginFocus({ mode: 'pomodoro', go: false })
+    at(10)
+    await finishNow()
+    const offer = toast.show.mock.calls
+      .map(([options]) => options as ToastOptions)
+      .find((options) => options.title === 'Session ended early')
+    at(11)
+    await beginFocus({ mode: 'pomodoro', go: false })
+    await expect(offer?.undo?.()).rejects.toThrow()
+    expect(closeEndDialog).not.toHaveBeenCalled()
   })
 
   it('ending a break just skips it: no dialog, no log', async () => {
@@ -194,7 +268,11 @@ describe('the cycle', () => {
     await finishedRound(1)
     await skipBreak()
     expect(await getActiveSession()).toBeNull()
-    expect(await getLastFinishedSession()).toMatchObject({ kind: 'break', status: 'abandoned', round: 1 })
+    expect(await getLastFinishedSession()).toMatchObject({
+      kind: 'break',
+      status: 'abandoned',
+      round: 1,
+    })
     await startUpNext()
     expect(await getActiveSession()).toMatchObject({ kind: 'focus', round: 2 })
   })
@@ -209,8 +287,15 @@ describe('the cycle', () => {
     await beginFocus({ mode: 'stopwatch', go: false })
     at(11)
     await skipPhase()
-    expect(await getLastFinishedSession()).toMatchObject({ kind: 'focus', status: 'completed', counted: true })
-    await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 }, { now: T0 + 12 * MIN })
+    expect(await getLastFinishedSession()).toMatchObject({
+      kind: 'focus',
+      status: 'completed',
+      counted: true,
+    })
+    await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 + 12 * MIN },
+    )
     at(13)
     await skipPhase()
     expect(await getLastFinishedSession()).toMatchObject({ kind: 'break', status: 'abandoned' })
@@ -226,13 +311,51 @@ describe('keepGoing', () => {
     )
     const done = await finishSession(s.id, { now: T0 - 5 * MIN })
     await keepGoing(done?.session as Session)
-    expect(await getActiveSession()).toMatchObject({ mode: 'custom', plannedMinutes: 40, taskId: task.id })
+    expect(await getActiveSession()).toMatchObject({
+      mode: 'custom',
+      plannedMinutes: 40,
+      taskId: task.id,
+    })
   })
 
   it('replaces a break the timer had already started on its own', async () => {
     const done = await finishedRound(1)
-    await startSession({ mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 }, { now: T0 - MIN })
+    await startSession(
+      { mode: 'pomodoro', kind: 'break', plannedMin: 5, round: 1 },
+      { now: T0 - MIN },
+    )
     await keepGoing(done)
-    expect(await getActiveSession()).toMatchObject({ kind: 'focus', mode: 'pomodoro', plannedMinutes: 25 })
+    expect(await getActiveSession()).toMatchObject({
+      kind: 'focus',
+      mode: 'pomodoro',
+      plannedMinutes: 25,
+    })
+  })
+})
+
+describe('setCustomMinutes', () => {
+  const stored = async () => (await getSettings()).timer.customMin
+
+  it('saves whole minutes from 1 to 480', async () => {
+    await setCustomMinutes(45)
+    expect(await stored()).toBe(45)
+    await setCustomMinutes(37.6)
+    expect(await stored()).toBe(38)
+    await setCustomMinutes(9999)
+    expect(await stored()).toBe(480)
+  })
+
+  it('leaves the stored length alone for an emptied field, zero, a negative or a non-number', async () => {
+    await setCustomMinutes(50)
+    for (const bad of [
+      0,
+      Number('') /* an emptied field */,
+      -5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      await setCustomMinutes(bad)
+      expect(await stored()).toBe(50)
+    }
   })
 })

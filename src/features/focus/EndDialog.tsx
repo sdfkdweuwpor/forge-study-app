@@ -66,7 +66,9 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
       onClose()
       const parts = [
         result.xp > 0 ? formatXp(result.xp) : null,
-        result.next?.dueDate ? `Next: ${relativeDay(result.next.dueDate, dayOf(Date.now()))}` : null,
+        result.next?.dueDate
+          ? `Next: ${relativeDay(result.next.dueDate, dayOf(Date.now()))}`
+          : null,
       ].filter((part): part is string => part !== null)
       toast.show({
         title: `Completed “${shorten(task.title)}”`,
@@ -132,12 +134,20 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
         variant={taskOpen ? 'secondary' : 'primary'}
         iconLeft={<Play />}
         disabled={busy}
+        // The answer that is most likely is the one focus starts on: "Yes", or "Keep going" with no task to finish.
+        data-autofocus={taskOpen ? undefined : ''}
         onClick={more}
       >
         Keep going
       </Button>
       {taskOpen ? (
-        <Button variant="primary" iconLeft={<Check />} loading={busy} onClick={() => void complete()}>
+        <Button
+          variant="primary"
+          iconLeft={<Check />}
+          loading={busy}
+          data-autofocus=""
+          onClick={() => void complete()}
+        >
           Yes
         </Button>
       ) : null}
@@ -154,7 +164,12 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
       footer={footer}
     >
       {loading ? (
-        <div className={styles.body} role="status" aria-busy="true" aria-label="Loading the session">
+        <div
+          className={styles.body}
+          role="status"
+          aria-busy="true"
+          aria-label="Loading the session"
+        >
           <Skeleton width="55%" />
           <Skeleton width="80%" />
         </div>

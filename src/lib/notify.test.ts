@@ -155,7 +155,7 @@ describe('notify', () => {
     expect(shown?.title).toBe('Session done')
     expect(shown?.options?.body).toBe('Nice work')
     expect(shown?.options?.tag).toBe('forge')
-    expect(shown?.options?.icon).toMatch(/favicon\.svg$/)
+    expect(shown?.options?.icon).toMatch(/icons\/notify-192\.png$/)
   })
 
   it('is skipped while the app is visible and focused: the in-app toast is enough', async () => {

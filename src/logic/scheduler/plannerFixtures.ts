@@ -30,7 +30,11 @@ export function win(...pairs: ReadonlyArray<readonly [HHmm, HHmm]>): DayWindows 
 }
 
 /** Weekday windows, Sunday first, from a Monday–Friday value plus Saturday and Sunday. */
-export function weekWin(monFri: DayWindows, sat: DayWindows = [], sun: DayWindows = []): WeekWindows {
+export function weekWin(
+  monFri: DayWindows,
+  sat: DayWindows = [],
+  sun: DayWindows = [],
+): WeekWindows {
   return [sun, monFri, monFri, monFri, monFri, monFri, sat]
 }
 
@@ -57,13 +61,17 @@ export function pcourse(
     prerequisiteIds: [],
     ...extra,
     units: units.map((u, i) =>
-      typeof u === 'number' ? punit(`${id}-u${i + 1}`, u, { order: i, title: `Topic ${i + 1}` }) : u,
+      typeof u === 'number'
+        ? punit(`${id}-u${i + 1}`, u, { order: i, title: `Topic ${i + 1}` })
+        : u,
     ),
   }
 }
 
 /** Evenings Mon–Fri 18:00–20:00, no buffer (tests add one when they need it). */
-export function pinput(partial: Partial<PlannerInput> & Pick<PlannerInput, 'courses'>): PlannerInput {
+export function pinput(
+  partial: Partial<PlannerInput> & Pick<PlannerInput, 'courses'>,
+): PlannerInput {
   return {
     today: MON,
     targetDate: null,
@@ -126,7 +134,11 @@ function blocksOf(busy: readonly BusyBlock[], pinned: readonly PinnedPlanItem[])
  * after today (and `now`); keys are unique; sessions of a unit run in `seq` order; study follows the
  * course order given; reviews and practice tests come before their assessment.
  */
-export function checkPlan(inp: PlannerInput, res: PlannerResult, courseOrder?: readonly string[]): string[] {
+export function checkPlan(
+  inp: PlannerInput,
+  res: PlannerResult,
+  courseOrder?: readonly string[],
+): string[] {
   const out: string[] = []
   const timed = res.items.filter((i) => i.startTime !== null && i.durationMinutes > 0)
   const keys = new Set<string>()
@@ -140,7 +152,9 @@ export function checkPlan(inp: PlannerInput, res: PlannerResult, courseOrder?: r
     const s = minutesOf(i.startTime as HHmm)
     const e = s + i.durationMinutes
     const b = { date: i.doDate, start: s, end: e, what: i.key }
-    const fixed = i.kind === 'assessment' && (inp.assessments ?? []).some((a) => a.id === i.assessmentId && a.time)
+    const fixed =
+      i.kind === 'assessment' &&
+      (inp.assessments ?? []).some((a) => a.id === i.assessmentId && a.time)
     if (!fixed && !allowed(inp, i.doDate).some(([a, z]) => s >= a && e <= z))
       out.push(`${i.key} ${i.doDate} ${i.startTime}+${i.durationMinutes} is outside the windows`)
     blocks.push(b)
@@ -152,7 +166,8 @@ export function checkPlan(inp: PlannerInput, res: PlannerResult, courseOrder?: r
     for (let k = 1; k < list.length; k++) {
       const a = list[k - 1] as Block
       const b = list[k] as Block
-      if (b.start < a.end && !(a.input && b.input)) out.push(`${date}: ${a.what} overlaps ${b.what}`)
+      if (b.start < a.end && !(a.input && b.input))
+        out.push(`${date}: ${a.what} overlaps ${b.what}`)
     }
   }
   const at = (i: PlanItem): string => `${i.doDate} ${i.startTime ?? '99:99'}`
@@ -166,24 +181,37 @@ export function checkPlan(inp: PlannerInput, res: PlannerResult, courseOrder?: r
   if (courseOrder) {
     const study = res.items.filter((i) => i.kind === 'study')
     for (let k = 1; k < courseOrder.length; k++) {
-      const prevLast = study.filter((i) => i.courseId === courseOrder[k - 1]).map(at).sort().at(-1)
-      const nextFirst = study.filter((i) => i.courseId === courseOrder[k]).map(at).sort()[0]
+      const prevLast = study
+        .filter((i) => i.courseId === courseOrder[k - 1])
+        .map(at)
+        .sort()
+        .at(-1)
+      const nextFirst = study
+        .filter((i) => i.courseId === courseOrder[k])
+        .map(at)
+        .sort()[0]
       if (prevLast && nextFirst && nextFirst < prevLast)
         out.push(`${courseOrder[k]} starts before ${courseOrder[k - 1]} ends`)
     }
   }
-  const assessmentDay = new Map(res.items.filter((i) => i.kind === 'assessment').map((i) => [i.assessmentId, i.doDate]))
+  const assessmentDay = new Map(
+    res.items.filter((i) => i.kind === 'assessment').map((i) => [i.assessmentId, i.doDate]),
+  )
   for (const i of res.items) {
     if ((i.kind === 'review' || i.kind === 'practiceTest') && i.assessmentId) {
       const d = assessmentDay.get(i.assessmentId)
-      if (d && i.doDate >= d) out.push(`${i.key} on ${i.doDate} is not before its assessment on ${d}`)
+      if (d && i.doDate >= d)
+        out.push(`${i.key} on ${i.doDate} is not before its assessment on ${d}`)
     }
   }
   return out
 }
 
 /** The plan's items as stored tasks (all open unless listed as done). */
-export function asCurrent(items: readonly PlanItem[], done: readonly string[] = []): CurrentPlanItem[] {
+export function asCurrent(
+  items: readonly PlanItem[],
+  done: readonly string[] = [],
+): CurrentPlanItem[] {
   return items
     .filter((i) => i.kind !== 'milestone')
     .map((i) => ({
@@ -203,7 +231,9 @@ export function asCurrent(items: readonly PlanItem[], done: readonly string[] = 
 
 /** `[date, start, key, minutes]` rows for compact assertions. */
 export const rows = (items: readonly PlanItem[]) =>
-  items.filter((i) => i.kind !== 'milestone').map((i) => [i.doDate, i.startTime, i.key, i.durationMinutes])
+  items
+    .filter((i) => i.kind !== 'milestone')
+    .map((i) => [i.doDate, i.startTime, i.key, i.durationMinutes])
 
 /**
  * The 12-course WGU year from `fixtures.ts` as planner input: legacy minutes per weekday mapped to

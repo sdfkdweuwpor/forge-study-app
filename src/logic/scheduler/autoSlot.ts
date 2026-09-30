@@ -53,7 +53,8 @@ export function autoSlotTasks(
     grain,
   })
   const prepared = tasks.map((t) => {
-    const m = t.estimateMinutes !== null && Number.isFinite(t.estimateMinutes) && t.estimateMinutes > 0
+    const m =
+      t.estimateMinutes !== null && Number.isFinite(t.estimateMinutes) && t.estimateMinutes > 0
     let dueDay: number | null
     try {
       dueDay = dayNumber(t.dueDate)

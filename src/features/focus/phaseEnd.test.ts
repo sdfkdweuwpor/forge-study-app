@@ -18,6 +18,7 @@ const MIN = 60_000
 const T0 = new Date(2026, 8, 29, 9, 30).getTime()
 
 let openEndDialog: ReturnType<typeof vi.fn>
+let announce: ReturnType<typeof vi.fn>
 let toastShow: ReturnType<typeof vi.fn>
 let unregister: () => void
 
@@ -29,9 +30,10 @@ beforeEach(async () => {
   await ensureSettings()
   const store = new TimerStore()
   openEndDialog = vi.fn()
+  announce = vi.fn()
   toastShow = vi.fn()
   const runtime: FocusRuntime = {
-    announce: vi.fn(),
+    announce: announce as unknown as FocusRuntime['announce'],
     toast: {
       show: toastShow as unknown as FocusRuntime['toast']['show'],
       success: vi.fn(),
@@ -41,6 +43,8 @@ beforeEach(async () => {
       dismissAll: vi.fn(),
     },
     openEndDialog: openEndDialog as unknown as FocusRuntime['openEndDialog'],
+    closeEndDialog: () => undefined,
+    soundEnabled: () => false,
     snapshot: store.getSnapshot,
     setDraftTask: () => undefined,
   }
@@ -53,7 +57,11 @@ afterEach(async () => {
   vi.useRealTimers()
 })
 
-async function ended(kind: 'focus' | 'break', round: number, minutes: number): Promise<FinishResult> {
+async function ended(
+  kind: 'focus' | 'break',
+  round: number,
+  minutes: number,
+): Promise<FinishResult> {
   const s = await startSession({ mode: 'pomodoro', kind, plannedMin: minutes, round }, { now: T0 })
   const result = await finishSession(s.id, { now: T0 + minutes * MIN })
   if (!result) throw new Error('did not finish')
@@ -66,12 +74,15 @@ describe('the end of a focus round', () => {
     await handlePhaseEnd(result, false)
     expect(openEndDialog).toHaveBeenCalledWith(result.session.id)
     expect(await getActiveSession()).toBeNull()
+    expect(announce).not.toHaveBeenCalled()
   })
 
   it('starts the break by itself when settings say so: short after round 1, long after round 4', async () => {
     await updateSettings({ timer: { autoStartBreaks: true } })
     await handlePhaseEnd(await ended('focus', 1, 25), false)
     expect(await getActiveSession()).toMatchObject({ kind: 'break', round: 1, plannedMinutes: 5 })
+    // Nobody pressed anything, so the live region says a break began.
+    expect(announce).toHaveBeenCalledWith('Short break started. 5 min.')
 
     await db.sessions.clear()
     await handlePhaseEnd(await ended('focus', 4, 25), false)
@@ -118,6 +129,7 @@ describe('the end of a break', () => {
     await updateSettings({ timer: { autoStartFocus: true } })
     await handlePhaseEnd(await ended('break', 2, 5), false)
     expect(await getActiveSession()).toMatchObject({ kind: 'focus', round: 3, plannedMinutes: 25 })
+    expect(announce).toHaveBeenCalledWith('Focus started. 25 min.')
   })
 
   it('is quiet when it ended long ago', async () => {

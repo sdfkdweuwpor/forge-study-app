@@ -122,13 +122,15 @@ export function dstShiftOn(day: number): Interval | null {
   if (o1 < o0) {
     // Forward: the first wall-clock hour that does not exist resolves to a later hour.
     for (let h = 0; h < 24; h++) {
-      if (new Date(y, m, d, h, 0).getHours() !== h) return [h * 60, Math.min(DAY_MINUTES, h * 60 + diff)]
+      if (new Date(y, m, d, h, 0).getHours() !== h)
+        return [h * 60, Math.min(DAY_MINUTES, h * 60 + diff)]
     }
     return null
   }
   // Back: the offset changes at wall-clock hour h; the span just before it happens twice.
   for (let h = 1; h <= 24; h++) {
-    if (new Date(y, m, d, h, 0).getTimezoneOffset() !== o0) return [Math.max(0, h * 60 - diff), h * 60]
+    if (new Date(y, m, d, h, 0).getTimezoneOffset() !== o0)
+      return [Math.max(0, h * 60 - diff), h * 60]
   }
   return null
 }
@@ -222,7 +224,8 @@ export function fromLegacyAvailability(
   av: Availability,
   opts: { studyStart?: HHmm; sessionMinutes?: number } = {},
 ): AvailabilityV2 {
-  const start = parseClock(opts.studyStart ?? DEFAULT_STUDY_START) ?? parseClock(DEFAULT_STUDY_START)
+  const start =
+    parseClock(opts.studyStart ?? DEFAULT_STUDY_START) ?? parseClock(DEFAULT_STUDY_START)
   const weekly = av.minutesByWeekday.map((raw): DayWindows => {
     const m = Number.isFinite(raw) && raw > 0 ? Math.min(DAY_MINUTES, Math.floor(raw)) : 0
     if (m === 0) return []
@@ -254,7 +257,10 @@ function extendDay(ws: DayWindows | null, minutes: number): DayWindows | null {
 export function addMinutesToWindows(av: AvailabilityV2, minutes: number): AvailabilityV2 {
   const weekly = av.weekly.map((w) => extendDay(w, minutes) ?? []) as unknown as WeekWindows
   const shiftPattern = hasPattern(av)
-    ? { anchor: av.shiftPattern.anchor, cycle: av.shiftPattern.cycle.map((w) => extendDay(w, minutes)) }
+    ? {
+        anchor: av.shiftPattern.anchor,
+        cycle: av.shiftPattern.cycle.map((w) => extendDay(w, minutes)),
+      }
     : (av.shiftPattern ?? null)
   return { ...av, weekly, shiftPattern, blackouts: [...av.blackouts] }
 }
@@ -295,6 +301,11 @@ export function shiftCycle(
 }
 
 /** Every weekday with the same windows (a convenience for tests and the wizard's defaults). */
-export function sameEveryDay(ws: DayWindows, weekdays: readonly number[] = [0, 1, 2, 3, 4, 5, 6]): WeekWindows {
-  return Array.from({ length: 7 }, (_, i) => (weekdays.includes(i) ? ws : [])) as unknown as WeekWindows
+export function sameEveryDay(
+  ws: DayWindows,
+  weekdays: readonly number[] = [0, 1, 2, 3, 4, 5, 6],
+): WeekWindows {
+  return Array.from({ length: 7 }, (_, i) =>
+    weekdays.includes(i) ? ws : [],
+  ) as unknown as WeekWindows
 }

@@ -53,7 +53,10 @@ describe('planStudy: normal plan', () => {
 
   it('is deterministic: two runs and shuffled input give deep-equal output', () => {
     const inp = basic()
-    const shuffled = { ...inp, courses: [...inp.courses].reverse().map((c) => ({ ...c, units: [...c.units].reverse() })) }
+    const shuffled = {
+      ...inp,
+      courses: [...inp.courses].reverse().map((c) => ({ ...c, units: [...c.units].reverse() })),
+    }
     expect(planStudy(inp)).toEqual(planStudy(inp))
     expect(planStudy(shuffled)).toEqual(planStudy(inp))
   })
@@ -105,7 +108,7 @@ describe('planStudy: normal plan', () => {
 describe('planStudy: slot placement', () => {
   it('never crosses a window end, never overlaps busy or pinned time (property)', () => {
     const r = rng(42)
-    const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)] as T
+    const pick = <T>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)] as T
     for (let run = 0; run < 60; run++) {
       const day = (): DayWindows => {
         const n = Math.floor(r() * 3)
@@ -114,7 +117,8 @@ describe('planStudy: slot placement', () => {
         for (let k = 0; k < n && t < 22 * 60; k++) {
           const len = 20 + Math.floor(r() * 26) * 5
           const end = Math.min(24 * 60, t + len)
-          const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+          const hh = (m: number) =>
+            `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
           out.push({ start: hh(t), end: end === 1440 ? '24:00' : hh(end) })
           t = end + 30 + Math.floor(r() * 5) * 30
         }
@@ -134,14 +138,26 @@ describe('planStudy: slot placement', () => {
         availability: avail2(weekly, { sessionMinutes: pick([25, 45, 50, 60, 90]) }),
         courses: [
           pcourse('a', [Math.floor(r() * 60) * 5 + 5, Math.floor(r() * 80) * 5], { order: 0 }),
-          pcourse('b', [Math.floor(r() * 100) * 5 + 30], { order: 1, extraReviewMinutes: pick([0, 30, 60]) }),
+          pcourse('b', [Math.floor(r() * 100) * 5 + 30], {
+            order: 1,
+            extraReviewMinutes: pick([0, 30, 60]),
+          }),
         ],
         assessments: [
           { id: 'x', courseId: 'a', kind: 'exam', title: 'Exam', date: null },
           { id: 'y', courseId: 'b', kind: 'quiz', title: 'Quiz', date: '2026-11-20' },
         ],
         blockedSlots: busy,
-        pinned: [{ key: 'p:1', kind: 'study', courseId: 'a', date: '2026-10-06', startTime: '19:00', durationMinutes: 40 }],
+        pinned: [
+          {
+            key: 'p:1',
+            kind: 'study',
+            courseId: 'a',
+            date: '2026-10-06',
+            startTime: '19:00',
+            durationMinutes: 40,
+          },
+        ],
         settings: { bufferPct: 0.12 },
       }
       const res = planStudy(inp)
@@ -157,7 +173,16 @@ describe('planStudy: slot placement', () => {
         { date: MON, start: '18:30', durationMinutes: 30, source: 'task' },
         { date: '2026-10-06', start: '17:00', durationMinutes: 90, source: 'calendar' },
       ],
-      pinned: [{ key: 'q:1', kind: 'study', courseId: 'a', date: '2026-10-07', startTime: '18:00', durationMinutes: 60 }],
+      pinned: [
+        {
+          key: 'q:1',
+          kind: 'study',
+          courseId: 'a',
+          date: '2026-10-07',
+          startTime: '18:00',
+          durationMinutes: 60,
+        },
+      ],
     })
     const res = ok(inp)
     expect(rows(res.items)).toEqual([
@@ -166,7 +191,11 @@ describe('planStudy: slot placement', () => {
       ['2026-10-06', '18:30', 'a-u1:3', 60], // after the calendar event
     ])
     // The pinned item counts toward the end and the course window.
-    expect(res.courseWindows[0]).toMatchObject({ start: '2026-10-05', end: '2026-10-07', minutes: 210 })
+    expect(res.courseWindows[0]).toMatchObject({
+      start: '2026-10-05',
+      end: '2026-10-07',
+      minutes: 210,
+    })
   })
 
   it('places nothing on blackout days', () => {
@@ -186,7 +215,9 @@ describe('planStudy: slot placement', () => {
     const cycle = shiftCycle(SHIFT_PRESETS['3on4off'], null, win(['09:00', '12:00']))
     const inp = pinput({
       courses: [pcourse('a', [1500])],
-      availability: avail2(weekWin(win(['18:00', '20:00'])), { shiftPattern: { anchor: '2026-10-01', cycle } }),
+      availability: avail2(weekWin(win(['18:00', '20:00'])), {
+        shiftPattern: { anchor: '2026-10-01', cycle },
+      }),
     })
     const res = ok(inp)
     const days = [...new Set(res.items.filter((i) => i.kind === 'study').map((i) => i.doDate))]
@@ -229,15 +260,17 @@ describe('planStudy: slot placement', () => {
       const start = atTime(i.doDate, i.startTime as string)
       const [h, m] = (i.startTime as string).split(':').map(Number) as [number, number]
       const endWall = h * 60 + m + i.durationMinutes
-      const end = atTime(i.doDate, `${String(Math.floor(endWall / 60)).padStart(2, '0')}:${String(endWall % 60).padStart(2, '0')}`)
+      const end = atTime(
+        i.doDate,
+        `${String(Math.floor(endWall / 60)).padStart(2, '0')}:${String(endWall % 60).padStart(2, '0')}`,
+      )
       expect((end - start) / 60000).toBe(i.durationMinutes)
     }
   })
 })
 
 describe('planStudy: buffer and pace', () => {
-  const work = () =>
-    pinput({ courses: [pcourse('a', [500, 500])], settings: { bufferPct: 0.12 } }) // 1000 min
+  const work = () => pinput({ courses: [pcourse('a', [500, 500])], settings: { bufferPct: 0.12 } }) // 1000 min
 
   it('reserves 12 % of the work as free time after the last session', () => {
     const res = ok(work())
@@ -249,7 +282,9 @@ describe('planStudy: buffer and pace', () => {
   it('fits a target only with the buffer', () => {
     expect(planStudy({ ...work(), targetDate: '2026-10-16' }).fits).toBe(false)
     expect(planStudy({ ...work(), targetDate: '2026-10-19' }).fits).toBe(true)
-    expect(planStudy({ ...work(), targetDate: '2026-10-19', settings: { bufferPct: 0 } }).buffer.minutes).toBe(0)
+    expect(
+      planStudy({ ...work(), targetDate: '2026-10-19', settings: { bufferPct: 0 } }).buffer.minutes,
+    ).toBe(0)
   })
 
   it('ASAP finishes earliest; a target spreads the work at the smallest verified pace', () => {
@@ -267,7 +302,8 @@ describe('planStudy: buffer and pace', () => {
     expect(planRun(inp, pace).fits).toBe(true)
     // No study day goes over pace + one session.
     const perDay = new Map<string, number>()
-    for (const i of of(paced, 'study')) perDay.set(i.doDate, (perDay.get(i.doDate) ?? 0) + i.durationMinutes)
+    for (const i of of(paced, 'study'))
+      perDay.set(i.doDate, (perDay.get(i.doDate) ?? 0) + i.durationMinutes)
     for (const m of perDay.values()) expect(m).toBeLessThanOrEqual(pace + 50)
   })
 
@@ -280,7 +316,9 @@ describe('planStudy: buffer and pace', () => {
   })
 
   it('reports no availability and a target in the past', () => {
-    const none = planStudy(pinput({ courses: [pcourse('a', [100])], availability: avail2(weekWin([])) }))
+    const none = planStudy(
+      pinput({ courses: [pcourse('a', [100])], availability: avail2(weekWin([])) }),
+    )
     expect(none.issues).toContainEqual({ code: 'NO_AVAILABILITY' })
     expect(none.fits).toBe(false)
     expect(none.projectedEnd).toBeNull()
@@ -294,10 +332,21 @@ describe('planStudy: assessments, reviews and practice tests', () => {
   it('spaces reviews at −7, −3, −1 study days and a practice test at −2 before a dated exam', () => {
     const inp = pinput({
       courses: [pcourse('a', [300])],
-      assessments: [{ id: 'x', courseId: 'a', kind: 'exam', title: 'Objective assessment', date: '2026-10-30', time: '09:00' }],
+      assessments: [
+        {
+          id: 'x',
+          courseId: 'a',
+          kind: 'exam',
+          title: 'Objective assessment',
+          date: '2026-10-30',
+          time: '09:00',
+        },
+      ],
     })
     const res = ok(inp)
-    const extra = res.items.filter((i) => i.assessmentId === 'x').map((i) => [i.key, i.kind, i.doDate, i.startTime, i.durationMinutes])
+    const extra = res.items
+      .filter((i) => i.assessmentId === 'x')
+      .map((i) => [i.key, i.kind, i.doDate, i.startTime, i.durationMinutes])
     expect(extra).toEqual([
       ['review:x:1', 'review', '2026-10-21', '18:00', 30],
       ['review:x:2', 'review', '2026-10-27', '18:00', 30],
@@ -305,7 +354,10 @@ describe('planStudy: assessments, reviews and practice tests', () => {
       ['review:x:3', 'review', '2026-10-29', '18:00', 30],
       ['assessment:x', 'assessment', '2026-10-30', '09:00', 120],
     ])
-    expect(keyed(res, 'review:x:1')).toMatchObject({ title: 'A · Review for Objective assessment (1/3)', dueDate: '2026-10-30' })
+    expect(keyed(res, 'review:x:1')).toMatchObject({
+      title: 'A · Review for Objective assessment (1/3)',
+      dueDate: '2026-10-30',
+    })
     expect(keyed(res, 'practice:x')?.title).toBe('A · Practice test: Objective assessment')
     expect(res.projectedEnd).toBe('2026-10-30')
   })
@@ -317,7 +369,9 @@ describe('planStudy: assessments, reviews and practice tests', () => {
     })
     const res = ok(inp)
     // 4 study days before Friday: offsets [7, 3, 1] → [4, 2, 1]; −2 is the practice test.
-    expect(res.items.filter((i) => i.assessmentId === 'x').map((i) => [i.key, i.doDate, i.startTime])).toEqual([
+    expect(
+      res.items.filter((i) => i.assessmentId === 'x').map((i) => [i.key, i.doDate, i.startTime]),
+    ).toEqual([
       ['review:x:1', '2026-10-05', '18:00'],
       ['practice:x', '2026-10-07', '18:00'],
       ['review:x:2', '2026-10-08', '18:00'],
@@ -347,20 +401,26 @@ describe('planStudy: assessments, reviews and practice tests', () => {
   it('places an undated exam on the study day after its course, with its reviews before it', () => {
     const inp = pinput({
       courses: [pcourse('a', [400], { order: 0 }), pcourse('b', [100], { order: 1 })],
-      assessments: [{ id: 'x', courseId: 'a', kind: 'exam', title: 'OA', date: null, durationMinutes: 90 }],
+      assessments: [
+        { id: 'x', courseId: 'a', kind: 'exam', title: 'OA', date: null, durationMinutes: 90 },
+      ],
     })
     const res = ok(inp, ['a', 'b'])
     const a = res.items.filter((i) => i.courseId === 'a' && i.kind !== 'assessment')
-    const lastA = a.map((i) => i.doDate).sort().at(-1) as ISODate
+    const lastA = a
+      .map((i) => i.doDate)
+      .sort()
+      .at(-1) as ISODate
     const exam = keyed(res, 'assessment:x') as PlanItem
     expect(exam.doDate > lastA).toBe(true)
     expect(exam.startTime).toBe('18:00')
     expect(exam.durationMinutes).toBe(90)
-    expect(res.items.filter((i) => i.assessmentId === 'x' && i.kind !== 'assessment').map((i) => i.key).sort()).toEqual([
-      'practice:x',
-      'review:x:1',
-      'review:x:2',
-    ])
+    expect(
+      res.items
+        .filter((i) => i.assessmentId === 'x' && i.kind !== 'assessment')
+        .map((i) => i.key)
+        .sort(),
+    ).toEqual(['practice:x', 'review:x:1', 'review:x:2'])
     // Course B's work continues right after A's, and does not wait for the exam.
     const firstB = of(res, 'study').find((i) => i.courseId === 'b') as PlanItem
     expect(firstB.doDate <= exam.doDate).toBe(true)
@@ -375,10 +435,17 @@ describe('planStudy: assessments, reviews and practice tests', () => {
       }),
     )
     expect(keyed(res, 'practice:x')).toBeUndefined()
-    expect(res.issues).toContainEqual({ code: 'ASSESSMENT_TOO_EARLY', assessmentId: 'x', lastStudyDate: expect.any(String) })
+    expect(res.issues).toContainEqual({
+      code: 'ASSESSMENT_TOO_EARLY',
+      assessmentId: 'x',
+      lastStudyDate: expect.any(String),
+    })
     expect(res.fits).toBe(false)
     const past = planStudy(
-      pinput({ courses: [pcourse('a', [50])], assessments: [{ id: 'old', courseId: 'a', kind: 'exam', title: 'E', date: '2026-10-01' }] }),
+      pinput({
+        courses: [pcourse('a', [50])],
+        assessments: [{ id: 'old', courseId: 'a', kind: 'exam', title: 'E', date: '2026-10-01' }],
+      }),
     )
     expect(past.issues).toContainEqual({ code: 'ASSESSMENT_IN_PAST', assessmentId: 'old' })
   })
@@ -387,17 +454,38 @@ describe('planStudy: assessments, reviews and practice tests', () => {
     const res = ok(
       pinput({
         courses: [
-          pcourse('a', [punit('a1', 50, { order: 0, title: 'Networks', extraReviewMinutes: 30 }), punit('a2', 50, { order: 1 })], {
-            order: 0,
-            extraReviewMinutes: 60,
-          }),
+          pcourse(
+            'a',
+            [
+              punit('a1', 50, { order: 0, title: 'Networks', extraReviewMinutes: 30 }),
+              punit('a2', 50, { order: 1 }),
+            ],
+            {
+              order: 0,
+              extraReviewMinutes: 60,
+            },
+          ),
           pcourse('b', [50], { order: 1 }),
         ],
       }),
     )
-    expect(rows(res.items).map((r) => r[2])).toEqual(['a1:1', 'extra:a1:1', 'a2:1', 'extra:a:1', 'b-u1:1'])
-    expect(keyed(res, 'extra:a1:1')).toMatchObject({ kind: 'review', title: 'A · Review: Networks', unitId: 'a1' })
-    expect(keyed(res, 'extra:a:1')).toMatchObject({ kind: 'review', title: 'A · Review', unitId: null })
+    expect(rows(res.items).map((r) => r[2])).toEqual([
+      'a1:1',
+      'extra:a1:1',
+      'a2:1',
+      'extra:a:1',
+      'b-u1:1',
+    ])
+    expect(keyed(res, 'extra:a1:1')).toMatchObject({
+      kind: 'review',
+      title: 'A · Review: Networks',
+      unitId: 'a1',
+    })
+    expect(keyed(res, 'extra:a:1')).toMatchObject({
+      kind: 'review',
+      title: 'A · Review',
+      unitId: null,
+    })
     expect(res.totals.review).toBe(90)
   })
 })
@@ -409,7 +497,11 @@ describe('planStudy: weekly milestones', () => {
       ['milestone:2026-10-05', '2026-10-09', 'Week of Oct 5 — finish A Units 1–2'],
       ['milestone:2026-10-12', '2026-10-14', 'Week of Oct 12 — finish A Unit 3'],
     ])
-    expect(of(res, 'milestone')[0]).toMatchObject({ startTime: null, durationMinutes: 0, dueDate: '2026-10-09' })
+    expect(of(res, 'milestone')[0]).toMatchObject({
+      startTime: null,
+      durationMinutes: 0,
+      dueDate: '2026-10-09',
+    })
   })
 
   it('says "continue" for a week that finishes nothing, and names assessments and review weeks', () => {

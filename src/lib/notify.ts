@@ -15,7 +15,7 @@ export interface NotifyOptions {
   tag?: string
   /** Show even while the app is visible and focused (a "send a test" button). */
   force?: boolean
-  /** Icon URL. Default: the app favicon. */
+  /** Icon URL. Default: the PNG app icon (notifications do not draw SVG). */
   icon?: string
   /** Do not let the OS play its own sound (Forge plays its own chime). Default true. */
   silent?: boolean
@@ -43,8 +43,9 @@ function ctor(): NotificationCtor | null {
 
 const DEFAULT_TAG = 'forge'
 
-function faviconUrl(): string {
-  return `${import.meta.env.BASE_URL}favicon.svg`
+/** Notifications need a raster image; `scripts/icons.mjs` draws this one from `public/favicon.svg`. */
+function iconUrl(): string {
+  return `${import.meta.env.BASE_URL}icons/notify-192.png`
 }
 
 const listeners = new Set<() => void>()
@@ -132,7 +133,7 @@ export async function notify(
   const options: NotificationOptions = {
     body,
     tag: opts.tag ?? DEFAULT_TAG,
-    icon: opts.icon ?? faviconUrl(),
+    icon: opts.icon ?? iconUrl(),
     silent: opts.silent ?? true,
   }
   try {

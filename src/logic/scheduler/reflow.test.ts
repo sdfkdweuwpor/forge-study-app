@@ -60,7 +60,12 @@ describe('rollForward', () => {
     const before = slots(l.current)
     const r = rollForward(l)
     // One study day later: Friday Oct 23 → Monday Oct 26.
-    expect(r.status).toMatchObject({ level: 'slightlyBehind', missedCount: 2, missedMinutes: 100, slipDays: 3 })
+    expect(r.status).toMatchObject({
+      level: 'slightlyBehind',
+      missedCount: 2,
+      missedMinutes: 100,
+      slipDays: 3,
+    })
     expect(r.autoApply).toBe(true)
     expect(r.previousEnd).toBe('2026-10-23')
     expect(r.projectedEnd).toBe('2026-10-26')
@@ -73,7 +78,10 @@ describe('rollForward', () => {
     expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort())
     const study = work(r.items).filter((i) => i.kind === 'study')
     for (let k = 1; k < study.length; k++)
-      expect(`${study[k - 1]?.doDate} ${study[k - 1]?.startTime}` < `${study[k]?.doDate} ${study[k]?.startTime}`).toBe(true)
+      expect(
+        `${study[k - 1]?.doDate} ${study[k - 1]?.startTime}` <
+          `${study[k]?.doDate} ${study[k]?.startTime}`,
+      ).toBe(true)
     expect(study.every((i) => i.doDate >= '2026-10-06')).toBe(true)
     expect(r.change.added).toEqual([])
     expect(r.change.removed).toEqual([])
@@ -91,12 +99,16 @@ describe('rollForward', () => {
     expect(work(r.items).every((i) => i.doDate >= '2026-10-08')).toBe(true)
     // Per study day it never goes over the pace plus one session.
     const perDay = new Map<string, number>()
-    for (const i of work(r.items)) perDay.set(i.doDate, (perDay.get(i.doDate) ?? 0) + i.durationMinutes)
+    for (const i of work(r.items))
+      perDay.set(i.doDate, (perDay.get(i.doDate) ?? 0) + i.durationMinutes)
     for (const m of perDay.values()) expect(m).toBeLessThanOrEqual(30 + 90)
   })
 
   it('treats today’s items before `now` as missed when `now` is given', () => {
-    const l = { ...live(asapPlan(), '2026-10-06', ['a-u1:1', 'a-u1:2']), now: atTime('2026-10-06', '18:55') }
+    const l = {
+      ...live(asapPlan(), '2026-10-06', ['a-u1:1', 'a-u1:2']),
+      now: atTime('2026-10-06', '18:55'),
+    }
     const r = rollForward(l)
     expect(r.status.missedCount).toBe(1) // the 18:00 session
     expect(slots(work(r.items))['a-u1:3']).toBe('2026-10-06 18:55')
@@ -111,7 +123,9 @@ describe('rollForward', () => {
     expect(JSON.stringify(l)).toBe(snapshot)
     expect(r.status.level).toBe('farBehind')
     expect(r.status.missedMinutes).toBe(400)
-    expect(r.status.missedMinutes).toBeGreaterThan(FAR_BEHIND_MISSED_SHARE * r.status.remainingMinutes)
+    expect(r.status.missedMinutes).toBeGreaterThan(
+      FAR_BEHIND_MISSED_SHARE * r.status.remainingMinutes,
+    )
     expect(r.status.reasons).toContain('missedWork')
     expect(r.autoApply).toBe(false)
     const kinds = r.proposals.map((p) => p.kind)
@@ -125,10 +139,18 @@ describe('rollForward', () => {
         p.kind === 'extendDate'
           ? planStudy({ ...l, targetDate: p.apply.targetDate ?? null })
           : p.kind === 'addTime'
-            ? planStudy({ ...l, availability: addMinutesToWindows(l.availability, p.apply.extraMinutesPerStudyDay ?? 0) })
+            ? planStudy({
+                ...l,
+                availability: addMinutesToWindows(
+                  l.availability,
+                  p.apply.extraMinutesPerStudyDay ?? 0,
+                ),
+              })
             : planStudy(withoutUnits(l, p.apply.cutUnitIds ?? []))
       expect(check.fits).toBe(true)
-      expect(p.change.moved.length + p.change.added.length + p.change.removed.length).toBeGreaterThan(0)
+      expect(
+        p.change.moved.length + p.change.added.length + p.change.removed.length,
+      ).toBeGreaterThan(0)
     }
   })
 
@@ -144,7 +166,14 @@ describe('rollForward', () => {
   })
 
   it('classifies slip over 7 days as far behind, and only accepting the new date in ASAP mode', () => {
-    const l = live(asapPlan(), '2026-10-19', ['a-u1:1', 'a-u1:2', 'a-u1:3', 'a-u1:4', 'a-u1:5', 'a-u1:6'])
+    const l = live(asapPlan(), '2026-10-19', [
+      'a-u1:1',
+      'a-u1:2',
+      'a-u1:3',
+      'a-u1:4',
+      'a-u1:5',
+      'a-u1:6',
+    ])
     const s = behindStatus(l)
     expect(s.slipDays).toBeGreaterThan(FAR_BEHIND_SLIP_DAYS)
     expect(s.level).toBe('farBehind')
@@ -157,7 +186,9 @@ describe('rollForward', () => {
   it('moves a missed review before its assessment, or drops it when no slot is left', () => {
     const inp = pinput({
       courses: [pcourse('a', [100])],
-      assessments: [{ id: 'x', courseId: 'a', kind: 'exam', title: 'Exam', date: '2026-10-16', time: '09:00' }],
+      assessments: [
+        { id: 'x', courseId: 'a', kind: 'exam', title: 'Exam', date: '2026-10-16', time: '09:00' },
+      ],
     })
     const plan = planStudy(inp)
     const r1 = plan.items.find((i) => i.key === 'review:x:1') as PlanItem
@@ -166,7 +197,11 @@ describe('rollForward', () => {
     const at = work(moved.items).find((i) => i.key === 'review:x:1') as PlanItem
     expect(at.doDate >= '2026-10-08' && at.doDate < '2026-10-16').toBe(true)
     const late = rollForward(live(inp, '2026-10-16', ['a-u1:1', 'a-u1:2']))
-    expect(late.change.removed).toContainEqual({ key: 'review:x:1', title: expect.any(String), reason: 'noSlotBeforeAssessment' })
+    expect(late.change.removed).toContainEqual({
+      key: 'review:x:1',
+      title: expect.any(String),
+      reason: 'noSlotBeforeAssessment',
+    })
     expect(late.status.reasons).toContain('reviewDropped')
   })
 })
@@ -214,9 +249,14 @@ describe('replanWeek ("life happened")', () => {
 
   it('moves a pinned session off a cleared day, keeping plan order', () => {
     const l = live(inp, '2026-10-07', ['a-u1:1', 'a-u1:2', 'a-u1:3', 'a-u1:4'])
-    const pinned: CurrentPlanItem[] = l.current.map((c) => (c.key === 'a-u2:1' ? { ...c, pinned: true } : c))
+    const pinned: CurrentPlanItem[] = l.current.map((c) =>
+      c.key === 'a-u2:1' ? { ...c, pinned: true } : c,
+    )
     expect(pinned.find((c) => c.key === 'a-u2:1')?.doDate).toBe('2026-10-08')
     const w = replanWeek({ ...l, current: pinned }, { weekStart: MON, today: '2026-10-07' })
-    expect(w.change.moved.find((m) => m.key === 'a-u2:1')?.to).toEqual({ doDate: addDays('2026-10-11', 2), startTime: '18:00' })
+    expect(w.change.moved.find((m) => m.key === 'a-u2:1')?.to).toEqual({
+      doDate: addDays('2026-10-11', 2),
+      startTime: '18:00',
+    })
   })
 })

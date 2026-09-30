@@ -71,18 +71,31 @@ function resolve(m: number, d: number, y: number | null, today: ISODate): ISODat
   return y === null ? inferYear(m, d, today) : iso(y, m, d)
 }
 
-const PATTERNS: ReadonlyArray<{ re: RegExp; read: (m: RegExpExecArray) => [number, number, number | null] }> = [
-  { re: /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g, read: (x) => [Number(x[2]), Number(x[3]), Number(x[1])] },
+const PATTERNS: ReadonlyArray<{
+  re: RegExp
+  read: (m: RegExpExecArray) => [number, number, number | null]
+}> = [
+  {
+    re: /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g,
+    read: (x) => [Number(x[2]), Number(x[3]), Number(x[1])],
+  },
   {
     re: /(?<![\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?(?![\d/])/g,
     read: (x) => [Number(x[1]), Number(x[2]), fullYear(x[3])],
   },
   {
-    re: new RegExp(`\\b(${MONTH_NAMES})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`, 'gi'),
+    // "Sept 14–18" is one span (its first day).
+    re: new RegExp(
+      `\\b(${MONTH_NAMES})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:\\s*[–—-]\\s*\\d{1,2}(?:st|nd|rd|th)?\\b)?(?:,?\\s+(\\d{4}))?`,
+      'gi',
+    ),
     read: (x) => [MONTHS[(x[1] ?? '').toLowerCase()] ?? 0, Number(x[2]), fullYear(x[3])],
   },
   {
-    re: new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_NAMES})\\b\\.?(?:,?\\s+(\\d{4}))?`, 'gi'),
+    re: new RegExp(
+      `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_NAMES})\\b\\.?(?:,?\\s+(\\d{4}))?`,
+      'gi',
+    ),
     read: (x) => [MONTHS[(x[2] ?? '').toLowerCase()] ?? 0, Number(x[1]), fullYear(x[3])],
   },
 ]
@@ -91,7 +104,11 @@ const PATTERNS: ReadonlyArray<{ re: RegExp; read: (m: RegExpExecArray) => [numbe
  * Every date in `text`, in order of position; overlapping matches keep the earlier, longer one.
  * `numeric: false` skips `10/12`-style dates (a unit title's "Chapters 1/2" is not January 2).
  */
-export function findDates(text: string, today: ISODate, opts: { numeric?: boolean } = {}): FoundDate[] {
+export function findDates(
+  text: string,
+  today: ISODate,
+  opts: { numeric?: boolean } = {},
+): FoundDate[] {
   const found: FoundDate[] = []
   for (const [i, { re, read }] of PATTERNS.entries()) {
     if (i === 1 && opts.numeric === false) continue
@@ -125,7 +142,8 @@ export function goalDeadline(text: string, today: ISODate): FoundDate | null {
   if (by) {
     const rest = text.slice(by.index + by[0].length)
     const d = firstDate(rest, today)
-    if (d && d.index === 0) return { date: d.date, index: by.index, end: by.index + by[0].length + d.end }
+    if (d && d.index === 0)
+      return { date: d.date, index: by.index, end: by.index + by[0].length + d.end }
     const month = new RegExp(`^(${MONTH_NAMES})\\.?(?:\\s+(\\d{4}))?\\b`, 'i').exec(rest)
     if (month) {
       const m = MONTHS[(month[1] ?? '').toLowerCase()] ?? 0

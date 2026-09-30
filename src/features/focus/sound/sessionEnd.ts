@@ -28,26 +28,30 @@ export function planSessionEndAlert(
 export interface SessionEndMessage {
   title: string
   body: string
+  /**
+   * One tag per session. Notifications with the same tag replace each other and, being replacements,
+   * do not alert again, so a shared tag would silence the second session's notification.
+   */
+  tag?: string
   /** Click handler for the notification (e.g. focus the app and open the end dialog). */
   onClick?: () => void
 }
 
 /**
- * Plays the chime and shows the notification the settings ask for. The notification stays silent
- * when the chime plays, so there is one sound, not two. Never rejects.
+ * Plays the chime and shows the notification the settings ask for. The notification stays silent only
+ * when the chime really sounded (the browser can keep it silent until a click), so there is one sound,
+ * not two and not none. Never rejects.
  */
 export async function alertSessionEnd(
   settings: SoundSettings,
   message: SessionEndMessage,
 ): Promise<void> {
   const plan = planSessionEndAlert(settings, notifyPermission())
-  await Promise.all([
-    plan.chimeVolume === null ? undefined : playChime(plan.chimeVolume),
-    plan.notification
-      ? notify(message.title, message.body, {
-          silent: plan.chimeVolume !== null,
-          onClick: message.onClick,
-        })
-      : undefined,
-  ])
+  const chimed = plan.chimeVolume === null ? false : await playChime(plan.chimeVolume)
+  if (!plan.notification) return
+  await notify(message.title, message.body, {
+    silent: chimed,
+    ...(message.tag === undefined ? {} : { tag: message.tag }),
+    onClick: message.onClick,
+  })
 }

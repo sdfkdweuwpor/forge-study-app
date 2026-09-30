@@ -4,9 +4,9 @@
  * the same. Each one reads the database (not React state) for the truth, writes through the repos,
  * tells screen readers what happened, and never throws: a failure is recorded and shown as a toast.
  *
- * Starting functions call `unlockAudio()` first, synchronously, before any `await`: they run inside a
+ * Starting functions call `unlock()` first, synchronously, before any `await`: they run inside a
  * click or key handler, which is the moment Safari allows sound, and the end-of-session chime needs
- * that unlock.
+ * that unlock. It does nothing for someone who has sounds off, so no audio context is ever created for them.
  */
 import { recordError } from '@/app/reportError'
 import { navigate } from '@/app/router'
@@ -17,6 +17,7 @@ import {
   getActiveSession,
   getLastFinishedSession,
   pauseSession,
+  reopenSession,
   resumeSession,
   setSessionTask,
   startSession,
@@ -28,6 +29,8 @@ import type { ID, Session, SessionMode, Settings } from '@/db/types'
 import { unlockAudio } from '@/lib/audio/engine'
 import { PREF_KEYS, readPref, writePref } from '@/lib/localPrefs'
 import {
+  CUSTOM_MAX_MINUTES,
+  CUSTOM_MIN_MINUTES,
   clockOf,
   elapsedMs,
   formatMinutes,
@@ -37,6 +40,7 @@ import {
   variantOf,
   type CycleConfig,
 } from '@/logic/timer'
+import { STOPWATCH_MIN_MINUTES } from '@/logic/xp'
 import { runtime } from './runtime'
 
 // ─── Mode (a device preference) ─────────────────────────────────────────────
@@ -53,10 +57,13 @@ export function setMode(mode: SessionMode): void {
   writePref(PREF_KEYS.focusMode, mode)
 }
 
-/** The custom length is a setting, so it follows the user; 1 minute to 8 hours. */
+/**
+ * The custom length is a setting, so it follows the user; 1 minute to 8 hours. A value that is not a
+ * positive number (an emptied field) changes nothing: it never quietly becomes 1 minute.
+ */
 export async function setCustomMinutes(minutes: number): Promise<void> {
-  if (!Number.isFinite(minutes)) return
-  const customMin = Math.min(480, Math.max(1, Math.round(minutes)))
+  if (!Number.isFinite(minutes) || minutes <= 0) return
+  const customMin = Math.min(CUSTOM_MAX_MINUTES, Math.max(CUSTOM_MIN_MINUTES, Math.round(minutes)))
   try {
     await updateSettings({ timer: { customMin } })
   } catch (error) {
@@ -79,12 +86,17 @@ function fail(error: unknown, what: string): void {
 
 const say = (text: string): void => runtime()?.announce(text)
 
+/** Unlocks audio for the end-of-session chime, only when settings have sounds on. Call it before any `await`. */
+function unlock(): void {
+  if (runtime()?.soundEnabled()) void unlockAudio()
+}
+
 function goToFocus(): void {
   navigate('focus')
 }
 
 /** "Focus started. 25 minutes." / "Short break started. 5 minutes." / "Stopwatch started." */
-function startedText(session: Session, settings: Settings): string {
+export function startedText(session: Session, settings: Settings): string {
   if (session.mode === 'stopwatch') return 'Stopwatch started.'
   const label =
     session.kind === 'focus' && session.mode === 'custom'
@@ -138,7 +150,7 @@ export interface BeginOptions {
  * A running break is thrown away first.
  */
 export async function beginFocus(opts: BeginOptions = {}): Promise<Session | null> {
-  void unlockAudio()
+  unlock()
   const go = opts.go ?? true
   try {
     const settings = await getSettings()
@@ -148,7 +160,8 @@ export async function beginFocus(opts: BeginOptions = {}): Promise<Session | nul
         ? null
         : (opts.plannedMin ??
           (mode === 'pomodoro' ? settings.timer.pomodoroMin : settings.timer.customMin))
-    const taskId = opts.taskId !== undefined ? opts.taskId : (runtime()?.snapshot().draftTaskId ?? null)
+    const taskId =
+      opts.taskId !== undefined ? opts.taskId : (runtime()?.snapshot().draftTaskId ?? null)
 
     const { session, started } = await startFresh({ mode, kind: 'focus', plannedMin, taskId })
     if (started) {
@@ -168,7 +181,7 @@ export async function beginFocus(opts: BeginOptions = {}): Promise<Session | nul
 
 /** Starts the phase the cycle offers next (the break after a round, or the next round), else a fresh focus session. */
 export async function startUpNext(): Promise<void> {
-  void unlockAudio()
+  unlock()
   try {
     const [settings, last] = await Promise.all([getSettings(), getLastFinishedSession()])
     const next = upNext(last, Date.now(), cycleOf(settings))
@@ -195,7 +208,7 @@ export async function startUpNext(): Promise<void> {
 
 /** Starts another focus session like `finished` (same mode, length and task): the dialog's "Keep going". */
 export async function keepGoing(finished: Session): Promise<void> {
-  void unlockAudio()
+  unlock()
   try {
     const settings = await getSettings()
     const mode = finished.mode
@@ -221,7 +234,7 @@ export async function keepGoing(finished: Session): Promise<void> {
 
 /** Pauses a running session, or resumes a paused one. */
 export async function togglePause(): Promise<void> {
-  void unlockAudio()
+  unlock()
   try {
     const active = await getActiveSession()
     if (!active) return
@@ -238,7 +251,7 @@ export async function togglePause(): Promise<void> {
 
 /** The main key (Space): start when nothing runs, otherwise pause or resume. */
 export async function primaryAction(): Promise<void> {
-  void unlockAudio()
+  unlock()
   const active = await getActiveSession().catch(() => null)
   if (active) await togglePause()
   else await startUpNext()
@@ -274,12 +287,35 @@ export async function finishNow(): Promise<FinishResult | null> {
     if (result) {
       say('Session finished.')
       runtime()?.openEndDialog(result.session.id)
+      if (!result.session.counted) offerResume(result.session)
     }
     return result
   } catch (error) {
     fail(error, 'finish the session')
     return null
   }
+}
+
+/**
+ * A focus session that ended without counting (stopped under 80% of the plan, or a stopwatch under ten
+ * minutes) is one key press away from being lost, so the toast that says so can take it back. Undo
+ * resumes the same session, with the wait not counted, and withdraws its "Done with this task?".
+ */
+function offerResume(finished: Session): void {
+  runtime()?.toast.show({
+    title: 'Session ended early',
+    description:
+      finished.plannedMinutes === null
+        ? `A stopwatch counts from ${STOPWATCH_MIN_MINUTES} minutes, so this one earned no XP. Undo to keep going.`
+        : 'Under 80% of the plan, so it did not count. Undo to keep going.',
+    duration: 10_000,
+    undo: async () => {
+      const back = await reopenSession(finished.id)
+      if (!back) throw new Error('The session cannot be resumed')
+      runtime()?.closeEndDialog(finished.id)
+      say('Session resumed.')
+    },
+  })
 }
 
 /** Skips a break: a running one is ended, and one that is up next is marked skipped, so the next round is offered. */

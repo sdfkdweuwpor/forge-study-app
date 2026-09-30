@@ -42,7 +42,8 @@ export function diffPlanItems(
     .map((c) => ({
       key: c.key,
       title: c.title,
-      reason: c.unitId !== null && cutUnitIds.has(c.unitId) ? ('cut' as const) : ('replanned' as const),
+      reason:
+        c.unitId !== null && cutUnitIds.has(c.unitId) ? ('cut' as const) : ('replanned' as const),
     }))
   return {
     moved: moved.sort((a, b) => cmpStr(a.key, b.key)),

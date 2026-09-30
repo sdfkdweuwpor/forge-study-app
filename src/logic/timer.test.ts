@@ -24,7 +24,9 @@ import {
   resumeClock,
   settleSession,
   shouldDiscard,
+  STOPWATCH_MAX_MINUTES,
   spokenClock,
+  parseCustomMinutes,
   phaseLabel,
   upNext,
   variantOf,
@@ -36,7 +38,12 @@ import {
 const MIN = 60_000
 const at = (iso: string): number => Date.parse(iso)
 
-const CYCLE: CycleConfig = { pomodoroMin: 25, shortBreakMin: 5, longBreakMin: 15, longBreakEvery: 4 }
+const CYCLE: CycleConfig = {
+  pomodoroMin: 25,
+  shortBreakMin: 5,
+  longBreakMin: 15,
+  longBreakEvery: 4,
+}
 
 const run = (startedAt: number, minutes: number | null): TimerClock => ({
   startedAt,
@@ -71,7 +78,12 @@ describe('elapsed and remaining', () => {
   })
 
   it('subtracts finished pauses and freezes at the pause in progress', () => {
-    const c: TimerClock = { startedAt: start, plannedMs: 25 * MIN, pausedMs: 4 * MIN, pausedAt: null }
+    const c: TimerClock = {
+      startedAt: start,
+      plannedMs: 25 * MIN,
+      pausedMs: 4 * MIN,
+      pausedAt: null,
+    }
     expect(elapsedMs(c, start + 14 * MIN)).toBe(10 * MIN)
     const paused: TimerClock = { ...c, pausedAt: start + 14 * MIN }
     expect(elapsedMs(paused, start + 14 * MIN)).toBe(10 * MIN)
@@ -79,7 +91,12 @@ describe('elapsed and remaining', () => {
   })
 
   it('matches the PLAN formula: planned − (now − startedAt − pausedMs − (now − pausedAt))', () => {
-    const c: TimerClock = { startedAt: start, plannedMs: 25 * MIN, pausedMs: 2 * MIN, pausedAt: start + 9 * MIN }
+    const c: TimerClock = {
+      startedAt: start,
+      plannedMs: 25 * MIN,
+      pausedMs: 2 * MIN,
+      pausedAt: start + 9 * MIN,
+    }
     const now = start + 20 * MIN
     const formula = 25 * MIN - (now - c.startedAt - c.pausedMs - (now - (c.pausedAt ?? now)))
     expect(remainingMs(c, now)).toBe(formula)
@@ -91,7 +108,12 @@ describe('planned end and due', () => {
 
   it('the end is start + plan + pauses, and it moves later with every pause', () => {
     expect(plannedEndAt(run(start, 25))).toBe(start + 25 * MIN)
-    const c: TimerClock = { startedAt: start, plannedMs: 25 * MIN, pausedMs: 7 * MIN, pausedAt: null }
+    const c: TimerClock = {
+      startedAt: start,
+      plannedMs: 25 * MIN,
+      pausedMs: 7 * MIN,
+      pausedAt: null,
+    }
     expect(plannedEndAt(c)).toBe(start + 32 * MIN)
   })
 
@@ -122,7 +144,12 @@ describe('pause and resume', () => {
   it('resume folds the pause into pausedMs and the timer carries on where it stopped', () => {
     const paused = pauseClock(run(start, 25), start + 5 * MIN)
     const resumed = resumeClock(paused, start + 20 * MIN)
-    expect(resumed).toEqual({ startedAt: start, plannedMs: 25 * MIN, pausedMs: 15 * MIN, pausedAt: null })
+    expect(resumed).toEqual({
+      startedAt: start,
+      plannedMs: 25 * MIN,
+      pausedMs: 15 * MIN,
+      pausedAt: null,
+    })
     expect(remainingMs(resumed, start + 20 * MIN)).toBe(20 * MIN)
     expect(plannedEndAt(resumed)).toBe(start + 40 * MIN)
   })
@@ -201,7 +228,12 @@ describe('a refresh', () => {
   })
 
   it('mid-run: the remaining time comes from the row, and an end that passed while closed is due at its own instant', () => {
-    const clock = clockOf({ startedAt: start, plannedMinutes: 25, pausedMs: 3 * MIN, pausedAt: null })
+    const clock = clockOf({
+      startedAt: start,
+      plannedMinutes: 25,
+      pausedMs: 3 * MIN,
+      pausedAt: null,
+    })
     expect(remainingMs(clock, start + 13 * MIN)).toBe(15 * MIN)
     const closedFor = start + 2 * 60 * MIN
     expect(isDue(clock, closedFor)).toBe(true)
@@ -321,7 +353,12 @@ describe('the pomodoro cycle', () => {
   })
 
   it('takes the lengths and the interval from settings', () => {
-    const cfg: CycleConfig = { pomodoroMin: 50, shortBreakMin: 10, longBreakMin: 30, longBreakEvery: 2 }
+    const cfg: CycleConfig = {
+      pomodoroMin: 50,
+      shortBreakMin: 10,
+      longBreakMin: 30,
+      longBreakEvery: 2,
+    }
     expect(focusPhase(1, cfg).minutes).toBe(50)
     expect(breakAfter(1, cfg)).toMatchObject({ variant: 'short-break', minutes: 10 })
     expect(breakAfter(2, cfg)).toMatchObject({ variant: 'long-break', minutes: 30 })
@@ -347,7 +384,12 @@ describe('the pomodoro cycle', () => {
   })
 
   it('survives bad settings', () => {
-    const bad = normalizeCycle({ pomodoroMin: 0, shortBreakMin: Number.NaN, longBreakMin: -3, longBreakEvery: 0 })
+    const bad = normalizeCycle({
+      pomodoroMin: 0,
+      shortBreakMin: Number.NaN,
+      longBreakMin: -3,
+      longBreakEvery: 0,
+    })
     expect(bad).toEqual({ pomodoroMin: 1, shortBreakMin: 5, longBreakMin: 1, longBreakEvery: 1 })
   })
 })
@@ -381,7 +423,11 @@ describe('up next', () => {
   })
 
   it('offers the break after a counted round, and the next round after a break', () => {
-    expect(upNext(last(), now, CYCLE)).toMatchObject({ kind: 'break', variant: 'short-break', round: 2 })
+    expect(upNext(last(), now, CYCLE)).toMatchObject({
+      kind: 'break',
+      variant: 'short-break',
+      round: 2,
+    })
     expect(upNext(last({ round: 4 }), now, CYCLE)).toMatchObject({ variant: 'long-break' })
     expect(upNext(last({ kind: 'break' }), now, CYCLE)).toMatchObject({ kind: 'focus', round: 3 })
   })
@@ -425,6 +471,16 @@ describe('the outcome of a session and the anti-cheat rule (BRIEF §5.5)', () =>
     expect(outcome(25, 12, 30)).toEqual({ actualMinutes: 12, counted: false, xp: 0 })
   })
 
+  it('compares the exact time, not whole minutes: 80% of 12 minutes is 9:36, so 9:59 counts', () => {
+    expect(outcome(12, 9, 59)).toEqual({ actualMinutes: 9, counted: true, xp: 9 })
+    expect(outcome(12, 9, 36)).toEqual({ actualMinutes: 9, counted: true, xp: 9 })
+    expect(outcome(12, 9, 35).counted).toBe(false)
+    expect(outcome(12, 9, 35).xp).toBe(0)
+    // 80% of 7 minutes is 5:36 (whole minutes would have asked for 6).
+    expect(outcome(7, 5, 40).counted).toBe(true)
+    expect(outcome(7, 5, 35).counted).toBe(false)
+  })
+
   it('applies to custom lengths too (80% of 90 is 72)', () => {
     expect(outcome(90, 72).counted).toBe(true)
     expect(outcome(90, 71, 59).counted).toBe(false)
@@ -434,6 +490,18 @@ describe('the outcome of a session and the anti-cheat rule (BRIEF §5.5)', () =>
     expect(outcome(null, 10)).toEqual({ actualMinutes: 10, counted: true, xp: 10 })
     expect(outcome(null, 9, 59)).toEqual({ actualMinutes: 9, counted: false, xp: 0 })
     expect(outcome(null, 47)).toEqual({ actualMinutes: 47, counted: true, xp: 47 })
+  })
+
+  it('a stopwatch stops earning at 4 hours, so one left running overnight cannot farm XP', () => {
+    expect(STOPWATCH_MAX_MINUTES).toBe(240)
+    expect(outcome(null, 3 * 60 + 59)).toEqual({ actualMinutes: 239, counted: true, xp: 239 })
+    expect(outcome(null, 4 * 60)).toEqual({ actualMinutes: 240, counted: true, xp: 240 })
+    expect(outcome(null, 10 * 60)).toEqual({ actualMinutes: 240, counted: true, xp: 240 })
+    expect(outcome(null, 3 * 24 * 60)).toEqual({ actualMinutes: 240, counted: true, xp: 240 })
+  })
+
+  it('a planned session is not capped (its own end is the limit)', () => {
+    expect(outcome(300, 300)).toEqual({ actualMinutes: 300, counted: true, xp: 300 })
   })
 
   it('XP is per whole minute, so a running-over session does not round up', () => {
@@ -452,6 +520,18 @@ describe('the outcome of a session and the anti-cheat rule (BRIEF §5.5)', () =>
     expect(shouldDiscard(0)).toBe(true)
     expect(shouldDiscard(59_999)).toBe(true)
     expect(shouldDiscard(60_000)).toBe(false)
+  })
+
+  it('reads the custom length typed on the Focus page', () => {
+    expect(parseCustomMinutes('45')).toBe(45)
+    expect(parseCustomMinutes(' 50 ')).toBe(50)
+    expect(parseCustomMinutes('37.6')).toBe(38)
+    expect(parseCustomMinutes('0.4')).toBe(1)
+    expect(parseCustomMinutes('9999')).toBe(480)
+    // Empty, zero, negative or not a number: the stored length stays (never quietly 1 minute).
+    for (const bad of ['', '   ', '0', '-5', 'abc', 'Infinity', '1e999']) {
+      expect(parseCustomMinutes(bad)).toBeNull()
+    }
   })
 
   it('reads the XP of a settled session: minutes when counted, nothing otherwise', () => {

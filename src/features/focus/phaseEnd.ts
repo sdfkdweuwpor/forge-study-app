@@ -11,8 +11,9 @@
 import { recordError } from '@/app/reportError'
 import { SessionActiveError, startSession, type FinishResult } from '@/db/repos/sessions'
 import { getSettings } from '@/db/repos/settings'
+import type { Settings } from '@/db/types'
 import { formatMinutes, breakAfter, cyclePosition, focusPhase } from '@/logic/timer'
-import { cycleOf } from './actions'
+import { cycleOf, startedText } from './actions'
 import { getTaskTitle } from './queries'
 import { runtime } from './runtime'
 import type { SessionEndMessage } from './sound/sessionEnd'
@@ -47,15 +48,19 @@ export async function handlePhaseEnd(result: FinishResult, late: boolean): Promi
         sessionAlert(settings, {
           title: 'Focus session complete',
           body: `${summary} ${pomodoro ? `Time for a ${formatMinutes(rest.minutes)} break.` : 'Nice work.'}`,
+          tag: `forge-session-${session.id}`,
           onClick: () => rt?.openEndDialog(session.id),
         }),
         pomodoro && settings.timer.autoStartBreaks
-          ? startNext({
-              kind: 'break',
-              plannedMin: rest.minutes,
-              round: rest.round,
-              taskId: session.taskId,
-            })
+          ? startNext(
+              {
+                kind: 'break',
+                plannedMin: rest.minutes,
+                round: rest.round,
+                taskId: session.taskId,
+              },
+              settings,
+            )
           : undefined,
       ])
       return
@@ -65,17 +70,27 @@ export async function handlePhaseEnd(result: FinishResult, late: boolean): Promi
     if (late) return
     const nextRound = focusPhase(session.round + 1, cycle)
     const { position, total } = cyclePosition(nextRound.round, cycle.longBreakEvery)
-    const ready = session.mode === 'pomodoro' ? `Ready for round ${position} of ${total}?` : 'Ready when you are.'
+    const ready =
+      session.mode === 'pomodoro'
+        ? `Ready for round ${position} of ${total}?`
+        : 'Ready when you are.'
     rt?.toast.show({ title: 'Break over', description: ready })
     await Promise.all([
-      sessionAlert(settings, { title: 'Break over', body: ready }),
+      sessionAlert(settings, {
+        title: 'Break over',
+        body: ready,
+        tag: `forge-session-${session.id}`,
+      }),
       session.mode === 'pomodoro' && settings.timer.autoStartFocus
-        ? startNext({
-            kind: 'focus',
-            plannedMin: nextRound.minutes,
-            round: nextRound.round,
-            taskId: session.taskId,
-          })
+        ? startNext(
+            {
+              kind: 'focus',
+              plannedMin: nextRound.minutes,
+              round: nextRound.round,
+              taskId: session.taskId,
+            },
+            settings,
+          )
         : undefined,
     ])
   } catch (error) {
@@ -83,14 +98,19 @@ export async function handlePhaseEnd(result: FinishResult, late: boolean): Promi
   }
 }
 
-async function startNext(input: {
-  kind: 'focus' | 'break'
-  plannedMin: number
-  round: number
-  taskId: string | null
-}): Promise<void> {
+/** Starts the next phase by itself and says so in the live region: nobody pressed a button to hear it. */
+async function startNext(
+  input: {
+    kind: 'focus' | 'break'
+    plannedMin: number
+    round: number
+    taskId: string | null
+  },
+  settings: Settings,
+): Promise<void> {
   try {
-    await startSession({ mode: 'pomodoro', ...input })
+    const started = await startSession({ mode: 'pomodoro', ...input })
+    runtime()?.announce(startedText(started, settings))
   } catch (error) {
     // Another tab already started it.
     if (!(error instanceof SessionActiveError)) throw error

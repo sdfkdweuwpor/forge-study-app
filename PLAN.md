@@ -314,6 +314,7 @@ export type TableName = keyof typeof STORES_V1;
 **Relationships:** Goal 1–n Milestone 1–n Unit. Tasks link to goal, milestone and unit (nullable). Sessions link to task, goal and milestone. Assessments, flashcards and resources link to milestone and goal. Resource links to a file. Redemption links to a reward. CheckIn and ParkingItem link to a session. Deleting a goal cascades to its milestones, units, goal tasks, assessments, flashcards, resources and files, all in **one** trash entry.
 
 ### 3.4 Migrations
+- **v2 (planner) is designed in §4.6** and is applied in 5G.
 - `db.version(1).stores(STORES_V1)`. **Never edit a released version string.** To add a v2, create `src/db/migrations/v2.ts` exporting `STORES_V2_DELTA` (only the changed tables, with `null` to drop one) and `upgradeV2(tx)`. Then add `db.version(2).stores(STORES_V2_DELTA).upgrade(upgradeV2)` in `db.ts`, bump `SCHEMA_VERSION`, and add `migrateBackupV1toV2()` in `logic/backup.ts` so old backup files and snapshots still import.
 - Every migration needs a fake-indexeddb test that opens a v(N−1) DB seeded with a fixture, reopens it at vN, and asserts the upgraded rows.
 
@@ -450,6 +451,135 @@ diffSchedule(existingOpenTasks, chunks): { insert: PlannedChunk[]; update: {id, 
   - `diffSchedule` ignores done and pinned tasks.
   - `resolveUnitEstimates`.
   - No duplicate or missing days across the DST changes on 2026-11-01 and 2027-03-14.
+
+### 4.5 Goal Breakdown Planner (slot-level; `src/logic/scheduler/`, architect-owned)
+`buildSchedule` / `planGoal` / `diffSchedule` (§4.1–4.4, day-level) stay as they are and keep serving v1 goals until the v2 wiring (5G) switches `rebalanceGoal` over. The planner places session-sized items into concrete time slots. Everything is imported from `@/logic/scheduler`; text parsing is `@/logic/planParse`.
+
+```ts
+// Availability v2 (windows.ts)
+capacityForDate(av: AvailabilityV2, date: ISODate): TimeWindow[]      // shift pattern or weekday, blackouts, DST
+fromLegacyAvailability(av: Availability, { studyStart?, sessionMinutes? }): AvailabilityV2
+addMinutesToWindows(av, minutes): AvailabilityV2                     // what the add-time option applies
+shiftCycle(runs, onDays, offDays), SHIFT_PRESETS                     // '3on4off' '4on3off' '4on4off' '5on2off' '2-2-3'
+// Effort and splitting (effort.ts, split.ts)
+estimateUnitMinutes({ hours?, cus?, cuHoursMultiplier?, selfRating? }): number | null   // know .5 · somewhat .8 · new 1
+splitMinutes(total, rules): number[]      pieceSize(remaining, free, rules): number | null
+// Planning (planner.ts, milestones.ts, feasibility.ts)
+planStudy(input: PlannerInput): PlannerResult
+  // { items: PlanItem[], projectedEnd, buffer: {pct, minutes, bufferedEnd}, pace: {mode, minutesPerStudyDay},
+  //   totals, courseWindows, slipDays, fits, issues }
+checkFeasibility(input, reference?): FeasibilityResult
+  // { fits, shortfallMinutes, projectedEnd, bufferedEnd, options: { addTime: {extraMinutesPerStudyDay, suggestion},
+  //   moveDate: {earliestFeasibleDate}, cutScope: {candidates: [{unitId, minutes, reason}], suggestedCut, cutMinutes} } }
+// Live plan (reflow.ts, planDiff.ts)
+rollForward(live: LivePlanInput): RollForwardResult     // { items, change, status, autoApply, proposals }
+behindStatus(live): BehindStatus                         // onTrack | slightlyBehind | farBehind + reasons
+replanWeek(live, { weekStart, today, blockedDays?, capacityFactor? }): WeekProposal
+diffPlanItems(current, next, cutUnitIds?): PlanChange   // { moved, added, removed } by key
+// Everyday tasks (autoSlot.ts)
+autoSlotTasks(tasks, busy, availability, now): AutoSlotResult[]   // {taskId, doDate, startTime} | {taskId, reason}
+```
+
+- **Items and keys.** Kinds `study | review | practiceTest | assessment | milestone`. Keys: `${unitId}:${seq}` (unchanged), `extra:${unitOrCourseId}:${n}` (readiness review), `review:${assessmentId}:${n}`, `practice:${assessmentId}`, `assessment:${assessmentId}`, `milestone:${weekStart}`.
+- **Placement.** Courses in prerequisite order as one queue. Each item takes the earliest free slot after the previous one, with a 10-min break when there is room. Nothing crosses a window end or overlaps busy time, pins or booked assessments. Study is split as it is placed: a target-length session when the window has room, otherwise a piece of at least 25 min that fills the window and never leaves less than 25. A unit that fits in one session stays whole.
+- **Assessments.** A dated one sits on its date: a booked time blocks its slot, otherwise it is a day marker. Its reviews go −7/−3/−1 study days before it (scaled to the gap and deduplicated) and its practice test −2 (exams only); a quiz gets −1 and a project −2. An undated one goes on the first study day after its course's work, and its extras are due at the matching point of that work.
+- **Pace and buffer.** With no target (ASAP) every free slot is used. With a target the pace is the smallest verified one (token bucket, capped at pace + the longest item) whose plan ends, buffer included, by the target. The buffer is 12 % of planned work (10–15 % in the UI), reserved as free time after the last item. The plan `fits` when `bufferedEnd ≤ target`, no study lands on or after a dated assessment, and nothing is blocked.
+- **Live plan.** Roll-forward only moves items: push-only, order and pace kept. A slightly-behind plan applies it automatically. A far-behind plan (slip > 7 days against the baseline, missed > 15 % of remaining work, past the target, or study after a dated exam) returns proposals instead and applies nothing: `rollForward`, `extendDate`, `addTime`, `cutScope` and `spread`, each verified. "Life happened" (`replanWeek`) is always a proposal.
+- **Hooks.** `extraReviewMinutes` on `PlannerUnit`/`PlannerCourse` (readiness) and `PlannerInput.blockedSlots` (calendar sync, and everyday tasks with a do time).
+- **Tests** (TZ=America/New_York): `windows.test.ts`, `planner.test.ts` (including a 12-course year in < 50 ms; it measures about 10–16 ms paced and 3–5 ms ASAP), `reflow.test.ts`, `feasibility.test.ts`, `autoSlot.test.ts`, and `planParse/parse.test.ts` (5 syllabus formats plus typed goals).
+
+### 4.6 Schema v2 (planner) — to apply in 5G, after the parallel builders land
+One Dexie version bump, following §3.4: `src/db/migrations/v2.ts` exports `STORES_V2_DELTA` and `upgradeV2(tx)`, `db.version(2).stores(STORES_V2_DELTA).upgrade(upgradeV2)`, `SCHEMA_VERSION = 2`, and a pure `migrateBackupV1toV2()` in `logic/backup.ts` shares the row mapping so old backups and snapshots still import. (Sync tombstones move to v3.)
+
+**Field additions** (`src/db/types.ts`; new fields are non-optional in the types, and filled by the upgrade):
+```ts
+export type TaskKind = 'task' | 'study' | 'review' | 'practiceTest' | 'assessment' | 'milestone'
+export interface TaskSync {                  // calendar-sync hook (not built)
+  provider: 'google' | 'caldav' | 'ics'; calendarId: string | null; externalId: string
+  etag: string | null; lastSyncedAt: Millis | null; direction: 'push' | 'pull' | 'both' }
+interface Task {                             // + existing fields
+  doDate: ISODate | null        // when I plan to do it: Today, Upcoming, Calendar and "Rolled over" read this
+  doTime: HHmm | null           // planned start (a slot); null = any time that day
+  durationMinutes: number | null  // length of the planned slot (plan items: the piece length)
+  // dueDate / dueTime stay: the hard deadline only. "Overdue" (red) = dueDate < today; "Rolled over" (amber) = doDate < today
+  autoSlot: boolean             // everyday task with a due date and no do date: may be placed by autoSlotTasks
+  kind: TaskKind                // 'task' for everyday tasks; the PlanItemKind for planner items
+  assessmentId: ID | null       // plannedAssessments row for review / practiceTest / assessment items
+  sync: TaskSync | null
+}
+export interface TimeWindow { start: HHmm; end: HHmm }         // same shape as the planner's TimeWindow
+interface GoalPlanning {
+  sessionMinutes: number                                       // 25–90, default 50
+  weekly: TimeWindow[][]                                       // 7 entries, 0 = Sunday
+  shiftPattern: { anchor: ISODate; cycle: (TimeWindow[] | null)[] } | null
+  bufferPct: number                                            // 0.10–0.15, default 0.12
+  cuHoursMultiplier: number                                    // default 15
+  asap: boolean               // true: full speed, targetDate is only checked; false: paced to targetDate (forced true when targetDate is null)
+  paceMinutesPerStudyDay: number | null                        // the accepted plan's pace (roll-forward keeps it)
+}
+interface Goal { planning: GoalPlanning }                       // availability.daysOff stays the blackout list;
+                                                                // availability.minutesByWeekday becomes a mirror of the windows (repo keeps it in sync)
+interface Milestone { selfRating: SelfRating | null }            // for a course without units
+interface Unit {
+  selfRating: SelfRating | null
+  estimateSource: 'hours' | 'cus' | 'course' | 'import' | 'parsed'   // how estimateMinutes was derived
+  baseEstimateMinutes: number | null                                // before the self-rating factor (so a re-rating recomputes)
+  optional: boolean                                                 // cut-scope hint
+}
+interface Session { /* goalId already exists (denormalised at start); v2 only indexes it: [goalId+day] */ }
+interface Flashcard {                                          // FSRS hook (not built); SM-2 fields stay
+  scheduler: 'sm2' | 'fsrs'
+  fsrs: { stability: number; difficulty: number; elapsedDays: number; scheduledDays: number;
+          reps: number; lapses: number; state: 'new' | 'learning' | 'review' | 'relearning'; lastReview: Millis | null } | null
+  noteRef: NoteRef | null }
+export interface NoteRef { kind: 'goal' | 'course' | 'task' | 'resource'; id: ID; blockId: ID | null }
+```
+
+**New tables:**
+```ts
+interface PlannedAssessment extends Base {   // the plan's exams/projects/quizzes (attempt logs stay in `assessments`)
+  goalId: ID; milestoneId: ID | null; kind: 'exam' | 'project' | 'quiz'; title: string
+  date: ISODate | null; time: HHmm | null; durationMinutes: number | null
+  status: 'planned' | 'done' | 'skipped'; completedAt: Millis | null; order: number
+  source: 'user' | 'syllabus' | 'import' | 'wgu' }
+interface PlanProposal extends Base {        // pending confirmations; nothing is applied until accepted
+  goalId: ID | null                          // null = everyday tasks (auto-slot)
+  kind: 'rollForward' | 'extendDate' | 'addTime' | 'cutScope' | 'spread' | 'lifeHappened' | 'aiSuggestion'
+  status: 'pending' | 'accepted' | 'dismissed' | 'stale'; computedFor: ISODate
+  title: string; detail: string; apply: unknown /* ProposalApply, zod-validated on accept */
+  preview: PlanChange; baseRevision: string  // hash of the open plan items it was computed from: if the plan changed, recompute
+  decidedAt: Millis | null }
+interface PracticeQuestion extends Base {    // hook (not built)
+  goalId: ID; milestoneId: ID; unitId: ID | null; prompt: string; choices: string[] | null; answer: string
+  explanation: string; tags: string[]; source: 'user' | 'import'; noteRef: NoteRef | null; suspended: boolean }
+interface QuestionAttempt extends Base {     // the wrong-answer queue: requeueOn set on a miss, cleared when answered right
+  questionId: ID; goalId: ID; milestoneId: ID; at: Millis; day: ISODate; correct: boolean; answer: string
+  requeueOn: ISODate | null }
+interface Readiness extends Base {           // id = milestoneId or unitId; feeds PlannerUnit/Course.extraReviewMinutes
+  goalId: ID; milestoneId: ID; unitId: ID | null; score: number /* 0–1 */; extraReviewMinutes: number
+  inputs: { paPct: number | null; cardRetention: number | null; questionAccuracy: number | null; unitsDonePct: number }
+  computedAt: Millis }
+```
+
+**Stores delta** (`STORES_V2_DELTA`):
+```ts
+tasks: 'id, status, dueDate, doDate, completedDay, goalId, milestoneId, unitId, scheduleKey, seriesId, kind, assessmentId, *tags, [status+dueDate], [status+doDate], [goalId+status], [goalId+kind]',
+sessions: 'id, status, day, startedAt, taskId, goalId, milestoneId, [kind+day], [goalId+day]',
+plannedAssessments: 'id, goalId, milestoneId, date, [goalId+order]',
+planProposals: 'id, goalId, status, createdAt',
+practiceQuestions: 'id, goalId, milestoneId, unitId',
+questionAttempts: 'id, questionId, milestoneId, day, requeueOn',
+readiness: 'id, goalId, milestoneId',
+```
+
+**`upgradeV2(tx)`** (one transaction; the same mapping in `migrateBackupV1toV2`):
+1. **Tasks.** Every task gets `doDate = dueDate` and `doTime = dueTime`, `durationMinutes = estimateMinutes`, `autoSlot = false`, `assessmentId = null` and `sync = null`. v1 had a single date that meant "the day to do it" (quick add's "tomorrow 2p"), so `dueDate`/`dueTime` are then cleared: no v1 task claims a deadline it never had. `kind`: `'study'` for `source: 'schedule'`, `'review'` for `'flashcards'`, else `'task'`. Scheduler chunks keep `scheduleKey`, and v2 planner items get `dueDate` = their assessment date.
+2. **Goals.** `planning = { sessionMinutes: 50, weekly: fromLegacyAvailability(availability, { studyStart: settings.scheduling.defaultStudyStart }).weekly, shiftPattern: null, bufferPct: 0.12, cuHoursMultiplier: 15, asap: targetDate === null, paceMinutesPerStudyDay: null }`.
+3. **Units.** `selfRating = null`, `optional = false`, `baseEstimateMinutes = estimateMinutes`, `estimateSource = estimateMinutes === null ? 'course' : 'hours'`. **Milestones:** `selfRating = null`, and for each course whose `courseType` is OA / PA / OA+PA, undated `plannedAssessments` rows are created ("Objective assessment", exam; "Performance assessment", project; `source: 'wgu'`).
+4. **Flashcards.** `scheduler = 'sm2'`, `fsrs = null`, `noteRef = null`.
+5. `TableName` / `TableRows`, the goal trash cascade (plus plannedAssessments, planProposals, practiceQuestions, questionAttempts, readiness), backup Zod schemas and `defaults.ts` (`settings.scheduling.taskWindows`: every day 09:00–21:00 for auto-slot) are updated in the same step.
+
+**Test:** a fake-indexeddb test that opens a v1 DB seeded with the WGU sample, reopens it at v2 and asserts the rows above, plus a `migrateBackupV1toV2` round trip.
 
 ---
 
@@ -641,6 +771,9 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - `today.aside`: milestone countdown. Course complete gives +250 XP. "CUs completed this term" bar.
   - Shortcuts `n shift+r i`.
 - [ ] **5E [B] e2e** `goals.spec.ts`: wizard with WGU sample → chunks appear on Today; import JSON with an error shows the line number; completing a course early moves the projection earlier.
+- [x] **5F [A] Goal Breakdown Planner logic** (§4.5). Owns `src/logic/scheduler/{plannerTypes,windows,effort,split,slotBook,planner,milestones,feasibility,planDiff,reflow,autoSlot,plannerFixtures}.ts` and their tests, plus `src/logic/planParse/**`. Pure; no schema change. 65 new scheduler tests and 13 parse tests.
+- [ ] **5G [A] Schema v2 + wiring** (after 5B/5C land). Apply §4.6 (migration, backup migration, tests). Add a rows → `PlannerInput` adapter and a `diffPlanTasks` over `doDate/doTime/durationMinutes`; switch `rebalanceGoal` to `planStudy`. At first open each day, `rollForward` applies only when `autoApply`; otherwise it writes `planProposals`.
+- [ ] **5H [B] Planner UI** (after 5G). Paste/upload → `parsePlanText` → a review screen (edit, reorder, delete, self-rating, "We couldn't read these lines", and templates or the Claude prompt when `needsBreakdown`). Then availability windows, shift pattern, session length and buffer; a preview with feasibility and its three choices; the goal page's behind banner with proposals; "Life happened"; the task do-date/deadline split and the auto-slot toggle. PDF/photo upload is text extraction only (a dependency decision for 5H, recorded in DECISIONS).
 
 ### Phase 6 — Gamification
 - [ ] **6A [B] XP & levels** (∥ 6B, 6C). Owns `src/logic/xp.ts` (levels section), `src/db/hooks/useXp.ts` and `src/features/gamification/{feature.ts,Level*,XpFloat*,LevelUp*,handlers.ts}`.
@@ -736,7 +869,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **11j [R]** One review per wave; e2e for flashcards review and trash restore.
 
 ### Phase 12 — Optional cloud sync (only if 0–11 are solid and the user wants it)
-- [ ] **12A [A] Design:** decide on `@supabase/supabase-js`, lazy-loaded, vs plain `fetch`. Add tombstones as schema **v2** (the first real migration, following §3.4). Per-record last-write-wins on `updatedAt`, with the limitation documented. RLS policy SQL goes in the README. CSP `connect-src` gets the Supabase origin.
+- [ ] **12A [A] Design:** decide on `@supabase/supabase-js`, lazy-loaded, vs plain `fetch`. Add tombstones as schema **v3** (v2 is the planner schema, §4.6). Per-record last-write-wins on `updatedAt`, with the limitation documented. RLS policy SQL goes in the README. CSP `connect-src` gets the Supabase origin.
 - [ ] **12B [B] Implement** `features/sync` (magic-link login, settings section, push/pull, conflict tests in `logic/sync.ts`). The app must work 100% without it.
 
 ### Phase 13 — Polish

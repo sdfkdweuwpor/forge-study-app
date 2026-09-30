@@ -46,7 +46,10 @@ export class SessionActiveError extends Error {
 const isActive = (s: Session): boolean => s.status === 'running' || s.status === 'paused'
 
 function newest(rows: readonly Session[]): Session | null {
-  return rows.reduce<Session | null>((a, b) => (a === null || b.startedAt >= a.startedAt ? b : a), null)
+  return rows.reduce<Session | null>(
+    (a, b) => (a === null || b.startedAt >= a.startedAt ? b : a),
+    null,
+  )
 }
 
 // ─── Reads ──────────────────────────────────────────────────────────────────
@@ -122,7 +125,7 @@ export async function startSession(
   const day = dayOf(now)
 
   return db.transaction('rw', db.sessions, db.tasks, async () => {
-    const running = newest((await db.sessions.where('status').anyOf('running', 'paused').toArray()))
+    const running = newest(await db.sessions.where('status').anyOf('running', 'paused').toArray())
     if (running) throw new SessionActiveError(running)
 
     const task = input.taskId ? await db.tasks.get(input.taskId) : undefined
@@ -210,8 +213,18 @@ export interface FinishResult {
 }
 
 /** Settles an active session inside a transaction that already covers `sessions` and `xpEvents`. */
-async function settleRow(s: Session, endedAtRaw: Millis, interrupted: boolean): Promise<FinishResult> {
-  const endedAt = Math.max(endedAtRaw, s.startedAt)
+async function settleRow(
+  s: Session,
+  endedAtRaw: Millis,
+  interrupted: boolean,
+): Promise<FinishResult> {
+  // A planned session that is still running never ends after its plan: finishing it late (a tab that was
+  // asleep, a Stop pressed long after the end) settles it at its planned end, not at `now`.
+  const plannedEnd = plannedEndAt(clockOf(s))
+  const endedAt = Math.max(
+    plannedEnd === null ? endedAtRaw : Math.min(endedAtRaw, plannedEnd),
+    s.startedAt,
+  )
   // An open pause ends with the session: it never counts as focus time.
   const closed = resumeClock(clockOf(s), endedAt)
   const outcome = settleSession({
@@ -241,7 +254,8 @@ async function settleRow(s: Session, endedAtRaw: Millis, interrupted: boolean): 
     })
     xp = award?.amount ?? 0
   }
-  if (s.kind === 'focus') emit({ type: 'session.ended', sessionId: s.id, day: s.day, counted: outcome.counted })
+  if (s.kind === 'focus')
+    emit({ type: 'session.ended', sessionId: s.id, day: s.day, counted: outcome.counted })
   const session = await db.sessions.get(s.id)
   if (!session) throw new Error('Session disappeared while finishing')
   return { session, xp }
@@ -261,6 +275,35 @@ export async function finishSession(
     const s = await db.sessions.get(id)
     if (!s || !isActive(s)) return null
     return settleRow(s, opts.at ?? now, opts.interrupted ?? false)
+  })
+}
+
+/**
+ * Takes back a finish: a focus session that ended without counting (stopped early, or a stopwatch under
+ * ten minutes) goes on running. It earned no XP, so nothing has to be reversed; the time between the
+ * finish and now is added to `pausedMs`, so it is not focus time. `null` when the session is missing,
+ * counted (its XP is paid), not a focus session, or something else is running now.
+ */
+export async function reopenSession(id: ID, opts: RepoOptions = {}): Promise<Session | null> {
+  const now = opts.now ?? Date.now()
+  return db.transaction('rw', db.sessions, async () => {
+    const s = await db.sessions.get(id)
+    if (!s || s.kind !== 'focus' || s.status !== 'completed' || s.counted || s.endedAt === null) {
+      return null
+    }
+    const running = newest(await db.sessions.where('status').anyOf('running', 'paused').toArray())
+    if (running) return null
+    await db.sessions.update(id, {
+      status: 'running',
+      endedAt: null,
+      actualMinutes: null,
+      interrupted: false,
+      counted: false,
+      pausedMs: s.pausedMs + Math.max(0, now - s.endedAt),
+      pausedAt: null,
+      updatedAt: now,
+    })
+    return (await db.sessions.get(id)) ?? null
   })
 }
 

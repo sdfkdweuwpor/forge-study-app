@@ -9,7 +9,7 @@
  */
 import { format } from 'date-fns'
 import type { Millis, Session, SessionKind, SessionMode, SessionStatus } from '@/db/types'
-import { isSessionCounted, STOPWATCH_MIN_MINUTES, xpForSession } from './xp'
+import { STOPWATCH_MIN_MINUTES, XP_PER_FOCUS_MINUTE } from './xp'
 
 export const MS_PER_SECOND = 1_000
 export const MS_PER_MINUTE = 60_000
@@ -98,7 +98,9 @@ export function formatClock(totalSeconds: number): string {
   const hours = Math.floor(total / 3600)
   const minutes = Math.floor((total % 3600) / 60)
   const seconds = total % 60
-  return hours > 0 ? `${hours}:${pad2(minutes)}:${pad2(seconds)}` : `${pad2(minutes)}:${pad2(seconds)}`
+  return hours > 0
+    ? `${hours}:${pad2(minutes)}:${pad2(seconds)}`
+    : `${pad2(minutes)}:${pad2(seconds)}`
 }
 
 /** How far along the ring is, 0 to 1. A stopwatch fills toward the minute it starts to count (10). */
@@ -294,12 +296,30 @@ export function shouldDiscard(elapsed: number): boolean {
 }
 
 export interface SessionOutcome {
-  /** Whole minutes focused (rounded down: XP is per whole minute). */
+  /** Whole minutes focused (rounded down: XP is per whole minute). A stopwatch stops earning at 4 hours. */
   actualMinutes: number
   /** Anti-cheat (BRIEF §5.5): at least 80% of the plan, or 10 minutes for a stopwatch. Focus only. */
   counted: boolean
   /** 1 XP per whole minute when counted, otherwise 0. */
   xp: number
+}
+
+/**
+ * The longest a stopwatch session is paid and counted for. A stopwatch has no end of its own, so one
+ * left running overnight would otherwise earn hundreds of XP and fake a day of focus for the streak.
+ */
+export const STOPWATCH_MAX_MINUTES = 4 * 60
+
+/**
+ * Whether a finished focus session counts. Compared on the exact elapsed time, not on whole minutes,
+ * so 80% of a 12-minute plan is 9 minutes 36 seconds and a session stopped at 9:59 counts. Written as
+ * `elapsed × 5 ≥ planned × 4` (80%, as in `SESSION_COUNT_RATIO`) so there is no float noise.
+ */
+function countsAsFocus(plannedMs: number | null, elapsed: number): boolean {
+  if (elapsed <= 0) return false
+  if (plannedMs === null || !(plannedMs > 0))
+    return elapsed >= STOPWATCH_MIN_MINUTES * MS_PER_MINUTE
+  return elapsed * 5 >= plannedMs * 4
 }
 
 /** How a finished session settles: its minutes, whether it counts, and the XP it earns. */
@@ -309,10 +329,29 @@ export function settleSession(input: {
   elapsedMs: number
 }): SessionOutcome {
   const elapsed = Number.isFinite(input.elapsedMs) ? Math.max(0, input.elapsedMs) : 0
-  const actualMinutes = Math.floor(elapsed / MS_PER_MINUTE)
+  const whole = Math.floor(elapsed / MS_PER_MINUTE)
+  const actualMinutes =
+    input.plannedMinutes === null ? Math.min(STOPWATCH_MAX_MINUTES, whole) : whole
   if (input.kind === 'break') return { actualMinutes, counted: false, xp: 0 }
-  const basis = { plannedMin: input.plannedMinutes, actualMin: actualMinutes }
-  return { actualMinutes, counted: isSessionCounted(basis), xp: xpForSession(basis) }
+  const plannedMs = input.plannedMinutes === null ? null : input.plannedMinutes * MS_PER_MINUTE
+  const counted = countsAsFocus(plannedMs, elapsed)
+  return { actualMinutes, counted, xp: counted ? actualMinutes * XP_PER_FOCUS_MINUTE : 0 }
+}
+
+/** The custom session length is whole minutes from 1 to 8 hours. */
+export const CUSTOM_MIN_MINUTES = 1
+export const CUSTOM_MAX_MINUTES = 480
+
+/**
+ * The custom length typed on the Focus page: whole minutes clamped to 1–480, or `null` when the field
+ * is empty or not a positive number (it then goes back to the stored length, not to 1 minute).
+ */
+export function parseCustomMinutes(text: string): number | null {
+  const trimmed = text.trim()
+  if (trimmed === '') return null
+  const value = Number(trimmed)
+  if (!Number.isFinite(value) || value <= 0) return null
+  return Math.min(CUSTOM_MAX_MINUTES, Math.max(CUSTOM_MIN_MINUTES, Math.round(value)))
 }
 
 /** The XP a settled session earned: its whole minutes when it counted, else nothing. */

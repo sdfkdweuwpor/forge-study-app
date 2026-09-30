@@ -10,7 +10,11 @@ import { addMinutesToWindows } from './windows'
 const plan = (targetDate: string | null): PlannerInput =>
   pinput({
     courses: [
-      pcourse('a', [punit('a1', 300, { order: 0 }), punit('a2', 300, { order: 1, selfRating: 'know' })], { order: 0 }),
+      pcourse(
+        'a',
+        [punit('a1', 300, { order: 0 }), punit('a2', 300, { order: 1, selfRating: 'know' })],
+        { order: 0 },
+      ),
       pcourse(
         'b',
         [

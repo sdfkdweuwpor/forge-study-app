@@ -6,7 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { db } from '@/db/db'
 import { proposeAutoSlots } from '@/db/repos/autoslot'
-import type { ID } from '@/db/types'
+import type { ID, Task } from '@/db/types'
 import type { AutoSlotProposal } from '@/logic/everydaySlots'
 import { valueSharer } from '@/logic/share'
 import { normalizeTag } from '@/logic/tagColor'
@@ -115,6 +115,14 @@ export function useTagList(): string[] | undefined {
  * Palette search over titles (fuzzy) and, more loosely, notes, checklist items and tags (substring).
  * Open tasks rank above finished ones with the same score. An empty query finds nothing.
  */
+/**
+ * The task as stored right now, not as the last render saw it. Keyboard nudges read it so a second
+ * press made before the live query catches up starts from the first press's result.
+ */
+export async function readTask(id: ID): Promise<Task | undefined> {
+  return db.tasks.get(id)
+}
+
 export async function searchTasks(query: string, limit: number): Promise<TaskHit[]> {
   if (query.trim() === '' || limit <= 0) return []
   return searchTasksIn(await db.tasks.toArray(), query, limit)

@@ -303,5 +303,10 @@ test.describe('week time blocks', () => {
     await expect.poll(async () => (await byTitle(page, 'gym'))?.durationMinutes).toBe(45)
     await page.keyboard.press('Alt+Shift+ArrowUp')
     await expect.poll(async () => (await byTitle(page, 'gym'))?.durationMinutes).toBe(30)
+    // Pressed back to back, before the page has redrawn: each press starts from the last one's result.
+    await page.keyboard.press('Alt+Shift+ArrowDown')
+    await page.keyboard.press('Alt+Shift+ArrowDown')
+    await page.keyboard.press('Alt+Shift+ArrowUp')
+    await expect.poll(async () => (await byTitle(page, 'gym'))?.durationMinutes).toBe(45)
   })
 })

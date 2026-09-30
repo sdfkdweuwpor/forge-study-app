@@ -3,7 +3,7 @@
  * filtered from the address bar, with a right-hand peek panel for the open task (`?peek=<id>`).
  */
 import { Plus } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { BREAKPOINTS, useMediaQuery } from '@/app/hooks/useMediaQuery'
 import { useOverlays } from '@/app/providers/OverlayProvider'
@@ -74,7 +74,7 @@ import { TaskList } from './TaskList'
 import { TaskPeek } from './TaskPeek'
 import { ListEmpty, ListError, ListFilteredEmpty, ListSkeleton } from './states'
 import { PEEK_MEDIA_QUERY, closePeek, openTask } from './taskUrls'
-import { projectRefsOf, useTagList, useTaskXpMap } from './queries'
+import { projectRefsOf, readTask, useTagList, useTaskXpMap } from './queries'
 import { useTaskShortcuts } from './useTaskShortcuts'
 import { BoardSkeleton } from './views/BoardStates'
 import { useBoardMove } from './views/BoardMove'
@@ -118,6 +118,12 @@ function TasksBody({ list, saved }: TasksBodyProps) {
   const boardMove = useBoardMove()
   const reschedule = useReschedule()
   const resize = useResize()
+  // Keyboard nudges run one at a time, each from the stored task: pressing Alt+Shift+↓ then ↑ quickly
+  // must not size the second press from a render that has not caught up with the first.
+  const nudges = useRef<Promise<void>>(Promise.resolve())
+  const inTurn = (run: () => Promise<void>) => {
+    nudges.current = nudges.current.then(run, run)
+  }
   usePageTitle(saved?.name)
 
   // A saved view shows its stored settings until the address bar holds edits (`mod=1`).
@@ -419,15 +425,23 @@ function TasksBody({ list, saved }: TasksBodyProps) {
       today: () => setQuery({ date: undefined }),
       nudge: (change) => {
         if (!selectedTask) return
-        const slot = nudgeSlot(selectedTask, change)
-        if (!slot) return
-        refocusEvent(selectedTask.id)
-        void reschedule(selectedTask, slot)
+        const id = selectedTask.id
+        inTurn(async () => {
+          const task = await readTask(id)
+          const slot = task ? nudgeSlot(task, change) : null
+          if (!task || !slot) return
+          refocusEvent(id)
+          await reschedule(task, slot)
+        })
       },
       resize: (minutes) => {
         if (!selectedTask) return
-        const next = nudgeLength(selectedTask, minutes)
-        if (next !== null) void resize(selectedTask, next)
+        const id = selectedTask.id
+        inTurn(async () => {
+          const task = await readTask(id)
+          const next = task ? nudgeLength(task, minutes) : null
+          if (task && next !== null) await resize(task, next)
+        })
       },
     },
   })

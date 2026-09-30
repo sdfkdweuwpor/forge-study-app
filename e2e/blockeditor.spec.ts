@@ -654,9 +654,27 @@ test.describe('states', () => {
     await openEditor(page)
     const status = light(page).getByTestId('be-status')
     await expect(status).toContainText('saved')
+    // "saving" lasts only as long as the demo's delay, which a loaded machine can miss between polls,
+    // so record every text the status shows instead of catching it live.
+    await status.evaluate((el) => {
+      const seen: string[] = []
+      ;(window as unknown as { __beStatus: string[] }).__beStatus = seen
+      new MutationObserver(() => seen.push(el.textContent ?? '')).observe(el, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      })
+    })
     await notes(page).getByRole('textbox', { name: 'Heading 1' }).click()
     await page.keyboard.type('!')
-    await expect(status).toContainText('saving')
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (window as unknown as { __beStatus: string[] }).__beStatus.some((t) => t.includes('saving')),
+        ),
+      )
+      .toBe(true)
     await expect(status).toContainText('saved')
+    await expect(status).not.toContainText('saving')
   })
 })

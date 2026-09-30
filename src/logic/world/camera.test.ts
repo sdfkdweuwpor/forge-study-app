@@ -103,7 +103,13 @@ describe('fit to view', () => {
   it('stops shrinking at MIN_FIT_SCALE: a city that big is panned, not turned into dots', () => {
     const huge: Extent = { left: -5000, top: -5000, right: 5000, bottom: 5000 }
     expect(fitZoom(huge, view, 24, 1)).toBe(MIN_FIT_SCALE)
-    expect(fitZoom(huge, { width: 2400, height: 1600 }, 48, 2)).toBe(MIN_FIT_SCALE / 2)
+    const vast: Extent = { left: -50_000, top: -50_000, right: 50_000, bottom: 50_000 }
+    // The floor is in screen pixels per art pixel, so at 2 device pixels per unit it is half a zoom.
+    expect(fitZoom(vast, { width: 2400, height: 1600 }, 48, 2)).toBe(MIN_FIT_SCALE / 2)
+    // And a city that does fit above the floor gets its exact fit, here with a sliver of room to spare.
+    const fitted = fitZoom(huge, { width: 2400, height: 1600 }, 48, 2)
+    expect(fitted).toBeGreaterThan(MIN_FIT_SCALE / 2)
+    expect(10_000 * scaleOf(fitted, 2)).toBeLessThanOrEqual(1600 - 96)
     // A view with no room at all (the first layout pass) is still a sane number.
     expect(fitZoom(extent, { width: 10, height: 10 }, 24, 1)).toBe(MIN_FIT_SCALE)
   })

@@ -53,7 +53,10 @@ sorting is total, so the same history always gives the same city, whatever order
   with `drawImage` at an integer scale, smoothing off: pixel for pixel what multiplying every rect by the zoom
   gives, about fifty times cheaper.
 - **Crisp pixels.** The backing store is CSS size x devicePixelRatio; one art pixel is `zoom * round(dpr)`
-  device pixels; everything is drawn at whole pixels.
+  device pixels; everything is drawn at whole pixels. The one exception is the fit zoom of a city that does not
+  fit at zoom 1 (below): a fraction, so the static layer is painted at the next whole scale (`ceil`, seamless,
+  as always) and resampled once onto the canvas with smoothing on, instead of stamping every sprite at a
+  fractional size (which leaves cracks between ground tiles).
 - **A paused loop.** No frame is scheduled at all when nothing moves (reduced motion, or no people, birds,
   fountain or night lamps), when the tab is hidden, or when the canvas is off screen. While something
   animates, frames are capped at 30 a second. A 60-second timer refreshes the sky and time bucket otherwise.
@@ -85,10 +88,12 @@ useEffect(() => {
 ```
 
 `WorldHandle`: `update`, `setTheme`, `setReducedMotion`, `resize`, `hitTest(clientX, clientY)`, `zoomTo`,
-`zoom`, `fit`, `clientPointOf(id)`, `exportPng`, `destroy` (idempotent). The engine sets no styles on the
+`zoomStep(dir)`, `zoom`, `fit`, `viewInfo()` (the zoom and where the world lies in the canvas, for tests and
+screenshots), `clientPointOf(id)`, `exportPng`, `destroy` (idempotent). The engine sets no styles on the
 canvas: the app gives it `tabindex="0"`, an `aria-label`, `width/height: 100%` and `touch-action: none`.
 
-Input: drag pans, wheel and pinch zoom in whole steps, hover and tap call `onHover`. With the canvas
+Input: drag pans, wheel and pinch zoom in whole steps (out of zoom 1 they reach the fit zoom when that is a
+fraction, and never go below it), hover and tap call `onHover`. With the canvas
 focused, arrows pan 32 px, `+`/`=`/`-` zoom, `0` fits and Escape clears the tooltip. **Enter** starts
 browsing what has been built (newest first): the arrows then step through the buildings in draw order, the
 view follows and `onHover` fires with `via: 'keyboard'`; Escape or Tab leaves.
@@ -114,8 +119,12 @@ view follows and `onHover` fires with `via: 'keyboard'`; Escape or Tab leaves.
 - **The fountain** stands at the right-hand edge of the first landmark's or monument's plaza. Fireworks
   (streak 30, night, motion on) burst above it.
 - **Birds** fly in the sky, in screen space, in the top fifth, day and dusk only.
-- **Fit view** is the largest whole zoom (1-4) that fits the world with 24 px of padding, centred; until the
-  person pans or zooms, the view re-fits as the world grows and the window changes.
+- **Fit view** is the largest whole zoom (1-4) that fits the whole world with 24 px of padding, centred. Only
+  when not even zoom 1 fits (a phone at 375 px, or a city of a few hundred tasks) is it a fraction: the largest
+  one that fits (`fitZoom`, rounded down so it never overflows), never below 0.1 screen pixels per art pixel
+  (`MIN_FIT_SCALE`: a city bigger than that is shown at that scale and panned). That fraction is the lowest
+  zoom level: `-` from zoom 1 reaches it, `+` from it goes to 1, never past it (`stepZoom`). Until the person
+  pans or zooms, the view re-fits as the world grows and the window changes.
 - **Export** draws the whole world at zoom 2 (less if a side would pass 8192 px), with a 24 px margin, the
   sky at the current time and a caption `Forge · Sep 29, 2026 · 42 tiles · 12 floors` in 12 px (times the
   zoom) Inter. No hover outline, no people.

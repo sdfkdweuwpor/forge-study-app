@@ -37,6 +37,8 @@ export function buildPrompt({ today }: PromptOptions = {}): string {
     'If the outline gives no study hours, estimate estimatedHours realistically. For WGU courses budget roughly 10 to 15 hours per competency unit.',
     'List courses in the order I should take them. Give prerequisites as course codes, and only codes that appear in "courses".',
     'Copy course codes and titles exactly as the outline writes them.',
+    'List each course\'s exams, projects and quizzes under "assessments" when the outline mentions them.',
+    'If I attached a photo or PDF of my syllabus or degree plan, read the courses from it. The line between the dashes at the end is then only a placeholder: ignore it.',
     ...(today ? [`Today is ${today}. Term and target dates must not be in the past.`] : []),
   ]
 
@@ -55,7 +57,7 @@ export function buildPrompt({ today }: PromptOptions = {}): string {
     'EXAMPLE OF A VALID REPLY',
     EXAMPLE_JSON.trimEnd(),
     '',
-    'MY COURSE OUTLINE / DEGREE PLAN',
+    'MY COURSE OUTLINE / DEGREE PLAN (or attach a photo or PDF of your syllabus to this message and leave the placeholder)',
     '-----',
     OUTLINE_PLACEHOLDER,
     '-----',

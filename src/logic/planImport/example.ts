@@ -29,7 +29,8 @@ export const EXAMPLE_JSON = `{
         { "title": "Cloud and virtualization", "estimatedHours": 7 },
         { "title": "Databases", "estimatedHours": 7 },
         { "title": "Security and ethics", "estimatedHours": 7 }
-      ]
+      ],
+      "assessments": [{ "title": "Objective assessment", "kind": "exam" }]
     },
     {
       "code": "D278",
@@ -46,7 +47,8 @@ export const EXAMPLE_JSON = `{
       "cus": 3,
       "type": "PA",
       "estimatedHours": 30,
-      "prerequisites": ["C182"]
+      "prerequisites": ["C182"],
+      "assessments": [{ "title": "Web page project", "kind": "project", "date": "2026-11-20" }]
     }
   ]
 }

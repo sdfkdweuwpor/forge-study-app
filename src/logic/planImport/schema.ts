@@ -7,8 +7,9 @@
  * uppercased, and `type` is case-insensitive. Unknown keys are rejected (a typo such as `prereqs`
  * must not be silently dropped). Dates are `YYYY-MM-DD` and must exist on the calendar.
  *
- * Rules that span fields (unique codes, prerequisites, cycles) live in `relations.ts`, because Zod skips
- * object-level refinements while a child is invalid and we want every problem reported in one pass.
+ * Rules that span courses (unique codes, prerequisites, cycles) live in `relations.ts` and run in a second
+ * stage, once the plan is structurally valid: they need real codes to compare. So a paste with a wrong type
+ * and a duplicate code shows the type error first, and the duplicate after it is fixed.
  */
 import { z } from 'zod'
 
@@ -31,6 +32,9 @@ const toNumber = (value: unknown): unknown =>
 
 const toUpper = (value: unknown): unknown =>
   typeof value === 'string' ? value.trim().toUpperCase() : value
+
+const toLower = (value: unknown): unknown =>
+  typeof value === 'string' ? value.trim().toLowerCase() : value
 
 const looseNumber = <T extends z.ZodType>(inner: T) => z.preprocess(toNumber, inner)
 
@@ -81,6 +85,17 @@ const unitSchema = z
     }
   })
 
+export const ASSESSMENT_KINDS = ['exam', 'project', 'quiz'] as const
+export type AssessmentKind = (typeof ASSESSMENT_KINDS)[number]
+
+const assessmentSchema = z.strictObject({
+  title: meta(text(120), { description: 'Assessment name, e.g. Objective assessment.' }),
+  kind: meta(z.preprocess(toLower, z.enum(ASSESSMENT_KINDS)), {
+    description: 'exam (objective assessment), project (performance assessment) or quiz.',
+  }),
+  date: meta(isoDate.optional(), { description: 'Scheduled or due date, if known.' }),
+})
+
 const courseSchema = z.strictObject({
   code: meta(courseCode, {
     description: 'Course code, unique in the plan. Uppercased for you.',
@@ -111,6 +126,11 @@ const courseSchema = z.strictObject({
     description:
       'Chapters or topics in study order. When every unit has an estimate, their total is the course’s work.',
     expects: 'a list of units',
+  }),
+  assessments: meta(z.array(assessmentSchema).max(30).optional(), {
+    description:
+      'Exams, projects and quizzes in this course. Shown in the preview; not saved to the goal yet.',
+    expects: 'a list of assessments',
   }),
 })
 
@@ -201,3 +221,4 @@ export type Plan = z.output<typeof planSchema>
 export type PlanGoal = Plan['goal']
 export type PlanCourse = Plan['courses'][number]
 export type PlanUnit = NonNullable<PlanCourse['units']>[number]
+export type PlanAssessment = NonNullable<PlanCourse['assessments']>[number]

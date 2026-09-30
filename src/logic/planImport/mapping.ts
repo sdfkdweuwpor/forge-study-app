@@ -12,7 +12,9 @@
  *   their place, so a re-import never shuffles what you arranged by hand;
  * - units are matched by title inside a matched course: updated when the plan gives a new estimate,
  *   added when new, kept when the plan does not mention them;
- * - the goal keeps its name and icon; target date, term and availability change only when given.
+ * - the goal keeps its name and icon; target date, term and availability change only when given;
+ * - assessments are shown in the preview but not written: the `Assessment` table has no "quiz" kind and needs
+ *   a date, so they travel to the Goal Breakdown Planner through `toPlanDraft` instead.
  * Importing the same plan twice therefore changes nothing the second time.
  */
 import type {
@@ -28,6 +30,7 @@ import type {
   WguTerm,
 } from '@/db/types'
 import { describeDaysOff, describeWeek, formatMinutes, termLabel, weeklyMinutes } from './format'
+import type { KnownCourse } from './relations'
 import type { Plan, PlanCourse, PlanUnit } from './schema'
 
 export interface ExistingCourse {
@@ -43,7 +46,7 @@ export interface ExistingGoal {
 export interface MapContext {
   today: ISODate
   newId: () => ID
-  /** `order` for a new goal: after the goals that exist. */
+  /** `order` for a new goal: the caller places it after the goals that exist. */
   nextGoalOrder: number
 }
 
@@ -65,6 +68,8 @@ export interface PreviewCourse {
   changed: string[]
   unitsAdded: number
   unitsUpdated: number
+  /** Assessments listed in the plan. Import does not store them (the planner schedules them). */
+  assessments: number
 }
 
 export interface ImportPreview {
@@ -94,6 +99,7 @@ export interface ImportPreview {
     units: number
     unitsAdded: number
     unitsUpdated: number
+    assessments: number
   }
 }
 
@@ -121,6 +127,25 @@ export function hasWrites(ops: ImportOps): boolean {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The goal's courses as `parsePlan`'s `known` option: a merge may depend on them, and a prerequisite
+ * cycle through them is caught. Prerequisite ids that no longer resolve to a coded course are dropped.
+ */
+export function knownCourses(existing: ExistingGoal | null): KnownCourse[] {
+  if (!existing) return []
+  const codeById = new Map<ID, string>()
+  for (const { milestone: m } of existing.courses) {
+    const code = m.code?.trim().toUpperCase()
+    if (code) codeById.set(m.id, code)
+  }
+  return existing.courses.flatMap(({ milestone: m }) => {
+    const code = codeById.get(m.id)
+    return code
+      ? [{ code, prerequisites: m.prerequisiteIds.flatMap((id) => codeById.get(id) ?? []) }]
+      : []
+  })
+}
 
 const clampMinutes = (m: number): number => Math.max(1, Math.round(m))
 
@@ -346,6 +371,7 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
       changed,
       unitsAdded: unitsAddedHere,
       unitsUpdated: unitsUpdatedHere,
+      assessments: c.assessments?.length ?? 0,
     })
   }
 
@@ -440,6 +466,7 @@ export function planToOps(plan: Plan, existing: ExistingGoal | null, ctx: MapCon
         units: sum((c) => c.unitCount),
         unitsAdded: sum((c) => c.unitsAdded),
         unitsUpdated: sum((c) => c.unitsUpdated),
+        assessments: sum((c) => c.assessments),
       },
     },
   }

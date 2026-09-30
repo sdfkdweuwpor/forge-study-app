@@ -57,7 +57,7 @@ async function streakRows(from: ISODate, qualified: readonly boolean[]): Promise
   )
 }
 
-const stored = async (): Promise<BadgeId[]> => (await getBadges()).map((b) => b.id)
+const stored = async (): Promise<string[]> => (await getBadges()).map((b) => b.id)
 
 beforeEach(async () => {
   resetDomainEvents()

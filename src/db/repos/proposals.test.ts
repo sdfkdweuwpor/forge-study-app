@@ -239,6 +239,40 @@ describe('proposeReplanWeek ("life happened")', () => {
   })
 })
 
+describe('proposeReplanWeek and the far-behind choices', () => {
+  it('previewing and dismissing "life happened" leaves the far-behind proposals pending', async () => {
+    await seedPlanned()
+    const far = at('2026-10-12')
+    const out = await rollForwardGoal('goal-1', { now: far })
+    expect(out?.proposals.length).toBeGreaterThan(0)
+    const before = (await pendingProposals('goal-1', '2026-10-12')).map((p) => p.id).sort()
+
+    const preview = await proposeReplanWeek('goal-1', { now: far, capacityFactor: 0.5 })
+    expect(preview?.kind).toBe('lifeHappened')
+    await dismissProposal(preview?.id as string, { now: far })
+
+    const after = await pendingProposals('goal-1', '2026-10-12')
+    expect(after.map((p) => p.id).sort()).toEqual(before)
+    expect(after.every((p) => p.kind !== 'lifeHappened')).toBe(true)
+  })
+
+  it('a second preview replaces the first; applying one makes the others stale', async () => {
+    await seedPlanned()
+    const far = at('2026-10-12')
+    await rollForwardGoal('goal-1', { now: far })
+    const first = await proposeReplanWeek('goal-1', { now: far, capacityFactor: 0.5 })
+    const second = await proposeReplanWeek('goal-1', { now: far, capacityFactor: 0.25 })
+    expect((await db.planProposals.get(first?.id as string))?.status).toBe('stale')
+    expect((await db.planProposals.get(second?.id as string))?.status).toBe('pending')
+    expect((await pendingProposals('goal-1', '2026-10-12')).some((p) => p.kind !== 'lifeHappened')).toBe(
+      true,
+    )
+    const applied = await applyProposal(second?.id as string, { now: far })
+    expect(applied.status).toBe('applied')
+    expect(await pendingProposals('goal-1', '2026-10-12')).toEqual([])
+  })
+})
+
 describe('runDailyPlanning', () => {
   it('runs once per day, and skips goals already planned today', async () => {
     await ensureSettings()

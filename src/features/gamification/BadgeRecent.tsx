@@ -17,7 +17,10 @@ export interface RecentBadgesProps {
 function RecentBadgesBody({ limit }: Required<RecentBadgesProps>) {
   const rows = useBadges()
   const today = useToday()
-  const recent = useMemo(() => (rows === undefined ? null : recentBadges(rows, limit)), [rows, limit])
+  const recent = useMemo(
+    () => (rows === undefined ? null : recentBadges(rows, limit)),
+    [rows, limit],
+  )
 
   if (recent === null) {
     return (

@@ -10,6 +10,7 @@ import {
   formatUnlockDate,
   isBadgeId,
   recentBadges,
+  unlockMessages,
   unlockSummary,
   type BadgeCourseRow,
   type BadgeGoalRow,
@@ -840,5 +841,38 @@ describe('display helpers', () => {
     const now = at(2026, 9, 29, 9, 30)
     expect(formatUnlockDate(at(2026, 9, 29, 7, 55), now)).toBe('Sep 29')
     expect(formatUnlockDate(at(2025, 12, 31, 23, 59), now)).toBe('Dec 31, 2025')
+  })
+})
+
+describe('unlockMessages', () => {
+  it('says "Badge unlocked · Early Bird 🌅" for one badge, with what it means', () => {
+    expect(unlockMessages(['early-bird'])).toEqual([
+      {
+        key: 'badge:early-bird',
+        title: 'Badge unlocked · Early Bird 🌅',
+        description: 'Started a focus session before 8 a.m.',
+      },
+    ])
+  })
+
+  it('gives two badges a toast each, in the order given', () => {
+    expect(unlockMessages(['first-focus', 'early-bird']).map((m) => m.title)).toEqual([
+      'Badge unlocked · First Focus 🌱',
+      'Badge unlocked · Early Bird 🌅',
+    ])
+  })
+
+  it('folds three or more into one summary line', () => {
+    const messages = unlockMessages(['first-focus', 'early-bird', 'night-owl'])
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({
+      title: '3 badges unlocked',
+      description: 'First Focus 🌱, Early Bird 🌅, Night Owl 🦉',
+    })
+  })
+
+  it('says nothing for nothing, and skips ids it does not know', () => {
+    expect(unlockMessages([])).toEqual([])
+    expect(unlockMessages(['speed-runner'])).toEqual([])
   })
 })

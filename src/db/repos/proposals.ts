@@ -134,10 +134,19 @@ function applyFor(p: Proposal): ProposalApplyData {
   return move ? { ...p.apply, items: p.items, projectedEnd: p.projectedEnd } : { ...p.apply }
 }
 
-/** Marks the goal's pending proposals stale (inside the caller's transaction). Returns their ids. */
-async function staleProposals(goalId: ID, now: Millis, except?: ID): Promise<ID[]> {
+/**
+ * Marks the goal's pending proposals stale (inside the caller's transaction). Returns their ids.
+ * `kinds` limits it to those kinds of proposal (default: all of them).
+ */
+async function staleProposals(
+  goalId: ID,
+  now: Millis,
+  except?: ID,
+  kinds?: readonly PlanProposalKind[],
+): Promise<ID[]> {
   const pending = (await db.planProposals.where('goalId').equals(goalId).toArray()).filter(
-    (p) => p.status === 'pending' && p.id !== except,
+    (p) =>
+      p.status === 'pending' && p.id !== except && (kinds === undefined || kinds.includes(p.kind)),
   )
   for (const p of pending) await db.planProposals.update(p.id, { status: 'stale', updatedAt: now })
   return pending.map((p) => p.id)
@@ -238,7 +247,8 @@ export interface ReplanWeekRequest extends RepoOptions {
 
 /**
  * "Life happened": previews the rest of this week with less (or no) study time, its work pushed later,
- * and writes it as a pending `lifeHappened` proposal. Nothing else changes until it is applied.
+ * and writes it as a pending `lifeHappened` proposal. Nothing else changes until it is applied; only an
+ * earlier `lifeHappened` proposal becomes stale (the far-behind choices stay pending).
  * `null` for a missing goal.
  */
 export async function proposeReplanWeek(
@@ -258,7 +268,9 @@ export async function proposeReplanWeek(
       ...(req.blockedDays ? { blockedDays: req.blockedDays } : {}),
       ...(req.capacityFactor !== undefined ? { capacityFactor: req.capacityFactor } : {}),
     })
-    await staleProposals(goalId, now)
+    // Only an earlier "life happened" preview is replaced: the far-behind choices are untouched by a
+    // preview, so previewing and cancelling must leave them pending.
+    await staleProposals(goalId, now, undefined, ['lifeHappened'])
     const moved = w.change.moved.length
     const row = proposalRow(
       goalId,

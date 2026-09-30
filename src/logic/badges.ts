@@ -489,3 +489,41 @@ export function formatUnlockDate(at: Millis, now: Millis): string {
 export function formatUnlockDateLong(at: Millis): string {
   return format(at, 'EEEE, MMMM d, yyyy')
 }
+
+// ─── Announcing ─────────────────────────────────────────────────────────────
+
+export interface UnlockMessage {
+  /** Toast id, so the same badge never stacks twice. */
+  key: string
+  title: string
+  description: string
+}
+
+/** How many badges get a toast each before the rest are folded into one line. */
+const MAX_INDIVIDUAL_TOASTS = 2
+
+/**
+ * What to tell the person about newly earned badges. One or two: a toast each, "Badge unlocked · Early
+ * Bird 🌅" with what it means. More at once (older data arrived together): a single summary, so a burst
+ * never turns into a wall of toasts.
+ */
+export function unlockMessages(ids: readonly string[]): UnlockMessage[] {
+  const metas = ids.flatMap((id) => {
+    const meta = META_BY_ID.get(id)
+    return meta ? [meta] : []
+  })
+  if (metas.length <= MAX_INDIVIDUAL_TOASTS) {
+    return metas.map((m) => ({
+      key: `badge:${m.id}`,
+      title: `Badge unlocked · ${m.title} ${m.icon}`,
+      description: m.description,
+    }))
+  }
+  return [
+    {
+      key: `badges:${metas.map((m) => m.id).join('+')}`,
+      title: `${metas.length} badges unlocked`,
+      description: metas.map((m) => `${m.title} ${m.icon}`).join(', '),
+    },
+  ]
+}

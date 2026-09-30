@@ -104,7 +104,7 @@ export function effortLabel(minutes: number): string {
 export function parseHoursInput(text: string): number | null {
   const t = text.trim().toLowerCase().replace(',', '.')
   if (t === '') return null
-  const hm = /^(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$/.exec(t)
+  const hm = /^(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?\s*(?:(\d+)\s*(?:m(?:in(?:ute)?s?)?)?)?$/.exec(t)
   if (hm) return Math.round(Number(hm[1]) * 60 + Number(hm[2] ?? 0))
   const m = /^(\d+)\s*m(?:in(?:ute)?s?)?$/.exec(t)
   if (m) return Number(m[1])

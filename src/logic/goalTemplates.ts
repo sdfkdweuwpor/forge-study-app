@@ -186,10 +186,10 @@ export const WGU_TEMPLATE_COURSES: readonly CourseSpec[] = [
   },
 ]
 
-/** Monday to Friday 2.5 h in the evening and Saturday morning: about 14 h of study after breaks. */
+/** Monday to Friday 3 h in the evening and Saturday morning: about 16 h of study after breaks, enough for the 310 h plus reviews. */
 const WGU_WEEKLY: readonly (readonly TimeWindow[])[] = [
   [],
-  ...[1, 2, 3, 4, 5].map(() => [win('18:00', '20:30')]),
+  ...[1, 2, 3, 4, 5].map(() => [win('18:00', '21:00')]),
   [win('09:00', '13:00')],
 ]
 

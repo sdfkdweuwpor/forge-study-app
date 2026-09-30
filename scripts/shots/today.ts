@@ -111,6 +111,61 @@ async function addFocusHistory(page: Page): Promise<void> {
   }, DAY_MS)
 }
 
+/** Finished focus sessions for the sample goal (and one with no goal), for the "Time today" card. */
+async function addGoalSessions(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const pad = (n: number): string => String(n).padStart(2, '0')
+    const iso = (offset: number): string => {
+      const d = new Date(Date.now() + offset * 86_400_000)
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    }
+    const rows = [
+      [0, 'goal-wgu-bscs', 50],
+      [0, 'goal-wgu-bscs', 35],
+      [0, null, 20],
+      [-1, 'goal-wgu-bscs', 75],
+    ].map(([offset, goalId, minutes], i) => {
+      const startedAt = Date.now() + Number(offset) * 86_400_000 - 3_600_000 * (i + 1)
+      return {
+        id: `shot-goal-session-${i}`,
+        createdAt: startedAt,
+        updatedAt: startedAt,
+        kind: 'focus',
+        mode: 'pomodoro',
+        status: 'completed',
+        taskId: null,
+        goalId,
+        milestoneId: null,
+        day: iso(Number(offset)),
+        startedAt,
+        endedAt: startedAt + Number(minutes) * 60_000,
+        plannedMinutes: Number(minutes),
+        pausedMs: 0,
+        pausedAt: null,
+        actualMinutes: minutes,
+        round: 1,
+        interrupted: false,
+        counted: true,
+        note: null,
+      }
+    })
+    await new Promise<void>((resolve, reject) => {
+      const open = indexedDB.open('forge')
+      open.onerror = () => reject(open.error)
+      open.onsuccess = () => {
+        const db = open.result
+        const tx = db.transaction(['sessions'], 'readwrite')
+        for (const row of rows) tx.objectStore('sessions').put(row)
+        tx.onerror = () => reject(tx.error)
+        tx.oncomplete = () => {
+          db.close()
+          resolve()
+        }
+      }
+    })
+  })
+}
+
 // Today (Phase 3E). Sample data comes from `?seed=wgu` (dated around the fixed clock, Tue 2026-09-29).
 const list: ShotList = {
   feature: 'today',
@@ -130,6 +185,30 @@ const list: ShotList = {
         await page.getByRole('checkbox', { name: /Mark done: Email mentor/ }).click()
         await page.getByRole('button', { name: /Completed today/ }).waitFor()
         await page.getByRole('button', { name: /Completed today/ }).click()
+        await loaded(page)
+      },
+    },
+    {
+      // Time logged per goal, from a few seeded sessions (the aside card), and the play button on hover.
+      name: 'time-logged',
+      path: '/?seed=wgu',
+      waitFor: NOW_CARD,
+      prepare: async (page) => {
+        await addGoalSessions(page)
+        await page.goto('/')
+        await page.locator(NOW_CARD).waitFor()
+        await loaded(page)
+        await page.getByRole('listitem').filter({ hasText: 'Email mentor' }).first().hover()
+      },
+    },
+    {
+      name: 'grouped',
+      path: '/?seed=wgu',
+      waitFor: NOW_CARD,
+      prepare: async (page) => {
+        await page.evaluate(() => window.localStorage.setItem('forge:today:layout', 'grouped'))
+        await page.goto('/')
+        await page.locator(NOW_CARD).waitFor()
         await loaded(page)
       },
     },

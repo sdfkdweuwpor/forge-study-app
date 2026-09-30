@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, gotoApp, test } from './fixtures'
+import { focusSession, putRows } from './idb'
 
 /**
  * Phase 3E: the Today screen. Sample data (`?seed=wgu`) is dated around the fixed clock, Tue
@@ -21,6 +22,11 @@ const toasts = (page: Page) => page.getByRole('region', { name: 'Notifications' 
 const paletteInput = (page: Page) => page.getByRole('combobox', { name: 'Command palette' })
 
 test.describe('Today', () => {
+  // These tests are about the groups, so they use the Grouped layout (One list is the default).
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('forge:today:layout', 'grouped'))
+  })
+
   test('shows the greeting, the Now card, the groups and the aside', async ({ page }) => {
     await gotoApp(page, '/', 'wgu')
 
@@ -284,5 +290,119 @@ test.describe('Today', () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     )
     expect(overflow).toBeLessThanOrEqual(0)
+  })
+})
+
+test.describe('Today: one list, start timer, time per goal', () => {
+  const todayList = (page: Page) => group(page, 'Today')
+
+  test('plan sessions and everyday tasks share one time-ordered list, timed items first', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    const list = todayList(page)
+    await expect(rows(list)).toHaveCount(5)
+    await expect(group(page, 'From your goals')).toHaveCount(0)
+    await expect(group(page, 'Your tasks')).toHaveCount(0)
+
+    // Timed first (10:00, 2:00 PM, 4:30 PM: goal work), then the untimed everyday tasks.
+    await expect(rows(list)).toHaveText([
+      /10 AM.*C779 · Unit 3: CSS layout \(45 min\)/,
+      /2 PM.*C779 · Unit 3: CSS layout \(30 min\)/,
+      /4:30 PM.*Review 14 C779 flashcards/,
+      /Email mentor about term plan/,
+      /Schedule the C779 objective assessment/,
+    ])
+    // A plan session shows its course chip and length; an everyday task shows its own chips.
+    const first = rows(list).first()
+    await expect(first).toContainText('C779')
+    await expect(first).toContainText('45m')
+    await expect(rows(list).nth(3)).toContainText('mentor')
+    // The time gutter is empty for untimed rows.
+    await expect(rows(list).nth(3).getByTestId('row-time')).toHaveText('')
+  })
+
+  test('the One list / Grouped choice is remembered', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    const layout = page.getByRole('radiogroup', { name: 'Today’s layout' })
+    await expect(layout.getByRole('radio', { name: 'One list' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await layout.getByRole('radio', { name: 'Grouped' }).click()
+    await expect(rows(group(page, 'From your goals'))).toHaveCount(3)
+    await expect(rows(group(page, 'Your tasks'))).toHaveCount(2)
+
+    await page.reload()
+    await expect(rows(group(page, 'From your goals'))).toHaveCount(3)
+    await expect(
+      page
+        .getByRole('radiogroup', { name: 'Today’s layout' })
+        .getByRole('radio', { name: 'Grouped' }),
+    ).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('Carried over is quiet and folds away', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    const carried = group(page, 'Carried over')
+    await expect(rows(carried)).toHaveCount(3)
+    const toggle = carried.getByRole('button', { name: /Carried over/ })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(rows(carried)).toHaveCount(0)
+    await expect(carried.getByRole('button', { name: 'Move all to today' })).toHaveCount(0)
+    await toggle.click()
+    await expect(rows(carried)).toHaveCount(3)
+  })
+
+  test('the play button on a row starts focus on that task', async ({ page }) => {
+    await gotoApp(page, '/', 'wgu')
+    const row = rows(todayList(page)).filter({ hasText: MENTOR })
+    await row.hover()
+    await row.getByRole('button', { name: `Start focus on ${MENTOR}` }).click()
+    await expect(page).toHaveURL(/\/focus$/)
+    await expect(page.getByTestId('task-picker')).toContainText(MENTOR)
+    await expect(page.getByTestId('timer-toggle')).toHaveText('Pause')
+  })
+
+  test('every open row has a start button, and a phone shows it without hover', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await gotoApp(page, '/', 'wgu')
+    const list = todayList(page)
+    await expect(list.getByTestId('task-start-focus')).toHaveCount(5)
+    const button = list.getByTestId('task-start-focus').first()
+    await expect(button).toBeVisible()
+    const box = await button.boundingBox()
+    expect(box).not.toBeNull()
+  })
+
+  test('time logged per goal shows after a seeded session, with Other for goalless ones', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    const today = page.getByTestId('time-today')
+    const week = page.getByTestId('time-week')
+    await expect(today).toContainText('No focus time yet')
+
+    await putRows(page, 'sessions', [
+      focusSession('e2e-s1', '2026-09-29', 'goal-wgu-bscs', 50),
+      focusSession('e2e-s2', '2026-09-29', 'goal-wgu-bscs', 35),
+      focusSession('e2e-s3', '2026-09-29', null, 20),
+      focusSession('e2e-s4', '2026-09-28', 'goal-wgu-bscs', 60),
+    ])
+    await page.goto('/')
+    await expect(
+      today.getByRole('img', { name: 'B.S. Computer Science — WGU: 1 h 25 min' }),
+    ).toBeVisible()
+    await expect(today.getByRole('img', { name: 'Other: 20 min' })).toBeVisible()
+    await expect(today.getByRole('heading')).toContainText('1 h 45 min')
+    // Monday's hour counts toward the week (Mon Sep 28 to Tue Sep 29).
+    await expect(
+      week.getByRole('img', { name: 'B.S. Computer Science — WGU: 2 h 25 min' }),
+    ).toBeVisible()
+    await expect(week.getByRole('img', { name: 'Other: 20 min' })).toBeVisible()
   })
 })

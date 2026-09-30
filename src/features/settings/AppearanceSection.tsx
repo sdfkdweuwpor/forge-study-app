@@ -45,9 +45,14 @@ export function AppearanceSection() {
   const [themeMessage, setThemeMessage] = useState('')
   /** The swatch under the pointer or focus, shown in the preview before it is chosen. */
   const [peek, setPeek] = useState<AccentId | null>(null)
+  /** The swatch just chosen, until the saved setting catches up (so the ring moves with the click). */
+  const [chosen, setChosen] = useState<AccentId | null>(null)
+  const saved = settings?.appearance.accent
+  if (chosen !== null && chosen === saved) setChosen(null)
 
   if (settings === undefined) return <SectionLoading title={APPEARANCE.title} rows={3} />
-  const { accent, reducedMotion } = settings.appearance
+  const { reducedMotion } = settings.appearance
+  const accent = chosen ?? settings.appearance.accent
 
   async function changeTheme(value: Theme) {
     const saved = await theme.setTheme(value)
@@ -89,7 +94,12 @@ export function AppearanceSection() {
                   className="sr-only"
                   value={a.id}
                   checked={accent === a.id}
-                  onChange={() => void save({ appearance: { accent: a.id } })}
+                  onChange={() => {
+                    setChosen(a.id)
+                    void save({ appearance: { accent: a.id } }).then((ok) => {
+                      if (!ok) setChosen(null)
+                    })
+                  }}
                   onFocus={() => setPeek(a.id)}
                   onBlur={() => setPeek(null)}
                 />

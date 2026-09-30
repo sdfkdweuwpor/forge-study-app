@@ -56,9 +56,23 @@ interface RowProps<T extends { id: string }> {
   renderRow: SortableListProps<T>['renderRow']
 }
 
-function SortableRow<T extends { id: string }>({ item, name, as: Tag, role, className, renderRow }: RowProps<T>) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id })
+function SortableRow<T extends { id: string }>({
+  item,
+  name,
+  as: Tag,
+  role,
+  className,
+  renderRow,
+}: RowProps<T>) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id })
   const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition }
   return (
     <Tag
@@ -141,7 +155,8 @@ export function SortableList<T extends { id: string }>({
             over
               ? `Dropped ${nameFor(active.id)} over ${nameFor(over.id)}.`
               : `Dropped ${nameFor(active.id)}.`,
-          onDragCancel: ({ active }) => `Reordering cancelled. ${nameFor(active.id)} is back where it was.`,
+          onDragCancel: ({ active }) =>
+            `Reordering cancelled. ${nameFor(active.id)} is back where it was.`,
         },
       }}
     >

@@ -113,11 +113,20 @@ test.describe('board', () => {
     const doing = column(page, 'doing').getByRole('listitem').first()
     await expect(doing).toContainText('CSS layout (45 min)')
 
+    // Each key waits for the announcement of the one before it, not for a fixed delay: dnd-kit measures
+    // the columns after the pick-up, and a busy page can take longer than any timeout chosen here.
     await doing.getByRole('button', { name: /^Move / }).focus()
     await page.keyboard.press('Space')
-    await page.waitForTimeout(150)
-    await page.keyboard.press('ArrowRight')
-    await page.waitForTimeout(150)
+    // The pick-up is announced ("Picked up …"), then at once as "… is over Doing".
+    await expect(
+      page.getByText(/^(Picked up .*|.*)CSS layout \(45 min\)(\.| is over Doing)/),
+    ).toBeAttached()
+    // dnd-kit starts listening for arrow keys a tick after the pick-up, so an arrow pressed at once can be
+    // lost. Done is the last column, so pressing again until it is announced cannot overshoot.
+    await expect(async () => {
+      await page.keyboard.press('ArrowRight')
+      await expect(page.getByText(/CSS layout \(45 min\) is over Done/)).toBeAttached({ timeout: 400 })
+    }).toPass({ timeout: 5000 })
     await page.keyboard.press('Space')
 
     await expect(column(page, 'done').getByText('C779 · Unit 3: CSS layout (45 min)')).toBeVisible()

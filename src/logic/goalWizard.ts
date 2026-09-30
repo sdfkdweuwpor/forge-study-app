@@ -9,6 +9,7 @@ import type { Weekday } from './dates'
 import {
   moveCourse,
   removeCourse,
+  reorderCourses,
   setDayMinutes,
   setTermEnd,
   setTermStart,
@@ -38,6 +39,7 @@ export type WizardAction =
   | { type: 'patchCourse'; key: string; patch: Partial<Omit<DraftCourse, 'key'>> }
   | { type: 'removeCourse'; key: string }
   | { type: 'moveCourse'; from: number; to: number }
+  | { type: 'reorderCourses'; keys: readonly string[] }
   | { type: 'togglePrerequisite'; key: string; prerequisite: string }
   | { type: 'setDayMinutes'; weekday: Weekday; minutes: number }
   | { type: 'addRange'; key: string }
@@ -99,6 +101,8 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         ...draft,
         courses: moveCourse(draft.courses, action.from, action.to),
       })
+    case 'reorderCourses':
+      return withDraft(state, { ...draft, courses: reorderCourses(draft.courses, action.keys) })
     case 'togglePrerequisite':
       return withDraft(state, {
         ...draft,

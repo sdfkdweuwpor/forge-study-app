@@ -623,15 +623,17 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 ### Phase 5 — Goals, scheduler, rebalancing, Claude import
 - [x] **5A [A] Scheduler** (∥ 5B, 5C). Owns `src/logic/scheduler/**` and `rebalanceGoal`/`computeRemaining` wiring in `src/db/repos/goals.ts` (the section marked `// scheduling`). Implements §4 exactly with all §4.4 tests.
   - Done: 61 pure tests (`scheduler.test.ts`, `diff.test.ts`: every §4.4 case plus DST, per-weekday hours, pins, skip, idempotency, a 250-plan chunk-bounds property test, determinism, a 12-course year in ~1–4 ms) and 11 fake-indexeddb tests (`src/db/repos/goals.scheduling.test.ts`, including adopting the WGU sample's hand-written chunks by key).
-- [ ] **5B [B] Goals UI** (∥ 5A; codes against the §4.1 contract). Owns `src/features/goals/**` except `import/` and `src/db/repos/goals.ts` CRUD (cascade trash).
+- [x] **5B [B] Goals UI** (∥ 5A; codes against the §4.1 contract). Owns `src/features/goals/**` except `import/` and `src/db/repos/goals.ts` CRUD (cascade trash).
   - Goals list.
   - Wizard steps 1–3 (name/icon/cover/target; courses with code, CUs, OA/PA, hours, prereqs and units; per-weekday availability and days off; WGU terms).
   - Goal page: cover, icon, title, progress bar (% of hours), course database table (status, CUs, hours, due), BlockEditor notes.
   - Course page, breadcrumbs, and the `sidebar.nav.goals` tree.
-- [ ] **5C [B] Claude import** (∥ 5A, 5B). Owns `src/logic/planImport/**` (Zod schema, JSON line mapping, mapping to entities; tests) and `src/features/goals/import/**`.
+- [x] **5C [B] Claude import** (∥ 5A, 5B). Owns `src/logic/planImport/**` (Zod schema, JSON line mapping, mapping to entities; tests) and `src/features/goals/import/**`.
   - Copy-prompt button with the template.
   - Paste textarea; per-line errors; preview table; import.
   - The schema is documented in the UI, generated from the schema.
+  - Done: pure `parsePlan` (fence and prose tolerant, line and column of every syntax and schema error), `planToOps` (create or merge, idempotent, never deletes), `toPlanDraft` for the Goal Breakdown Planner review screen, and the prompt and schema reference generated from the Zod schema. The panel (`goal.panels`, `i`, palette) and `ImportGoalButton` (new goal) preview first and write only on the Import click, with Undo. Tests: 75 pure, 9 fake-indexeddb (`importPlan.test.ts`), 7 manifest, and `e2e/import.spec.ts` (13).
+  - Open: `ImportGoalButton` is hosted by the `/design` demo (`PlanImport.demo.tsx`) until the goals list places it, then delete the demo and re-point `openNewGoalImport` in the e2e. Assessments in the JSON are validated and previewed but not stored (no table fits them).
 - [ ] **5D [B] Integration** (after 5A and 5B).
   - Wizard step 4 preview: SVG Gantt timeline, "At this pace you'll finish on X", red impossible warning with h/day.
   - Goal page: "Now projected: Mar 14 (+9 days)" and the one-click catch-up.

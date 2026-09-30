@@ -171,10 +171,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     session?.kind === 'focus' &&
     session.status === 'running'
   const bedVolume = useEffectEvent(() => ambientVolume)
-  // The audio code is loaded when it is first needed, not with the app.
+  // The audio code is loaded when it is first needed, not with the app. Arming the unlock makes the next
+  // key press or click create the audio context, so it is done only while a phase is running (the
+  // chime at its end needs it) and never for someone who is just using the app.
   useEffect(() => {
-    void import('@/lib/audio').then((audio) => audio.armAudioUnlock())
-  }, [])
+    if (running) void import('@/lib/audio').then((audio) => audio.armAudioUnlock())
+  }, [running])
   useEffect(() => {
     if (!wantAmbient) return undefined
     let cancelled = false

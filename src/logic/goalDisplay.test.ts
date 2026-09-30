@@ -75,55 +75,72 @@ describe('summarizeFinish', () => {
     })
   })
 
-  it('shows the slip in amber, then red', () => {
+  it('describes a slip gently: neutral when small, amber when larger, never an alarm', () => {
     const behind = summarizeFinish(goal(projection({ slipDays: 9, feasible: false })), TODAY)
     expect(behind).toMatchObject({
       kind: 'behind',
       tone: 'warning',
-      headline: 'Now projected: Mar 14, 2027 (+9 days)',
+      headline: 'Projected Mar 14, 2027 · 9 days after target',
       end: 'Mar 14, 2027',
-      slip: '+9 days',
+      slip: '9 days after target',
     })
-    expect(summarizeFinish(goal(projection({ slipDays: 14, feasible: false })), TODAY).tone).toBe(
+    expect(summarizeFinish(goal(projection({ slipDays: 7, feasible: false })), TODAY).tone).toBe(
+      'neutral',
+    )
+    expect(summarizeFinish(goal(projection({ slipDays: 8, feasible: false })), TODAY).tone).toBe(
       'warning',
     )
-    expect(summarizeFinish(goal(projection({ slipDays: 15, feasible: false })), TODAY).tone).toBe(
-      'danger',
-    )
     expect(summarizeFinish(goal(projection({ slipDays: 1, feasible: false })), TODAY).slip).toBe(
-      '+1 day',
+      '1 day after target',
+    )
+    // However far behind, there is no danger tone and no alarming words.
+    const far = summarizeFinish(goal(projection({ slipDays: 200, feasible: false })), TODAY)
+    expect(far.tone).toBe('warning')
+    expect(far.headline).not.toMatch(/late|behind|overdue|fail|miss|impossible|can’t|cannot/i)
+  })
+
+  it('measures against the plan when there is no target', () => {
+    expect(summarizeFinish(goal(projection({ slipDays: 3 }), null), TODAY).headline).toBe(
+      'Projected Mar 14, 2027 · 3 days after your plan',
+    )
+    expect(summarizeFinish(goal(projection({ slipDays: -3 }), null), TODAY).headline).toBe(
+      'Projected Mar 14, 2027 · 3 days before your plan',
     )
   })
 
-  it('is calm when on time or ahead', () => {
+  it('is positive when on time or ahead', () => {
     expect(summarizeFinish(goal(projection({ slipDays: 0 })), TODAY)).toMatchObject({
       kind: 'onTrack',
       tone: 'success',
-      headline: 'On track to finish Mar 14, 2027',
+      headline: 'On track · finishing Mar 14, 2027',
     })
     expect(summarizeFinish(goal(projection({ slipDays: -14 })), TODAY)).toMatchObject({
       kind: 'ahead',
       tone: 'success',
-      headline: 'Projected: Mar 14, 2027 (14 days early)',
-      slip: '14 days early',
+      headline: 'Projected Mar 14, 2027 · 14 days before target',
+      slip: '14 days before target',
     })
   })
 
   it('has no slip when there is nothing to measure against', () => {
     expect(summarizeFinish(goal(projection({ slipDays: null }), null), TODAY)).toMatchObject({
       kind: 'projected',
-      headline: 'Projected finish: Mar 14, 2027',
+      headline: 'Projected Mar 14, 2027',
       target: null,
       slip: null,
     })
   })
 
-  it('explains a plan that never ends', () => {
+  it('explains a plan that never ends without raising an alarm', () => {
     const none = summarizeFinish(
       goal(projection({ end: null, slipDays: null, feasible: false, issues: ['NO_AVAILABILITY'] })),
       TODAY,
     )
-    expect(none).toMatchObject({ kind: 'unfinishable', tone: 'danger' })
+    expect(none).toMatchObject({
+      kind: 'unfinishable',
+      tone: 'neutral',
+      headline: 'No finish date yet',
+    })
     expect(none.note).toContain('study days')
     const far = summarizeFinish(
       goal(
@@ -131,7 +148,8 @@ describe('summarizeFinish', () => {
       ),
       TODAY,
     )
-    expect(far.note).toContain('three years')
+    expect(far).toMatchObject({ kind: 'unfinishable', tone: 'warning' })
+    expect(far.note).toContain('More study time')
     expect(summarizeFinish(goal(projection({ end: null, slipDays: null })), TODAY)).toMatchObject({
       kind: 'done',
       headline: 'Nothing left to schedule',

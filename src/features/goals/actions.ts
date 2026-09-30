@@ -31,7 +31,8 @@ const shorten = (text: string, max = 48): string =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
 export interface GoalActions {
-  updateGoal(id: ID, patch: GoalPatch): Promise<void>
+  /** Resolves true when saved (false after an error toast). */
+  updateGoal(id: ID, patch: GoalPatch): Promise<boolean>
   /** Moves the goal to the trash and shows an Undo toast. Resolves true when it was moved. */
   trashGoal(goal: Pick<Goal, 'id' | 'title'>): Promise<boolean>
   addCourse(goalId: ID, input: NewCourse): Promise<Milestone | null>
@@ -66,7 +67,7 @@ export function useGoalActions(): GoalActions {
 
     return {
       updateGoal: (id, patch) =>
-        attempt('updateGoal', async () => void (await updateGoal(id, patch)), undefined),
+        attempt('updateGoal', async () => (await updateGoal(id, patch)) !== null, false),
 
       trashGoal: (goal) =>
         attempt(
@@ -80,7 +81,8 @@ export function useGoalActions(): GoalActions {
           false,
         ),
 
-      addCourse: (goalId, input) => attempt('addCourse', () => createMilestone(goalId, input), null),
+      addCourse: (goalId, input) =>
+        attempt('addCourse', () => createMilestone(goalId, input), null),
 
       updateCourse: (id, patch) =>
         attempt('updateCourse', async () => void (await updateMilestone(id, patch)), undefined),
@@ -101,7 +103,11 @@ export function useGoalActions(): GoalActions {
         ),
 
       reorderCourses: (goalId, ids) =>
-        attempt('reorderCourses', async () => void (await reorderMilestones(goalId, ids)), undefined),
+        attempt(
+          'reorderCourses',
+          async () => void (await reorderMilestones(goalId, ids)),
+          undefined,
+        ),
 
       trashCourse: (course) =>
         attempt(

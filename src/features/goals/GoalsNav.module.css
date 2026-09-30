@@ -1,0 +1,124 @@
+/* Inherits the sidebar's row sizing (--sub-row-h, --icon-btn) so touch and desktop match its other rows. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  min-height: var(--sub-row-h, 28px);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 13px;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.row[data-active] {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.toggle,
+.toggleSpace {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: var(--sub-row-h, 28px);
+}
+
+.toggle {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.toggle svg {
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.toggle svg[data-open] {
+  transform: rotate(90deg);
+}
+
+@media (pointer: coarse) {
+  .toggle,
+  .toggleSpace {
+    width: var(--tap-min);
+  }
+}
+
+.link,
+.courseLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  min-height: var(--sub-row-h, 28px);
+  border-radius: var(--radius-md);
+  color: inherit;
+}
+
+.icon {
+  flex: none;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courses {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0 0 var(--space-1) 20px;
+  list-style: none;
+}
+
+.courseLink {
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: 13px;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .courseLink:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.courseLink[data-status='done'] {
+  color: var(--text-muted);
+}
+
+.courseLink[data-active] {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}

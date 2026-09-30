@@ -68,14 +68,17 @@ export interface CreatedGoal {
   goal: Goal
   milestones: Milestone[]
   units: Unit[]
-  /** The first plan, or `null` when re-planning was skipped. */
+  /** The first plan, or `null` when re-planning was skipped or failed. */
   summary: RebalanceSummary | null
+  /** Why the first plan could not be built. The goal itself was saved; a later re-plan can retry. */
+  planError: unknown
 }
 
 /**
  * Saves a new goal with its courses and units (from `draftToRows`) in one transaction, appends it
  * after the last goal, then builds the first plan (`rebalanceGoal`, reason `wizard`, which also sets
- * the baseline end date). Throws for rows that do not belong together.
+ * the baseline end date). Throws for rows that do not belong together; a failed first plan is returned
+ * as `planError` (the goal exists).
  */
 export async function createGoalWithCourses(
   rows: DraftRows,
@@ -103,10 +106,17 @@ export async function createGoalWithCourses(
   })
 
   let summary: RebalanceSummary | null = null
+  let planError: unknown = null
   if (opts.rebalance !== false) {
-    summary = await rebalanceGoal(goal.id, { now: opts.now, reason: 'wizard' })
+    try {
+      summary = await rebalanceGoal(goal.id, { now: opts.now, reason: 'wizard' })
+    } catch (error) {
+      // The rows are saved. Failing here must not read as "nothing was created" (a retry would
+      // duplicate the goal), so it is reported alongside the result.
+      planError = error
+    }
   }
-  return { goal: (await db.goals.get(goal.id)) ?? goal, milestones, units, summary }
+  return { goal: (await db.goals.get(goal.id)) ?? goal, milestones, units, summary, planError }
 }
 
 /** The fields `updateGoal` may change. */

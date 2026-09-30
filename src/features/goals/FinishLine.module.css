@@ -11,10 +11,6 @@
   --_tone: var(--warning-text);
 }
 
-.root[data-tone='danger'] {
-  --_tone: var(--danger-text);
-}
-
 .headline {
   display: flex;
   align-items: baseline;

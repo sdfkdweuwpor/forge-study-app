@@ -1,0 +1,495 @@
+/* The new-goal flow. Quiet forms: labels and spacing carry the structure, not boxes. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+/* ── Step bar ─────────────────────────────────────────────────────────────── */
+.steps ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  cursor: pointer;
+}
+
+.steps button:disabled {
+  cursor: default;
+}
+
+.steps li[aria-current='step'] button {
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+
+.stepNumber {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.steps li[data-done] .stepNumber {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.steps li[aria-current='step'] .stepNumber {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+@media (pointer: coarse) {
+  .steps button {
+    min-height: var(--tap-min);
+  }
+}
+
+@media (max-width: 479px) {
+  /* Only the current step keeps its name; the rest are numbers. */
+  .steps li:not([aria-current='step']) .stepName {
+    display: none;
+  }
+}
+
+/* ── Steps ────────────────────────────────────────────────────────────────── */
+.step {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.titleInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.iconButton {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .iconButton:hover {
+    background: var(--bg-active);
+  }
+}
+
+@media (pointer: coarse) {
+  .iconButton {
+    height: var(--tap-min);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.fieldLabel {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.error {
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--fs-12);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ── Courses ──────────────────────────────────────────────────────────────── */
+.emptyCourses {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-4) 0;
+}
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.courseItem {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.course {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.courseHead,
+.courseMain {
+  display: grid;
+  grid-template-columns: 24px 84px minmax(0, 1fr) 76px 72px 28px;
+  column-gap: var(--space-2);
+  align-items: start;
+}
+
+.courseHead {
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.handle {
+  display: flex;
+  align-items: center;
+  height: 28px;
+}
+
+.cRemove {
+  align-self: start;
+}
+
+.courseSub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-left: 32px;
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  cursor: pointer;
+}
+
+.disclosure svg {
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.disclosure svg[data-open] {
+  transform: rotate(90deg);
+}
+
+.disclosureSummary {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+}
+
+.moreBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-1) 32px;
+}
+
+.prereqs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.courseActions {
+  display: flex;
+  padding-top: var(--space-1);
+}
+
+@container (max-width: 599px) {
+  .courseHead {
+    display: none;
+  }
+
+  .courseMain {
+    grid-template-columns: 24px repeat(3, minmax(0, 1fr)) 32px;
+    row-gap: var(--space-2);
+  }
+
+  .cName {
+    grid-column: 2 / 5;
+    grid-row: 1;
+  }
+
+  .cRemove {
+    grid-column: 5;
+    grid-row: 1;
+  }
+
+  .cCode {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .cHours {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .cCus {
+    grid-column: 4;
+    grid-row: 2;
+  }
+
+  .handle {
+    grid-row: 1;
+  }
+
+  .courseSub,
+  .moreBody {
+    padding-left: 0;
+  }
+}
+
+/* ── Availability ─────────────────────────────────────────────────────────── */
+.availability {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-8);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hours {
+  width: 92px;
+}
+
+.unit {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.ranges {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.to {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.rangeLabel {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.range .error {
+  flex-basis: 100%;
+}
+
+.addRange {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+.termHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.term {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+}
+
+.termDate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (max-width: 479px) {
+  .days {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Preview ──────────────────────────────────────────────────────────────── */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.previewLead {
+  margin: 0;
+  font-size: var(--fs-24);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  text-wrap: balance;
+}
+
+.preview[data-tone='warning'] .previewLead {
+  color: var(--warning-text);
+}
+
+.previewLine {
+  margin: 0;
+  font-size: var(--fs-16);
+  line-height: 1.5;
+}
+
+.previewMuted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.footer {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.footerStart {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.keyHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.footerError {
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--fs-12);
+}
+
+@media (max-width: 639px), (pointer: coarse) {
+  .keyHint {
+    display: none;
+  }
+}

@@ -40,7 +40,11 @@ export function formatDay(day: ISODate, today: ISODate): string {
 
 export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
 
-export type FinishTone = 'neutral' | 'success' | 'warning' | 'danger'
+/**
+ * Calm by design: a slip is never shown as an alarm. Neutral for on time or a small slip, amber for a
+ * larger one, green for being ahead. There is no red, and the words describe the date, not the person.
+ */
+export type FinishTone = 'neutral' | 'success' | 'warning'
 
 export type FinishKind =
   'unscheduled' | 'done' | 'unfinishable' | 'projected' | 'behind' | 'onTrack' | 'ahead'
@@ -48,20 +52,20 @@ export type FinishKind =
 export interface FinishSummary {
   kind: FinishKind
   tone: FinishTone
-  /** The sentence: "Now projected: Mar 14 (+9 days)". */
+  /** The sentence: "Projected Mar 14 · 9 days after target". */
   headline: string
   /** The date on its own, when there is one. */
   end: string | null
-  /** "+9 days", "9 days early", or null when there is no slip to show. */
+  /** "9 days after target", "9 days before target", or null when there is no slip to show. */
   slip: string | null
   /** "Target Jun 30", or null when the goal has no target date. */
   target: string | null
-  /** An extra line explaining a problem. */
+  /** An extra line that helps (never scolds). */
   note: string | null
 }
 
-/** A slip up to this many days is amber; more is red. */
-export const SLIP_WARNING_DAYS = 14
+/** A slip up to this many days stays neutral; more is amber. */
+export const SLIP_NEUTRAL_DAYS = 7
 
 interface FinishInput {
   projection: GoalProjection | null
@@ -88,18 +92,18 @@ export function summarizeFinish(goal: FinishInput, today: ISODate): FinishSummar
       return {
         ...base,
         kind: 'unfinishable',
-        tone: 'danger',
-        headline: 'Can’t finish at this pace',
-        note: 'No study days are set. Add some in the schedule settings.',
+        tone: 'neutral',
+        headline: 'No finish date yet',
+        note: 'Add some study days in the schedule settings to plan this goal.',
       }
     }
     if (p.issues.includes('HORIZON_EXCEEDED')) {
       return {
         ...base,
         kind: 'unfinishable',
-        tone: 'danger',
-        headline: 'Can’t finish at this pace',
-        note: 'At this pace the plan runs past three years.',
+        tone: 'warning',
+        headline: 'Finishing is more than three years out',
+        note: 'More study time, or fewer hours in the courses, would bring it closer.',
       }
     }
     return { ...base, kind: 'done', tone: 'success', headline: 'Nothing left to schedule' }
@@ -107,34 +111,35 @@ export function summarizeFinish(goal: FinishInput, today: ISODate): FinishSummar
   const end = formatDay(p.end, today)
   const slip = p.slipDays
   if (slip === null) {
-    return {
-      ...base,
-      kind: 'projected',
-      tone: 'neutral',
-      headline: `Projected finish: ${end}`,
-      end,
-    }
+    return { ...base, kind: 'projected', tone: 'neutral', headline: `Projected ${end}`, end }
   }
+  const against = goal.targetDate === null ? 'your plan' : 'target'
   if (slip > 0) {
-    const label = `+${plural(slip, 'day')}`
+    const label = `${plural(slip, 'day')} after ${against}`
     return {
       ...base,
       kind: 'behind',
-      tone: slip > SLIP_WARNING_DAYS ? 'danger' : 'warning',
-      headline: `Now projected: ${end} (${label})`,
+      tone: slip > SLIP_NEUTRAL_DAYS ? 'warning' : 'neutral',
+      headline: `Projected ${end} · ${label}`,
       end,
       slip: label,
     }
   }
   if (slip === 0) {
-    return { ...base, kind: 'onTrack', tone: 'success', headline: `On track to finish ${end}`, end }
+    return {
+      ...base,
+      kind: 'onTrack',
+      tone: 'success',
+      headline: `On track · finishing ${end}`,
+      end,
+    }
   }
-  const label = `${plural(-slip, 'day')} early`
+  const label = `${plural(-slip, 'day')} before ${against}`
   return {
     ...base,
     kind: 'ahead',
     tone: 'success',
-    headline: `Projected: ${end} (${label})`,
+    headline: `Projected ${end} · ${label}`,
     end,
     slip: label,
   }

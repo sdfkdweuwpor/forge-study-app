@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  draftFromGoal,
+  draftSchedule,
   draftToRows,
   emptyCourse,
   emptyDraft,
@@ -13,12 +15,14 @@ import {
   prerequisiteOptions,
   pruneStalePrerequisites,
   removeCourse,
+  reorderCourses,
   setDayMinutes,
   setTermEnd,
   setTermStart,
   termEndFor,
   validateAvailability,
   validateBasics,
+  validateSchedule,
   validateCourses,
   validateStep,
   weekSummary,
@@ -119,6 +123,14 @@ describe('editing', () => {
     expect(moved[2]?.prerequisiteKeys).toEqual(['a', 'b'])
   })
 
+  it('reorders by key list, keeping unlisted courses at the end', () => {
+    const list = [course('a'), course('b', { prerequisiteKeys: ['a'] }), course('c')]
+    const next = reorderCourses(list, ['c', 'b', 'zzz'])
+    expect(next.map((c) => c.key)).toEqual(['c', 'b', 'a'])
+    // b required a, which is now later.
+    expect(next[1]?.prerequisiteKeys).toEqual([])
+  })
+
   it('removing a course removes it from the prerequisites of the others', () => {
     const list = [
       course('a'),
@@ -206,6 +218,17 @@ describe('validation', () => {
         term: { enabled: false, label: '', start: '', end: '', endEdited: false },
       }),
     ).toEqual({})
+  })
+
+  it('checks the schedule settings: target date and availability, but not the name', () => {
+    const base = { ...emptyDraft(TODAY), title: '' }
+    expect(validateSchedule(base, TODAY)).toEqual({})
+    expect(Object.keys(validateSchedule({ ...base, targetDate: '2026-01-01' }, TODAY))).toEqual([
+      'targetDate',
+    ])
+    expect(
+      Object.keys(validateSchedule({ ...base, minutesByWeekday: [0, 0, 0, 0, 0, 0, 0] }, TODAY)),
+    ).toEqual(['days'])
   })
 
   it('walks the steps', () => {
@@ -413,5 +436,64 @@ describe('emptyCourse and the WGU template', () => {
     expect(
       (windows.get(idOf('C867'))?.start ?? '') >= (windows.get(idOf('D278'))?.end ?? '~'),
     ).toBe(true)
+  })
+})
+
+describe('draftSchedule and draftFromGoal', () => {
+  it('turns the schedule part of a draft into stored values, keeping the term id', () => {
+    const draft: DraftGoal = {
+      ...emptyDraft(TODAY),
+      targetDate: '2027-03-28',
+      minutesByWeekday: [0, 90, 90, 90, 90, 90, 120],
+      daysOff: [
+        { key: 'r1', start: '2026-12-24', end: '2026-12-26', label: '' },
+        { key: 'r2', start: '', end: '', label: '' },
+      ],
+      term: { enabled: true, label: ' Term 1 ', start: TODAY, end: '2027-03-28', endEdited: false },
+    }
+    expect(draftSchedule(draft, 'term-1')).toEqual({
+      targetDate: '2027-03-28',
+      availability: {
+        minutesByWeekday: [0, 90, 90, 90, 90, 90, 120],
+        daysOff: [{ start: '2026-12-24', end: '2026-12-26' }],
+      },
+      terms: [{ id: 'term-1', label: 'Term 1', start: TODAY, end: '2027-03-28' }],
+    })
+    expect(draftSchedule({ ...draft, term: { ...draft.term, enabled: false } }, 'x').terms).toEqual(
+      [],
+    )
+  })
+
+  it('round-trips a goal’s schedule through a draft', () => {
+    const goal = {
+      title: 'B.S. Computer Science',
+      icon: '🎓',
+      kind: 'degree' as const,
+      targetDate: '2027-03-28',
+      availability: {
+        minutesByWeekday: [0, 60, 60, 60, 60, 60, 120] as [
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+        ],
+        daysOff: [{ start: '2026-11-25', end: '2026-11-29', label: 'Thanksgiving' }],
+      },
+      terms: [{ id: 't1', label: 'Term 1', start: TODAY, end: '2027-03-28' }],
+    }
+    const draft = draftFromGoal(goal, TODAY, keys())
+    expect(draft.daysOff).toEqual([
+      { key: 'k1', start: '2026-11-25', end: '2026-11-29', label: 'Thanksgiving' },
+    ])
+    expect(draft.term).toMatchObject({ enabled: true, endEdited: true, end: '2027-03-28' })
+    const back = draftSchedule(draft, 't1')
+    expect(back.availability).toEqual(goal.availability)
+    expect(back.terms).toEqual(goal.terms)
+    expect(back.targetDate).toBe('2027-03-28')
+    // No term: the draft's term is off.
+    expect(draftFromGoal({ ...goal, terms: [] }, TODAY, keys()).term.enabled).toBe(false)
   })
 })

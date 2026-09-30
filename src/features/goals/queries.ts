@@ -21,7 +21,9 @@ export interface GoalOverview {
 }
 
 async function loadOverviews(): Promise<GoalOverview[]> {
-  const goals = (await db.goals.toArray()).sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
+  const goals = (await db.goals.toArray()).sort(
+    (a, b) => a.order - b.order || a.createdAt - b.createdAt,
+  )
   return Promise.all(
     goals.map(async (goal) => {
       const [courses, units, tasks] = await Promise.all([
@@ -29,7 +31,11 @@ async function loadOverviews(): Promise<GoalOverview[]> {
         db.units.where('goalId').equals(goal.id).toArray(),
         db.tasks.where('goalId').equals(goal.id).toArray(),
       ])
-      return { goal, courses: sortCourses(courses), work: goalWork({ milestones: courses, units, tasks }) }
+      return {
+        goal,
+        courses: sortCourses(courses),
+        work: goalWork({ milestones: courses, units, tasks }),
+      }
     }),
   )
 }
@@ -87,7 +93,10 @@ export interface CourseData {
   siblings: Milestone[]
 }
 
-export function useCourseData(goalId: ID | undefined, courseId: ID | undefined): CourseData | null | undefined {
+export function useCourseData(
+  goalId: ID | undefined,
+  courseId: ID | undefined,
+): CourseData | null | undefined {
   const key = `${goalId ?? ''}/${courseId ?? ''}`
   const found = useLiveQuery(async () => {
     const [goal, course] = await Promise.all([
@@ -112,7 +121,9 @@ export function useCourseData(goalId: ID | undefined, courseId: ID | undefined):
     const data: CourseData = {
       goal,
       course,
-      units: allUnits.filter((u) => u.milestoneId === course.id).sort((a, b) => a.order - b.order || a.createdAt - b.createdAt),
+      units: allUnits
+        .filter((u) => u.milestoneId === course.id)
+        .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt),
       tasks,
       work: work.courses.find((c) => c.courseId === course.id),
       siblings: sortCourses(siblings).filter((m) => m.id !== course.id),
@@ -165,7 +176,13 @@ export async function searchGoals(query: string, limit: number): Promise<GoalHit
   const goalTitle = new Map(tree.map((n) => [n.goal.id, n.goal.title]))
   const hits: GoalHit[] = []
   for (const node of tree) {
-    hits.push({ kind: 'goal', goalId: node.goal.id, courseId: null, title: node.goal.title, subtitle: 'Goal' })
+    hits.push({
+      kind: 'goal',
+      goalId: node.goal.id,
+      courseId: null,
+      title: node.goal.title,
+      subtitle: 'Goal',
+    })
     for (const c of node.courses) {
       hits.push({
         kind: 'course',
@@ -210,5 +227,7 @@ export function useCoverValue(cover: Cover | null): PageCoverValue | null {
 
   if (cover === null) return null
   if (cover.kind === 'gradient') return cover
-  return url !== null && url.fileId === cover.fileId ? { kind: 'image', url: url.url, posY: cover.posY } : null
+  return url !== null && url.fileId === cover.fileId
+    ? { kind: 'image', url: url.url, posY: cover.posY }
+    : null
 }

@@ -4,6 +4,7 @@ import { Button } from '@/ui/Button'
 import { EmptyState } from '@/ui/EmptyState'
 import { Kbd } from '@/ui/Kbd'
 import { Skeleton } from '@/ui/Skeleton'
+import { ImportGoalButton } from './import'
 import styles from './states.module.css'
 
 /** No goals yet: the one action is the wizard, and it can start from a WGU template. */
@@ -12,12 +13,13 @@ export function GoalsEmpty() {
     <EmptyState
       icon={<Target />}
       title="No goals yet"
-      description="Turn a degree into daily study blocks. Add your courses and the hours you can study, and Forge schedules every day and moves the plan when you fall behind. Starting a WGU degree? The wizard can load a B.S. Computer Science template with C182, C779, D278 and more."
+      description="Turn a degree into daily study blocks. Add your courses and the hours you can study, and Forge schedules every day and moves the plan when you fall behind. Starting a WGU degree? Start from the B.S. Computer Science template, with C182, C779, D278 and more already filled in."
       action={
         <>
           <Button variant="primary" iconLeft={<Plus />} onClick={() => navigate('goalNew')}>
             Create a goal
           </Button>
+          <ImportGoalButton />
           <span className={styles.hint}>
             or press <Kbd keys="n" size="sm" />
           </span>
@@ -82,7 +84,9 @@ export function PageSkeleton({ label }: { label: string }) {
 export function NotFoundState({ what }: { what: 'goal' | 'course' }) {
   return (
     <div className={styles.page}>
-      <h1 className={styles.missingTitle}>{what === 'goal' ? 'Goal not found' : 'Course not found'}</h1>
+      <h1 className={styles.missingTitle}>
+        {what === 'goal' ? 'Goal not found' : 'Course not found'}
+      </h1>
       <EmptyState
         align="start"
         icon={<CircleAlert />}

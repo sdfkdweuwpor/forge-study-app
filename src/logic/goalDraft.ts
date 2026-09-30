@@ -5,6 +5,7 @@
  * on those rows with no tasks, so step 4 can show a projected finish before anything is saved.
  */
 import type {
+  Availability,
   DateRange,
   Goal,
   ID,
@@ -165,6 +166,20 @@ export function moveCourse(
   return pruneStalePrerequisites(moveItem(courses, from, to))
 }
 
+/** The courses in the order of `keys` (unknown keys ignored, unlisted courses kept after), prerequisites tidied. */
+export function reorderCourses(
+  courses: readonly DraftCourse[],
+  keys: readonly string[],
+): DraftCourse[] {
+  const byKey = new Map(courses.map((c) => [c.key, c]))
+  const listed = [...new Set(keys)].flatMap((k) => {
+    const c = byKey.get(k)
+    return c ? [c] : []
+  })
+  const rest = courses.filter((c) => !keys.includes(c.key))
+  return pruneStalePrerequisites([...listed, ...rest])
+}
+
 /** The courses `key` may depend on: everything listed before it. */
 export function prerequisiteOptions(courses: readonly DraftCourse[], key: string): DraftCourse[] {
   const index = courses.findIndex((c) => c.key === key)
@@ -292,6 +307,12 @@ export function validateAvailability(draft: DraftGoal): DraftErrors {
   return errors
 }
 
+/** The schedule settings dialog: the target date plus everything the availability step checks. */
+export function validateSchedule(draft: DraftGoal, today: ISODate): DraftErrors {
+  const { targetDate } = validateBasics({ ...draft, title: 'x' }, today)
+  return { ...validateAvailability(draft), ...(targetDate ? { targetDate } : {}) }
+}
+
 /** What blocks moving on from `step` (empty = fine). The preview step has nothing to fix. */
 export function validateStep(draft: DraftGoal, step: WizardStep, today: ISODate): DraftErrors {
   if (step === 0) return validateBasics(draft, today)
@@ -335,6 +356,67 @@ function validRanges(ranges: readonly DraftRange[]): DateRange[] {
     .sort((a, b) => compareISODate(a.start, b.start))
 }
 
+export interface DraftSchedule {
+  availability: Availability
+  terms: WguTerm[]
+  targetDate: ISODate | null
+}
+
+/**
+ * The scheduling part of a draft as stored values: weekday minutes, the complete days-off ranges (sorted),
+ * the term (kept under `termId` so courses keep pointing at it) and the target date.
+ */
+export function draftSchedule(draft: DraftGoal, termId: ID): DraftSchedule {
+  const { term } = draft
+  return {
+    availability: {
+      minutesByWeekday: [...draft.minutesByWeekday],
+      daysOff: validRanges(draft.daysOff),
+    },
+    terms: term.enabled
+      ? [
+          {
+            id: termId,
+            label: clean(term.label) || 'Term 1',
+            start: term.start,
+            end: term.end,
+          },
+        ]
+      : [],
+    targetDate: draft.targetDate,
+  }
+}
+
+/**
+ * A draft that holds an existing goal's schedule (the schedule settings dialog edits it with the same
+ * form as the wizard). Courses are not part of it. The term end counts as set by hand.
+ */
+export function draftFromGoal(
+  goal: Pick<Goal, 'title' | 'icon' | 'kind' | 'targetDate' | 'availability' | 'terms'>,
+  today: ISODate,
+  newKey: KeyMaker,
+): DraftGoal {
+  const base = emptyDraft(today)
+  const term = goal.terms[0]
+  return {
+    ...base,
+    title: goal.title,
+    icon: goal.icon,
+    kind: goal.kind,
+    targetDate: goal.targetDate,
+    minutesByWeekday: [...goal.availability.minutesByWeekday],
+    daysOff: goal.availability.daysOff.map((r) => ({
+      key: newKey(),
+      start: r.start,
+      end: r.end,
+      label: r.label ?? '',
+    })),
+    term: term
+      ? { enabled: true, label: term.label, start: term.start, end: term.end, endEdited: true }
+      : base.term,
+  }
+}
+
 /**
  * The rows the draft describes. Assumes a valid draft, but never throws: an unreadable number becomes
  * 0 hours, an unpicked range is dropped. Courses are numbered in list order; a prerequisite key that
@@ -342,14 +424,8 @@ function validRanges(ranges: readonly DraftRange[]): DateRange[] {
  */
 export function draftToRows(draft: DraftGoal, ctx: RowsContext): DraftRows {
   const goalId = ctx.newId()
-  const term: WguTerm | null = draft.term.enabled
-    ? {
-        id: ctx.newId(),
-        label: clean(draft.term.label) || 'Term 1',
-        start: draft.term.start,
-        end: draft.term.end,
-      }
-    : null
+  const schedule = draftSchedule(draft, ctx.newId())
+  const term = schedule.terms[0] ?? null
 
   const idByKey = new Map<string, ID>()
   const milestones: Milestone[] = []
@@ -415,12 +491,9 @@ export function draftToRows(draft: DraftGoal, ctx: RowsContext): DraftRows {
     kind: draft.kind,
     status: 'active',
     startDate: ctx.today,
-    targetDate: draft.targetDate,
-    availability: {
-      minutesByWeekday: [...draft.minutesByWeekday],
-      daysOff: validRanges(draft.daysOff),
-    },
-    terms: term === null ? [] : [term],
+    targetDate: schedule.targetDate,
+    availability: schedule.availability,
+    terms: schedule.terms,
     notes: [],
     order: ctx.goalOrder ?? 0,
     baselineEnd: null,

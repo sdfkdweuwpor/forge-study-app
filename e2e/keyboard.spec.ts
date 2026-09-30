@@ -1151,6 +1151,80 @@ test.describe('shortcuts', () => {
     await expect(toasts(page).getByRole('button', { name: 'Undo' })).toBeVisible()
   })
 
+  test('a task menu: arrows and Enter pick an item, the picker it opens gives focus back on Esc', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/tasks/inbox', 'wgu')
+    await settled(page)
+    await expect(doneBox(page, 'Renew library card')).toBeVisible()
+    const more = page.getByRole('button', { name: 'More actions' }).first()
+    await more.focus()
+    await page.keyboard.press('Enter')
+    const menu = page.getByRole('menu')
+    await expect(menu).toBeVisible()
+    await expectFocusInside(menu)
+    // Arrows move between the items (the separators are skipped); End and Home jump to the ends.
+    const items = menu.getByRole('menuitem')
+    await page.keyboard.press('End')
+    await expect(items.last()).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(items.first()).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(items.nth(1)).toBeFocused()
+    await page.keyboard.press('ArrowUp')
+    await expect(items.first()).toBeFocused()
+    // "Date…" opens its picker; Esc closes that and focus is back on the … button.
+    await menu.getByRole('menuitem', { name: /^Date/ }).focus()
+    await page.keyboard.press('Enter')
+    const picker = page.getByRole('dialog', { name: 'Date' })
+    await expect(picker).toBeVisible()
+    await expect(menu).toBeHidden()
+    await expectFocusInside(picker)
+    await page.keyboard.press('Escape')
+    await expect(picker).toBeHidden()
+    await expect(more).toBeFocused()
+  })
+
+  test('the focus page picks a task with the keyboard alone', async ({ page }) => {
+    await gotoApp(page, '/focus', 'wgu')
+    const picker = page.getByTestId('task-picker')
+    await expect(picker).toBeVisible()
+    await picker.focus()
+    await page.keyboard.press('Enter')
+    const search = page.getByRole('combobox', { name: 'Search open tasks' })
+    await expect(search).toBeFocused()
+    await page.keyboard.type('mentor')
+    await expect(page.getByRole('option', { name: /Email mentor about term plan/ })).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(picker).toContainText('Email mentor about term plan')
+    await expect(picker).toBeFocused()
+  })
+
+  test('tabs and segmented controls answer the arrow keys', async ({ page }) => {
+    await gotoApp(page, '/rewards', 'wgu')
+    await settled(page)
+    const tabs = page.getByRole('tablist')
+    const shop = tabs.getByRole('tab').first()
+    await expect(shop).toHaveAttribute('aria-selected', 'true')
+    await shop.focus()
+    await page.keyboard.press('ArrowRight')
+    const second = tabs.getByRole('tab').nth(1)
+    await expect(second).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(tabs.getByRole('tab').last()).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(shop).toBeFocused()
+
+    await gotoApp(page, '/focus', 'wgu')
+    const radios = page.getByRole('radiogroup').first()
+    await expect(page.getByTestId('timer-display')).toBeVisible()
+    await radios.getByRole('radio', { name: 'Pomodoro' }).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(radios.getByRole('radio', { name: 'Custom' })).toBeChecked()
+    await page.keyboard.press('ArrowLeft')
+    await expect(radios.getByRole('radio', { name: 'Pomodoro' })).toBeChecked()
+  })
+
   test('F8 reaches the toast: Enter on Undo brings the task back and focus goes where it was', async ({
     page,
   }) => {

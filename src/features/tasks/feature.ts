@@ -13,7 +13,6 @@ import { navigate, setQuery } from '@/app/router'
 import { dayOf } from '@/logic/dates'
 import { relativeDay } from '@/logic/taskDisplay'
 import { listFromParam, type TaskListId } from '@/logic/taskLists'
-import { EverydayHoursSection } from './EverydayHours'
 import { searchTasks } from './queries'
 import { SavedViewsNav } from './SavedViewsNav'
 import { taskShortcuts } from './shortcuts'
@@ -46,6 +45,11 @@ const taskSearch: SearchProvider = {
     }))
   },
 }
+
+/** Loads with Settings, not with the app. */
+const EverydayHoursSection = lazy(() =>
+  import('./EverydayHours').then((m) => ({ default: m.EverydayHoursSection })),
+)
 
 /** Both routes are one page: `/tasks/views/:viewId` is the Tasks screen showing a saved view. */
 const TasksPage = lazy(() => import('./TasksPage'))

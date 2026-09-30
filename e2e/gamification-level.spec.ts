@@ -133,8 +133,11 @@ test.describe('level meter', () => {
 
     await meter(page).hover()
     const tip = page.getByRole('tooltip')
-    await expect(tip).toContainText(`Lifetime XP: ${lifetime.toLocaleString('en-US')}`)
-    await expect(tip).toContainText(`Balance: ${lifetime.toLocaleString('en-US')} XP`)
+    await expect(tip).toContainText(`${lifetime.toLocaleString('en-US')} XP earned in all`)
+    await expect(tip).toContainText(`${lifetime.toLocaleString('en-US')} XP to spend`)
+    await expect(tip).toContainText(
+      `${(info.needed - info.intoLevel).toLocaleString('en-US')} XP to Level ${info.level + 1}`,
+    )
 
     await meter(page).click()
     await expect(page).toHaveURL(/\/rewards$/)

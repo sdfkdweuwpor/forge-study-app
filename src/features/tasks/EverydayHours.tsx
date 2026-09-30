@@ -9,10 +9,8 @@ import { everydayWindowsOf } from '@/logic/everydaySlots'
 import { DAY_NAMES, nextWindow, windowProblem, WEEK_ORDER } from '@/logic/plannerAvailability'
 import { defaultTaskWindows } from '@/logic/schemaV2'
 import { Button, IconButton, Input, Skeleton, Toggle } from '@/ui'
+import { EVERYDAY_HOURS_SECTION } from './taskUrls'
 import styles from './EverydayHours.module.css'
-
-/** The settings route the "No open time" hint links to: `/settings/everyday-hours`. */
-export const EVERYDAY_HOURS_SECTION = 'everyday-hours'
 
 const DEFAULT_EVERYDAY_WINDOW: TimeWindow = { start: '18:00', end: '21:00' }
 

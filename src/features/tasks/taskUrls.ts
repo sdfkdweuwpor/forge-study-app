@@ -19,3 +19,6 @@ export function openTask(id: ID): void {
 export function closePeek(): void {
   setQuery({ peek: undefined })
 }
+
+/** The Settings route section the everyday-hours editor lives at (`/settings/everyday-hours`). */
+export const EVERYDAY_HOURS_SECTION = 'everyday-hours'

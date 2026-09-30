@@ -1,9 +1,10 @@
 /**
- * The level meter in the sidebar footer (`sidebar.footer`, BRIEF §5.5): "Level 7", a thin gold bar and
- * "1,240 / 1,852 XP". Hovering or focusing it shows lifetime XP and the spendable balance; clicking
- * goes to the rewards page. It shows in the desktop sidebar and the tablet drawer. A phone has no
- * sidebar and the More sheet has no footer slot, so there it is simply not drawn (the level is still on
- * the rewards page); a collapsed sidebar takes it with it.
+ * The level meter in the sidebar footer (`sidebar.footer`, BRIEF §4/§5.5): one quiet line, "Level 7" with
+ * "1,240 / 1,852 XP" beside it, and a thin gold bar under both. Hovering or focusing it shows what was
+ * earned in all, what is left to spend and the distance to the next level, in the Rewards page's words;
+ * clicking goes to the rewards page. It shows in the desktop sidebar and the tablet drawer. A phone has
+ * no sidebar and the More sheet has no footer slot, so there it is simply not drawn (the level is still
+ * on the rewards page); a collapsed sidebar takes it with it (the shell has no collapsed rail).
  */
 import { useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
@@ -58,9 +59,11 @@ function MeterSkeleton() {
       aria-busy="true"
       data-testid="level-meter-loading"
     >
-      <Skeleton width={56} />
+      <span className={styles.row}>
+        <Skeleton width={56} />
+        <Skeleton width={72} />
+      </span>
       <Skeleton variant="block" height={4} />
-      <Skeleton width={96} />
     </div>
   )
 }
@@ -72,14 +75,18 @@ function Meter() {
 
   const { level, intoLevel, needed } = xp.level
   const progress = `${formatCount(intoLevel)} / ${formatCount(needed)} XP`
+  const toNext = Math.max(0, needed - intoLevel)
   return (
     <Tooltip
       side="right"
       describe={false}
       content={
         <span className={styles.tip}>
-          <span>Lifetime XP: {formatCount(xp.lifetime)}</span>
-          <span>Balance: {formatCount(xp.balance)} XP</span>
+          <span>{formatCount(xp.lifetime)} XP earned in all</span>
+          <span>{formatCount(xp.balance)} XP to spend</span>
+          <span className={styles.tipMuted}>
+            {formatCount(toNext)} XP to Level {level + 1}
+          </span>
         </span>
       }
     >
@@ -89,7 +96,10 @@ function Meter() {
         data-testid="level-meter"
         aria-label={`Level ${level}, ${progress}. Open rewards`}
       >
-        <span className={styles.level}>Level {level}</span>
+        <span className={styles.row}>
+          <span className={styles.level}>Level {level}</span>
+          <span className={styles.numbers}>{progress}</span>
+        </span>
         <ProgressBar
           tone="xp"
           size="sm"
@@ -99,7 +109,6 @@ function Meter() {
           valueText={progress}
           aria-hidden="true"
         />
-        <span className={styles.numbers}>{progress}</span>
         {floats.map((f) => (
           <XpFloat
             key={f.id}

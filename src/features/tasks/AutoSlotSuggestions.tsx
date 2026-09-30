@@ -16,14 +16,13 @@ import {
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
 import { useToast } from '@/ui/Toast'
-import { EVERYDAY_HOURS_SECTION } from './EverydayHours'
 import { useAutoSlotProposal } from './queries'
 import {
   onSuggestionsRequest,
   registerSuggestionsCard,
   takePendingRequest,
 } from './suggestionsCard'
-import { openTask } from './taskUrls'
+import { EVERYDAY_HOURS_SECTION, openTask } from './taskUrls'
 import styles from './AutoSlotSuggestions.module.css'
 
 /**

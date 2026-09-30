@@ -169,7 +169,10 @@ describe('completeEvening', () => {
   })
 
   it('keeps the reflection when it is undone', async () => {
-    const done = await completeEvening(TODAY, { now: NOW, reflection: 'Slow start, strong finish.' })
+    const done = await completeEvening(TODAY, {
+      now: NOW,
+      reflection: 'Slow start, strong finish.',
+    })
     await done.undo()
     expect((await getRitual('evening', TODAY))?.reflection).toBe('Slow start, strong finish.')
   })
@@ -204,7 +207,10 @@ describe('reopenEvening', () => {
 
 describe("today's list", () => {
   async function seedDay() {
-    const a = await task('C182 · Unit 2: Networks (45 min)', { doTime: '10:00', source: 'schedule' })
+    const a = await task('C182 · Unit 2: Networks (45 min)', {
+      doTime: '10:00',
+      source: 'schedule',
+    })
     const b = await task('Email mentor about term plan')
     const carried = await task('Renew library card', { doDate: '2026-09-27' })
     const later = await task('C779 · Unit 4 (30 min)', { doDate: TOMORROW })

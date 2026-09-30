@@ -78,10 +78,7 @@ async function finishMorning(page: Page): Promise<void> {
 
 async function openEvening(page: Page): Promise<void> {
   // One finished task, so "Done today" has something in it.
-  await page
-    .getByRole('checkbox', { name: 'Done: Email mentor about term plan' })
-    .first()
-    .check()
+  await page.getByRole('checkbox', { name: 'Done: Email mentor about term plan' }).first().check()
   await page.waitForTimeout(1600)
   await clearToasts(page)
   await page.getByRole('button', { name: 'Start evening shutdown' }).click()

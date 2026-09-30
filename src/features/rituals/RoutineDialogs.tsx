@@ -149,7 +149,10 @@ export function SaveRoutine({ onGone }: { onGone: () => void }) {
   const [saving, setSaving] = useState(false)
 
   const candidates = useMemo(
-    () => (lists ? [...lists.open.filter((i) => i.carriedFrom === null).map((i) => i.task), ...lists.done] : []),
+    () =>
+      lists
+        ? [...lists.open.filter((i) => i.carriedFrom === null).map((i) => i.task), ...lists.done]
+        : [],
     [lists],
   )
   const chosen = candidates.filter((t) => !unchecked.includes(t.id)).slice(0, ROUTINE_TASKS_MAX)
@@ -190,7 +193,12 @@ export function SaveRoutine({ onGone }: { onGone: () => void }) {
           <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!canSave} loading={saving} onClick={() => void save()}>
+          <Button
+            variant="primary"
+            disabled={!canSave}
+            loading={saving}
+            onClick={() => void save()}
+          >
             Save routine
           </Button>
         </>
@@ -218,8 +226,8 @@ export function SaveRoutine({ onGone }: { onGone: () => void }) {
             </div>
           ) : candidates.length === 0 ? (
             <p className={dialog.quiet}>
-              There are no tasks on today’s list to save. Add a few tasks first, then save them as
-              a routine.
+              There are no tasks on today’s list to save. Add a few tasks first, then save them as a
+              routine.
             </p>
           ) : (
             <ul className={dialog.list} aria-label="Tasks to save">

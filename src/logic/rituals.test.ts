@@ -207,9 +207,9 @@ describe('ritualPrompt', () => {
     expect(ritualPrompt({ ...base, enabled: false })).toBeNull()
     // Putting the morning one away does not hide the evening one, and doing the morning plan does
     // not hide the evening shutdown.
-    expect(ritualPrompt({ ...base, minutes: at(18), dismissed: ['morning'], morningDone: true })).toBe(
-      'evening',
-    )
+    expect(
+      ritualPrompt({ ...base, minutes: at(18), dismissed: ['morning'], morningDone: true }),
+    ).toBe('evening')
   })
 
   it('follows the times from settings', () => {
@@ -245,12 +245,19 @@ describe('putting a prompt away for the day', () => {
   })
 
   it('shrugs off anything that is not what it wrote', () => {
-    for (const raw of ['', 'not json', '42', 'null', '{"day":5,"kinds":[]}', '{"day":"2026-09-29"}']) {
+    for (const raw of [
+      '',
+      'not json',
+      '42',
+      'null',
+      '{"day":5,"kinds":[]}',
+      '{"day":"2026-09-29"}',
+    ]) {
       expect(dismissedKinds(raw, TODAY)).toEqual([])
     }
-    expect(
-      dismissedKinds('{"day":"2026-09-29","kinds":["morning","noon",7]}', TODAY),
-    ).toEqual(['morning'])
+    expect(dismissedKinds('{"day":"2026-09-29","kinds":["morning","noon",7]}', TODAY)).toEqual([
+      'morning',
+    ])
   })
 })
 

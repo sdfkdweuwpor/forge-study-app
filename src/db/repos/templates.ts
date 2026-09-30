@@ -142,7 +142,11 @@ export async function applyRoutine(
 ): Promise<AppliedRoutine> {
   const now = opts.now ?? Date.now()
   const goalIds = new Set<ID>(
-    (await db.goals.bulkGet([...new Set(payload.tasks.flatMap((t) => (t.goalId ? [t.goalId] : [])))]))
+    (
+      await db.goals.bulkGet([
+        ...new Set(payload.tasks.flatMap((t) => (t.goalId ? [t.goalId] : []))),
+      ])
+    )
       .filter((g) => g !== undefined)
       .map((g) => g.id),
   )

@@ -80,15 +80,22 @@ const eveningEvents = async (page: Page, day = TODAY): Promise<number> =>
 
 /** What Today lists as open on the seeded day: planned for today or carried over (7 of them once one is done). */
 async function todaysOpen(page: Page): Promise<StoredTask[]> {
-  return (await tasks(page)).filter((t) => t.status !== 'done' && t.doDate !== null && t.doDate <= TODAY)
+  return (await tasks(page)).filter(
+    (t) => t.status !== 'done' && t.doDate !== null && t.doDate <= TODAY,
+  )
 }
 
 /** Each of those tasks' planned day, time and pin, by id: what "exactly as before" is compared with. */
-async function planned(page: Page): Promise<Record<string, [string | null, string | null, boolean]>> {
+async function planned(
+  page: Page,
+): Promise<Record<string, [string | null, string | null, boolean]>> {
   return Object.fromEntries(
     (await tasks(page))
       .filter((t) => t.status !== 'done')
-      .map((t) => [t.id, [t.doDate, t.doTime, t.schedulePinned] as [string | null, string | null, boolean]]),
+      .map((t) => [
+        t.id,
+        [t.doDate, t.doTime, t.schedulePinned] as [string | null, string | null, boolean],
+      ]),
   )
 }
 
@@ -117,7 +124,12 @@ test.describe('Morning plan', () => {
     await add.press('Enter')
     await expect(dialog.getByRole('checkbox', { name: ADDED })).toBeChecked()
     const [added] = (await tasks(page)).filter((t) => t.title === ADDED)
-    expect(added).toMatchObject({ doDate: TODAY, durationMinutes: 15, source: 'user', status: 'todo' })
+    expect(added).toMatchObject({
+      doDate: TODAY,
+      durationMinutes: 15,
+      source: 'user',
+      status: 'todo',
+    })
 
     await dialog.getByRole('checkbox', { name: NOW_TITLE }).check()
     await dialog.getByRole('checkbox', { name: FLASHCARDS }).check()
@@ -177,7 +189,9 @@ test.describe('Morning plan', () => {
     await card.getByRole('checkbox', { name: `Done: ${ADDED}` }).check()
     await expect(card).toContainText('1 of 3 done')
     await expect(toasts(page)).toContainText('+15 XP')
-    await expect.poll(async () => (await tasks(page)).find((t) => t.title === ADDED)?.status).toBe('done')
+    await expect
+      .poll(async () => (await tasks(page)).find((t) => t.title === ADDED)?.status)
+      .toBe('done')
 
     // It survives a reload.
     await page.reload()
@@ -285,9 +299,14 @@ test.describe('Evening shutdown', () => {
     await expect(prompt(page)).toContainText('Wrap up the day')
 
     // Finish something, so there is a "done today".
-    await page.getByRole('checkbox', { name: `Done: ${MENTOR}` }).first().check()
+    await page
+      .getByRole('checkbox', { name: `Done: ${MENTOR}` })
+      .first()
+      .check()
     await expect(toasts(page)).toContainText('Completed')
-    await expect.poll(async () => (await tasks(page)).find((t) => t.title === MENTOR)?.status).toBe('done')
+    await expect
+      .poll(async () => (await tasks(page)).find((t) => t.title === MENTOR)?.status)
+      .toBe('done')
 
     const before = await planned(page)
     const open = await todaysOpen(page)
@@ -304,9 +323,13 @@ test.describe('Evening shutdown', () => {
 
     // Step 2: one button moves everything still open to tomorrow.
     await dialog.getByRole('button', { name: 'Next' }).click()
-    await expect(dialog.getByText('7 tasks still open. Nothing is lost by moving them on.')).toBeVisible()
+    await expect(
+      dialog.getByText('7 tasks still open. Nothing is lost by moving them on.'),
+    ).toBeVisible()
     await dialog.getByRole('button', { name: 'Move 7 to tomorrow' }).click()
-    await expect(dialog.getByRole('status').filter({ hasText: 'Moved 7 tasks to tomorrow.' })).toBeVisible()
+    await expect(
+      dialog.getByRole('status').filter({ hasText: 'Moved 7 tasks to tomorrow.' }),
+    ).toBeVisible()
     await expect(toasts(page)).toContainText('Moved 7 tasks to tomorrow')
     const after = await planned(page)
     for (const t of open) expect(after[t.id]?.[0], t.title).toBe(TOMORROW)
@@ -338,14 +361,19 @@ test.describe('Evening shutdown', () => {
 
     // Step 3: a line for yourself, then finish. +10 XP once.
     await dialog.getByRole('button', { name: 'Next' }).click()
-    await dialog.getByRole('textbox', { name: /One line about today/ }).fill('Finished the CSS layout unit.   Steady day.')
+    await dialog
+      .getByRole('textbox', { name: /One line about today/ })
+      .fill('Finished the CSS layout unit.   Steady day.')
     await dialog.getByRole('button', { name: 'Finish · +10 XP' }).click()
     await expect(dialog).toBeHidden()
     await expect(toasts(page)).toContainText('Evening shutdown done')
     await expect(toasts(page)).toContainText('+10 XP')
 
     const [row] = (await rituals(page)).filter((r) => r.kind === 'evening')
-    expect(row).toMatchObject({ day: TODAY, reflection: 'Finished the CSS layout unit. Steady day.' })
+    expect(row).toMatchObject({
+      day: TODAY,
+      reflection: 'Finished the CSS layout unit. Steady day.',
+    })
     expect(row?.completedAt).not.toBeNull()
     expect(await eveningNet(page)).toBe(10)
     await expect(prompt(page)).toHaveCount(0)
@@ -407,7 +435,9 @@ test.describe('Evening shutdown', () => {
     const dialog = evening(page)
     await expect(dialog.getByText('Nothing checked off today, and that is fine.')).toBeVisible()
     await dialog.getByRole('button', { name: 'Next' }).click()
-    await expect(dialog.getByText('Nothing was planned for today. Tomorrow starts clear.')).toBeVisible()
+    await expect(
+      dialog.getByText('Nothing was planned for today. Tomorrow starts clear.'),
+    ).toBeVisible()
     await expect(dialog).not.toContainText(/overdue|behind|missed/i)
   })
 })
@@ -440,7 +470,9 @@ test.describe('Routines', () => {
     await page.getByRole('option', { name: /Add routine/ }).click()
     const dialog = page.getByRole('dialog', { name: 'Add a routine' })
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByRole('list', { name: 'Routines' }).getByRole('listitem')).toHaveCount(2)
+    await expect(dialog.getByRole('list', { name: 'Routines' }).getByRole('listitem')).toHaveCount(
+      2,
+    )
     await dialog.getByRole('radio', { name: 'Tomorrow' }).click()
     await dialog.getByRole('button', { name: 'Add Weekly reset' }).click()
     await expect(dialog).toBeHidden()
@@ -560,7 +592,9 @@ test.describe('Settings', () => {
     const eveningField = page.getByLabel('Evening shutdown from')
     await eveningField.fill('08:00')
     await eveningField.blur()
-    await expect(page.getByText('The evening shutdown should start after the morning plan ends.')).toBeVisible()
+    await expect(
+      page.getByText('The evening shutdown should start after the morning plan ends.'),
+    ).toBeVisible()
     // The value that was not accepted goes back to what is saved.
     await expect(eveningField).toHaveValue('17:00')
     await page.goto('/')

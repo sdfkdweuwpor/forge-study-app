@@ -49,7 +49,13 @@ export function RoutineMenu({ day, today }: { day: ISODate; today: ISODate }) {
       items={items}
       emptyLabel="No routines yet"
       trigger={(p) => (
-        <Button {...p} variant="ghost" size="sm" iconLeft={<ListPlus />} disabled={entries === undefined}>
+        <Button
+          {...p}
+          variant="ghost"
+          size="sm"
+          iconLeft={<ListPlus />}
+          disabled={entries === undefined}
+        >
           Add a routine
         </Button>
       )}

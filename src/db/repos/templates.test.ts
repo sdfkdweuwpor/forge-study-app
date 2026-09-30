@@ -36,7 +36,10 @@ const PAYLOAD = {
 
 describe('saving routines', () => {
   it('saves a task template with a clean name and lists it', async () => {
-    const { template } = await createRoutine({ name: '  Study   day ', payload: PAYLOAD }, { now: NOW })
+    const { template } = await createRoutine(
+      { name: '  Study   day ', payload: PAYLOAD },
+      { now: NOW },
+    )
     expect(template).toMatchObject({ kind: 'task', name: 'Study day', icon: '📋', createdAt: NOW })
     const routines = await listRoutines()
     expect(routines).toHaveLength(1)

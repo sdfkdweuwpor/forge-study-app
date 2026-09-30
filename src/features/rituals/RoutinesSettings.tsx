@@ -115,8 +115,8 @@ export function RoutinesSection() {
         Routines
       </h2>
       <p className={styles.intro}>
-        A routine is a set of tasks you add to a day in one click. Save today’s tasks as one, or start
-        from a starter.
+        A routine is a set of tasks you add to a day in one click. Save today’s tasks as one, or
+        start from a starter.
       </p>
       <div className={styles.buttons}>
         <Button variant="secondary" onClick={() => openRitualDialog('saveRoutine')}>
@@ -142,7 +142,13 @@ export function RoutinesSection() {
           {rows.map((row) => {
             const { template, payload } = row
             const entry: RoutineEntry | null = payload
-              ? { id: template.id, name: template.name, icon: template.icon, builtIn: false, payload }
+              ? {
+                  id: template.id,
+                  name: template.name,
+                  icon: template.icon,
+                  builtIn: false,
+                  payload,
+                }
               : null
             return (
               <li key={template.id} className={styles.item} data-testid="routine-row">
@@ -164,7 +170,9 @@ export function RoutinesSection() {
                   <div className={styles.itemText}>
                     <span className={styles.name}>{template.name}</span>
                     <span className={styles.meta}>
-                      {entry ? routineSummary(entry) : 'This routine can’t be read. You can delete it.'}
+                      {entry
+                        ? routineSummary(entry)
+                        : 'This routine can’t be read. You can delete it.'}
                     </span>
                   </div>
                 )}

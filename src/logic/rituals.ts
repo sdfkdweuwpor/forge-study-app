@@ -95,9 +95,15 @@ export function isPlannedLater(task: Pick<Task, 'doDate' | 'dueDate'>, today: IS
 }
 
 /** The ids the evening's one click moves: open items not already planned later and not set aside. */
-export function movableIds(items: readonly TodayItem[], today: ISODate, left: ReadonlySet<ID>): ID[] {
+export function movableIds(
+  items: readonly TodayItem[],
+  today: ISODate,
+  left: ReadonlySet<ID>,
+): ID[] {
   return items
-    .filter(({ task }) => task.status !== 'done' && !isPlannedLater(task, today) && !left.has(task.id))
+    .filter(
+      ({ task }) => task.status !== 'done' && !isPlannedLater(task, today) && !left.has(task.id),
+    )
     .map(({ task }) => task.id)
 }
 
@@ -183,7 +189,10 @@ export function dismissedKinds(raw: string | null, today: ISODate): RitualKind[]
 /** The stored form after also putting `kind` away for `today`. */
 export function withDismissed(raw: string | null, today: ISODate, kind: RitualKind): string {
   const kinds = dismissedKinds(raw, today)
-  const next: DismissedRecord = { day: today, kinds: kinds.includes(kind) ? kinds : [...kinds, kind] }
+  const next: DismissedRecord = {
+    day: today,
+    kinds: kinds.includes(kind) ? kinds : [...kinds, kind],
+  }
   return JSON.stringify(next)
 }
 

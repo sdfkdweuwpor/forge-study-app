@@ -59,9 +59,27 @@ describe('cleanRoutineName', () => {
 describe('routinePayloadFromTasks', () => {
   it('keeps title, length (slot, else estimate), time and goal, and nothing else', () => {
     const payload = routinePayloadFromTasks([
-      { title: 'Read Unit 3', durationMinutes: 50, estimateMinutes: 30, doTime: '09:00', goalId: 'g1' },
-      { title: 'Practice quiz', durationMinutes: null, estimateMinutes: 25, doTime: null, goalId: null },
-      { title: 'Call the bursar', durationMinutes: null, estimateMinutes: null, doTime: null, goalId: null },
+      {
+        title: 'Read Unit 3',
+        durationMinutes: 50,
+        estimateMinutes: 30,
+        doTime: '09:00',
+        goalId: 'g1',
+      },
+      {
+        title: 'Practice quiz',
+        durationMinutes: null,
+        estimateMinutes: 25,
+        doTime: null,
+        goalId: null,
+      },
+      {
+        title: 'Call the bursar',
+        durationMinutes: null,
+        estimateMinutes: null,
+        doTime: null,
+        goalId: null,
+      },
       { title: 'Tiny', durationMinutes: 2, estimateMinutes: null, doTime: null, goalId: null },
     ])
     expect(payload.tasks).toEqual([
@@ -96,7 +114,13 @@ describe('routineTaskDrafts', () => {
 
   it('plans each task for the day, in order, keeping only goals that exist', () => {
     expect(routineTaskDrafts(payload, '2026-09-30', new Set(['g1']))).toEqual([
-      { title: 'C779 · Unit 3', doDate: '2026-09-30', doTime: '10:00', durationMinutes: 45, goalId: 'g1' },
+      {
+        title: 'C779 · Unit 3',
+        doDate: '2026-09-30',
+        doTime: '10:00',
+        durationMinutes: 45,
+        goalId: 'g1',
+      },
       { title: 'D278 · Review', doDate: '2026-09-30' },
       { title: 'Plain', doDate: '2026-09-30' },
     ])

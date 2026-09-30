@@ -50,6 +50,9 @@ export {
   toScreen,
 } from './iso'
 export type { Box, Extent, Point, ScreenPoint } from './iso'
+export * from './camera'
+export * from './nav'
+export * from './ambient'
 export { skyAt, DAWN_START, DAY_START, DUSK_START, NIGHT_START } from './sky'
 export type { Sky, SkyPhase } from './sky'
 export { HUES, isHex, mixHex, paletteFor, shade, withAlpha } from './palette'

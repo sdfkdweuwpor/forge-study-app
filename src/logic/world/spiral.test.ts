@@ -45,13 +45,11 @@ describe('spiral', () => {
       for (let i = 0; i < 8 * r; i++) {
         const { x, y } = spiral(start + i)
         expect(Math.max(Math.abs(x), Math.abs(y))).toBe(r)
+        // Every step is one plot along, also from the last cell of a ring to the first of the next
+        // (the ring ends at its top-right corner; the next one starts just to the right of it).
         const next = spiral(start + i + 1)
-        expect(Math.abs(next.x - x) + Math.abs(next.y - y)).toBeLessThanOrEqual(
-          // the last cell of a ring steps out to the first of the next ring: one step right and one down... or up
-          i === 8 * r - 1 ? 2 : 1,
-        )
+        expect(Math.abs(next.x - x) + Math.abs(next.y - y)).toBe(1)
       }
-      // The ring ends at its top-right corner and the next one starts just to the right of it.
       expect(spiral(start + 8 * r - 1)).toEqual({ x: r, y: -r })
     }
   })

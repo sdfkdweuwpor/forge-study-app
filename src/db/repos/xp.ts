@@ -8,6 +8,7 @@
  */
 import { newId } from '@/lib/ids'
 import { dayOf } from '@/logic/dates'
+import { nextXpEventId } from '@/logic/syncTables'
 import { levelFromLifetimeXp, lifetimeXp, spentXp, type LevelInfo } from '@/logic/xp'
 import { db } from '../db'
 import { emit } from '../events'
@@ -25,6 +26,8 @@ export interface XpEventInput {
   at?: Millis
   /** The day the XP is attributed to; defaults to the day of `at`. */
   day?: ISODate
+  /** Row id; defaults to a new uuid. `awardXp`/`reverseXp` pass a deterministic one (`xp:<key>#<n>`). */
+  id?: ID
 }
 
 /** Adds one event to the log and emits `xp.changed`. No idempotency check: see `awardXp`. */
@@ -35,7 +38,7 @@ export async function appendXpEvent(input: XpEventInput): Promise<XpEvent> {
   const at = input.at ?? Date.now()
   const day = input.day ?? dayOf(at)
   const event: XpEvent = {
-    id: newId(),
+    id: input.id ?? newId(),
     createdAt: at,
     updatedAt: at,
     at,
@@ -60,14 +63,18 @@ export async function xpNetForKey(key: string): Promise<number> {
 }
 
 /**
- * Awards XP once per key. Returns the new event, or `null` when the key's net is already positive
- * (an award that stands) or the amount is not positive.
+ * Awards XP once per key. The event's id is `xp:<key>#<n>` (n = events the key already has), so the same
+ * award paid on two devices before they sync is one row, not double XP (PLAN §4.7.4). Returns the new
+ * event, or `null` when the key's net is already positive (an award that stands) or the amount is not
+ * positive.
  */
 export async function awardXp(input: XpEventInput): Promise<XpEvent | null> {
   if (!(input.amount > 0)) return null
   return db.transaction('rw', db.xpEvents, async () => {
-    if ((await xpNetForKey(input.key)) > 0) return null
-    return appendXpEvent(input)
+    const events = await db.xpEvents.where('key').equals(input.key).toArray()
+    if (lifetimeXp(events) > 0) return null
+    const ids = events.map((e) => e.id)
+    return appendXpEvent({ ...input, id: nextXpEventId(input.key, ids) })
   })
 }
 
@@ -84,8 +91,10 @@ export async function reverseXp(
     const events = await db.xpEvents.where('key').equals(key).toArray()
     const net = lifetimeXp(events)
     if (net <= 0) return null
+    const ids = events.map((e) => e.id)
     const latest = events.reduce((a, b) => (b.at >= a.at ? b : a))
     return appendXpEvent({
+      id: nextXpEventId(key, ids),
       source: latest.source,
       amount: -net,
       key,

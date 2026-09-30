@@ -6,9 +6,10 @@
  * fields such as `dueDate` simply drop out of their index.
  */
 import { STORES_V2_DELTA } from './migrations/v2'
+import { STORES_V3_DELTA } from './migrations/v3'
 
 export const DB_NAME = 'forge'
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export const STORES_V1 = {
   settings: 'id',
@@ -41,7 +42,7 @@ export const STORES_V1 = {
 } as const
 
 /** The current stores: v1 with every later delta applied (what the latest version declares). */
-export const STORES = { ...STORES_V1, ...STORES_V2_DELTA } as const
+export const STORES = { ...STORES_V1, ...STORES_V2_DELTA, ...STORES_V3_DELTA } as const
 
 export type TableName = keyof typeof STORES
 

@@ -323,6 +323,12 @@ describe('seedStarterRewards', () => {
       ['Order takeout', 1500],
     ])
     expect(STARTER_REWARDS).toHaveLength(3)
+    // Fixed ids: two devices that both seed the shop collide instead of doubling (cloud sync).
+    expect(shop.map((r) => r.id)).toEqual([
+      'starter-reward:0',
+      'starter-reward:1',
+      'starter-reward:2',
+    ])
     expect((await getSettings()).rewardsSeeded).toBe(true)
     expect(await seedStarterRewards({ now: NOW })).toBe(0)
     expect(await db.rewards.count()).toBe(3)

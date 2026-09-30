@@ -62,7 +62,7 @@ describe('takeSnapshot', () => {
       reason: 'manual',
       day: '2026-09-29',
       createdAt: NOW,
-      schemaVersion: 2,
+      schemaVersion: 3,
     })
     expect(info?.counts?.tasks).toBeGreaterThan(20)
     expect(info?.counts?.files).toBe(1)

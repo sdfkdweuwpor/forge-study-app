@@ -66,7 +66,6 @@ export function defaultSettingsData(): SettingsData {
     // 0 = not set yet: the level watcher records the current level at first start, without celebrating.
     lastCelebratedLevel: 0,
     rewardsSeeded: false,
-    sync: { enabled: false, url: null, anonKey: null, lastSyncAt: null },
     world: { seed: 0 },
     rituals: { prompts: true, morningUntil: '12:00', eveningFrom: '17:00' },
   }

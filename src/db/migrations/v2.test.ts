@@ -9,7 +9,7 @@ import { buildStarterData } from '@/data/sample/starterTasks'
 import { buildWguBsCs, COURSE_IDS, WGU_GOAL_ID } from '@/data/sample/wguBsCs'
 import { ForgeDB } from '@/db/db'
 import { upgradeV2 } from '@/db/migrations/v2'
-import { STORES_V1, TABLE_NAMES } from '@/db/schema'
+import { SCHEMA_VERSION, STORES_V1, TABLE_NAMES } from '@/db/schema'
 import { defaultSettings } from '@/db/defaults'
 import type { Flashcard, Goal, Milestone, Task, TrashItem, Unit } from '@/db/types'
 import { migrateBackupV1toV2 } from '@/logic/backup'
@@ -123,9 +123,10 @@ async function openUpgraded(): Promise<ForgeDB> {
 }
 
 describe('schema v1 → v2', () => {
-  it('opens at version 2 with every table, the new ones empty but for the WGU assessments', async () => {
+  it('opens at the current version with every table, the new ones empty but for the WGU assessments', async () => {
     const db = await openUpgraded()
-    expect(db.verno).toBe(2)
+    // ForgeDB declares every version, so a v1 database goes through v2 and on to the latest.
+    expect(db.verno).toBe(SCHEMA_VERSION)
     expect(db.tables.map((t) => t.name).sort()).toEqual([...TABLE_NAMES].sort())
     expect(await db.planProposals.count()).toBe(0)
     expect(await db.practiceQuestions.count()).toBe(0)

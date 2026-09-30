@@ -82,6 +82,7 @@ export const SNAPSHOT_KEEP: Readonly<Record<SnapshotReason, number>> = {
   'pre-import': 5,
   'pre-restore': 5,
   'pre-reset': 5,
+  'pre-sync': 5,
 }
 
 /** What pruning needs to know about a snapshot. */
@@ -119,6 +120,7 @@ export const SNAPSHOT_KIND_LABEL: Readonly<Record<SnapshotReason, string>> = {
   'pre-import': 'Before import',
   'pre-restore': 'Before restore',
   'pre-reset': 'Before reset',
+  'pre-sync': 'Before sync',
 }
 
 /** "Automatic", "Manual", "Before import"…; an unknown kind (a newer build's) is shown as it is. */

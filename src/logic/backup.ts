@@ -11,6 +11,7 @@
 import type { Millis } from '@/db/types'
 import { dayOf, diffDays } from './dates'
 import { migrateTablesV1toV2 } from './schemaV2'
+import { migrateTablesV2toV3 } from './schemaV3'
 import { markTrashBlobs, withoutMarkedTrashFiles } from './snapshotJson'
 
 /** The part of a backup file the migrators read and write. */
@@ -28,10 +29,20 @@ export function migrateBackupV1toV2<T extends VersionedTables>(file: T, now: Mil
   return { ...file, schemaVersion: 2, tables: migrateTablesV1toV2(file.tables, now) }
 }
 
+/**
+ * v2 → v3 (cloud sync, PLAN §4.7.4): the settings row loses `sync`, and this device's sync bookkeeping
+ * is never carried. A file that is not v2 is returned as it is.
+ */
+export function migrateBackupV2toV3<T extends VersionedTables>(file: T, now: Millis): T {
+  if (file.schemaVersion !== 2) return file
+  return { ...file, schemaVersion: 3, tables: migrateTablesV2toV3(file.tables, now) }
+}
+
 /** Every step from the file's version up to `target`. Newer files are returned unchanged. */
 export function migrateBackup<T extends VersionedTables>(file: T, target: number, now: Millis): T {
   let out = file
   if (out.schemaVersion === 1 && target >= 2) out = migrateBackupV1toV2(out, now)
+  if (out.schemaVersion === 2 && target >= 3) out = migrateBackupV2toV3(out, now)
   return out
 }
 

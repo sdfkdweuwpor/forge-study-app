@@ -128,6 +128,29 @@ describe('reverseXp', () => {
   })
 })
 
+describe('deterministic ids (cloud sync)', () => {
+  it('numbers a key’s events: award #0, undo #1, award again #2', async () => {
+    const first = await awardXp({ source: 'task', amount: 15, key: 'task:a', at: NOW })
+    const undo = await reverseXp('task:a', { at: NOW + 1 })
+    const again = await awardXp({ source: 'task', amount: 15, key: 'task:a', at: NOW + 2 })
+    expect([first?.id, undo?.id, again?.id]).toEqual(['xp:task:a#0', 'xp:task:a#1', 'xp:task:a#2'])
+  })
+
+  it('the same award from another device is the same row, so it counts once', async () => {
+    await awardXp({ source: 'dailyGoal', amount: 25, key: 'dailyGoal:2026-09-29', at: NOW })
+    const here = await db.xpEvents.get('xp:dailyGoal:2026-09-29#0')
+    // The other device's copy arrives with the same id: it replaces this one instead of adding to it.
+    await db.xpEvents.put({ ...(here as NonNullable<typeof here>), at: NOW + 60_000 })
+    expect(await db.xpEvents.count()).toBe(1)
+    expect(await xpNetForKey('dailyGoal:2026-09-29')).toBe(25)
+  })
+
+  it('appendXpEvent keeps a fresh uuid unless given an id', async () => {
+    const e = await appendXpEvent({ source: 'adjustment', amount: 5, key: 'adj:1', at: NOW })
+    expect(e.id).not.toMatch(/^xp:/)
+  })
+})
+
 describe('getXpSummary', () => {
   it('is all zero on an empty log, at level 1', async () => {
     const summary = await getXpSummary(TODAY)

@@ -240,7 +240,7 @@ test.describe('Export', () => {
       exportedAt: string
       tables: Record<string, { id: string }[]>
     }
-    expect(file).toMatchObject({ app: 'forge', format: 1, schemaVersion: 2 })
+    expect(file).toMatchObject({ app: 'forge', format: 1, schemaVersion: 3 })
     expect(file.appVersion).toMatch(/^\d+\.\d+\.\d+/)
     expect(file.exportedAt).toBe('2026-09-29T13:30:00.000Z')
     expect(file.tables.tasks?.map((t) => t.id).sort()).toEqual(tasks.map((t) => t.id).sort())

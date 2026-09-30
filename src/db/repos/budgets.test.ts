@@ -159,3 +159,48 @@ describe('a year of study on one goal', { timeout: 120_000 }, () => {
     }
   })
 })
+
+// Cloud sync's change tracking (PLAN §4.7.4) must not move these budgets: with sync on, each write
+// also queues one outbox entry per record, in the same transaction.
+describe('a year of study with cloud sync on', { timeout: 120_000 }, () => {
+  beforeAll(async () => {
+    db.syncTracker.setEnabled(true)
+    await db.syncOutbox.clear()
+  })
+  afterAll(async () => {
+    db.syncTracker.setEnabled(false)
+    await db.syncOutbox.clear()
+  })
+
+  it('re-plans in under 300 ms, and a re-plan with nothing new queues nothing', async () => {
+    await rebalanceGoal(WGU_GOAL_ID, { now: NOW, reason: 'edit' })
+    await db.syncOutbox.clear()
+    const again = await rebalanceGoal(WGU_GOAL_ID, { now: NOW, reason: 'edit' })
+    expect(again?.changed).toBe(false)
+    expect(await db.syncOutbox.count()).toBe(0)
+    expect(
+      await medianCpuMsAsync(() => rebalanceGoal(WGU_GOAL_ID, { now: NOW, reason: 'edit' })),
+    ).toBeLessThan(300)
+  })
+
+  it('finishes a task in under 100 ms, queuing the task and its XP; the re-plan queues a few rows', async () => {
+    const [task] = (await nextSessions()).filter((t) => t.status !== 'done')
+    if (!task) throw new Error('no open session')
+    await db.syncOutbox.clear()
+    const t0 = cpuNow()
+    await completeTask(task.id, { now: NOW })
+    const ms = cpuNow() - t0
+    await settleDomainEvents()
+    const queued = (await db.syncOutbox.toArray()).map((e) => `${e.tbl}:${e.id}`)
+    expect(queued).toContain(`tasks:${task.id}`)
+    expect(queued).toContain(`xpEvents:xp:task:${task.id}#0`)
+    expect(ms).toBeLessThan(100)
+
+    await db.syncOutbox.clear()
+    const summary = await rebalanceGoal(WGU_GOAL_ID, { now: NOW, reason: 'complete' })
+    const written = (summary?.inserted ?? 0) + (summary?.updated ?? 0) + (summary?.removed ?? 0)
+    // One entry per record written (the goal and its courses' projections may be rewritten too).
+    expect(await db.syncOutbox.count()).toBeGreaterThanOrEqual(written)
+    expect(await db.syncOutbox.count()).toBeLessThanOrEqual(written + 30)
+  })
+})

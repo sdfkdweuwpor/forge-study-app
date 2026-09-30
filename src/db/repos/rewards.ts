@@ -10,6 +10,7 @@
  * Components call these; they never touch `db.rewards` or `db.redemptions`.
  */
 import { newId } from '@/lib/ids'
+import { starterRewardId } from '@/logic/syncTables'
 import { dayOf } from '@/logic/dates'
 import {
   DEFAULT_REWARD_ICON,
@@ -301,7 +302,8 @@ export async function seedStarterRewards(opts: RepoOptions = {}): Promise<number
     if (empty) {
       await db.rewards.bulkAdd(
         STARTER_REWARDS.map((r, i) => ({
-          id: newId(),
+          // Fixed ids: two devices that both seed the shop collide instead of doubling (PLAN §4.7.4).
+          id: starterRewardId(i),
           createdAt: now,
           updatedAt: now,
           title: r.title,

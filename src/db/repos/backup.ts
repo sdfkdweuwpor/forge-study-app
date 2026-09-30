@@ -20,19 +20,30 @@ import {
   type BackupFile,
 } from '@/logic/backup'
 import { dayOf } from '@/logic/dates'
+import { SYNC_BOOKKEEPING_TABLES } from '@/logic/syncTables'
 import { db } from '../db'
 import { SCHEMA_VERSION, TABLE_NAMES, type TableName } from '../schema'
 import type { Millis, Snapshot, SnapshotReason } from '../types'
+import { markUntracked } from '../sync/remoteApply'
 import { ensureSettings, getSettings, updateSettings } from './settings'
 
+/**
+ * Tables a backup never carries and an import never touches: the device's own snapshots, and its sync
+ * bookkeeping (the outbox, and `syncState`, which holds the sync session).
+ */
+const NOT_BACKED_UP: ReadonlySet<string> = new Set<string>([
+  'snapshots',
+  ...SYNC_BOOKKEEPING_TABLES,
+])
+
 /** Tables a backup carries and an import replaces. */
-export const BACKUP_TABLES: readonly TableName[] = TABLE_NAMES.filter((t) => t !== 'snapshots')
+export const BACKUP_TABLES: readonly TableName[] = TABLE_NAMES.filter((t) => !NOT_BACKED_UP.has(t))
 
 /** What `logic/backup.ts` needs to know about this build's schema. */
 export const BACKUP_CONTEXT: BackupContext = {
   currentVersion: SCHEMA_VERSION,
   knownTables: BACKUP_TABLES,
-  ignoredTables: ['snapshots'],
+  ignoredTables: [...NOT_BACKED_UP],
 }
 
 /** Every backup table in ONE read transaction, so the copy is consistent while the app keeps writing. */
@@ -189,13 +200,21 @@ export async function importBackup(file: BackupFile, now: Millis): Promise<Impor
   }
 }
 
-/** Empties every backup table in one transaction and makes sure the settings row exists again. */
+/**
+ * Empties every backup table in one transaction and makes sure the settings row exists again. Reset
+ * erases this device only: sync is switched off first (here and in the other tabs), its outbox and
+ * `syncState` are cleared with the data, and nothing is queued, so no tombstone ever reaches the cloud
+ * copy or the other devices (PLAN §4.7.4).
+ */
 export async function resetAllData(): Promise<void> {
+  db.syncTracker.setEnabled(false, { broadcast: true })
   await db.transaction(
     'rw',
-    BACKUP_TABLES.map((name) => db.table(name)),
-    async () => {
-      for (const name of BACKUP_TABLES) await db.table(name).clear()
+    [...BACKUP_TABLES, ...SYNC_BOOKKEEPING_TABLES].map((name) => db.table(name)),
+    async (tx) => {
+      markUntracked(tx.idbtrans)
+      for (const name of [...SYNC_BOOKKEEPING_TABLES, ...BACKUP_TABLES])
+        await db.table(name).clear()
     },
   )
   await ensureSettings()

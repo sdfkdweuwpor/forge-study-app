@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, gotoApp, test } from './fixtures'
-import { putRows, readTable } from './idb'
+import { putRows, putRowsWhileClosed, readTable } from './idb'
 
 /**
  * Phase 10A: the first-launch flow. These specs turn the fixture's gate bypass off (`skipOnboarding:
@@ -334,7 +334,8 @@ test.describe('people who are not new', () => {
   }) => {
     await gotoApp(page, '/', 'wgu')
     const row = await settings(page)
-    await putRows(page, 'settings', [{ ...row, onboardedAt: null }])
+    // Written while the app is closed: an open app could mark it done before the check below.
+    await putRowsWhileClosed(page, 'settings', [{ ...row, onboardedAt: null }])
     expect((await settings(page)).onboardedAt).toBeNull()
 
     await page.goto('/tasks/inbox')

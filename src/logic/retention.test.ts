@@ -136,6 +136,7 @@ describe('snapshotsToPrune', () => {
       'pre-import': 5,
       'pre-restore': 5,
       'pre-reset': 5,
+      'pre-sync': 5,
     })
     const rows: SnapshotStub[] = [
       ...Array.from({ length: 10 }, (_, i) => stub(`d${i}`, 'daily', 1000 + i)),
@@ -185,6 +186,7 @@ describe('labels', () => {
   it('names each kind', () => {
     expect(snapshotKindLabel('daily')).toBe('Automatic')
     expect(snapshotKindLabel('pre-reset')).toBe('Before reset')
+    expect(snapshotKindLabel('pre-sync')).toBe('Before sync')
     expect(snapshotKindLabel('constructor')).toBe('constructor')
   })
 

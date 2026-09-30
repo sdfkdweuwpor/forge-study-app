@@ -32,15 +32,16 @@ const reward = (
   ...over,
 })
 
-describe('schema (v2)', () => {
+describe('schema (v3)', () => {
   it('opens every table at the current version with the planned primary key and indexes', async () => {
-    expect(SCHEMA_VERSION).toBe(2)
-    expect(TABLE_NAMES).toHaveLength(31)
-    expect(testDb.verno).toBe(2)
+    expect(SCHEMA_VERSION).toBe(3)
+    expect(TABLE_NAMES).toHaveLength(33)
+    expect(testDb.verno).toBe(3)
     expect(testDb.tables.map((t) => t.name).sort()).toEqual([...TABLE_NAMES].sort())
     for (const name of TABLE_NAMES) {
       const table = testDb.table(name)
-      expect(table.schema.primKey.keyPath).toBe('id')
+      // The sync outbox holds one entry per record: its key is the record's table and id.
+      expect(table.schema.primKey.keyPath).toEqual(name === 'syncOutbox' ? ['tbl', 'id'] : 'id')
       expect(await table.count()).toBe(0)
       const declared = STORES[name]
         .split(',')
@@ -65,7 +66,7 @@ describe('schema (v2)', () => {
 
   it('uses the app database name for the singleton', () => {
     expect(db.name).toBe(DB_NAME)
-    expect(db.verno).toBe(2)
+    expect(db.verno).toBe(3)
   })
 
   it('supports the compound and multi-entry indexes repos rely on', async () => {

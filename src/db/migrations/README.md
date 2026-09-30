@@ -2,7 +2,7 @@
 
 Forge stores everything in one IndexedDB database, `forge`, through Dexie (`src/db/db.ts`).
 Schema **v1** (`STORES_V1` in `src/db/schema.ts`) defined 26 tables up front. **v2** (the Goal
-Breakdown Planner, PLAN §4.6) is `v2.ts`. `STORES` in `schema.ts` is v1 with every later delta
+Breakdown Planner, PLAN §4.6) is `v2.ts`; **v3** (cloud sync, PLAN §4.7.4) is `v3.ts`. `STORES` in `schema.ts` is v1 with every later delta
 applied; `TableName` and `TABLE_NAMES` come from it. When a new version is needed, follow this
 recipe exactly.
 
@@ -12,6 +12,7 @@ recipe exactly.
 |---|---|---|
 | 1 | `schema.ts` (`STORES_V1`) | Every table of PLAN §3. |
 | 2 | `v2.ts` (`STORES_V2_DELTA`, `upgradeV2`) | Tasks: `doDate`/`doTime`/`durationMinutes`, `autoSlot`, `kind`, `assessmentId`, `sync` (indexes `doDate`, `[status+doDate]`, `kind`, `assessmentId`, `[goalId+kind]`); sessions: `[goalId+day]`; goals: `planning`; units and courses: self-rating and estimate metadata; flashcards: `scheduler`, `fsrs`, `noteRef`; new tables `plannedAssessments`, `planProposals`, `practiceQuestions`, `questionAttempts`, `readiness`. The v1 date moves to `doDate` (`dueDate` = a real deadline only); WGU courses get undated planned OAs/PAs; trash payloads are mapped too. |
+| 3 | `v3.ts` (`STORES_V3_DELTA`, `upgradeV3`) | New tables `syncOutbox` (`[tbl+id], at`: one entry per record changed since the last push) and `syncState` (`id`: this device's sync config and bookkeeping). The settings row loses `sync` (moved to `syncState`). Neither new table is ever in a backup; `migrateBackupV2toV3` strips `settings.sync`. |
 
 The row mapping of each version is **pure** and lives in `src/logic/schemaV<N>.ts`, so the Dexie
 upgrade and the backup migrator (`src/logic/backup.ts`, `migrateBackupV1toV2`) share it. Every
@@ -32,7 +33,9 @@ mapping is idempotent (a row that already has the new fields keeps them).
 6. Timestamps: an upgrade is not an edit. The `updating` hook in `db.ts` does not stamp rows
    inside the native `versionchange` transaction (Dexie wraps it in a `'readwrite'` transaction,
    so the hook checks `tx.idbtrans.mode`), so `modify()` in an upgrader keeps `updatedAt`. Set it
-   yourself only when the row's meaning really changed.
+   yourself only when the row's meaning really changed. An upgrade is never queued for cloud sync
+   either: upgrade transactions do not pass through the tracking middleware's `transaction()`.
+   Write an upgrader so that running it again touches nothing (`filter` before `modify`).
 7. **Trash payloads hold old rows.** Map them in the upgrade too, or restoring a trashed row after
    the upgrade brings back an old-shaped row (`trashToV2` does this for v2).
 

@@ -79,10 +79,13 @@ describe('export', () => {
     expect(out.file).toMatchObject({
       app: 'forge',
       format: 1,
-      schemaVersion: 2,
+      schemaVersion: 3,
       appVersion: VERSION,
       exportedAt: new Date(NOW).toISOString(),
     })
+    // Neither the snapshots nor this device's sync bookkeeping travel in a backup.
+    expect(out.file.tables.syncOutbox).toBeUndefined()
+    expect(out.file.tables.syncState).toBeUndefined()
     expect(Object.keys(out.file.tables).sort()).toEqual([...BACKUP_TABLES].sort())
     expect(out.file.tables.snapshots).toBeUndefined()
     expect(out.file.tables.tasks?.length).toBeGreaterThan(20)
@@ -117,7 +120,7 @@ describe('export → reset → import', () => {
     const parsed = parseBackup(json, BACKUP_CONTEXT)
     if (!parsed.ok) throw new Error(parsed.errors.join('\n'))
     const result = await importBackup(parsed.file, NOW)
-    expect(result.fromVersion).toBe(2)
+    expect(result.fromVersion).toBe(3)
     expect(result.skippedFiles).toBe(0)
     expect(result.items).toBeGreaterThan(50)
 
@@ -156,7 +159,7 @@ describe('safety copy and snapshots', () => {
       id: copy.snapshotId,
       reason: 'pre-import',
       day: '2026-09-29',
-      schemaVersion: 2,
+      schemaVersion: 3,
       createdAt: NOW,
     })
     expect(row?.sizeBytes).toBeGreaterThan(1000)

@@ -72,13 +72,14 @@ describe('ensureSettings', () => {
   it('keeps user values and backfills keys added by later releases', async () => {
     const legacy = defaultSettings(500)
     legacy.profile = { name: 'Sam' }
-    dropKey(legacy, 'sync')
+    dropKey(legacy, 'rewardsSeeded')
     dropKey(legacy.timer, 'autoStartFocus')
     await db.settings.put(legacy)
 
     const s = await ensureSettings()
     expect(s.profile.name).toBe('Sam')
-    expect(s.sync).toEqual({ enabled: false, url: null, anonKey: null, lastSyncAt: null })
+    expect(s.rewardsSeeded).toBe(false)
+    expect('sync' in s).toBe(false)
     expect(s.timer.autoStartFocus).toBe(false)
     expect(s.createdAt).toBe(500)
     expect(await db.settings.get(SETTINGS_ID)).toEqual(s)

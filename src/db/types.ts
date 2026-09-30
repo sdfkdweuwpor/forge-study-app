@@ -3,6 +3,7 @@
  * Conventions: ids are strings, instants are epoch ms, calendar days are local `'YYYY-MM-DD'`.
  */
 import type { PlanChange } from '@/logic/scheduler/plannerTypes'
+import type { SyncTableName } from '@/logic/syncTables'
 import type { TableName } from './schema'
 
 export type { TableName } from './schema'
@@ -551,7 +552,8 @@ export interface StoredFile extends Base {
   size: number
   blob: Blob
 }
-export type SnapshotReason = 'daily' | 'manual' | 'pre-import' | 'pre-restore' | 'pre-reset'
+export type SnapshotReason =
+  'daily' | 'manual' | 'pre-import' | 'pre-restore' | 'pre-reset' | 'pre-sync'
 export interface Snapshot extends Base {
   day: ISODate
   reason: SnapshotReason
@@ -679,7 +681,6 @@ export interface Settings extends Base {
   lastCelebratedLevel: number
   /** The three starter rewards were offered once (or the shop already had rewards); never seed again. */
   rewardsSeeded: boolean
-  sync: { enabled: boolean; url: string | null; anonKey: string | null; lastSyncAt: Millis | null }
   /**
    * My World. `seed` is the constant the city's seeded generator starts from: created once (0 = not yet),
    * then never changed, so the same history always grows the same city.
@@ -694,6 +695,69 @@ export interface Settings extends Base {
 }
 /** Settings without the row bookkeeping (`id`, timestamps). */
 export type SettingsData = Omit<Settings, keyof Base>
+
+// ─── Cloud sync (schema v3, PLAN §4.7.4) ────────────────────────────────────
+
+/**
+ * One record changed on this device since it last pushed (`[tbl+id]` is the key, so a record has at most
+ * one entry). No payload: the push reads the row as it is then, and a missing row is sent as a tombstone.
+ * `at` is the last-write-wins stamp of the latest change (`logic/syncTables.nextStamp`).
+ */
+export interface SyncOutboxEntry {
+  tbl: SyncTableName
+  id: ID
+  at: Millis
+}
+export type SyncErrorKind =
+  | 'offline'
+  | 'server'
+  | 'rateLimited'
+  | 'signedOut'
+  | 'setup'
+  | 'forbidden'
+  | 'tooLarge'
+  | 'updateNeeded'
+  | 'snapshot'
+export interface SyncError {
+  kind: SyncErrorKind
+  message: string
+  at: Millis
+}
+export interface SyncSession {
+  accessToken: string
+  refreshToken: string
+  expiresAt: Millis
+  userId: string
+  email: string
+}
+/**
+ * This device's sync configuration and bookkeeping (one row, `id = 'device'`). Never synced, never in a
+ * backup, a snapshot or a crash export. With no row, sync is off.
+ */
+export interface SyncStateRow {
+  id: 'device'
+  /** Tracking and the engine are on. */
+  enabled: boolean
+  url: string | null
+  anonKey: string | null
+  email: string | null
+  session: SyncSession | null
+  pendingLogin: { email: string; codeVerifier: string; requestedAt: Millis } | null
+  /** New at every enable: the last-write-wins tie-break and the echo filter. */
+  deviceId: string | null
+  /** The account this device last merged with; signing in to another one starts a first sync again. */
+  accountUserId: string | null
+  phase: 'off' | 'bootstrap' | 'steady'
+  /** Last applied server `seq`. */
+  pullCursor: number
+  /** Highest remote stamp seen (never more than server time + 5 min). */
+  maxSeenStamp: Millis
+  lastSyncAt: Millis | null
+  lastAttemptAt: Millis | null
+  lastError: SyncError | null
+  /** Server clock minus this device's clock, when measured. */
+  clockSkewMs: number | null
+}
 
 // ─── Table → row map ────────────────────────────────────────────────────────
 
@@ -729,6 +793,8 @@ export interface TableRows {
   practiceQuestions: PracticeQuestion
   questionAttempts: QuestionAttempt
   readiness: Readiness
+  syncOutbox: SyncOutboxEntry
+  syncState: SyncStateRow
 }
 
 // Compile-time guard (type-only): TableRows and the schema's table list must stay in sync.

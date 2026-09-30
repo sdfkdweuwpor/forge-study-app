@@ -33,6 +33,8 @@ export const TABLE_LABELS: Record<TableName, string> = {
   practiceQuestions: 'Practice questions',
   questionAttempts: 'Question attempts',
   readiness: 'Readiness',
+  syncOutbox: 'Changes waiting to sync',
+  syncState: 'Sync settings',
 }
 
 export function tableLabel(table: string): string {

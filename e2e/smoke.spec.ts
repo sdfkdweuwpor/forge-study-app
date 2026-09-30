@@ -960,3 +960,96 @@ test.describe('startup and database failures (1440)', () => {
     await expect(page.getByRole('button', { name: 'Export my data' })).toBeVisible()
   })
 })
+
+// ── 13. Sync is off until someone turns it on ────────────────────────────────────────────────────
+
+/**
+ * Strings that only the code that runs while sync is on contains (PLAN §4.7: the engine, the Supabase
+ * client and the status screen are lazy chunks). Content, not chunk names, so a bundler that renames or
+ * merges chunks cannot make this pass for the wrong reason.
+ */
+const SYNC_ONLY_CODE = [
+  'grant_type=pkce', // the sign-in calls (transport)
+  'X-Supabase-Api-Version',
+  'Forge hit a problem while syncing', // the cycle (repo engine)
+  'Bringing this device together', // the status screen of a device that syncs
+] as const
+
+test.describe('sync is off (1440)', () => {
+  test.use({ viewport: DESKTOP })
+
+  test('a walk through the app and the Sync setup form makes no request to Supabase, or to anywhere unexpected, and loads no sync engine', async ({
+    page,
+    baseURL,
+  }) => {
+    test.setTimeout(120_000)
+    const origin = new URL(baseURL ?? 'http://localhost:4173').origin
+    const requested = new Set<string>()
+    // The context sees every request of the page, its workers and its frames.
+    page.context().on('request', (request) => {
+      if (/^(https?|wss?):/.test(request.url())) requested.add(request.url())
+    })
+
+    // Every page, first with the sample data (so each one has something to draw), then a write.
+    await gotoApp(page, '/', 'wgu')
+    await gotoApp(page, '/') // the seeded data, loaded the way a returning visit loads it
+    await page.getByRole('checkbox', { name: 'Done: Email mentor about term plan' }).click()
+    await expect(page.getByRole('region', { name: 'Notifications', exact: true })).toContainText(
+      'Completed “Email mentor about term plan”',
+    )
+    for (const url of ALL_URLS) await gotoApp(page, url)
+
+    // The Sync section: the form opens and judges what is typed without asking anyone.
+    await gotoApp(page, '/settings/sync')
+    const box = page.getByRole('region', { name: 'Sync', exact: true })
+    await box.getByRole('button', { name: 'Set up sync' }).click()
+    await box.getByLabel('Project URL').fill('https://abcdefghijklmnopqrst.supabase.co')
+    const key = box.getByLabel('Anon (public) key', { exact: true })
+    await key.fill('not a key')
+    await key.blur()
+    await expect(box).toContainText("That doesn't look like a Supabase key.")
+    await box.getByRole('button', { name: 'Copy setup SQL' }).focus()
+
+    const urls = [...requested]
+    expect(
+      urls.filter((u) => new URL(u).hostname.endsWith('supabase.co')),
+      'a request went to a Supabase host',
+    ).toEqual([])
+    // Only the app itself, and the favicon host the Blocker page asks (the fixture answers it).
+    expect(
+      urls.filter(
+        (u) => new URL(u).origin !== origin && !u.startsWith('https://icons.duckduckgo.com/'),
+      ),
+      'a request went somewhere unexpected',
+    ).toEqual([])
+
+    // None of the code that runs while sync is on was even downloaded.
+    const scripts = urls.filter((u) => new URL(u).origin === origin && /\.js($|\?)/.test(u))
+    expect(scripts.length, 'no scripts were requested?').toBeGreaterThan(10)
+    for (const url of scripts) {
+      const body = await (await page.request.get(url)).text()
+      for (const marker of SYNC_ONLY_CODE) {
+        expect(body, `${url} holds sync-only code (${marker})`).not.toContain(marker)
+      }
+    }
+    // And nothing was set up behind the person's back.
+    expect(
+      await page.evaluate(
+        () =>
+          new Promise<number>((resolve, reject) => {
+            const open = indexedDB.open('forge')
+            open.onerror = () => reject(open.error)
+            open.onsuccess = () => {
+              const db = open.result
+              const req = db.transaction('syncState').objectStore('syncState').count()
+              req.onsuccess = () => {
+                db.close()
+                resolve(req.result)
+              }
+              req.onerror = () => reject(req.error)
+            }
+          }),
+      ),
+    ).toBe(0)
+  })
+})

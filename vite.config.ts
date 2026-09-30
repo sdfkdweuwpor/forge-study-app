@@ -1,9 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import type { OutgoingHttpHeaders, ServerResponse } from 'node:http'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { constants as zlibConstants, createBrotliCompress, createGzip } from 'node:zlib'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin, type ResolvedConfig } from 'vite'
 import { VitePWA, type VitePWAOptions } from 'vite-plugin-pwa'
@@ -22,69 +20,6 @@ function securityHeadersFile(): Plugin {
     },
     async writeBundle() {
       await writeFile(resolve(outDir, '_headers'), toHeadersFile(securityHeaders))
-    },
-  }
-}
-
-const COMPRESSIBLE = /^(text\/|application\/(javascript|json|manifest\+json)|image\/svg\+xml)/
-
-/**
- * `vite preview` sends every file as it is, while Netlify sends brotli or gzip. Measured without that, a
- * preview delivers about three times the bytes a visitor downloads, so a Lighthouse run against it (or any
- * load-time figure taken from it) says more about the missing compression than about the app. This
- * compresses the text responses of `vite preview` the same way (brotli, else gzip). It changes nothing in
- * the build, in `vite dev` or on Netlify.
- */
-function previewCompression(): Plugin {
-  return {
-    name: 'forge:preview-compression',
-    configurePreviewServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const accepted = String(req.headers['accept-encoding'] ?? '')
-        const encoding = accepted.includes('br') ? 'br' : accepted.includes('gzip') ? 'gzip' : null
-        if (req.method !== 'GET' || encoding === null || req.headers.range !== undefined) {
-          next()
-          return
-        }
-        const send = {
-          writeHead: res.writeHead.bind(res) as (status: number) => ServerResponse,
-          write: res.write.bind(res) as (chunk: Buffer) => boolean,
-          end: res.end.bind(res) as () => ServerResponse,
-        }
-        res.writeHead = ((status: number, ...rest: unknown[]) => {
-          const extra = rest.find(
-            (r): r is OutgoingHttpHeaders => typeof r === 'object' && r !== null,
-          )
-          if (extra) {
-            for (const [name, value] of Object.entries(extra)) {
-              if (value !== undefined) res.setHeader(name, value)
-            }
-          }
-          const type = String(res.getHeader('content-type') ?? '')
-          const length = Number(res.getHeader('content-length') ?? Infinity)
-          const worthIt = status === 200 && COMPRESSIBLE.test(type) && length > 1024
-          if (worthIt && !res.hasHeader('content-encoding')) {
-            const packer =
-              encoding === 'br'
-                ? createBrotliCompress({ params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 } })
-                : createGzip({ level: 6 })
-            res.removeHeader('content-length')
-            res.setHeader('content-encoding', encoding)
-            res.setHeader('vary', 'Accept-Encoding')
-            packer.on('data', (chunk: Buffer) => void send.write(chunk))
-            packer.on('end', () => void send.end())
-            // The response is written through `packer`, so its backpressure is what `pipe()` must wait for.
-            packer.on('drain', () => void res.emit('drain'))
-            res.write = ((chunk: Buffer | string) => packer.write(chunk)) as ServerResponse['write']
-            res.end = ((chunk?: Buffer | string) => {
-              packer.end(chunk)
-              return res
-            }) as ServerResponse['end']
-          }
-          return send.writeHead(status)
-        }) as ServerResponse['writeHead']
-        next()
-      })
     },
   }
 }
@@ -222,7 +157,6 @@ export default defineConfig({
       integration: { configureOptions: applyBase },
     }),
     securityHeadersFile(),
-    previewCompression(),
   ],
   resolve: {
     alias: {

@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { FatalScreen, RootErrorScreen, RouteErrorView } from './ErrorScreens'
+import { FatalScreen, RootErrorScreen, RouteErrorView, exportFailureText } from './ErrorScreens'
 
 const html = (el: ReactElement): string => renderToStaticMarkup(el)
 const noop = () => undefined
@@ -56,5 +56,24 @@ describe('the crash screens', () => {
     expect(out).toContain('Export my data')
     expect(out).toContain('Copy error details')
     expect(out).toContain('href="/settings/snapshots"')
+  })
+})
+
+describe('exportFailureText', () => {
+  it('blames the network, not the database, when the export code could not be fetched', () => {
+    const chunk = new TypeError(
+      'Failed to fetch dynamically imported module: /assets/exportData-x.js',
+    )
+    const out = exportFailureText(chunk)
+    expect(out).toContain('Could not load the export tool')
+    expect(out).toContain('Your data has not been touched')
+    expect(out).not.toContain('database')
+  })
+
+  it('still reports a database that cannot be read, with the reason', () => {
+    expect(exportFailureText(new Error('QuotaExceededError'))).toBe(
+      'Could not read the database: QuotaExceededError',
+    )
+    expect(exportFailureText('nope')).toBe('Could not read the database.')
   })
 })

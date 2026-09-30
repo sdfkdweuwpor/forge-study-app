@@ -390,6 +390,62 @@ const list: ShotList = {
         await settle(page)
       },
     },
+    // A first cycle that fails is still a first sync to the database (`phase` stays `bootstrap` until one
+    // cycle gets through), so each of these is what a real first failure looks like.
+    {
+      name: 'first-sync-setup-needed',
+      path: '/settings/sync?seed=wgu',
+      waitFor: 'main h1',
+      element: SECTION,
+      prepare: async (page) => {
+        const lastError = {
+          kind: 'setup',
+          message: "The forge_rows table isn't in your project yet. Run the setup SQL.",
+          at: NOW - MIN,
+        }
+        await open(page, on({ phase: 'bootstrap', lastSyncAt: null, lastError }))
+        await page.getByText('The forge_rows table isn').waitFor()
+        await page.getByRole('button', { name: 'Copy setup SQL' }).waitFor()
+        await page.getByRole('button', { name: 'Sign out and stop syncing' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      name: 'first-sync-offline',
+      path: '/settings/sync?seed=wgu',
+      waitFor: 'main h1',
+      element: SECTION,
+      prepare: async (page) => {
+        const lastError = {
+          kind: 'offline',
+          message: "Offline. Changes will sync when you're back online.",
+          at: NOW - MIN,
+        }
+        await open(page, on({ phase: 'bootstrap', lastSyncAt: null, lastError }))
+        await page.getByText("Offline. Changes will sync when you're back online.").waitFor()
+        await page.getByRole('button', { name: 'Sign out and stop syncing' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      name: 'first-sync-retry',
+      path: '/settings/sync?seed=wgu',
+      waitFor: 'main h1',
+      element: SECTION,
+      prepare: async (page) => {
+        const lastError = {
+          kind: 'server',
+          message: "Supabase isn't answering right now. Forge will try again.",
+          at: NOW - 30_000,
+        }
+        await open(page, on({ phase: 'bootstrap', lastSyncAt: null, lastError }), {
+          leader: { retryAt: NOW + 5 * MIN },
+        })
+        await page.getByText('in 5 minutes.').waitFor()
+        await page.getByRole('button', { name: 'Sign out and stop syncing' }).waitFor()
+        await settle(page)
+      },
+    },
     {
       name: 'on-synced',
       path: '/settings/sync?seed=wgu',
@@ -495,6 +551,28 @@ const list: ShotList = {
         }
         await open(page, on({ session: null, lastError }), { outbox: 5 })
         await page.getByRole('button', { name: 'Send sign-in link' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      // The section is on every Settings page; a signed-out one must not take the focus (or scroll the
+      // page) anywhere but on /settings/sync, where the person came to sign in.
+      name: 'on-signed-out-elsewhere',
+      path: '/settings/sync?seed=wgu',
+      waitFor: 'main h1',
+      element: SECTION,
+      prepare: async (page) => {
+        const lastError = {
+          kind: 'signedOut',
+          message: 'Sign in again to keep syncing. Your changes are kept on this device.',
+          at: NOW - MIN,
+        }
+        await open(page, on({ session: null, lastError }), { path: '/settings/appearance' })
+        await page.getByRole('button', { name: 'Send sign-in link' }).waitFor()
+        await page.waitForTimeout(500)
+        const focused = await page.evaluate(() => document.activeElement?.getAttribute('type'))
+        if (focused === 'email')
+          throw new Error('the sync email field took the focus on /settings/appearance')
         await settle(page)
       },
     },

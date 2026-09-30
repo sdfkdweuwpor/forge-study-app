@@ -162,7 +162,7 @@ export function Sidebar({ onNavigate, onCollapse, touch = false }: SidebarProps)
       {hasFooter ? (
         <div className={styles.bottom}>
           <Slot id="sidebar.timer" />
-          <Slot id="sidebar.footer" />
+          <Slot id="sidebar.footer" onNavigate={onNavigate} />
         </div>
       ) : null}
     </div>

@@ -336,6 +336,21 @@ const FIT_SIZES = [
 
 type WorldView = ReturnType<NonNullable<Window['__forgeWorld']>['view']>
 
+/** Resolves once the page has drawn `n` more animation frames. */
+async function afterFrames(page: Page, n: number): Promise<void> {
+  await page.evaluate(
+    (count) =>
+      new Promise<void>((resolve) => {
+        const step = (left: number): void => {
+          if (left <= 0) resolve()
+          else requestAnimationFrame(() => step(left - 1))
+        }
+        step(count)
+      }),
+    n,
+  )
+}
+
 async function worldView(page: Page): Promise<WorldView> {
   await expect.poll(() => page.evaluate(() => window.__forgeWorld !== undefined)).toBe(true)
   const view = await page.evaluate(() => window.__forgeWorld?.view())
@@ -417,7 +432,9 @@ for (const size of FIT_SIZES) {
       await page.getByRole('button', { name: 'Zoom out' }).click()
       await expect.poll(async () => (await worldView(page)).zoom).toBe(fitted.zoom)
       await page.getByRole('button', { name: 'Zoom out' }).click()
-      await page.waitForTimeout(150)
+      // At the floor, out does nothing. Two animation frames, not a timer: a zoom change the click
+      // caused would have shown by the second one.
+      await afterFrames(page, 2)
       expect((await worldView(page)).zoom).toBe(fitted.zoom)
 
       // The 0 key fits too, from anywhere.

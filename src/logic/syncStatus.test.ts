@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SyncError } from '@/db/types'
+import type { SyncError, SyncErrorKind } from '@/db/types'
 import { SYNC_TEXT } from './syncApply'
 import {
   CLOCK_WARNING_MS,
@@ -231,6 +231,7 @@ describe('sectionState', () => {
     anonKey: null,
     pendingLogin: null,
     signedIn: false,
+    lastError: null,
   }
   const project = {
     url: 'https://abcdefghijklmnopqrst.supabase.co',
@@ -253,6 +254,27 @@ describe('sectionState', () => {
     const on = { ...off, ...project, enabled: true, signedIn: true }
     expect(sectionState({ ...on, phase: 'bootstrap' })).toBe('firstSync')
     expect(sectionState({ ...on, phase: 'steady' })).toBe('on')
+  })
+
+  it('a first sync that failed is shown as on, where its error and the way out are', () => {
+    const on = { ...off, ...project, enabled: true, signedIn: true, phase: 'bootstrap' as const }
+    const kinds: SyncErrorKind[] = [
+      'setup',
+      'forbidden',
+      'offline',
+      'server',
+      'rateLimited',
+      'tooLarge',
+      'updateNeeded',
+      'snapshot',
+    ]
+    for (const kind of kinds) {
+      expect(
+        sectionState({ ...on, lastError: { kind, message: 'x', at: 1_790_000_000_000 } }),
+      ).toBe('on')
+    }
+    // ...and back to the first sync's own face once a cycle has cleared the error.
+    expect(sectionState({ ...on, lastError: null })).toBe('firstSync')
   })
 
   it('a signed-out device stays in the on state, where it is asked to sign in again', () => {

@@ -12,21 +12,39 @@ import styles from './ErrorScreens.module.css'
 /** Reports what a recovery button did, in the one status line under the buttons. */
 type OnStatus = (text: string) => void
 
+/**
+ * What the status line says when an export fails. The export code is a separate download, so the usual
+ * cause on a day when the app is already failing is that it could not be fetched: say that, and not that
+ * the database is unreadable.
+ */
+export function exportFailureText(error: unknown): string {
+  if (isChunkLoadError(error)) {
+    return 'Could not load the export tool. Your data has not been touched. Check your connection and reload, then try again.'
+  }
+  return `Could not read the database${error instanceof Error ? `: ${error.message}` : '.'}`
+}
+
 function ExportButton({ onStatus }: { onStatus: OnStatus }) {
   const [busy, setBusy] = useState(false)
+
+  // The backup code is not in the first download, but these screens are the ones shown when something is
+  // wrong, possibly with the network gone too: fetch it as soon as the button is on screen, not when it
+  // is pressed. A failure here is reported by the press, if it comes to that.
+  useEffect(() => {
+    import('./exportData').catch(() => undefined)
+  }, [])
 
   async function run() {
     setBusy(true)
     onStatus('')
     try {
-      // The backup code is only for this button, so it loads when the button is pressed.
       const { exportAllData } = await import('./exportData')
       const r = await exportAllData()
       // A note means something was left out (attached files over the size limit): say so, don't hide it.
       const left = r.notes.length > 0 ? ` ${r.notes.join(' ')}` : ''
       onStatus(`Saved ${r.filename} (${r.rows} records).${left}`)
     } catch (e) {
-      onStatus(`Could not read the database${e instanceof Error ? `: ${e.message}` : '.'}`)
+      onStatus(exportFailureText(e))
     }
     setBusy(false)
   }

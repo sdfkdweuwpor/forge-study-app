@@ -19,9 +19,9 @@ export type SectionState =
   | 'configured'
   /** Off, a sign-in link or code was requested: waiting for the email. */
   | 'waiting'
-  /** On, bringing this device together with the cloud copy for the first time. */
+  /** On, bringing this device together with the cloud copy for the first time, and nothing has gone wrong. */
   | 'firstSync'
-  /** On. */
+  /** On (also a first sync that failed: the status line says why, and its controls are the way out). */
   | 'on'
 
 export interface SectionInput {
@@ -31,10 +31,18 @@ export interface SectionInput {
   anonKey: string | null
   pendingLogin: unknown
   signedIn: boolean
+  lastError: SyncError | null
 }
 
+/**
+ * Which face the section shows. The first sync stays a first sync (`phase: 'bootstrap'`) until one cycle
+ * gets all the way through, so a failed first cycle (the setup SQL not run yet, no network, a paused
+ * project) still has that phase: it is shown as `on`, where the error and what to do about it are.
+ */
 export function sectionState(v: SectionInput): SectionState {
-  if (v.enabled) return v.phase !== 'steady' && v.signedIn ? 'firstSync' : 'on'
+  if (v.enabled) {
+    return v.phase !== 'steady' && v.signedIn && v.lastError === null ? 'firstSync' : 'on'
+  }
   if (v.pendingLogin !== null) return 'waiting'
   return v.url !== null && v.anonKey !== null ? 'configured' : 'notSetUp'
 }

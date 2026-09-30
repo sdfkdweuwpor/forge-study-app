@@ -1,5 +1,6 @@
 import { ShieldPlus } from 'lucide-react'
 import { Fragment, Suspense, createElement, lazy, useEffect, useState, type ReactNode } from 'react'
+import { ErrorBoundary } from '@/app/ErrorBoundary'
 import type { FeatureManifest } from '@/app/registry'
 import { whenIdle } from '@/lib/idle'
 import { blockerShortcuts } from './shortcuts'
@@ -20,6 +21,11 @@ const SyncRunner = lazy(() => import('./BlockerSync').then((m) => ({ default: m.
  * Renders the app untouched and starts the extension sync a moment after the first screen. The sync
  * (config, focus session, events) needs the blocker repository, the extension protocol and the sync
  * engine, none of which the first screen does; it is silent when the extension is not installed.
+ *
+ * The runner is a lazy chunk that nobody asked for, so when it cannot be fetched (offline on a first
+ * visit, a tab left open across a deploy) it must not take the app with it: an error boundary that
+ * renders nothing keeps everything else running, and the sync stays off until the next reload. (A
+ * provider sits above every page's own boundary, so without this the root crash screen would answer.)
  */
 function BlockerSyncProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -28,7 +34,12 @@ function BlockerSyncProvider({ children }: { children: ReactNode }) {
     Fragment,
     null,
     children,
-    ready ? createElement(Suspense, { fallback: null }, createElement(SyncRunner)) : null,
+    ready
+      ? createElement(ErrorBoundary, {
+          fallback: () => null,
+          children: createElement(Suspense, { fallback: null }, createElement(SyncRunner)),
+        })
+      : null,
   )
 }
 

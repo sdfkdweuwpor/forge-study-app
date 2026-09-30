@@ -82,11 +82,15 @@ test.describe('a touch tablet (768 px)', () => {
   })
 
   test('shortcut hints inside controls take no room', async ({ page }) => {
+    let keycaps = 0
     for (const path of ['/', '/tasks/inbox']) {
       await gotoApp(page, path, 'wgu')
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
       await expect.poll(() => shownKeycapsInControls(page)).toEqual([])
+      // They are still there for screen readers, only visually hidden.
+      keycaps += await page.locator(':is(button, a) kbd').count()
     }
+    expect(keycaps).toBeGreaterThan(0)
   })
 
   test('the planner, calendar and roadmap keyboard hints are hidden', async ({ page }) => {
@@ -126,7 +130,13 @@ test.describe('a phone (375 px, touch)', () => {
 test.describe('a mouse and keyboard (1440 px)', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('the calendar and roadmap keep their keyboard hints', async ({ page }) => {
+  test('the planner, calendar and roadmap keep their keyboard hints', async ({ page }) => {
+    await gotoApp(page, '/goals/new', 'wgu')
+    const footer = page
+      .locator('footer')
+      .filter({ has: page.getByRole('button', { name: 'Continue' }) })
+    await expect(footer.locator('kbd').first()).toBeVisible()
+
     await gotoApp(page, '/tasks/all?layout=calendar', 'wgu')
     await expect(page.getByText('move the selected task a day')).toBeVisible()
 
@@ -136,30 +146,34 @@ test.describe('a mouse and keyboard (1440 px)', () => {
   })
 })
 
-/** Title text lines that run under the card's grip or … menu, per card title. */
-async function titlesUnderCorner(page: Page): Promise<string[]> {
+/** How many cards were measured, and the titles with a text line under the card's grip or … menu. */
+async function titlesUnderCorner(page: Page): Promise<{ cards: number; clashes: string[] }> {
   return page.evaluate(() => {
     const clashes: string[] = []
+    let cards = 0
     for (const card of Array.from(
       document.querySelectorAll<HTMLElement>('[data-variant="card"]'),
     )) {
       const title = card.querySelector<HTMLElement>('button[aria-label$=". Edit task title"]')
       const grip = card.querySelector<HTMLElement>('button[aria-label^="Move "]')
-      const menu = card.querySelector<HTMLElement>('button[aria-label^="Actions for "]')
+      const menu = card.querySelector<HTMLElement>('button[aria-label="More actions"]')
       if (!title || !grip || !menu) continue
-      const corner = grip.getBoundingClientRect()
+      cards += 1
+      const gripBox = grip.getBoundingClientRect()
       const menuBox = menu.getBoundingClientRect()
-      const left = Math.min(corner.left, menuBox.left)
-      const bottom = Math.max(corner.bottom, menuBox.bottom)
+      const left = Math.min(gripBox.left, menuBox.left)
+      const top = Math.min(gripBox.top, menuBox.top)
+      const bottom = Math.max(gripBox.bottom, menuBox.bottom)
       const range = document.createRange()
       range.selectNodeContents(title)
       for (const line of Array.from(range.getClientRects())) {
         if (line.width === 0) continue
-        const beside = line.top < bottom && line.bottom > corner.top
+        // The 24 px controls are centred on the 20 px first line, so they reach 2 px into the second.
+        const beside = Math.min(line.bottom, bottom) - Math.max(line.top, top) > 2
         if (beside && line.right > left) clashes.push(title.getAttribute('aria-label') ?? '')
       }
     }
-    return clashes
+    return { cards, clashes }
   })
 }
 
@@ -175,7 +189,8 @@ for (const [label, touch] of [
       const board = page.getByRole('group', { name: 'Board' })
       await expect(board.locator('[data-variant="card"]').first()).toBeVisible()
       expect(await board.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
-      await expect.poll(() => titlesUnderCorner(page)).toEqual([])
+      await expect.poll(async () => (await titlesUnderCorner(page)).clashes).toEqual([])
+      expect((await titlesUnderCorner(page)).cards).toBeGreaterThan(10)
     })
   })
 }

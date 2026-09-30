@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from 'node:util'
 import type { Locator, Page } from '@playwright/test'
 import { expect, gotoApp, test } from './fixtures'
 
@@ -626,7 +627,10 @@ async function expectDefect(
     failure = error
   }
   expect(failure, `the defect is fixed in ${fixedBy}: delete this tracker`).toBeDefined()
-  expect(failure instanceof Error ? failure.message : String(failure)).toMatch(symptom)
+  // Playwright colours its messages for the terminal; the symptom is matched on the plain text.
+  expect(
+    stripVTControlCharacters(failure instanceof Error ? failure.message : String(failure)),
+  ).toMatch(symptom)
 }
 
 // Defects in files this package does not own (the report has the fix for each). Each tracker passes

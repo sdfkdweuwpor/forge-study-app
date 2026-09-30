@@ -1,7 +1,7 @@
 import { RotateCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { SyncStateView } from '@/db/hooks/useSyncState'
-import { clockWarning, progressText } from '@/logic/syncStatus'
+import { clockWarning, progressText, sectionState } from '@/logic/syncStatus'
 import { Button } from '@/ui/Button'
 import { Modal } from '@/ui/Modal'
 import { Spinner } from '@/ui/Spinner'
@@ -14,20 +14,27 @@ import styles from './SyncSection.module.css'
 
 const dateTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
 
-/** Bringing this device together with the cloud copy: a quiet count, and the promise that nothing is lost. */
-function FirstSync({ view }: { view: SyncStateView }) {
+/**
+ * Bringing this device together with the cloud copy: a quiet count, and the promise that nothing is lost.
+ * Shown only while nothing has gone wrong (a failed first cycle is the `On` face, which says why); a long
+ * first sync can still be left.
+ */
+function FirstSync({ view, onSignOut }: { view: SyncStateView; onSignOut: () => void }) {
   const { engine } = useSyncStatus(view)
   return (
     <div className={styles.step}>
       <h3 className={styles.title}>Bringing this device together with your cloud copy…</h3>
       <p className={styles.lead}>
-        Nothing is deleted: where both have a change, the newer one is kept. A snapshot was taken
-        first.
+        Nothing is deleted: where both have a change, the newer one is kept. If this device has
+        data, a snapshot is taken first.
       </p>
       <p className={styles.progress} aria-busy="true">
         <Spinner size={16} />
         <span>{progressText(engine.progress)}</span>
       </p>
+      <div className={styles.actions}>
+        <SignOutButton onClick={onSignOut} />
+      </div>
     </div>
   )
 }
@@ -89,10 +96,18 @@ function SignOutDialog({ open, onClose }: { open: boolean; onClose: () => void }
   )
 }
 
+/** The way out of every on state; it opens the confirmation. */
+function SignOutButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button variant="ghost" onClick={onClick}>
+      Sign out and stop syncing
+    </Button>
+  )
+}
+
 /** On: how it is going, what to do about it when it needs you, and the way out. */
-function On({ view }: { view: SyncStateView }) {
+function On({ view, onSignOut }: { view: SyncStateView; onSignOut: () => void }) {
   const { line, engine } = useSyncStatus(view)
-  const [signingOut, setSigningOut] = useState(false)
   const warning = clockWarning(view.clockSkewMs)
 
   return (
@@ -132,9 +147,7 @@ function On({ view }: { view: SyncStateView }) {
             Sync now
           </Button>
         ) : null}
-        <Button variant="ghost" onClick={() => setSigningOut(true)}>
-          Sign out and stop syncing
-        </Button>
+        <SignOutButton onClick={onSignOut} />
       </div>
 
       <dl className={styles.facts}>
@@ -148,8 +161,6 @@ function On({ view }: { view: SyncStateView }) {
           {warning}
         </p>
       ) : null}
-
-      <SignOutDialog open={signingOut} onClose={() => setSigningOut(false)} />
     </div>
   )
 }
@@ -160,8 +171,21 @@ function On({ view }: { view: SyncStateView }) {
  * engine, which a tab opened before sync was turned on (in another tab) does not have yet.
  */
 export function SyncStatus({ view }: { view: SyncStateView }) {
+  // The confirmation belongs to neither face: a first sync that fails swaps one for the other, and the
+  // dialog must stay open through it.
+  const [signingOut, setSigningOut] = useState(false)
   useEffect(() => {
     startEngine()
   }, [])
-  return view.phase !== 'steady' && view.signedIn ? <FirstSync view={view} /> : <On view={view} />
+  const open = () => setSigningOut(true)
+  return (
+    <>
+      {sectionState(view) === 'firstSync' ? (
+        <FirstSync view={view} onSignOut={open} />
+      ) : (
+        <On view={view} onSignOut={open} />
+      )}
+      <SignOutDialog open={signingOut} onClose={() => setSigningOut(false)} />
+    </>
+  )
 }

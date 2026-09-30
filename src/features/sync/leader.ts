@@ -8,6 +8,8 @@
  * (it ignores the messages below, and this ignores its `tracking` and `seen` messages):
  *  - `sync-now`: a tab that is not the leader asks the leader for a cycle (the person pressed Sync now);
  *  - `wrote`: a tab that is not the leader changed something, so the leader starts its write timer;
+ *  - `nudge`: a tab that is not the leader was focused or became visible, so the leader syncs if its last
+ *    cycle is old (the leader's own 5-minute rhythm pauses while the leader is hidden);
  *  - `engine?`: a tab that just started asks the leader how it is doing;
  *  - `engine`: the leader says how it is doing (running, when it tries again, a paused project, the first
  *    sync's progress), so every tab's status line is the same.
@@ -117,6 +119,7 @@ export interface EngineShare {
 export type SyncMessage =
   | { type: 'sync-now' }
   | { type: 'wrote' }
+  | { type: 'nudge' }
   | { type: 'engine?' }
   | { type: 'engine'; state: EngineShare }
 
@@ -133,6 +136,7 @@ export function readMessage(value: unknown): SyncMessage | null {
   if (!isObj(value)) return null
   if (value.type === 'sync-now') return { type: 'sync-now' }
   if (value.type === 'wrote') return { type: 'wrote' }
+  if (value.type === 'nudge') return { type: 'nudge' }
   if (value.type === 'engine?') return { type: 'engine?' }
   if (value.type !== 'engine' || !isObj(value.state)) return null
   const { running, retryAt, paused, progress } = value.state

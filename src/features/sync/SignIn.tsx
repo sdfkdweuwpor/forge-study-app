@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNow } from '@/app/hooks/useNow'
+import { appPath, currentPath } from '@/app/router'
 import type { SyncStateView } from '@/db/hooks/useSyncState'
 import { Button } from '@/ui/Button'
 import { Input } from '@/ui/Input'
@@ -11,6 +12,21 @@ import styles from './SyncSection.module.css'
 export const RESEND_WAIT_S = 60
 
 const actions = () => import('./actions')
+
+/** A field the person may be typing in elsewhere on the page. */
+const TEXT_FIELD = 'input, textarea, select, [contenteditable]'
+
+/**
+ * Whether the sign-in field may take the focus. Every Settings page mounts every section, so a signed-out
+ * device has this form on screen at `/settings` and `/settings/appearance` too: only a visit to
+ * `/settings/sync` itself (the person came for this) moves the focus, and never out of a field they are
+ * typing in.
+ */
+function mayTakeFocus(): boolean {
+  if (currentPath() !== appPath('settings', { section: 'sync' })) return false
+  const active = document.activeElement
+  return !(active instanceof HTMLElement && active.matches(TEXT_FIELD))
+}
 
 /**
  * Step one: the email the sign-in link and code go to. The address is prefilled with the one used before,
@@ -25,8 +41,10 @@ function EmailStep({ email: initial, again }: { email: string | null; again: boo
   const field = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Someone who is signing in again has nothing else to do here: start on the field.
-    if (again) field.current?.focus()
+    // Someone who came to Settings → Sync to sign in again has nothing else to do here: start on the
+    // field. The section is on screen on other Settings pages as well; it stays out of their way, and never
+    // scrolls them.
+    if (again && mayTakeFocus()) field.current?.focus({ preventScroll: true })
   }, [again])
 
   async function submit(e: FormEvent) {
@@ -183,7 +201,7 @@ function WaitingStep({ email, requestedAt }: { email: string; requestedAt: numbe
 
 interface SignInProps {
   view: SyncStateView
-  /** Signing in again after being signed out, not setting up: the field takes the focus. */
+  /** Signing in again after being signed out, not setting up: on `/settings/sync` the field takes the focus. */
   again?: boolean
 }
 

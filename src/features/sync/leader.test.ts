@@ -177,9 +177,10 @@ describe('createLeader', () => {
 describe('readMessage', () => {
   const share = { running: true, retryAt: 1_790_000_000_000, paused: false, progress: null }
 
-  it('reads the three messages', () => {
+  it('reads the messages', () => {
     expect(readMessage({ type: 'sync-now' })).toEqual({ type: 'sync-now' })
     expect(readMessage({ type: 'wrote' })).toEqual({ type: 'wrote' })
+    expect(readMessage({ type: 'nudge' })).toEqual({ type: 'nudge' })
     expect(readMessage({ type: 'engine?' })).toEqual({ type: 'engine?' })
     expect(readMessage({ type: 'engine', state: share })).toEqual({ type: 'engine', state: share })
     expect(

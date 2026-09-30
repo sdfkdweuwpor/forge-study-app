@@ -11,6 +11,7 @@
  * loading skeleton and its own "Try again" if the read fails.
  */
 import { ErrorBoundary } from '@/app/ErrorBoundary'
+import type { SlotProps } from '@/app/registry'
 import { Link } from '@/app/router'
 import { useXp, type XpSummary } from '@/db/hooks/useXp'
 import { ProgressRing } from '@/ui/ProgressRing'
@@ -74,7 +75,7 @@ function BadgeView() {
   )
 }
 
-function RowView() {
+function RowView({ onNavigate }: SlotProps['more.footer']) {
   const xp = useXp()
   if (xp === undefined) {
     return (
@@ -86,7 +87,13 @@ function RowView() {
   }
   const { level, progress, label } = summaryOf(xp)
   return (
-    <Link to="rewards" className={styles.row} data-testid="level-row" aria-label={label}>
+    <Link
+      to="rewards"
+      className={styles.row}
+      data-testid="level-row"
+      aria-label={label}
+      onClick={onNavigate}
+    >
       <LevelRing xp={xp} size={ROW_RING} className={styles.rowRing} />
       <span className={styles.level}>Level {level}</span>
       <span className={styles.numbers}>{progress}</span>
@@ -116,8 +123,8 @@ export function LevelBadge() {
   )
 }
 
-/** Slot `more.footer`. */
-export function LevelRow() {
+/** Slot `more.footer`. `onNavigate` closes the sheet, also when the phone is already on rewards. */
+export function LevelRow({ onNavigate }: SlotProps['more.footer']) {
   return (
     <ErrorBoundary
       fallback={(_error, reset) => (
@@ -126,7 +133,7 @@ export function LevelRow() {
         </button>
       )}
     >
-      <RowView />
+      <RowView onNavigate={onNavigate} />
     </ErrorBoundary>
   )
 }

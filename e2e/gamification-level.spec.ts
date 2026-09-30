@@ -268,6 +268,20 @@ test.describe('the level where the sidebar is not', () => {
     await expect(page.locator('[inert]').filter({ has: badge(page) })).toHaveCount(1)
   })
 
+  test('the meter in a tablet drawer closes it, also when the tablet is already on rewards', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await gotoApp(page, '/rewards', 'wgu')
+    await expect(page.getByRole('heading', { level: 1, name: 'Rewards' })).toBeVisible()
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    const drawer = page.getByRole('dialog', { name: 'Navigation' })
+    await expect(drawer).toBeVisible()
+    await meter(page).click()
+    await expect(drawer).toBeHidden()
+    await expect(page).toHaveURL(/\/rewards$/)
+  })
+
   test('a phone ends the More sheet with a level row that opens rewards', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await gotoApp(page, '/', 'wgu')
@@ -298,6 +312,26 @@ test.describe('the level where the sidebar is not', () => {
     await levelRow(page).click()
     await expect(page).toHaveURL(/\/rewards$/)
     await expect(moreSheet(page)).toBeHidden()
+  })
+
+  test('the level row closes the More sheet even when the phone is already on rewards', async ({
+    page,
+  }) => {
+    // The path does not change, so the sheet's "close when the page changes" rule never fires: the row
+    // has to close it itself, the way every nav row in the sheet does.
+    await page.setViewportSize({ width: 375, height: 812 })
+    await gotoApp(page, '/rewards', 'wgu')
+    await expect(page.getByRole('heading', { level: 1, name: 'Rewards' })).toBeVisible()
+
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'More' }).click()
+    await expect(moreSheet(page)).toBeVisible()
+    await levelRow(page).click()
+    await expect(moreSheet(page)).toBeHidden()
+    await expect(page).toHaveURL(/\/rewards$/)
+    // The tab bar is usable again (the page behind the sheet is no longer inert).
+    await expect(page.getByRole('heading', { level: 1, name: 'Rewards' })).toBeVisible()
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'More' }).click()
+    await expect(moreSheet(page)).toBeVisible()
   })
 
   test('the More sheet scrolls on a phone held sideways, so the level row is still reachable', async ({

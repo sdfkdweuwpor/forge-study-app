@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { whenIdle } from '@/lib/idle'
-import { ToastProvider } from '@/ui/Toast'
+import { ToastProvider, useToast } from '@/ui/Toast'
 import { CelebrationHost } from './CelebrationHost'
 import { ErrorBoundary } from './ErrorBoundary'
 import { RootErrorScreen } from './ErrorScreens'
@@ -26,12 +26,47 @@ const ShortcutSheet = lazy(() =>
   import('./shortcuts/ShortcutSheet').then((m) => ({ default: m.ShortcutSheet })),
 )
 
-/** Mounts an overlay the first time it is opened and keeps it mounted after, so it can animate out. */
+const OVERLAY_NAMES: Partial<Record<OverlayKind, string>> = {
+  palette: 'the command palette',
+  shortcuts: 'the shortcut list',
+}
+
+/**
+ * Stands in for an overlay whose code could not be loaded (offline on a first visit, a tab left open
+ * across a deploy). The rest of the app keeps working: it closes the overlay it was asked to open, so
+ * Escape and focus are not left pointing at nothing, and says what happened each time it is asked again.
+ * The lazy component keeps its failure until the page reloads, so the toast offers exactly that.
+ */
+function OverlayUnavailable({ kind, open }: { kind: OverlayKind; open: boolean }) {
+  const overlays = useOverlays()
+  const toast = useToast()
+  useEffect(() => {
+    if (!open) return
+    overlays.close(kind)
+    toast.error(`Couldn’t open ${OVERLAY_NAMES[kind] ?? 'that'}`, {
+      description: 'Reload Forge to try again. Your data is safe.',
+      action: { label: 'Reload', onClick: () => window.location.reload() },
+    })
+    // Closing flips `open` to false, so the re-run that `overlays` changing causes does nothing.
+  }, [open, kind, overlays, toast])
+  return null
+}
+
+/**
+ * Mounts an overlay the first time it is opened and keeps it mounted after, so it can animate out. The
+ * code behind it is fetched on demand, so a failed fetch is caught here and never reaches the root
+ * crash screen.
+ */
 function OnFirstOpen({ kind, children }: { kind: OverlayKind; children: ReactNode }) {
   const open = useOpenOverlays().includes(kind)
   const [wanted, setWanted] = useState(open)
   if (open && !wanted) setWanted(true)
-  return wanted ? <Suspense fallback={null}>{children}</Suspense> : null
+  if (!wanted) return null
+  return (
+    <ErrorBoundary fallback={() => <OverlayUnavailable kind={kind} open={open} />}>
+      <Suspense fallback={null}>{children}</Suspense>
+    </ErrorBoundary>
+  )
 }
 
 /** Escape closes the most recently opened app overlay (palette, quick add, shortcut sheet, full-screen focus). */

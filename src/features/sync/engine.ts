@@ -6,7 +6,8 @@
  * When a cycle runs (in the one tab that holds the lock, see `leader.ts`):
  *  - at start, once the browser is idle after the first paint;
  *  - 3 s after a write that was queued (more writes push it back, but never past 30 s of waiting);
- *  - when the tab becomes visible or the window is focused, if the last cycle ended over 30 s ago;
+ *  - when a tab becomes visible or a window is focused, if the last cycle ended over 30 s ago (a tab that
+ *    is not the leader asks the leader to; it never runs a cycle itself);
  *  - when the browser comes back online;
  *  - every 5 minutes while the tab is visible;
  *  - "Sync now", which also forgets the backoff.
@@ -330,12 +331,17 @@ export interface Engine {
 
 export interface EngineOptions {
   delayMs?: number
+  /**
+   * The engine was started by a write this tab made (a tab that had no engine): the engine did not hear
+   * that write, so a tab that is not the leader tells the leader, which starts its write timer.
+   */
+  wrote?: boolean
   onStop?: () => void
 }
 
 /**
  * One tab's engine. It joins the election; the tab that wins runs a `Scheduler`, the others relay "Sync
- * now" and their writes to it and show what it reports.
+ * now", their writes and their focus to it and show what it reports.
  */
 export function createEngine(p: Platform, options: EngineOptions = {}): Engine {
   let leading = false
@@ -403,6 +409,7 @@ export function createEngine(p: Platform, options: EngineOptions = {}): Engine {
         // Another tab syncs; this one has nothing to wait for.
         p.settleGate()
         p.bus?.post({ type: 'engine?' })
+        if (options.wrote) p.bus?.post({ type: 'wrote' })
       }
       if (wantNow) {
         wantNow = false
@@ -411,10 +418,20 @@ export function createEngine(p: Platform, options: EngineOptions = {}): Engine {
     },
   })
 
+  // Only the leader runs cycles (and so refreshes the token): a tab that is not one never does, whatever the
+  // page says. Coming back to such a tab asks the leader, which syncs if its last cycle is old (a hidden
+  // leader's own rhythm is paused). `online` needs no relay: the leader's page hears it too.
+  const nudge = (): void => {
+    if (leading) scheduler.trigger('focus')
+    else if (decided) p.bus?.post({ type: 'nudge' })
+  }
+
   const offs: (() => void)[] = [
-    p.on('visible', () => scheduler.trigger('focus')),
-    p.on('focus', () => scheduler.trigger('focus')),
-    p.on('online', () => scheduler.trigger('online')),
+    p.on('visible', nudge),
+    p.on('focus', nudge),
+    p.on('online', () => {
+      if (leading) scheduler.trigger('online')
+    }),
     p.on('hidden', () => {
       const s = scheduler.state
       if (!s.running && !s.stalled) void p.flush()
@@ -431,6 +448,7 @@ export function createEngine(p: Platform, options: EngineOptions = {}): Engine {
         if (leading) {
           if (message.type === 'sync-now') scheduler.trigger('manual')
           else if (message.type === 'wrote') scheduler.trigger('write')
+          else if (message.type === 'nudge') scheduler.trigger('focus')
           else if (message.type === 'engine?') publish()
         } else if (message.type === 'engine') {
           setEngineState({ leader: false, ...message.state })
@@ -616,14 +634,19 @@ export function browserPlatform(): Platform {
 let current: Engine | null = null
 
 /**
- * Starts this tab's engine (once; a second call returns the running one). `delayMs` is how long the first
+ * Starts this tab's engine (once; a second call returns the running one, and a call after it stopped starts
+ * a new one). `platform` is the browser, which a test replaces. `delayMs` is how long the first
  * cycle waits after the browser is idle: the tab that turns sync on gives the other tabs a second to hear
- * that tracking is on before anything is read.
+ * that tracking is on before anything is read. `wrote`: a write of this tab is what started it.
  */
-export function startEngine(options: { delayMs?: number } = {}): Engine {
+export function startEngine(
+  options: { delayMs?: number; wrote?: boolean } = {},
+  platform: () => Platform = browserPlatform,
+): Engine {
   if (current !== null) return current
-  const engine: Engine = createEngine(browserPlatform(), {
+  const engine: Engine = createEngine(platform(), {
     delayMs: options.delayMs,
+    wrote: options.wrote,
     onStop: () => {
       if (current === engine) current = null
     },

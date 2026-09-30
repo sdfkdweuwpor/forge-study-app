@@ -6,9 +6,12 @@ import { syncIsOn } from './queries'
 
 const engine = () => import('./engine')
 
-/** Starts this tab's engine when sync is on (a second call does nothing). */
-export async function startSyncEngine(): Promise<void> {
-  if (syncIsOn()) (await engine()).startEngine()
+/**
+ * Starts this tab's engine when sync is on (a second call does nothing). `wrote`: a write of this tab is
+ * why, and the engine did not hear it.
+ */
+export async function startSyncEngine(options: { wrote?: boolean } = {}): Promise<void> {
+  if (syncIsOn()) (await engine()).startEngine(options)
 }
 
 /** Asks for a cycle now, from any tab: the one that syncs runs it. Does nothing while sync is off. */

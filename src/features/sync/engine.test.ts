@@ -10,6 +10,8 @@ import {
   Scheduler,
   createEngine,
   flushPending,
+  startEngine,
+  stopEngine,
   type CycleOutcome,
   type FlushDeps,
   type PageEvent,
@@ -566,6 +568,10 @@ interface TabOptions {
   locks?: LockApi | null
   bus?: FakeBus | null
   cycle?: Platform['cycle']
+  /** Whether the tab is visible (default: it is). */
+  visible?: () => boolean
+  /** The engine was started by a write of this tab. */
+  wrote?: boolean
 }
 
 function tab(options: TabOptions = {}) {
@@ -579,7 +585,7 @@ function tab(options: TabOptions = {}) {
   const platform: Platform = {
     now: () => Date.now(),
     random: () => 0.5,
-    visible: () => true,
+    visible: options.visible ?? (() => true),
     cycle,
     flush,
     locks: options.locks === undefined ? null : options.locks,
@@ -603,7 +609,7 @@ function tab(options: TabOptions = {}) {
     },
     settleGate: gate,
   }
-  const engine = createEngine(platform, { delayMs: 250 })
+  const engine = createEngine(platform, { delayMs: 250, wrote: options.wrote })
   return {
     engine,
     bus,
@@ -701,6 +707,30 @@ describe('createEngine: the tab that syncs', () => {
     t.bus?.receive({ type: 'wrote' })
     await vi.advanceTimersByTimeAsync(WRITE_DEBOUNCE_MS)
     expect(t.cycle).toHaveBeenCalledTimes(3)
+    t.engine.stop()
+  })
+
+  it('answers a nudge from another tab like a focus: a cycle if its last one is old, even while hidden', async () => {
+    let visible = true
+    const t = tab({ locks: null, visible: () => visible })
+    await t.startUp()
+    expect(t.cycle).toHaveBeenCalledTimes(1)
+    visible = false
+    // The leader's own rhythm pauses while it is hidden, so without the nudge nothing would sync.
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    expect(t.cycle).toHaveBeenCalledTimes(1)
+    t.bus?.receive({ type: 'nudge' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(t.cycle).toHaveBeenCalledTimes(2)
+    t.engine.stop()
+  })
+
+  it('does not run a cycle for a nudge when it synced a moment ago', async () => {
+    const t = tab({ locks: null })
+    await t.startUp()
+    t.bus?.receive({ type: 'nudge' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(t.cycle).toHaveBeenCalledTimes(1)
     t.engine.stop()
   })
 
@@ -822,6 +852,71 @@ describe('createEngine: a tab that is not the one syncing', () => {
     follower.engine.stop()
   })
 
+  it('runs no cycle when its page is focused, shown or back online: it asks the leader instead', async () => {
+    const locks = new FakeLocks()
+    const leader = tab({ locks })
+    await vi.advanceTimersByTimeAsync(0)
+    await leader.startUp()
+    const follower = tab({ locks })
+    await vi.advanceTimersByTimeAsync(0)
+    await follower.startUp()
+    await vi.advanceTimersByTimeAsync(FRESH_MS + 1)
+    const nudges = () => follower.bus?.sent.filter((m) => m.type === 'nudge').length ?? 0
+
+    follower.emit('focus')
+    follower.emit('visible')
+    expect(nudges()).toBe(2)
+    follower.emit('online')
+    await vi.advanceTimersByTimeAsync(0)
+    // Nothing ran here, however the page moved; `online` is heard by the leader's own page.
+    expect(follower.cycle).not.toHaveBeenCalled()
+    expect(nudges()).toBe(2)
+    // The leader's own rhythm and start-up are the only cycles there were.
+    expect(leader.cycle).toHaveBeenCalledTimes(1)
+    leader.engine.stop()
+    follower.engine.stop()
+  })
+
+  it('says nothing about its page before the election has answered', async () => {
+    const locks = new FakeLocks()
+    const follower = tab({ locks })
+    follower.emit('focus')
+    follower.emit('visible')
+    follower.emit('online')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(follower.bus?.sent.filter((m) => m.type === 'nudge')).toHaveLength(0)
+    expect(follower.cycle).not.toHaveBeenCalled()
+    follower.engine.stop()
+  })
+
+  it('a tab started by its own write tells the leader about it, which the engine could not have heard', async () => {
+    const locks = new FakeLocks()
+    const leader = tab({ locks })
+    await vi.advanceTimersByTimeAsync(0)
+    const plain = tab({ locks })
+    const started = tab({ locks, wrote: true })
+    await vi.advanceTimersByTimeAsync(0)
+    const wrote = (t: typeof plain) => t.bus?.sent.filter((m) => m.type === 'wrote').length ?? 0
+    expect(wrote(plain)).toBe(0)
+    expect(wrote(started)).toBe(1)
+    leader.engine.stop()
+    plain.engine.stop()
+    started.engine.stop()
+  })
+
+  it('still flushes its own last edits when its page is hidden', async () => {
+    const locks = new FakeLocks()
+    const leader = tab({ locks })
+    await vi.advanceTimersByTimeAsync(0)
+    const follower = tab({ locks })
+    await vi.advanceTimersByTimeAsync(0)
+    follower.emit('hidden')
+    expect(follower.flush).toHaveBeenCalledTimes(1)
+    expect(follower.cycle).not.toHaveBeenCalled()
+    leader.engine.stop()
+    follower.engine.stop()
+  })
+
   it('takes over when the leader closes, and starts syncing', async () => {
     const locks = new FakeLocks()
     const first = tab({ locks })
@@ -834,6 +929,62 @@ describe('createEngine: a tab that is not the one syncing', () => {
     await second.startUp()
     expect(second.cycle).toHaveBeenCalledTimes(1)
     second.engine.stop()
+  })
+})
+
+// ─── The engine of this tab ─────────────────────────────────────────────────
+
+describe('startEngine: the engine of this tab', () => {
+  /** A browser with nothing in it: no locks (so this tab leads), no channel, a start-up job that runs at once. */
+  const bare =
+    (cycle: Platform['cycle']): (() => Platform) =>
+    () => ({
+      now: () => Date.now(),
+      random: () => 0.5,
+      visible: () => true,
+      cycle,
+      flush: async () => undefined,
+      locks: null,
+      bus: null,
+      idle: (job) => {
+        job()
+        return () => undefined
+      },
+      on: () => () => undefined,
+      onWrite: () => () => undefined,
+      settleGate: () => undefined,
+    })
+
+  afterEach(() => {
+    stopEngine()
+    setEngineState({ ...IDLE_ENGINE })
+  })
+
+  it('is one engine: a second start returns the running one', () => {
+    const make = bare(async () => OK)
+    const first = startEngine({}, make)
+    expect(startEngine({}, make)).toBe(first)
+  })
+
+  it('is a new engine once the old one stopped, so the next write in a stopped tab starts syncing again', async () => {
+    const cycle = vi.fn(async (): Promise<CycleOutcome> => ({ status: 'off' }))
+    const make = bare(cycle)
+    const first = startEngine({}, make)
+    await vi.advanceTimersByTimeAsync(0)
+    // The cycle found sync switched off (signed out in another tab): the engine let go of everything.
+    expect(cycle).toHaveBeenCalledTimes(1)
+    const again = startEngine({}, make)
+    expect(again).not.toBe(first)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(cycle).toHaveBeenCalledTimes(2)
+  })
+
+  it('stopEngine() ends it, and is harmless when there is none', () => {
+    stopEngine()
+    const make = bare(async () => OK)
+    const first = startEngine({}, make)
+    stopEngine()
+    expect(startEngine({}, make)).not.toBe(first)
   })
 })
 

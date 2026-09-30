@@ -10,7 +10,7 @@ import { MORE_NAV, isNavActive } from './nav'
 export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const route = useRoute()
   // The sidebar's footer has no room on a phone; what features put in `more.footer` closes the sheet instead
-  // (under a hairline, and only when something is there).
+  // (under a hairline, and only when something is there). They get `onClose` as `onNavigate`, for their links.
   const hasFooter = useSlotCount('more.footer') > 0
   return (
     <Drawer open={open} onClose={onClose} label="More" side="bottom">
@@ -49,7 +49,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </ul>
         {hasFooter ? (
           <div className={styles.footer}>
-            <Slot id="more.footer" />
+            <Slot id="more.footer" onNavigate={onClose} />
           </div>
         ) : null}
       </div>

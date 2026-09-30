@@ -55,11 +55,14 @@ export function start(rootEl: HTMLElement, registry: Registry): void {
 
   bootApp(registry).then(
     async () => {
+      // Startup is over: stand the timeout down before anything else, so it cannot fire during the
+      // wait below and flash the failure screen over a start that has just succeeded. (If it already
+      // fired, this swaps the app in for it.)
+      clearTimeout(timer)
+      clearFatal('boot-timeout')
       // Usually the chunks are already here; on a slow connection the first screen waits for them only
       // this long, so the layout does not shift as they arrive, and never longer.
       await Promise.race([warm, new Promise((resolve) => setTimeout(resolve, WARM_WAIT_MS))])
-      clearTimeout(timer)
-      clearFatal('boot-timeout')
       render()
     },
     (e: unknown) => {

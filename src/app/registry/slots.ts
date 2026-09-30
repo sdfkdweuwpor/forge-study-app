@@ -3,10 +3,12 @@
 type NoProps = Record<never, never>
 
 export interface SlotProps {
-  'sidebar.footer': NoProps
+  /** `onNavigate` is set where the sidebar is a tablet drawer: it closes it (a link to the page you are on changes no path, so the drawer would stay). Desktop passes nothing. */
+  'sidebar.footer': { onNavigate?: () => void }
   /** Compact status beside the "Open sidebar" button while the sidebar is collapsed (desktop) or a drawer (tablet). */
   'sidebar.rail': NoProps
-  'more.footer': NoProps
+  /** The foot of the phone's More sheet. `onNavigate` closes the sheet: a link to the page you are already on changes no path, so the sheet would never close by itself. */
+  'more.footer': { onNavigate: () => void }
   'sidebar.timer': NoProps
   'sidebar.nav.tasks': NoProps
   'sidebar.nav.goals': NoProps

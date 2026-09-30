@@ -36,7 +36,7 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 24px;
+  width: var(--space-6);
   height: var(--sub-row-h, 28px);
 }
 
@@ -94,7 +94,8 @@
   flex-direction: column;
   gap: 1px;
   margin: 0;
-  padding: 0 0 var(--space-1) 20px;
+  /* As wide as the toggle above it, so the courses keep their indent under the goal's icon. */
+  padding: 0 0 var(--space-1) var(--space-6);
   list-style: none;
 }
 

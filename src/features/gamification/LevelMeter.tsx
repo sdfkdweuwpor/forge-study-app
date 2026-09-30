@@ -8,6 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
+import type { SlotProps } from '@/app/registry'
 import { Link } from '@/app/router'
 import { useXp, type XpSummary } from '@/db/hooks/useXp'
 import { onDomainEvent } from '@/db/events'
@@ -82,7 +83,7 @@ function MeterSkeleton() {
   )
 }
 
-function Meter() {
+function Meter({ onNavigate }: SlotProps['sidebar.footer']) {
   const xp = useXp()
   const { floats, remove } = useXpFloats()
   if (xp === undefined) return <MeterSkeleton />
@@ -96,6 +97,7 @@ function Meter() {
         className={styles.meter}
         data-testid="level-meter"
         aria-label={`Level ${level}, ${progress}. Open rewards`}
+        onClick={onNavigate}
       >
         <span className={styles.row}>
           <span className={styles.level}>Level {level}</span>
@@ -123,8 +125,8 @@ function Meter() {
   )
 }
 
-/** Slot `sidebar.footer`. */
-export function LevelMeter() {
+/** Slot `sidebar.footer`. `onNavigate` closes the tablet drawer, also when it is already on rewards. */
+export function LevelMeter({ onNavigate }: SlotProps['sidebar.footer']) {
   return (
     <ErrorBoundary
       fallback={(_error, reset) => (
@@ -133,7 +135,7 @@ export function LevelMeter() {
         </button>
       )}
     >
-      <Meter />
+      <Meter onNavigate={onNavigate} />
     </ErrorBoundary>
   )
 }

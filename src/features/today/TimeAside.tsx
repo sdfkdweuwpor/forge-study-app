@@ -53,7 +53,10 @@ function TimeList({ heading, id, rows, goals, empty }: ListProps) {
                   aria-label={`${name}: ${formatLogged(row.minutes)}`}
                   data-other={row.goalId === null || undefined}
                 >
-                  <span className={styles.fill} style={{ width: `${(row.minutes / max) * 100}%` }} />
+                  <span
+                    className={styles.fill}
+                    style={{ width: `${(row.minutes / max) * 100}%` }}
+                  />
                 </div>
               </li>
             )

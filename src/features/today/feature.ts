@@ -91,7 +91,12 @@ const manifest: FeatureManifest = {
     },
   ],
   slots: [
-    { slot: 'global.overlays', id: 'today.startFocusHotkey', order: 5, component: StartFocusHotkey },
+    {
+      slot: 'global.overlays',
+      id: 'today.startFocusHotkey',
+      order: 5,
+      component: StartFocusHotkey,
+    },
     { slot: 'today.header', id: 'today.stat.goal', order: 10, component: DailyGoalStat },
     { slot: 'today.header', id: 'today.stat.streak', order: 20, component: StreakStat },
     { slot: 'today.header', id: 'today.stat.xp', order: 30, component: XpTodayStat },

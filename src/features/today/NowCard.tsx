@@ -71,7 +71,9 @@ function TaskNow({
   const struck = motion?.phase === 'struck' || motion?.phase === 'leaving'
   const due = dueLabel(task, today)
   const dueText =
-    due?.tone === 'carried' && task.doDate !== null ? carriedFromText(task.doDate, today) : due?.text
+    due?.tone === 'carried' && task.doDate !== null
+      ? carriedFromText(task.doDate, today)
+      : due?.text
   const deadline = deadlineLabel(task, today)
   const estimate = estimateText(task)
   const checklist = subtaskProgress(task.subtasks)

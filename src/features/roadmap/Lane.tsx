@@ -47,10 +47,7 @@ function Stop({
 }
 
 export function Lane({ goal, layout, scale, today, projection, status }: LaneProps) {
-  const finish = summarizeFinish(
-    { projection, targetDate: goal.targetDate, status },
-    today,
-  )
+  const finish = summarizeFinish({ projection, targetDate: goal.targetDate, status }, today)
   const open = () => navigate('goal', { goalId: goal.id })
   const onLaneClick = (e: MouseEvent) => {
     if (!e.defaultPrevented) open()
@@ -97,7 +94,12 @@ export function Lane({ goal, layout, scale, today, projection, status }: LanePro
 
       <div className={styles.track} style={{ '--rows': layout.rowCount } as CSSProperties}>
         {scale.months.map((m) => (
-          <span key={m.key} className={styles.gridline} style={{ left: pct(m.x) }} aria-hidden="true" />
+          <span
+            key={m.key}
+            className={styles.gridline}
+            style={{ left: pct(m.x) }}
+            aria-hidden="true"
+          />
         ))}
         <span className={styles.today} style={{ left: pct(todayX) }} aria-hidden="true" />
 

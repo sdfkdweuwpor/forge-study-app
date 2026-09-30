@@ -32,7 +32,15 @@ interface RowsProps extends Selection {
   today?: string
 }
 
-function Rows({ items, selectedId, onSelect, reveal, xpByTask, showTime = false, today }: RowsProps) {
+function Rows({
+  items,
+  selectedId,
+  onSelect,
+  reveal,
+  xpByTask,
+  showTime = false,
+  today,
+}: RowsProps) {
   const motion = useTaskMotion()
   return (
     <ul className={styles.list} data-timed={showTime || undefined}>

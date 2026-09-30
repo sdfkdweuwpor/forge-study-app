@@ -185,6 +185,8 @@ describe('layoutLane', () => {
   })
 
   it('omits a target that is outside the window', () => {
-    expect(layoutLane(goal({ targetDate: '2027-09-01', projectedEnd: null }), scale).target).toBeNull()
+    expect(
+      layoutLane(goal({ targetDate: '2027-09-01', projectedEnd: null }), scale).target,
+    ).toBeNull()
   })
 })

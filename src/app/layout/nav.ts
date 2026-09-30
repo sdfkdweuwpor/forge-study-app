@@ -20,7 +20,16 @@ import type { RouteName } from '../router/routes'
 
 /** Routes whose params are all optional, so a nav link needs none. */
 export type NavRoute =
-  'today' | 'focus' | 'tasks' | 'goals' | 'roadmap' | 'world' | 'progress' | 'rewards' | 'blocker' | 'settings'
+  | 'today'
+  | 'focus'
+  | 'tasks'
+  | 'goals'
+  | 'roadmap'
+  | 'world'
+  | 'progress'
+  | 'rewards'
+  | 'blocker'
+  | 'settings'
 
 export interface NavItem {
   id: string

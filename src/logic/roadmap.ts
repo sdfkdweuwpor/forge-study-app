@@ -13,7 +13,20 @@ export const ZOOMS: readonly Zoom[] = [3, 6, 12]
 /** Months of history shown before the current one. */
 export const LEAD_MONTHS = 1
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 export interface MonthCell {
   /** `2026-09`. */
@@ -216,7 +229,8 @@ export function layoutLane(goal: RoadmapGoal, scale: Scale): LaneLayout {
       : null
 
   const drawable = goal.courses.filter(
-    (c): c is RoadmapCourse & { start: ISODate; end: ISODate } => c.start !== null && c.end !== null,
+    (c): c is RoadmapCourse & { start: ISODate; end: ISODate } =>
+      c.start !== null && c.end !== null,
   )
   const placed = drawable.flatMap((course) => {
     const span = spanOf(scale, course.start, course.end)

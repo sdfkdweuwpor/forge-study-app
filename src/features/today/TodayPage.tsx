@@ -162,8 +162,7 @@ function TodayScreen() {
   useTodayActionRequests((action: TodayAction) => {
     if (action === 'moveCarriedOver') {
       if (carriedOver && carriedOver.length > 0) void moveAllToToday()
-      else
-        toast.show({ title: 'Nothing carried over', description: 'Every task is on its day.' })
+      else toast.show({ title: 'Nothing carried over', description: 'Every task is on its day.' })
     } else if (nowTask) {
       if (action === 'completeNow') completeNow()
       else skipNow()

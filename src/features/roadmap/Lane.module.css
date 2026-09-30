@@ -71,7 +71,7 @@
 .target {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--fs-13, var(--fs-12));
+  font-size: var(--fs-14);
   line-height: 1.4;
   text-wrap: pretty;
 }
@@ -264,8 +264,8 @@
 .course:focus-visible,
 .marker:focus-visible,
 .targetMark:focus-visible {
-  outline: 2px solid var(--focus-ring-color, var(--accent));
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* ── Phones: the goal's name and finish above a compact mini-timeline ────── */

@@ -15,3 +15,5 @@ extension/dist
 
 # agent scratch specs
 e2e/_tmp*.spec.ts
+dist-*/
+playwright.*.tmp.config.ts

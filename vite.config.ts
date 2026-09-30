@@ -48,7 +48,16 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         // The static 404 page is only for missing /assets/* files (see netlify.toml); never serve it from the precache.
-        globIgnores: ['404.html'],
+        // pdf.js (~430 KB) and its worker (~1.2 MB, a .mjs the glob above never matches) are only for the
+        // planner's "upload a PDF"; they are cached the first time they are used instead of at install.
+        globIgnores: ['404.html', '**/pdf-*.js'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /\/assets\/pdf[.-][^/]*\.m?js$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'forge-pdf', expiration: { maxEntries: 4 } },
+          },
+        ],
         navigateFallback: '/index.html',
       },
     }),

@@ -3,8 +3,9 @@ import { expect, gotoApp, test } from './fixtures'
 
 /**
  * Phase 5B: the goals screens end to end on the WGU sample (clock fixed at Tue 2026-09-29 09:30):
- * the list, the new-goal flow, the goal page's inline edits and reordering, the course page, the sidebar
- * tree, palette search, and trash with Undo. Goals import and the timeline have their own specs.
+ * the list, the way into the new-goal planner, the goal page's inline edits and reordering, the course
+ * page, the sidebar tree, palette search, and trash with Undo. The planner itself is `planner.spec.ts`;
+ * goals import and the timeline have their own specs.
  */
 
 const GOAL = '/goals/goal-wgu-bscs'
@@ -13,7 +14,7 @@ const C779_NAME = 'C779 Web Development Foundations'
 
 const toasts = (page: Page) => page.getByRole('region', { name: 'Notifications' })
 const undo = (page: Page) => toasts(page).getByRole('button', { name: 'Undo' })
-const wizard = (page: Page) => page.getByRole('dialog', { name: 'New goal' })
+const planner = (page: Page) => page.getByRole('heading', { name: 'What are you planning?' })
 const paletteInput = (page: Page) => page.getByRole('combobox', { name: 'Command palette' })
 const pageTitle = (page: Page) => page.getByRole('textbox', { name: 'Page title' })
 const table = (page: Page) => page.getByRole('table', { name: 'Courses' })
@@ -92,11 +93,8 @@ test.describe('the goals list', () => {
     await expect(page.getByRole('heading', { name: 'Plan your first goal' })).toBeVisible()
     await expect(page.getByText(/WGU degree/)).toBeVisible()
     await page.keyboard.press('n')
-    await expect(wizard(page)).toBeVisible()
     await expect(page).toHaveURL(/\/goals\/new$/)
-    await page.keyboard.press('Escape')
-    await expect(wizard(page)).toBeHidden()
-    await expect(page).toHaveURL(/\/goals$/)
+    await expect(planner(page)).toBeVisible()
   })
 
   test('a link to a goal that is gone says so', async ({ page }) => {
@@ -109,93 +107,8 @@ test.describe('the goals list', () => {
   })
 })
 
-test.describe('the new-goal flow', () => {
-  test('asks for a name before moving on, then walks the steps from the keyboard', async ({
-    page,
-  }) => {
-    await gotoApp(page, '/goals/new', 'empty')
-    await expect(wizard(page)).toBeVisible()
-    await wizard(page).getByRole('button', { name: 'Next' }).click()
-    await expect(wizard(page).getByText('Give the goal a name.')).toBeVisible()
-
-    await wizard(page).getByRole('textbox', { name: 'Goal name' }).fill('Security+ prep')
-    await page.keyboard.press('Control+Enter')
-    await expect(wizard(page).getByText('Step 2 of 4 · Courses')).toBeVisible()
-
-    // Courses: nothing yet, so the step says so and offers to add one.
-    await wizard(page)
-      .getByRole('button', { name: 'Next' })
-      .click()
-      .catch(() => undefined)
-    await wizard(page).getByRole('button', { name: 'Add a course' }).click()
-    await wizard(page)
-      .getByRole('textbox', { name: 'Name of course 1' })
-      .fill('Network fundamentals')
-    // Enter in the last row's name starts the next row.
-    await page.keyboard.press('Enter')
-    await expect(wizard(page).getByRole('textbox', { name: 'Name of course 2' })).toBeFocused()
-    await wizard(page)
-      .getByRole('textbox', { name: 'Name of course 2' })
-      .fill('Threats and attacks')
-    await page.keyboard.press('Control+Enter')
-    await expect(wizard(page).getByText('Hours from 0.5 to 2000.').first()).toBeVisible()
-    await wizard(page).getByRole('textbox', { name: 'Estimated hours of course 1' }).fill('12')
-    await wizard(page).getByRole('textbox', { name: 'Estimated hours of course 2' }).fill('8')
-    await page.keyboard.press('Control+Enter')
-    await expect(wizard(page).getByText('Step 3 of 4 · Availability')).toBeVisible()
-    await expect(wizard(page).getByText('5 study days · 5 h a week')).toBeVisible()
-    await page.keyboard.press('Control+Enter')
-    // 20 h at an hour a day on weekdays: four weeks.
-    await expect(wizard(page).getByText(/At this pace you’d finish around/)).toBeVisible()
-    await page.keyboard.press('Control+Enter')
-    await expect(page).toHaveURL(/\/goals\/[^/]+$/)
-    await expect(pageTitle(page)).toHaveValue('Security+ prep')
-    await expect(table(page).getByRole('row')).toHaveCount(3)
-    const tasks = await readTable<StoredTask>(page, 'tasks')
-    expect(tasks.filter((t) => t.source === 'schedule').length).toBeGreaterThan(10)
-  })
-
-  test('loads the WGU template, previews the finish, and creates the plan', async ({ page }) => {
-    await gotoApp(page, '/goals/new', 'empty')
-    await wizard(page)
-      .getByRole('button', { name: 'Load the B.S. Computer Science template' })
-      .click()
-    await expect(wizard(page).getByRole('textbox', { name: 'Name of course 1' })).toHaveValue(
-      'Introduction to IT',
-    )
-    await expect(wizard(page).getByRole('textbox', { name: 'Code of course 7' })).toHaveValue(
-      'C867',
-    )
-    await wizard(page).getByRole('button', { name: 'Next' }).click()
-    await wizard(page).getByRole('button', { name: 'Next' }).click()
-    await expect(wizard(page).getByText(/7 courses · 24 CUs · 310 h of study/)).toBeVisible()
-    await wizard(page).getByRole('button', { name: 'Create goal' }).click()
-
-    await expect(page).toHaveURL(/\/goals\/[^/]+$/)
-    await expect(pageTitle(page)).toHaveValue('B.S. Computer Science')
-    await expect(table(page).getByRole('row')).toHaveCount(8)
-    await expect(toasts(page).getByText(/study blocks scheduled/)).toBeVisible()
-    // The sidebar tree has it, open, with its courses.
-    await expect(
-      page
-        .getByRole('navigation', { name: 'Main' })
-        .getByRole('link', { name: 'C867 Scripting and Programming Applications' }),
-    ).toBeVisible()
-    const courses = await readTable<StoredCourse>(page, 'milestones')
-    const d278 = courses.find((c) => c.code === 'D278')
-    expect(courses.find((c) => c.code === 'C867')?.prerequisiteIds).toEqual([d278?.id])
-  })
-
-  test('a half-finished draft survives a refresh, and Start over clears it', async ({ page }) => {
-    await gotoApp(page, '/goals/new', 'empty')
-    await wizard(page).getByRole('textbox', { name: 'Goal name' }).fill('Cert prep')
-    await page.goto('/goals/new')
-    await expect(wizard(page).getByRole('textbox', { name: 'Goal name' })).toHaveValue('Cert prep')
-    await wizard(page).getByRole('button', { name: 'Start over' }).click()
-    await expect(wizard(page).getByRole('textbox', { name: 'Goal name' })).toHaveValue('')
-  })
-
-  test('the palette starts it, and the template can be undone', async ({ page }) => {
+test.describe('the way into the planner', () => {
+  test('the palette starts it', async ({ page }) => {
     await gotoApp(page, '/goals', 'empty')
     await page.keyboard.press('Control+k')
     await paletteInput(page).fill('new goal')
@@ -203,14 +116,8 @@ test.describe('the new-goal flow', () => {
       .getByRole('option', { name: /New goal/ })
       .first()
       .click()
-    await expect(wizard(page)).toBeVisible()
-    await wizard(page)
-      .getByRole('button', { name: 'Load the B.S. Computer Science template' })
-      .click()
-    await expect(wizard(page).getByRole('textbox', { name: 'Name of course 1' })).toBeVisible()
-    await undo(page).click()
-    await expect(wizard(page).getByText('Step 1 of 4 · Basics')).toBeVisible()
-    await expect(wizard(page).getByRole('textbox', { name: 'Goal name' })).toHaveValue('')
+    await expect(page).toHaveURL(/\/goals\/new$/)
+    await expect(planner(page)).toBeVisible()
   })
 })
 

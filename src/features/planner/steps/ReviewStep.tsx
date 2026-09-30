@@ -1,5 +1,5 @@
 import { ChevronRight, Plus, Smile, Trash2 } from 'lucide-react'
-import { useEffect, useState, type Dispatch } from 'react'
+import { useEffect, useRef, useState, type Dispatch } from 'react'
 import type { ISODate } from '@/db/types'
 import { newId } from '@/lib/ids'
 import { plural } from '@/logic/goalDisplay'
@@ -57,20 +57,20 @@ const courseName = (c: PlannerCourse): string =>
  */
 export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) {
   const toast = useToast()
-  const [focusId, setFocusId] = useState<string | null>(null)
+  const focusId = useRef<string | null>(null)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() =>
     draft.courses.length > 4 ? new Set(draft.courses.slice(1).map((c) => c.key)) : new Set(),
   )
 
   // Move focus to a row that was just added.
   useEffect(() => {
-    if (focusId === null) return
-    const el = document.getElementById(focusId)
+    if (focusId.current === null) return
+    const el = document.getElementById(focusId.current)
     if (el) {
       el.focus()
-      setFocusId(null)
+      focusId.current = null
     }
-  }, [focusId, draft])
+  }, [draft])
 
   const effort = draftEffort(draft)
   const units = draft.courses.reduce((n, c) => n + c.units.length, 0)
@@ -79,12 +79,12 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
   function addCourse() {
     const key = newId()
     dispatch({ type: 'addCourse', key })
-    setFocusId(`course-title-${key}`)
+    focusId.current = `course-title-${key}`
   }
   function addUnit(course: PlannerCourse, title?: string) {
     const key = newId()
     dispatch({ type: 'addUnit', courseKey: course.key, key, ...(title ? { title } : {}) })
-    setFocusId(`unit-title-${key}`)
+    focusId.current = `unit-title-${key}`
     setCollapsed((s) => {
       if (!s.has(course.key)) return s
       const next = new Set(s)
@@ -95,7 +95,7 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
   function addAssessment(course: PlannerCourse) {
     const key = newId()
     dispatch({ type: 'addAssessment', courseKey: course.key, key })
-    setFocusId(`assessment-title-${key}`)
+    focusId.current = `assessment-title-${key}`
   }
   function removeCourse(course: PlannerCourse) {
     const index = draft.courses.findIndex((c) => c.key === course.key)

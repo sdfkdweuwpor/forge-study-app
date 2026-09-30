@@ -159,7 +159,6 @@ function GoalBody({ data }: { data: GoalData }) {
           onSave={(notes) => actions.updateGoal(goal.id, { notes })}
         />
       </section>
-
     </div>
   )
 }

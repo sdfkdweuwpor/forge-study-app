@@ -1,7 +1,12 @@
 import { useRef, useState } from 'react'
 import { useSettings } from '@/db/hooks/useSettings'
 import { recordError } from '@/app/reportError'
-import { applyProposal, dismissProposal, proposeReplanWeek } from '@/db/repos/proposals'
+import {
+  applyProposal,
+  dismissProposal,
+  parseProposalApply,
+  proposeReplanWeek,
+} from '@/db/repos/proposals'
 import type { Goal, ISODate, PlanProposal } from '@/db/types'
 import { eachDay, endOfWeekISO, fromISODate } from '@/logic/dates'
 import { formatDay, plural } from '@/logic/goalDisplay'
@@ -238,13 +243,16 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
 function Preview({ proposal, today }: { proposal: PlanProposal; today: ISODate }) {
   const { moved, added, removed } = proposal.preview
   const empty = moved.length + added.length + removed.length === 0
+  const end = parseProposalApply(proposal.apply)?.projectedEnd ?? null
   return (
     <section className={shared.section} aria-labelledby="life-preview">
       <h3 id="life-preview" className={shared.sectionTitle}>
         {empty ? 'Nothing needs to move' : proposal.title}
       </h3>
       <p className={shared.hint}>
-        {empty ? 'This week already fits with less time. Nothing was changed.' : proposal.detail}
+        {empty
+          ? 'This week already fits with less time. Nothing was changed.'
+          : `The rest of this week is lighter and the work moves to the next open time.${end ? ` The plan now finishes around ${formatDay(end, today)}.` : ''}`}
       </p>
       {moved.length > 0 ? (
         <ul className={styles.moves} aria-label="Sessions that would move">

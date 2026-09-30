@@ -190,6 +190,7 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
           What are you working toward?
         </h2>
         <Tabs
+          className={styles.tabs}
           label="How to describe it"
           value={tab}
           onValueChange={onTab}

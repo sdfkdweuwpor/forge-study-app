@@ -250,13 +250,13 @@ test.describe('the goal page', () => {
     await expect(table(page).getByRole('row')).toHaveCount(7)
   })
 
-  test('edits the schedule settings and re-plans', async ({ page }) => {
+  test('edits the plan settings and re-plans', async ({ page }) => {
     await gotoApp(page, GOAL, 'wgu')
-    await page.getByRole('button', { name: 'Schedule' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Schedule settings' })
-    await expect(dialog.getByText('7 study days · 14 h a week')).toBeVisible()
+    await page.getByRole('button', { name: /Plan settings/ }).click()
+    const dialog = page.getByRole('dialog', { name: 'Plan settings' })
+    await expect(dialog.getByText(/≈ 14 h\/week/)).toBeVisible()
     await dialog.getByRole('switch', { name: 'Sunday' }).click()
-    await expect(dialog.getByText('6 study days · 12.5 h a week')).toBeVisible()
+    await expect(dialog.getByText(/≈ 12\.5 h\/week/)).toBeVisible()
     await dialog.getByRole('button', { name: 'Add days off' }).click()
     await dialog.getByRole('button', { name: 'Save and re-plan' }).click()
     await expect(

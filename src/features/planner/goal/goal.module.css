@@ -100,9 +100,8 @@
 
 .move {
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px var(--space-4);
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 2px;
   padding: var(--space-2) 0;
   border-top: 1px solid var(--border);
   font-size: var(--fs-14);

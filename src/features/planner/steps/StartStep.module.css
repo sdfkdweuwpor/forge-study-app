@@ -130,3 +130,10 @@
 .wide {
   width: 100%;
 }
+
+/* The section aligns its children to the start; the tab strip has to stay inside the page and scroll. */
+.tabs {
+  align-self: stretch;
+  min-width: 0;
+  max-width: 100%;
+}

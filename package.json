@@ -16,8 +16,8 @@
     "e2e": "playwright test",
     "shoot": "playwright test --config playwright.shoot.config.ts",
     "icons": "node scripts/icons.mjs",
-    "build:ext": "node -e \"console.log('build:ext: Phase 9')\"",
-    "zip:ext": "node -e \"console.log('zip:ext: Phase 9')\"",
+    "build:ext": "node scripts/build-extension.mjs",
+    "zip:ext": "node scripts/build-extension.mjs --zip",
     "format": "prettier --write ."
   },
   "dependencies": {

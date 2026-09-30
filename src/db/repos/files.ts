@@ -61,7 +61,10 @@ export async function getFile(id: ID): Promise<StoredFile | undefined> {
 /** Name, type and size of the files that exist among `ids`, in no particular order. Bytes are not returned. */
 export async function listFileMeta(ids: readonly ID[]): Promise<FileMeta[]> {
   if (ids.length === 0) return []
-  const rows = await db.files.where(':id').anyOf([...ids]).toArray()
+  const rows = await db.files
+    .where(':id')
+    .anyOf([...ids])
+    .toArray()
   return rows.map(({ id, name, mime, size, createdAt }) => ({ id, name, mime, size, createdAt }))
 }
 

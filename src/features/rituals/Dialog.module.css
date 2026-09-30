@@ -254,6 +254,8 @@
 }
 
 .moveState {
+  /* The actions row is pulled left so ghost buttons line up by their text; plain text needs it back. */
+  padding-inline-start: var(--space-2);
   color: var(--text-muted);
   font-size: var(--fs-12);
 }

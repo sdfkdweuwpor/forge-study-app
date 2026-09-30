@@ -1,5 +1,5 @@
 import { CalendarPlus, Pencil, Trash2 } from 'lucide-react'
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { deleteRoutine, renameRoutine, type RoutineRow } from '@/db/repos/templates'
@@ -30,6 +30,14 @@ export function RoutinesSection() {
   const [draft, setDraft] = useState('')
   // Enter commits and the field then goes away, which may also blur it: commit once.
   const editing = useRef<string | null>(null)
+  const renameField = useRef<HTMLInputElement | null>(null)
+
+  // The rename field takes the keyboard as it appears.
+  useEffect(() => {
+    if (renaming === null) return
+    renameField.current?.focus()
+    renameField.current?.select()
+  }, [renaming])
 
   function startRename(row: RoutineRow): void {
     editing.current = row.template.id
@@ -150,7 +158,7 @@ export function RoutinesSection() {
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => onRenameKey(e, row)}
                     onBlur={() => void commitRename(row)}
-                    autoFocus
+                    ref={renameField}
                   />
                 ) : (
                   <div className={styles.itemText}>

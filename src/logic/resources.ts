@@ -55,7 +55,8 @@ export function parseWebUrl(input: string): UrlResult {
   } catch {
     return { ok: false, problem: 'invalid' }
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return { ok: false, problem: 'blocked' }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:')
+    return { ok: false, problem: 'blocked' }
   const host = url.hostname
   if (host === '') return { ok: false, problem: 'invalid' }
   // "hello" is not a link. With a scheme typed, an intranet name like http://wiki/ is the person's call.
@@ -85,7 +86,12 @@ export const TITLE_MAX = 60
 
 function truncate(text: string, max = TITLE_MAX): string {
   const chars = Array.from(text)
-  return chars.length <= max ? text : `${chars.slice(0, max - 1).join('').trimEnd()}…`
+  return chars.length <= max
+    ? text
+    : `${chars
+        .slice(0, max - 1)
+        .join('')
+        .trimEnd()}…`
 }
 
 function decode(text: string): string {
@@ -174,7 +180,10 @@ export function pdfProblem(file: FileFacts): PdfProblem | null {
 }
 
 /** The friendly sentence for `pdfProblem`, naming the file. */
-export function pdfProblemMessage(problem: PdfProblem, file: Pick<FileFacts, 'name' | 'size'>): string {
+export function pdfProblemMessage(
+  problem: PdfProblem,
+  file: Pick<FileFacts, 'name' | 'size'>,
+): string {
   const name = `“${file.name}”`
   switch (problem) {
     case 'type':
@@ -260,7 +269,10 @@ export function lowStorageMessage(
 ): string {
   const free = freeStorageBytes(estimate)
   const what = count === 1 ? 'this PDF is' : `these ${count} PDFs are`
-  const room = free === null ? 'Your browser is short on space for Forge' : `Your browser has about ${formatBytes(free)} left for Forge`
+  const room =
+    free === null
+      ? 'Your browser is short on space for Forge'
+      : `Your browser has about ${formatBytes(free)} left for Forge`
   return `${room}, and ${what} ${formatBytes(needBytes)}. It may not fit.`
 }
 
@@ -306,7 +318,8 @@ export function sortResources<T extends Pick<Resource, 'id' | 'order' | 'created
   rows: readonly T[],
 ): T[] {
   return [...rows].sort(
-    (a, b) => a.order - b.order || a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    (a, b) =>
+      a.order - b.order || a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   )
 }
 

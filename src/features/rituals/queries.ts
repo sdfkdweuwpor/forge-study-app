@@ -5,12 +5,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import { db } from '@/db/db'
-import {
-  focusMinutesOn,
-  getRitual,
-  listReflections,
-  loadTodayGroups,
-} from '@/db/repos/rituals'
+import { focusMinutesOn, getRitual, listReflections, loadTodayGroups } from '@/db/repos/rituals'
 import { listRoutineRows, type RoutineRow } from '@/db/repos/templates'
 import type { ID, ISODate, Ritual, Task } from '@/db/types'
 import { openTodayItems, type RitualKind, type TodayItem } from '@/logic/rituals'
@@ -67,7 +62,15 @@ export function useRoutineEntries(): RoutineEntry[] | undefined {
         : [
             ...rows.flatMap(({ template, payload }) =>
               payload
-                ? [{ id: template.id, name: template.name, icon: template.icon, builtIn: false, payload }]
+                ? [
+                    {
+                      id: template.id,
+                      name: template.name,
+                      icon: template.icon,
+                      builtIn: false,
+                      payload,
+                    },
+                  ]
                 : [],
             ),
             ...STARTER_ROUTINES,

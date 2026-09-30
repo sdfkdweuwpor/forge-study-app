@@ -171,10 +171,7 @@ export async function createPdfResource(
   // Read before the transaction opens: a transaction must not wait on anything but Dexie.
   const head = new Uint8Array(await input.blob.slice(0, 1024).arrayBuffer())
   if (!hasPdfHeader(head)) {
-    throw new ResourceError(
-      'file',
-      `“${input.name}” doesn’t look like a PDF, so it wasn’t added.`,
-    )
+    throw new ResourceError('file', `“${input.name}” doesn’t look like a PDF, so it wasn’t added.`)
   }
   const bytes = new Blob([input.blob], { type: 'application/pdf' })
   return db.transaction('rw', db.resources, db.milestones, db.files, async () => {
@@ -231,7 +228,11 @@ export async function updateResource(
     if (patch.title !== undefined || changes.url !== undefined) {
       let title = clean(patch.title ?? current.title, RESOURCE_TITLE_MAX)
       // A title that was only ever made from the old address follows the new one.
-      if (changes.url !== undefined && current.url !== null && title === titleFromUrl(current.url)) {
+      if (
+        changes.url !== undefined &&
+        current.url !== null &&
+        title === titleFromUrl(current.url)
+      ) {
         title = ''
       }
       if (title === '') {
@@ -299,7 +300,8 @@ export interface DeletedResource extends Undoable {
 export async function deleteResource(id: ID): Promise<DeletedResource | null> {
   const trashed = await moveToTrash('resources', id)
   if (!trashed) return null
-  const milestoneId = ((trashed.item.payload.resources ?? [])[0] as Resource | undefined)?.milestoneId
+  const milestoneId = ((trashed.item.payload.resources ?? [])[0] as Resource | undefined)
+    ?.milestoneId
   return {
     trashId: trashed.trashId,
     undo: async () => {

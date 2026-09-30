@@ -3,17 +3,14 @@ import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { format } from 'date-fns'
 import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
-import {
-  completeEvening,
-  moveUndoneToTomorrow,
-  saveReflection,
-} from '@/db/repos/rituals'
+import { completeEvening, moveUndoneToTomorrow, saveReflection } from '@/db/repos/rituals'
 import type { ID, Task } from '@/db/types'
 import { addDays, isISODate } from '@/logic/dates'
 import {
   REFLECTION_MAX,
   XP_EVENING,
   cleanReflection,
+  dayWords,
   doneHeadline,
   isPlannedLater,
   movableIds,
@@ -21,7 +18,7 @@ import {
   openHeadline,
 } from '@/logic/rituals'
 import { durationText } from '@/logic/statsLabels'
-import { formatTimeOfDay, formatXp, relativeDay } from '@/logic/taskDisplay'
+import { formatTimeOfDay, formatXp } from '@/logic/taskDisplay'
 import { planDay, planTime } from '@/logic/taskDates'
 import { carriedFromText, estimateText } from '@/logic/todayStats'
 import { Button } from '@/ui/Button'
@@ -117,21 +114,21 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
     }
   }
 
-  async function moveOne(id: ID, day: string): Promise<void> {
-    const result = await actions.move([id], day, today)
+  async function moveOne(task: Task, day: string): Promise<void> {
+    const result = await actions.move([task.id], day, today)
     if (!result || result.moved.length === 0) return
-    setMovedNow((ids) => [...ids, id])
-    setRowUndos((u) => ({
-      ...u,
-      [id]: async () => {
-        await result.undo()
-        setMovedNow((ids) => ids.filter((x) => x !== id))
-        setRowUndos((current) => {
-          const { [id]: _gone, ...rest } = current
-          return rest
-        })
-      },
-    }))
+    const undo: Undo = async () => {
+      await result.undo()
+      setMovedNow((ids) => ids.filter((x) => x !== task.id))
+      setRowUndos((current) => {
+        const { [task.id]: _gone, ...rest } = current
+        return rest
+      })
+      setBanner(null)
+    }
+    setMovedNow((ids) => [...ids, task.id])
+    setRowUndos((u) => ({ ...u, [task.id]: undo }))
+    setBanner({ text: `Moved “${task.title}” to ${dayWords(day, today)}.`, undo })
     setPicking(null)
     setPickedDay(null)
   }
@@ -171,7 +168,9 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
       close()
     } catch (error) {
       recordError(error, 'eveningShutdown.complete')
-      toast.error('Couldn’t finish the shutdown', { description: 'Nothing was changed. Try again.' })
+      toast.error('Couldn’t finish the shutdown', {
+        description: 'Nothing was changed. Try again.',
+      })
       setSaving(false)
     }
   }
@@ -185,8 +184,13 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
         </Button>
       ) : null}
       {last ? (
-        <Button variant="primary" disabled={!ready} loading={saving} onClick={() => void complete()}>
-          {closedAt === null ? `Complete shutdown · ${formatXp(XP_EVENING)}` : 'Save'}
+        <Button
+          variant="primary"
+          disabled={!ready}
+          loading={saving}
+          onClick={() => void complete()}
+        >
+          {closedAt === null ? `Finish · ${formatXp(XP_EVENING)}` : 'Save'}
         </Button>
       ) : (
         <Button variant="primary" disabled={!ready} onClick={() => setStep(step + 1)}>
@@ -253,16 +257,19 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
                     loading={busy}
                     onClick={() => void moveAll()}
                   >
-                    {moveLabel(movable.length)}
+                    {movable.length > 0 ? moveLabel(movable.length) : 'Nothing left to move'}
                   </Button>
-                  {banner ? (
-                    <span role="status" className={styles.status} data-tone="done">
-                      {banner.text}
-                      <Button size="sm" variant="ghost" onClick={() => void banner.undo()}>
-                        Undo
-                      </Button>
-                    </span>
-                  ) : null}
+                  {/* Always present, so a screen reader announces what just moved. */}
+                  <span role="status" className={styles.status} data-tone="done">
+                    {banner ? (
+                      <>
+                        {banner.text}
+                        <Button size="sm" variant="ghost" onClick={() => void banner.undo()}>
+                          Undo
+                        </Button>
+                      </>
+                    ) : null}
+                  </span>
                 </div>
                 <ul className={styles.list} aria-label="Still open today">
                   {rows.map((task) => (
@@ -276,7 +283,7 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
                       picking={picking === task.id}
                       pickedDay={pickedDay}
                       tomorrow={tomorrow}
-                      onTomorrow={() => void moveOne(task.id, tomorrow)}
+                      onTomorrow={() => void moveOne(task, tomorrow)}
                       onLeave={() => setLeft((ids) => [...ids, task.id])}
                       onStay={() => setLeft((ids) => ids.filter((id) => id !== task.id))}
                       onStartPick={() => {
@@ -285,7 +292,7 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
                       }}
                       onCancelPick={() => setPicking(null)}
                       onPickedDay={setPickedDay}
-                      onConfirmPick={() => pickedDay !== null && void moveOne(task.id, pickedDay)}
+                      onConfirmPick={() => pickedDay !== null && void moveOne(task, pickedDay)}
                     />
                   ))}
                 </ul>
@@ -363,7 +370,7 @@ function MoveRow({
     task.durationMinutes !== null ? durationText(task.durationMinutes) : estimateText(task)
   const meta = [
     day !== null && day < today ? carriedFromText(day, today) : null,
-    day === today && time !== null ? formatTimeOfDay(time) : null,
+    day !== null && day >= today && time !== null ? formatTimeOfDay(time) : null,
     length,
   ]
     .filter(Boolean)
@@ -383,8 +390,8 @@ function MoveRow({
 
       {moved && day !== null ? (
         <div className={styles.moveActions}>
-          <span className={styles.moveState} data-tone="moved" role="status">
-            {movedNow ? 'Moved to' : 'Planned for'} {relativeDay(day, today).toLowerCase()}
+          <span className={styles.moveState} data-tone="moved">
+            {movedNow ? 'Moved to' : 'Planned for'} {dayWords(day, today)}
           </span>
           {undo ? (
             <Button size="sm" variant="ghost" onClick={() => void undo()}>
@@ -425,13 +432,28 @@ function MoveRow({
 
       {!done && !moved && !left && !picking ? (
         <div className={styles.moveActions}>
-          <Button size="sm" variant="ghost" onClick={onTomorrow} aria-label={`Move ${task.title} to tomorrow`}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onTomorrow}
+            aria-label={`Move ${task.title} to tomorrow`}
+          >
             Tomorrow
           </Button>
-          <Button size="sm" variant="ghost" onClick={onStartPick} aria-label={`Pick a date for ${task.title}`}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onStartPick}
+            aria-label={`Pick a date for ${task.title}`}
+          >
             Pick a date
           </Button>
-          <Button size="sm" variant="ghost" onClick={onLeave} aria-label={`Leave ${task.title} on today`}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onLeave}
+            aria-label={`Leave ${task.title} on today`}
+          >
             Leave
           </Button>
         </div>

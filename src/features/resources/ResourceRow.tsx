@@ -125,7 +125,10 @@ export function ResourceRow({
       className={styles.row}
       data-done={done || undefined}
       data-flash={flash || undefined}
-      onAnimationEnd={flash ? onFlashEnd : undefined}
+      onAnimationEnd={(e) => {
+        // Only the row's own highlight, not the checkbox's fill animation bubbling up.
+        if (flash && e.target === e.currentTarget) onFlashEnd()
+      }}
     >
       <span className={styles.handle}>{handle}</span>
       <Checkbox

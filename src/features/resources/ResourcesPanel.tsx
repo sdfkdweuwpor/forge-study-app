@@ -48,7 +48,8 @@ async function readStorageEstimate(): Promise<StorageEstimateLike | null> {
   }
 }
 
-const hasFiles = (e: DragEvent): boolean => Array.from(e.dataTransfer?.types ?? []).includes('Files')
+const hasFiles = (e: DragEvent): boolean =>
+  Array.from(e.dataTransfer?.types ?? []).includes('Files')
 
 /** After the row you acted on has left the list: the next one, else the one before it. */
 function neighbourOf(list: readonly { id: ID }[], id: ID): ID | null {
@@ -89,7 +90,9 @@ export function ResourcesPanel({ courseId }: { goalId: string; courseId: string 
       fallback={(_error, reset) => (
         <section className={styles.panel} aria-label="Resources">
           <h2 className={styles.title}>Resources</h2>
-          <p className={styles.quiet}>Couldn’t load the resources for this course. They are safe.</p>
+          <p className={styles.quiet}>
+            Couldn’t load the resources for this course. They are safe.
+          </p>
           <div>
             <Button size="sm" onClick={reset}>
               Try again
@@ -166,7 +169,11 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
     if (!panel) return
     const row = reveal.id === null ? null : rowElement(reveal.id)
     // Not drawn yet: it is on its way (just added) or the list has not caught up.
-    if (reveal.id !== null && row === null && (reveal.fresh || resources.some((r) => r.id === reveal.id))) {
+    if (
+      reveal.id !== null &&
+      row === null &&
+      (reveal.fresh || resources.some((r) => r.id === reveal.id))
+    ) {
       return
     }
     handled.current = reveal
@@ -204,7 +211,8 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
   const focusNeighbour = useCallback(
     (id: ID | null) => {
       afterPaint(() => {
-        const box = id === null ? null : rowElement(id)?.querySelector<HTMLElement>('input[type="checkbox"]')
+        const box =
+          id === null ? null : rowElement(id)?.querySelector<HTMLElement>('input[type="checkbox"]')
         const tab = root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
         ;(box ?? tab ?? heading.current)?.focus()
       })
@@ -212,14 +220,11 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
     [rowElement],
   )
 
-  const openComposer = useCallback(
-    (kind: 'link' | 'note') => {
-      setEditingId(null)
-      setComposer(kind)
-      root.current?.scrollIntoView({ block: 'nearest' })
-    },
-    [],
-  )
+  const openComposer = useCallback((kind: 'link' | 'note') => {
+    setEditingId(null)
+    setComposer(kind)
+    root.current?.scrollIntoView({ block: 'nearest' })
+  }, [])
 
   const pickPdfs = useCallback(() => fileInput.current?.click(), [])
 
@@ -452,28 +457,29 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
       </div>
     )
   } else if (total === 0) {
-    body = composer !== null ? null : (
-      <EmptyState
-        size="sm"
-        align="start"
-        icon={<BookMarked />}
-        title="No resources yet"
-        description="Keep this course’s links, PDFs and notes in one place, and tick them off as you get through them. You can also drop a PDF anywhere on this panel."
-        action={
-          <div className={styles.emptyActions}>
-            <Button size="sm" iconLeft={<LinkIcon />} onClick={() => openComposer('link')}>
-              Add a link
-            </Button>
-            <Button size="sm" iconLeft={<FileText />} onClick={pickPdfs}>
-              Add a PDF
-            </Button>
-            <Button size="sm" iconLeft={<StickyNote />} onClick={() => openComposer('note')}>
-              Write a note
-            </Button>
-          </div>
-        }
-      />
-    )
+    body =
+      composer !== null ? null : (
+        <EmptyState
+          size="sm"
+          align="start"
+          icon={<BookMarked />}
+          title="No resources yet"
+          description="Keep this course’s links, PDFs and notes in one place, and tick them off as you get through them. You can also drop a PDF anywhere on this panel."
+          action={
+            <div className={styles.emptyActions}>
+              <Button size="sm" iconLeft={<LinkIcon />} onClick={() => openComposer('link')}>
+                Add a link
+              </Button>
+              <Button size="sm" iconLeft={<FileText />} onClick={pickPdfs}>
+                Add a PDF
+              </Button>
+              <Button size="sm" iconLeft={<StickyNote />} onClick={() => openComposer('note')}>
+                Write a note
+              </Button>
+            </div>
+          }
+        />
+      )
   } else {
     body = (
       <Tabs
@@ -610,8 +616,8 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
         }
       >
         <p className={styles.modalNote}>
-          PDFs stay on this device, in your browser’s storage. Deleting old PDFs, or other site data,
-          makes room.
+          PDFs stay on this device, in your browser’s storage. Deleting old PDFs, or other site
+          data, makes room.
         </p>
       </Modal>
     </section>

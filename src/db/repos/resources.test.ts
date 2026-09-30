@@ -44,10 +44,17 @@ describe('createLinkResource', () => {
   it('adds a link to the course, to read, at the end of the list', async () => {
     const a = await createLinkResource(
       C779,
-      { url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout', title: 'MDN: CSS grid' },
+      {
+        url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout',
+        title: 'MDN: CSS grid',
+      },
       { now: NOW },
     )
-    const b = await createLinkResource(C779, { url: 'https://www.w3.org/WAI/fundamentals/' }, { now: NOW + 1 })
+    const b = await createLinkResource(
+      C779,
+      { url: 'https://www.w3.org/WAI/fundamentals/' },
+      { now: NOW + 1 },
+    )
 
     expect(a).toMatchObject({
       goalId: WGU_GOAL_ID,
@@ -66,20 +73,32 @@ describe('createLinkResource', () => {
   })
 
   it('makes the title from the address when none is typed, and normalises the address', async () => {
-    const r = await createLinkResource(C779, { url: '  www.wgu.edu/online-it-degrees/ ', title: '   ' })
+    const r = await createLinkResource(C779, {
+      url: '  www.wgu.edu/online-it-degrees/ ',
+      title: '   ',
+    })
     expect(r.url).toBe('https://www.wgu.edu/online-it-degrees/')
     expect(r.title).toBe('wgu.edu/online-it-degrees')
   })
 
   it('refuses anything that is not a web link, and writes nothing', async () => {
-    for (const url of ['javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///etc/passwd', '', 'nonsense']) {
+    for (const url of [
+      'javascript:alert(1)',
+      'data:text/html,<b>x</b>',
+      'file:///etc/passwd',
+      '',
+      'nonsense',
+    ]) {
       await expectRejected(createLinkResource(C779, { url }), 'url')
     }
     expect(await db.resources.count()).toBe(0)
   })
 
   it('refuses a course that is not there', async () => {
-    await expectRejected(createLinkResource('nope', { url: 'https://example.com' }), 'course-missing')
+    await expectRejected(
+      createLinkResource('nope', { url: 'https://example.com' }),
+      'course-missing',
+    )
   })
 
   it('keeps each course’s list apart', async () => {
@@ -95,7 +114,10 @@ describe('createNoteResource', () => {
   it('adds a note with its title and body', async () => {
     const n = await createNoteResource(
       C779,
-      { title: 'Exam tips', notes: 'Read the rubric first.\nBox model questions are worth the most.' },
+      {
+        title: 'Exam tips',
+        notes: 'Read the rubric first.\nBox model questions are worth the most.',
+      },
       { now: NOW },
     )
     expect(n).toMatchObject({
@@ -109,9 +131,14 @@ describe('createNoteResource', () => {
   })
 
   it('names an untitled note from its first line, and needs one or the other', async () => {
-    const n = await createNoteResource(C779, { notes: '\nFlexbox vs grid\nGrid is two-dimensional' })
+    const n = await createNoteResource(C779, {
+      notes: '\nFlexbox vs grid\nGrid is two-dimensional',
+    })
     expect(n.title).toBe('Flexbox vs grid')
-    const titleOnly = await createNoteResource(C779, { title: 'Ask mentor about the PA', notes: '' })
+    const titleOnly = await createNoteResource(C779, {
+      title: 'Ask mentor about the PA',
+      notes: '',
+    })
     expect(titleOnly.notes).toBe('')
     await expectRejected(createNoteResource(C779, { title: '  ', notes: '  ' }), 'title')
     expect(await db.resources.count()).toBe(2)
@@ -136,7 +163,11 @@ describe('createPdfResource', () => {
       fileId: file.id,
       status: 'toRead',
     })
-    expect(file).toMatchObject({ name: 'C182_Study_Guide.pdf', mime: 'application/pdf', size: blob.size })
+    expect(file).toMatchObject({
+      name: 'C182_Study_Guide.pdf',
+      mime: 'application/pdf',
+      size: blob.size,
+    })
     const stored = await db.files.get(file.id)
     expect(await stored?.blob.text()).toBe('%PDF-1.7\nC182 study guide, unit 1')
     expect(await db.resources.get(resource.id)).toEqual(resource)
@@ -161,7 +192,10 @@ describe('createPdfResource', () => {
 
   it('refuses a file over 50 MB, and allows exactly 50 MB', async () => {
     const tooBig = new Blob([new Uint8Array(MAX_PDF_BYTES + 1)], { type: 'application/pdf' })
-    const error = await expectRejected(createPdfResource(C779, { blob: tooBig, name: 'lecture.pdf' }), 'file')
+    const error = await expectRejected(
+      createPdfResource(C779, { blob: tooBig, name: 'lecture.pdf' }),
+      'file',
+    )
     expect(error.message).toContain('50 MB')
     expect(await db.files.count()).toBe(0)
     expect(await db.resources.count()).toBe(0)
@@ -169,13 +203,19 @@ describe('createPdfResource', () => {
     const head = new TextEncoder().encode('%PDF-1.7\n')
     const bytes = new Uint8Array(MAX_PDF_BYTES)
     bytes.set(head)
-    await createPdfResource(C779, { blob: new Blob([bytes], { type: 'application/pdf' }), name: 'exact.pdf' })
+    await createPdfResource(C779, {
+      blob: new Blob([bytes], { type: 'application/pdf' }),
+      name: 'exact.pdf',
+    })
     expect((await db.files.toArray())[0]?.size).toBe(MAX_PDF_BYTES)
   })
 
   it('refuses a file that is not a PDF, by type, by bytes, or empty', async () => {
     await expectRejected(
-      createPdfResource(C779, { blob: new Blob(['hello'], { type: 'text/plain' }), name: 'notes.txt' }),
+      createPdfResource(C779, {
+        blob: new Blob(['hello'], { type: 'text/plain' }),
+        name: 'notes.txt',
+      }),
       'file',
     )
     // Named and typed as a PDF, but the bytes are a web page: never stored, so it can never be opened as one.
@@ -187,7 +227,10 @@ describe('createPdfResource', () => {
       'file',
     )
     await expectRejected(
-      createPdfResource(C779, { blob: new Blob([], { type: 'application/pdf' }), name: 'empty.pdf' }),
+      createPdfResource(C779, {
+        blob: new Blob([], { type: 'application/pdf' }),
+        name: 'empty.pdf',
+      }),
       'file',
     )
     expect(await db.files.count()).toBe(0)
@@ -195,7 +238,10 @@ describe('createPdfResource', () => {
   })
 
   it('leaves no file behind when the course is gone', async () => {
-    await expectRejected(createPdfResource('nope', { blob: pdf(), name: 'a.pdf' }), 'course-missing')
+    await expectRejected(
+      createPdfResource('nope', { blob: pdf(), name: 'a.pdf' }),
+      'course-missing',
+    )
     expect(await db.files.count()).toBe(0)
   })
 })
@@ -203,16 +249,26 @@ describe('createPdfResource', () => {
 describe('updateResource', () => {
   it('edits a title and a note', async () => {
     const r = await createNoteResource(C779, { title: 'Exam tips', notes: 'one' }, { now: NOW })
-    const next = await updateResource(r.id, { title: 'Exam tips (C779)', notes: 'one\ntwo' }, { now: NOW + 5 })
+    const next = await updateResource(
+      r.id,
+      { title: 'Exam tips (C779)', notes: 'one\ntwo' },
+      { now: NOW + 5 },
+    )
     expect(next).toMatchObject({ title: 'Exam tips (C779)', notes: 'one\ntwo', updatedAt: NOW + 5 })
     expect(await getResource(r.id)).toEqual(next)
   })
 
   it('changes a link’s address, and its title follows only when it was made from the old address', async () => {
     const auto = await createLinkResource(C779, { url: 'https://example.com/old' })
-    const custom = await createLinkResource(C779, { url: 'https://example.com/old', title: 'My name for it' })
+    const custom = await createLinkResource(C779, {
+      url: 'https://example.com/old',
+      title: 'My name for it',
+    })
     const a = await updateResource(auto.id, { url: 'https://example.com/new', title: auto.title })
-    const b = await updateResource(custom.id, { url: 'https://example.com/new', title: custom.title })
+    const b = await updateResource(custom.id, {
+      url: 'https://example.com/new',
+      title: custom.title,
+    })
     expect(a).toMatchObject({ url: 'https://example.com/new', title: 'example.com/new' })
     expect(b).toMatchObject({ url: 'https://example.com/new', title: 'My name for it' })
   })
@@ -226,7 +282,10 @@ describe('updateResource', () => {
   it('falls back to a made title when the title is cleared', async () => {
     const link = await createLinkResource(C779, { url: 'https://www.wgu.edu/x', title: 'WGU' })
     const note = await createNoteResource(C779, { title: 'T', notes: '\nFirst line\nsecond' })
-    const { resource: file } = await createPdfResource(C779, { blob: pdf(), name: 'D278_Practice_Exam.pdf' })
+    const { resource: file } = await createPdfResource(C779, {
+      blob: pdf(),
+      name: 'D278_Practice_Exam.pdf',
+    })
     expect((await updateResource(link.id, { title: ' ' }))?.title).toBe('wgu.edu/x')
     expect((await updateResource(note.id, { title: '' }))?.title).toBe('First line')
     expect((await updateResource(file.id, { title: '' }))?.title).toBe('D278 Practice Exam')
@@ -306,7 +365,10 @@ describe('deleteResource', () => {
   it('moves a link to the Trash and Undo puts the same row back', async () => {
     const r = await createLinkResource(
       C779,
-      { url: 'https://developer.mozilla.org/docs/Web/CSS/CSS_grid_layout', title: 'MDN grid guide' },
+      {
+        url: 'https://developer.mozilla.org/docs/Web/CSS/CSS_grid_layout',
+        title: 'MDN grid guide',
+      },
       { now: NOW },
     )
     await setResourceStatus(r.id, 'done', { now: NOW + 1 })
@@ -316,7 +378,11 @@ describe('deleteResource', () => {
     expect(deleted).not.toBeNull()
     expect(await db.resources.count()).toBe(0)
     const [entry] = await db.trash.toArray()
-    expect(entry).toMatchObject({ entityTable: 'resources', entityId: r.id, title: 'MDN grid guide' })
+    expect(entry).toMatchObject({
+      entityTable: 'resources',
+      entityId: r.id,
+      title: 'MDN grid guide',
+    })
     expect(entry?.id).toBe(deleted?.trashId)
 
     await deleted?.undo()
@@ -338,7 +404,11 @@ describe('deleteResource', () => {
     await deleted?.undo()
     expect(await db.resources.get(resource.id)).toEqual(resource)
     const back = await db.files.get(file.id)
-    expect(back).toMatchObject({ name: 'C182 security.pdf', mime: 'application/pdf', size: file.size })
+    expect(back).toMatchObject({
+      name: 'C182 security.pdf',
+      mime: 'application/pdf',
+      size: file.size,
+    })
     expect(await back?.blob.text()).toBe('%PDF-1.7\nSecurity and ethics')
     expect(await db.trash.count()).toBe(0)
   })
@@ -370,7 +440,10 @@ describe('trashing a course or goal takes its resources and files, and restoring
       blob: pdf('%PDF-1.7\ncourse pdf'),
       name: 'guide.pdf',
     })
-    const other = await createLinkResource(C779, { url: 'https://example.com/other', title: 'Other course' })
+    const other = await createLinkResource(C779, {
+      url: 'https://example.com/other',
+      title: 'Other course',
+    })
     const { file: otherFile } = await createPdfResource(C779, { blob: pdf(), name: 'other.pdf' })
     return { link, note, pdfRow, file, other, otherFile }
   }
@@ -390,7 +463,9 @@ describe('trashing a course or goal takes its resources and files, and restoring
     )
 
     await trashed?.undo()
-    expect((await listResources(C182)).map((r) => r.id).sort()).toEqual([link.id, note.id, pdfRow.id].sort())
+    expect((await listResources(C182)).map((r) => r.id).sort()).toEqual(
+      [link.id, note.id, pdfRow.id].sort(),
+    )
     const back = await db.files.get(file.id)
     expect(await back?.blob.text()).toBe('%PDF-1.7\ncourse pdf')
   })
@@ -410,7 +485,11 @@ describe('trashing a course or goal takes its resources and files, and restoring
 
 describe('a resource deleted before its course', () => {
   async function setup() {
-    const { resource, file } = await createPdfResource(C779, { blob: pdf(), name: 'a.pdf', title: 'Loose PDF' })
+    const { resource, file } = await createPdfResource(C779, {
+      blob: pdf(),
+      name: 'a.pdf',
+      title: 'Loose PDF',
+    })
     await deleteResource(resource.id)
     await moveToTrash('milestones', C779)
     const entries = await listTrash()

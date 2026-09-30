@@ -1,0 +1,54 @@
+/*
+ * The invitation on Today: no box, no colour of alarm. An icon, two lines, two buttons, on the page's own
+ * background; a hairline underneath separates it from the stats above and the Now card below. It takes a
+ * full row of the stat row (`today.header`).
+ */
+.prompt {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  line-height: 1.4;
+}
+
+.body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}

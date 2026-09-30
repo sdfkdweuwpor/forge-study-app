@@ -30,10 +30,12 @@ const MB = 1024 * 1024
 
 describe('parseWebUrl', () => {
   it('accepts http and https addresses and returns the normalised URL', () => {
-    expect(parseWebUrl('https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout')).toEqual({
-      ok: true,
-      url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout',
-    })
+    expect(parseWebUrl('https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout')).toEqual(
+      {
+        ok: true,
+        url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout',
+      },
+    )
     expect(parseWebUrl('http://example.com')).toEqual({ ok: true, url: 'http://example.com/' })
     expect(parseWebUrl('  https://www.wgu.edu/online-it-degrees.html  ')).toEqual({
       ok: true,
@@ -78,7 +80,11 @@ describe('parseWebUrl', () => {
   })
 
   it('rejects a scheme hidden by whitespace or control characters', () => {
-    for (const input of ['java\tscript:alert(1)', 'java\nscript:alert(1)', 'jav\u0000ascript:alert(1)']) {
+    for (const input of [
+      'java\tscript:alert(1)',
+      'java\nscript:alert(1)',
+      'jav\u0000ascript:alert(1)',
+    ]) {
       expect(parseWebUrl(input).ok).toBe(false)
     }
   })
@@ -95,7 +101,10 @@ describe('parseWebUrl', () => {
   })
 
   it('lets an intranet name through when the scheme was typed', () => {
-    expect(parseWebUrl('http://wiki/onboarding')).toEqual({ ok: true, url: 'http://wiki/onboarding' })
+    expect(parseWebUrl('http://wiki/onboarding')).toEqual({
+      ok: true,
+      url: 'http://wiki/onboarding',
+    })
   })
 })
 
@@ -268,7 +277,12 @@ describe('the list', () => {
     order,
     createdAt,
   })
-  const rows = [row('a', 'toRead', 0), row('b', 'done', 1024), row('c', 'toRead', 2048), row('d', 'done', 3072)]
+  const rows = [
+    row('a', 'toRead', 0),
+    row('b', 'done', 1024),
+    row('c', 'toRead', 2048),
+    row('d', 'done', 3072),
+  ]
 
   it('counts by status', () => {
     expect(countByStatus(rows)).toEqual({ all: 4, toRead: 2, done: 2 })
@@ -288,7 +302,12 @@ describe('the list', () => {
   })
 
   it('sorts by order, then age, then id, without changing its input', () => {
-    const input = [row('z', 'toRead', 5, 1), row('b', 'toRead', 5, 1), row('m', 'toRead', 1, 9), row('q', 'toRead', 5, 0)]
+    const input = [
+      row('z', 'toRead', 5, 1),
+      row('b', 'toRead', 5, 1),
+      row('m', 'toRead', 1, 9),
+      row('q', 'toRead', 5, 0),
+    ]
     expect(sortResources(input).map((r) => r.id)).toEqual(['m', 'q', 'b', 'z'])
     expect(input.map((r) => r.id)).toEqual(['z', 'b', 'm', 'q'])
   })

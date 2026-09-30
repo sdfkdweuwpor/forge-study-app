@@ -9,6 +9,7 @@ import {
   XP_EVENING,
   cleanReflection,
   dismissedKinds,
+  dayWords,
   doneHeadline,
   eveningXpKey,
   isPlannedLater,
@@ -265,6 +266,16 @@ describe('words', () => {
     expect(openHeadline(1)).toBe('1 task still open. Nothing is lost by moving it on.')
     expect(openHeadline(3)).toBe('3 tasks still open. Nothing is lost by moving them on.')
     expect(moveLabel(4)).toBe('Move 4 to tomorrow')
+  })
+})
+
+describe('dayWords', () => {
+  it('lower-cases only the words that are not names', () => {
+    expect(dayWords('2026-09-29', TODAY)).toBe('today')
+    expect(dayWords('2026-09-30', TODAY)).toBe('tomorrow')
+    expect(dayWords('2026-09-28', TODAY)).toBe('yesterday')
+    expect(dayWords('2026-10-02', TODAY)).toBe('Friday')
+    expect(dayWords('2026-11-12', TODAY)).toBe('Nov 12')
   })
 })
 

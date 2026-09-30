@@ -47,11 +47,20 @@ export function RitualsSection() {
 
   const times = promptTimes(settings.rituals)
 
-  function commit(field: Field, value: string): void {
-    if (value === '' || parseHHmm(value) === null) return
+  function commit(field: Field, input: HTMLInputElement): void {
+    const value = input.value
+    // A cleared or half-typed time goes back to what is saved.
+    if (value === '' || parseHHmm(value) === null) {
+      input.value = times[field]
+      return
+    }
     const next = { ...times, [field]: value }
     if ((parseHHmm(next.eveningFrom) ?? 0) <= (parseHHmm(next.morningUntil) ?? 0)) {
-      setStatus({ tone: 'error', text: 'The evening shutdown should start after the morning plan ends.' })
+      input.value = times[field]
+      setStatus({
+        tone: 'error',
+        text: 'The evening shutdown should start after the morning plan ends.',
+      })
       return
     }
     if (value !== times[field]) void save({ rituals: { [field]: value } })
@@ -63,8 +72,8 @@ export function RitualsSection() {
         Rituals
       </h2>
       <p className={styles.intro}>
-        The morning plan and the evening shutdown are always in the command palette. On Today, Forge can
-        also offer them once, gently. Skipping one costs nothing.
+        The morning plan and the evening shutdown are always in the command palette. On Today, Forge
+        can also offer them once, gently. Skipping one costs nothing.
       </p>
       <RitualsRow label="Offer them on Today" help="A card you can put away for the day.">
         {(id) => (
@@ -84,7 +93,7 @@ export function RitualsSection() {
             aria-labelledby={id}
             defaultValue={times.morningUntil}
             disabled={!settings.rituals.prompts}
-            onBlur={(e) => commit('morningUntil', e.target.value)}
+            onBlur={(e) => commit('morningUntil', e.target)}
           />
         )}
       </RitualsRow>
@@ -97,16 +106,16 @@ export function RitualsSection() {
             aria-labelledby={id}
             defaultValue={times.eveningFrom}
             disabled={!settings.rituals.prompts}
-            onBlur={(e) => commit('eveningFrom', e.target.value)}
+            onBlur={(e) => commit('eveningFrom', e.target)}
           />
         )}
       </RitualsRow>
-      <p className={styles.status} role="status" data-tone={status?.tone}>
-        {status?.text ?? ''}
-      </p>
       <p className={styles.help}>
         Usual times: morning until {RITUAL_DEFAULT_TIMES.morningUntil}, evening from{' '}
         {RITUAL_DEFAULT_TIMES.eveningFrom}.
+      </p>
+      <p className={styles.status} role="status" data-tone={status?.tone}>
+        {status?.text ?? ''}
       </p>
     </section>
   )

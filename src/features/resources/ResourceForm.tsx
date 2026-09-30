@@ -44,8 +44,13 @@ export function ResourceForm({ mode, kind, initial, onSubmit, onCancel }: Resour
   const adding = mode === 'add'
 
   useEffect(() => {
-    first.current?.focus()
-    if (!adding) first.current?.select()
+    // A frame late on purpose: an overlay that has just closed (the command palette) gives focus back to
+    // where it started, and would take it from a field that was focused at once.
+    const frame = requestAnimationFrame(() => {
+      first.current?.focus()
+      if (!adding) first.current?.select()
+    })
+    return () => cancelAnimationFrame(frame)
   }, [adding])
 
   // A link's title is left blank on purpose: the placeholder shows the one it will get.

@@ -126,7 +126,9 @@ export function useResourceActions(courseId: ID): ResourceActions {
         }
         if (problems.length > 0) {
           toast.error(
-            problems.length === 1 ? 'Couldn’t add that file' : `Couldn’t add ${problems.length} files`,
+            problems.length === 1
+              ? 'Couldn’t add that file'
+              : `Couldn’t add ${problems.length} files`,
             { description: problems.join(' ') },
           )
         }
@@ -149,8 +151,7 @@ export function useResourceActions(courseId: ID): ResourceActions {
           const deleted = await deleteResource(resource.id)
           if (!deleted) return false
           toast.show({
-            title: 'Moved to the Trash',
-            description: shorten(resource.title),
+            title: `Moved “${shorten(resource.title)}” to the trash`,
             undo: deleted.undo,
           })
           return true

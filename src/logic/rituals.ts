@@ -12,6 +12,7 @@
 import type { HHmm, ID, ISODate, Ritual, Settings, Task } from '@/db/types'
 import { isISODate, parseHHmm } from './dates'
 import { planDay } from './taskDates'
+import { relativeDay } from './taskDisplay'
 import { oneListToday, type TodayContext, type TodayGroups } from './today'
 import { XP_RITUAL } from './xp'
 
@@ -200,6 +201,17 @@ export function doneHeadline(done: number): string {
 export function openHeadline(open: number): string {
   if (open === 0) return 'Nothing is waiting. Tomorrow starts clear.'
   return `${plural(open, 'task')} still open. Nothing is lost by moving ${open === 1 ? 'it' : 'them'} on.`
+}
+
+/**
+ * A day inside a sentence: "today", "tomorrow", "yesterday" in lower case, and a weekday or a date as
+ * written ("Friday", "Oct 12"), so "Moved to Friday" and "Moved to tomorrow" both read naturally.
+ */
+export function dayWords(day: ISODate, today: ISODate): string {
+  const words = relativeDay(day, today)
+  return words === 'Today' || words === 'Tomorrow' || words === 'Yesterday'
+    ? words.toLowerCase()
+    : words
 }
 
 /** "Move 4 to tomorrow" for the one-click button. */

@@ -4,6 +4,7 @@ import { moveTasksToDay, type MoveResult } from '@/db/repos/rituals'
 import { applyRoutine } from '@/db/repos/templates'
 import type { ID, ISODate } from '@/db/types'
 import type { RoutineEntry } from '@/logic/routines'
+import { dayWords } from '@/logic/rituals'
 import { relativeDay } from '@/logic/taskDisplay'
 import { useToast } from '@/ui/Toast'
 
@@ -53,7 +54,7 @@ export function useRitualActions(): RitualActions {
           if (message && result.moved.length > 0) {
             toast.show({
               title: message.title,
-              description: message.description ?? `Planned for ${relativeDay(day, today).toLowerCase()}`,
+              description: message.description ?? `Planned for ${dayWords(day, today)}`,
               undo: result.undo,
             })
           }

@@ -1,5 +1,5 @@
 import { Minus, Plus } from 'lucide-react'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { Link } from '@/app/router'
@@ -10,9 +10,9 @@ import { updateSettings } from '@/db/repos/settings'
 import { createTask } from '@/db/repos/tasks'
 import type { ID, Task } from '@/db/types'
 import { addDays } from '@/logic/dates'
-import { TOP_MAX, type TodayItem } from '@/logic/rituals'
+import { TOP_MAX, dayWords, type TodayItem } from '@/logic/rituals'
 import { durationText } from '@/logic/statsLabels'
-import { formatTimeOfDay, relativeDay } from '@/logic/taskDisplay'
+import { formatTimeOfDay } from '@/logic/taskDisplay'
 import { planTime } from '@/logic/taskDates'
 import { isGoalWork } from '@/logic/today'
 import { carriedFromText, estimateText } from '@/logic/todayStats'
@@ -79,6 +79,8 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
   const [saving, setSaving] = useState(false)
 
   const ready = lists !== undefined && ritual !== undefined && settings !== undefined
+  const list = useRef<HTMLUListElement | null>(null)
+  const focusedList = useRef(false)
 
   // What can be picked: today's open work, plus anything already in the top 3 that is finished.
   const pickable = useMemo<TodayItem[]>(() => {
@@ -109,6 +111,18 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
     0,
   )
 
+  // The dialog opens before the tasks have arrived, so the keyboard first lands on the "Add a task"
+  // field. When the list appears, and nothing has been typed yet, move to its first task, so the
+  // arrow-less flow is Space to pick, Tab to the next.
+  useEffect(() => {
+    if (!ready || focusedList.current || pickable.length === 0) return
+    focusedList.current = true
+    if (line === '')
+      list.current
+        ?.querySelector<HTMLInputElement>('input[type="checkbox"]')
+        ?.focus({ preventScroll: true })
+  }, [ready, pickable.length, line])
+
   function toggle(id: ID): void {
     if (selected.includes(id)) setEdits(selected.filter((x) => x !== id))
     else if (!full) setEdits([...selected, id])
@@ -117,7 +131,11 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
   async function addTask(e: FormEvent): Promise<void> {
     e.preventDefault()
     if (adding || !settings) return
-    const draft = todayTaskDraft(line, { now: Date.now(), today, weekStartsOn: settings.weekStartsOn })
+    const draft = todayTaskDraft(line, {
+      now: Date.now(),
+      today,
+      weekStartsOn: settings.weekStartsOn,
+    })
     if (!draft) return
     setAdding(true)
     try {
@@ -127,7 +145,7 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
         setNotice(null)
         if (!full) setEdits([...selected, task.id])
       } else {
-        setNotice(`Added “${task.title}” for ${relativeDay(draft.day, today).toLowerCase()}.`)
+        setNotice(`Added “${task.title}” for ${dayWords(draft.day, today)}.`)
       }
     } catch (error) {
       recordError(error, 'morningPlan.addTask')
@@ -213,7 +231,7 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
                 Nothing is planned for today yet. Add a task below, or add a routine.
               </p>
             ) : (
-              <ul className={styles.list} aria-label="Today’s tasks">
+              <ul ref={list} className={styles.list} aria-label="Today’s tasks">
                 {pickable.map((item) => {
                   const { task } = item
                   const rank = selected.indexOf(task.id)
@@ -278,15 +296,15 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
               </div>
             ) : goalWork.length === 0 ? (
               <p className={styles.quiet}>
-                Nothing from your goals is planned for today. Plan sessions land here once a goal has
-                study days.
+                Nothing from your goals is planned for today. Plan sessions land here once a goal
+                has study days.
               </p>
             ) : (
               <>
                 <p className={styles.lede}>
                   {goalWork.length === 1 ? '1 session' : `${goalWork.length} sessions`}
-                  {goalWorkMinutes > 0 ? `, about ${durationText(goalWorkMinutes)}` : ''}. Move one to
-                  tomorrow if today is full.
+                  {goalWorkMinutes > 0 ? `, about ${durationText(goalWorkMinutes)}` : ''}. Move one
+                  to tomorrow if today is full.
                 </p>
                 <ul className={styles.list} aria-label="Goal work planned for today">
                   {goalWork.map(({ task }) => (
@@ -353,7 +371,8 @@ function GoalWorkRow({
   onMove: () => void
 }) {
   const time = planTime(task)
-  const length = task.durationMinutes !== null ? durationText(task.durationMinutes) : estimateText(task)
+  const length =
+    task.durationMinutes !== null ? durationText(task.durationMinutes) : estimateText(task)
   const meta = [time !== null ? formatTimeOfDay(time) : null, length].filter(Boolean).join(' · ')
   return (
     <li className={styles.row}>
@@ -370,7 +389,12 @@ function GoalWorkRow({
       >
         Open
       </Link>
-      <Button size="sm" variant="ghost" onClick={onMove} aria-label={`Move ${task.title} to tomorrow`}>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onMove}
+        aria-label={`Move ${task.title} to tomorrow`}
+      >
         Tomorrow
       </Button>
     </li>

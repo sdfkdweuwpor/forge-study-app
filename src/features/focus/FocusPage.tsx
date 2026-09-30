@@ -24,6 +24,7 @@ import {
   formatClockTime,
   formatMinutes,
   normalizeCycle,
+  parseCustomMinutes,
   phaseLabel,
   plannedEndAt,
   clockOf,
@@ -117,7 +118,8 @@ function FocusScreen() {
 
   const cycle = settings ? normalizeCycle(settings.timer) : null
   const next = useMemo(
-    () => (settings && last !== undefined ? upNext(last, now, normalizeCycle(settings.timer)) : null),
+    () =>
+      settings && last !== undefined ? upNext(last, now, normalizeCycle(settings.timer)) : null,
     [settings, last, now],
   )
 
@@ -164,11 +166,7 @@ function FocusScreen() {
       ? `After round ${position} of ${total}`
       : `Round ${position} of ${total}`
 
-  const stopLabel = inBreak
-    ? 'Skip break'
-    : shownMode === 'stopwatch'
-      ? 'Finish'
-      : 'Stop'
+  const stopLabel = inBreak ? 'Skip break' : shownMode === 'stopwatch' ? 'Finish' : 'Stop'
 
   return (
     <div className={styles.layout}>
@@ -206,7 +204,9 @@ function FocusScreen() {
               value={lengthDraft ?? String(settings.timer.customMin)}
               onChange={(e) => setLengthDraft(e.target.value)}
               onBlur={() => {
-                if (lengthDraft !== null) void setCustomMinutes(Number(lengthDraft))
+                // An emptied or non-positive field goes back to the stored length, not to 1 minute.
+                const minutes = lengthDraft === null ? null : parseCustomMinutes(lengthDraft)
+                if (minutes !== null) void setCustomMinutes(minutes)
                 setLengthDraft(null)
               }}
               onKeyDown={(e) => {
@@ -251,7 +251,9 @@ function FocusScreen() {
 
         <TaskPicker
           taskId={linkedId}
-          title={linkedId === null ? null : linked === undefined ? undefined : (linked?.title ?? null)}
+          title={
+            linkedId === null ? null : linked === undefined ? undefined : (linked?.title ?? null)
+          }
           onChange={(id) => void linkTask(id)}
         />
 
@@ -308,7 +310,8 @@ function FocusScreen() {
 
         <p className={styles.hint} aria-hidden="true">
           <span>
-            <Kbd keys="space" variant="plain" size="sm" /> {paused ? 'resume' : active ? 'pause' : 'start'}
+            <Kbd keys="space" variant="plain" size="sm" />{' '}
+            {paused ? 'resume' : active ? 'pause' : 'start'}
           </span>
           {active ? (
             <span>

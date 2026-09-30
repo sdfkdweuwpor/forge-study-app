@@ -115,7 +115,7 @@
 
 .actions .primary,
 .actions .secondary {
-  height: 44px;
+  height: var(--tap-min);
   padding-inline: var(--space-6);
   border-radius: var(--radius-lg);
   font-size: var(--fs-16);

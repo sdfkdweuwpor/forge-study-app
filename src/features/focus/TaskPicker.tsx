@@ -66,7 +66,9 @@ export function TaskPicker({ taskId, title, onChange }: TaskPickerProps) {
           className={styles.trigger}
           iconLeft={<ListChecks />}
           iconRight={<ChevronDown />}
-          aria-label={taskId === null ? 'Link a task' : `Linked task: ${title ?? 'loading'}. Change`}
+          aria-label={
+            taskId === null ? 'Link a task' : `Linked task: ${title ?? 'loading'}. Change`
+          }
           data-testid="task-picker"
         >
           <span className={styles.triggerText} data-empty={taskId === null || undefined}>
@@ -88,13 +90,7 @@ export function TaskPicker({ taskId, title, onChange }: TaskPickerProps) {
   )
 }
 
-function PickerPanel({
-  taskId,
-  onPick,
-}: {
-  taskId: ID | null
-  onPick: (id: ID | null) => void
-}) {
+function PickerPanel({ taskId, onPick }: { taskId: ID | null; onPick: (id: ID | null) => void }) {
   const tasks = useOpenTasks()
   const today = useToday()
   const listId = useId()
@@ -150,46 +146,55 @@ function PickerPanel({
         onKeyDown={onKeyDown}
       />
 
-      <div id={listId} role="listbox" aria-label="Open tasks" className={styles.list}>
-        {tasks === undefined ? (
-          <div className={styles.loading} role="status" aria-busy="true" aria-label="Loading tasks">
-            <Skeleton width="80%" />
-            <Skeleton width="60%" />
-            <Skeleton width="70%" />
-          </div>
-        ) : (
-          hits.map((hit, i) => {
-            const due = dueLabel(hit.task, today)
-            return (
-              <button
-                key={hit.task.id}
-                id={optionId(hit.task.id)}
-                type="button"
-                role="option"
-                tabIndex={-1}
-                aria-selected={hit.task.id === taskId}
-                className={styles.option}
-                data-active={i === active || undefined}
-                onMouseEnter={() => setCursor(i)}
-                onClick={() => onPick(hit.task.id)}
-              >
-                <span className={styles.optionTitle}>{highlight(hit.task.title, hit.matches)}</span>
-                {hit.task.status === 'doing' ? (
-                  <span className={styles.optionMeta}>In progress</span>
-                ) : due ? (
-                  <span className={styles.optionMeta} data-tone={due.tone}>
-                    {due.text}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })
-        )}
+      {tasks === undefined ? (
+        <div className={styles.loading} role="status" aria-busy="true" aria-label="Loading tasks">
+          <Skeleton width="80%" />
+          <Skeleton width="60%" />
+          <Skeleton width="70%" />
+        </div>
+      ) : null}
+
+      {/* The list is always there (the search field points at it) but only ever holds options. */}
+      <div
+        id={listId}
+        role="listbox"
+        aria-label="Open tasks"
+        aria-busy={tasks === undefined || undefined}
+        className={styles.list}
+      >
+        {hits.map((hit, i) => {
+          const due = dueLabel(hit.task, today)
+          return (
+            <button
+              key={hit.task.id}
+              id={optionId(hit.task.id)}
+              type="button"
+              role="option"
+              tabIndex={-1}
+              aria-selected={hit.task.id === taskId}
+              className={styles.option}
+              data-active={i === active || undefined}
+              onMouseEnter={() => setCursor(i)}
+              onClick={() => onPick(hit.task.id)}
+            >
+              <span className={styles.optionTitle}>{highlight(hit.task.title, hit.matches)}</span>
+              {hit.task.status === 'doing' ? (
+                <span className={styles.optionMeta}>In progress</span>
+              ) : due ? (
+                <span className={styles.optionMeta} data-tone={due.tone}>
+                  {due.text}
+                </span>
+              ) : null}
+            </button>
+          )
+        })}
       </div>
 
       {tasks !== undefined && hits.length === 0 ? (
         <p className={styles.empty}>
-          {query.trim() === '' ? 'No open tasks yet. Press Q to add one.' : 'No open task matches that.'}
+          {query.trim() === ''
+            ? 'No open tasks yet. Press Q to add one.'
+            : 'No open task matches that.'}
         </p>
       ) : null}
 

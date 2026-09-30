@@ -1147,9 +1147,7 @@ test.describe('shortcuts', () => {
     }
   })
 
-  test('g then a key that is not a destination does nothing', async ({
-    page,
-  }) => {
+  test('g then a key that is not a destination does nothing', async ({ page }) => {
     await gotoApp(page, '/goals', 'wgu')
     await settled(page)
     await page.keyboard.press('g')
@@ -1157,6 +1155,23 @@ test.describe('shortcuts', () => {
     await expect(page).toHaveURL(/\/goals$/)
     await expect(paletteDialog(page)).toBeHidden()
     await expect(quickAddDialog(page)).toBeHidden()
+  })
+
+  test('g then a second key after the one-second window is ignored; a prompt one still works', async ({
+    page,
+  }) => {
+    // The window is SEQUENCE_TIMEOUT_MS (1000) in src/app/shortcuts; the clock is moved, not waited for.
+    await page.clock.install()
+    await gotoApp(page, '/goals', 'wgu')
+    await settled(page)
+    await page.keyboard.press('g')
+    await page.clock.fastForward(1100)
+    await page.keyboard.press('m')
+    await expect(page).toHaveURL(/\/goals$/)
+    // The same two keys in time do go to the roadmap, so the ignored one was a timeout and not a dead key.
+    await page.keyboard.press('g')
+    await page.keyboard.press('m')
+    await expect.poll(() => pathnameOf(page)).toBe('/roadmap')
   })
 
   test('mod+k, /, q and ? open their overlay from the page, and each Esc closes it', async ({

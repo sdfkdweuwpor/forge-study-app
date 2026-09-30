@@ -17,3 +17,6 @@ extension/dist
 e2e/_tmp*.spec.ts
 dist-*/
 playwright.*.tmp.config.ts
+test-results-*/
+playwright.*.config.ts
+!playwright.shoot.config.ts

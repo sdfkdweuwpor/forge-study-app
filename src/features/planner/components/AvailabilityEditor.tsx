@@ -26,6 +26,7 @@ import { Tag } from '@/ui/Tag'
 import { Toggle } from '@/ui/Toggle'
 import shared from '../shared.module.css'
 import styles from './AvailabilityEditor.module.css'
+import { Heading, type HeadingLevel } from './Heading'
 import { WindowsList } from './WindowsList'
 
 export interface AvailabilityEditorProps {
@@ -33,6 +34,11 @@ export interface AvailabilityEditorProps {
   onChange: (next: AvailabilityDraft) => void
   errors: Readonly<Record<string, string>>
   today: ISODate
+  /**
+   * Level of the section titles: 2 on the planner's step (under the page's h1), 3 inside a dialog (under
+   * its h2 title). Default 2.
+   */
+  headingLevel?: Extract<HeadingLevel, 2 | 3>
 }
 
 /** The "≈ 14 h/week available" line. */
@@ -58,7 +64,13 @@ export function AvailabilitySummary({ value }: { value: AvailabilityDraft }) {
  * length, blackout dates and an optional rotating shift pattern. Used by the planner's third step and by
  * the goal page's Plan settings, so both behave the same.
  */
-export function AvailabilityEditor({ value, onChange, errors, today }: AvailabilityEditorProps) {
+export function AvailabilityEditor({
+  value,
+  onChange,
+  errors,
+  today,
+  headingLevel = 2,
+}: AvailabilityEditorProps) {
   const shiftOn = value.shift !== null
   const patch = (p: Partial<AvailabilityDraft>) => onChange({ ...value, ...p })
 
@@ -67,9 +79,9 @@ export function AvailabilityEditor({ value, onChange, errors, today }: Availabil
       <AvailabilitySummary value={value} />
 
       <section aria-labelledby="avail-days" className={shared.section}>
-        <h3 id="avail-days" className={shared.sectionTitle}>
+        <Heading level={headingLevel} id="avail-days" className={shared.sectionTitle}>
           {shiftOn ? 'Weekly windows (used when no shift applies)' : 'Study days and times'}
-        </h3>
+        </Heading>
         {shiftOn ? (
           <p className={shared.hint}>
             Your shift pattern below replaces these while it is on. Turn it off to use them.
@@ -150,9 +162,9 @@ export function AvailabilityEditor({ value, onChange, errors, today }: Availabil
       </section>
 
       <section aria-labelledby="avail-session" className={shared.section}>
-        <h3 id="avail-session" className={shared.sectionTitle}>
+        <Heading level={headingLevel} id="avail-session" className={shared.sectionTitle}>
           Session length
-        </h3>
+        </Heading>
         <div className={styles.slider}>
           <input
             type="range"
@@ -171,9 +183,9 @@ export function AvailabilityEditor({ value, onChange, errors, today }: Availabil
       </section>
 
       <section aria-labelledby="avail-off" className={shared.section}>
-        <h3 id="avail-off" className={shared.sectionTitle}>
+        <Heading level={headingLevel} id="avail-off" className={shared.sectionTitle}>
           Days off and vacations
-        </h3>
+        </Heading>
         {value.blackouts.length > 0 ? (
           <ul className={styles.ranges}>
             {value.blackouts.map((b, i) => (
@@ -263,9 +275,9 @@ export function AvailabilityEditor({ value, onChange, errors, today }: Availabil
 
       <section aria-labelledby="avail-shift" className={shared.section}>
         <div className={styles.shiftHead}>
-          <h3 id="avail-shift" className={shared.sectionTitle}>
+          <Heading level={headingLevel} id="avail-shift" className={shared.sectionTitle}>
             Rotating shifts
-          </h3>
+          </Heading>
           <Toggle
             size="sm"
             label="I work a rotating shift"

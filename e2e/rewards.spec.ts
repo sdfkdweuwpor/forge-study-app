@@ -43,11 +43,36 @@ interface StoredRedemption {
   refundedAt: number | null
 }
 
+/** Marks every level as already celebrated, so the level-up moment never covers the page under test. */
+async function quietLevelUps(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('forge')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const db = open.result
+          const tx = db.transaction(['settings'], 'readwrite')
+          const store = tx.objectStore('settings')
+          const get = store.get('app')
+          get.onsuccess = () => {
+            store.put({ ...(get.result as object), lastCelebratedLevel: 99 })
+          }
+          tx.onerror = () => reject(tx.error)
+          tx.oncomplete = () => {
+            db.close()
+            resolve()
+          }
+        }
+      }),
+  )
+}
 const NOW = new Date('2026-09-29T09:00:00-04:00').getTime()
 
 /** Opens the app on an empty database and gives the user `amount` lifetime XP. Leaves the page on `/`. */
 async function withXp(page: Page, amount: number): Promise<void> {
   await gotoApp(page, '/', 'empty')
+  await quietLevelUps(page)
   await putRows(page, 'xpEvents', [
     {
       id: 'xp-test',
@@ -216,7 +241,7 @@ test.describe('Rewards shop', () => {
     await grip.focus()
     // dnd-kit announces each step; waiting for it keeps the next key from racing its sensor.
     await page.keyboard.press('Space')
-    await expect(page.getByText('Picked up Order takeout.')).toBeAttached()
+    await expect(page.getByText('Order takeout is over Order takeout.')).toBeAttached()
     await page.keyboard.press('ArrowUp')
     await expect(page.getByText('Order takeout is over Coffee out.')).toBeAttached()
     await page.keyboard.press('ArrowUp')
@@ -226,6 +251,14 @@ test.describe('Rewards shop', () => {
     await expect(rewardRows(page).nth(0)).toContainText('Order takeout')
     await expect(rewardRows(page).nth(1)).toContainText('30 min gaming')
 
+    // The list shows the drop at once; wait for the write before reloading.
+    await expect
+      .poll(async () =>
+        (await readTable<{ title: string; order: number }>(page, 'rewards'))
+          .sort((a, b) => a.order - b.order)
+          .map((r) => r.title),
+      )
+      .toEqual(['Order takeout', '30 min gaming', 'Coffee out'])
     await page.reload()
     await expect(rewardRows(page)).toHaveText([/Order takeout/, /30 min gaming/, /Coffee out/])
   })

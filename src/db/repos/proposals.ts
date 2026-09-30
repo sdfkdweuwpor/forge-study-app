@@ -39,6 +39,7 @@ import type {
   ID,
   ISODate,
   Millis,
+  Milestone,
   PlanProposal,
   PlanProposalKind,
   Task,
@@ -306,17 +307,49 @@ export interface ApplyProposalResult extends Undoable {
 
 const noop = async (): Promise<void> => undefined
 
-interface Snapshot {
+/** A goal's plan as it was before a change that re-plans it: what `restoreSnapshot` puts back. */
+export interface Snapshot {
   goal: Goal
   units: Unit[]
+  /** The goal's courses, when the change can touch them (plan settings rescale a course's hours). */
+  milestones?: Milestone[]
   planTasks: Task[]
   proposals: PlanProposal[]
   trashIds: ID[]
 }
 
-/** Puts a goal's plan back the way a snapshot saw it (the undo of an applied proposal). */
-async function restoreSnapshot(snap: Snapshot): Promise<void> {
+/** A goal's rows as `restoreSnapshot` needs them; read them inside the caller's transaction, before the change. */
+export function snapshotGoalPlan(
+  goal: Goal,
+  rows: { units: readonly Unit[]; milestones?: readonly Milestone[]; tasks: readonly Task[] },
+): Snapshot {
+  return {
+    goal,
+    units: [...rows.units],
+    ...(rows.milestones ? { milestones: [...rows.milestones] } : {}),
+    planTasks: rows.tasks.filter(isPlanTask),
+    proposals: [],
+    trashIds: [],
+  }
+}
+
+/** Plan tasks the re-plan trashed (the person had added to them) come back before the snapshot is put over them. */
+async function restoreTrashedPlanTasks(snap: Snapshot): Promise<void> {
+  if (snap.planTasks.length === 0) return
+  const ids = snap.planTasks.map((t) => t.id)
+  const present = new Set((await db.tasks.bulkGet(ids)).flatMap((t) => (t ? [t.id] : [])))
+  const missing = new Set(ids.filter((id) => !present.has(id)))
+  if (missing.size === 0) return
+  const entries = await db.trash.where('entityTable').equals('tasks').toArray()
+  for (const entry of entries) {
+    if (missing.has(entry.entityId)) await restoreFromTrash(entry.id)
+  }
+}
+
+/** Puts a goal's plan back the way a snapshot saw it (the undo of an applied proposal or of a saved plan setting). */
+export async function restoreSnapshot(snap: Snapshot): Promise<void> {
   for (const trashId of snap.trashIds) await restoreFromTrash(trashId)
+  await restoreTrashedPlanTasks(snap)
   await db.transaction('rw', planTables(), async () => {
     const goalId = snap.goal.id
     if (!(await db.goals.get(goalId))) return
@@ -336,6 +369,7 @@ async function restoreSnapshot(snap: Snapshot): Promise<void> {
     if (back.length > 0) await db.tasks.bulkPut(back)
     for (const t of back) emit({ type: 'task.changed', taskId: t.id })
     if (snap.units.length > 0) await db.units.bulkPut(snap.units)
+    if (snap.milestones && snap.milestones.length > 0) await db.milestones.bulkPut(snap.milestones)
     await db.goals.put(snap.goal)
     if (snap.proposals.length > 0) await db.planProposals.bulkPut(snap.proposals)
     emit({ type: 'goal.changed', goalId })

@@ -3,3 +3,18 @@
   flex-direction: column;
   gap: var(--space-6);
 }
+
+/* The rows carry a 20px drag handle column on the left. From 640px the page has 32px+ side padding, so
+   the whole stack moves that far into the gutter: the handle sits in the margin and the icons line up
+   with the heading, like a Notion block. */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (min-width: 640px) {
+  .rows {
+    margin-left: calc(-1 * (20px + var(--space-2)));
+  }
+}

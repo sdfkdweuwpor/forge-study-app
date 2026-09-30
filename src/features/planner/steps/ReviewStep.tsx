@@ -5,7 +5,10 @@ import { newId } from '@/lib/ids'
 import { plural } from '@/logic/goalDisplay'
 import {
   courseEffort,
+  courseRemovalUndo,
   draftEffort,
+  prerequisiteLossesByOrder,
+  unitRemovalUndo,
   type AssessmentKind,
   type DraftErrors,
   type PlannerAction,
@@ -98,25 +101,74 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
     focusId.current = `assessment-title-${key}`
   }
   function removeCourse(course: PlannerCourse) {
-    const index = draft.courses.findIndex((c) => c.key === course.key)
+    const undo = courseRemovalUndo(draft.courses, course.key)
+    if (!undo) return
+    // Focus goes to the row that takes its place, or to the step's heading when it was the last one.
+    const after = draft.courses[undo.index + 1]
+    focusId.current = after ? `course-title-${after.key}` : 'planner-heading'
     dispatch({ type: 'removeCourse', key: course.key })
     toast.show({
       title: `Deleted ${shorten(courseName(course))}`,
-      undo: () => dispatch({ type: 'insertCourse', index, course }),
+      undo: () =>
+        dispatch({
+          type: 'insertCourse',
+          index: undo.index,
+          course: undo.course,
+          dependents: undo.dependents,
+        }),
     })
   }
   function removeUnit(course: PlannerCourse, unit: PlannerUnit) {
+    const undo = unitRemovalUndo(draft, course.key, unit.key)
+    if (!undo) return
+    const after = course.units[undo.index + 1]
+    focusId.current = after ? `unit-title-${after.key}` : `course-title-${course.key}`
     dispatch({ type: 'removeUnit', courseKey: course.key, key: unit.key })
     toast.show({
       title: `Deleted “${shorten(unit.title || 'Untitled unit')}”`,
-      undo: () => dispatch({ type: 'replaceCourse', course }),
+      // Only this unit comes back: edits made to its siblings since are kept.
+      undo: () =>
+        dispatch({
+          type: 'insertUnit',
+          courseKey: course.key,
+          index: undo.index,
+          unit: undo.unit,
+          thaw: undo.thaw,
+        }),
     })
   }
   function removeAssessment(course: PlannerCourse, a: PlannerAssessmentDraft) {
+    const index = course.assessments.findIndex((x) => x.key === a.key)
+    const after = course.assessments[index + 1]
+    focusId.current = after ? `assessment-title-${after.key}` : `course-title-${course.key}`
     dispatch({ type: 'removeAssessment', courseKey: course.key, key: a.key })
     toast.show({
       title: `Deleted “${shorten(a.title || 'Untitled assessment')}”`,
-      undo: () => dispatch({ type: 'replaceCourse', course }),
+      undo: () =>
+        dispatch({ type: 'insertAssessment', courseKey: course.key, index, assessment: a }),
+    })
+  }
+  /** Moves courses; a requirement that would point at a later course is removed, and the person is told. */
+  function reorderCourses(keys: readonly string[]) {
+    const losses = prerequisiteLossesByOrder(draft.courses, keys)
+    const before = draft.courses.map((c) => c.key)
+    dispatch({ type: 'reorderCourses', keys })
+    if (losses.length === 0) return
+    const names = new Map(draft.courses.map((c) => [c.key, courseName(c)]))
+    const first = losses[0]
+    const only = losses.length === 1 && first?.lost.length === 1
+    toast.show({
+      title: only
+        ? `${shorten(names.get(first.courseKey) ?? 'A course', 30)} no longer requires ${shorten(names.get(first.lost[0] ?? '') ?? 'a course', 30)}`
+        : 'Some courses no longer require the ones that now come after them',
+      description:
+        'A course can only require one above it, so that link was removed. Undo brings back the order and the links.',
+      undo: () =>
+        dispatch({
+          type: 'reorderCourses',
+          keys: before,
+          prerequisites: Object.fromEntries(losses.map((l) => [l.courseKey, l.before])),
+        }),
     })
   }
 
@@ -263,7 +315,7 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
             items={draft.courses.map((c) => ({ id: c.key, course: c }))}
             aria-label="Courses"
             nameOf={(item) => courseName(item.course)}
-            onReorder={(keys) => dispatch({ type: 'reorderCourses', keys })}
+            onReorder={reorderCourses}
             rowClassName={styles.courseRow}
             renderRow={({ course }, { handle }) => {
               const open = !collapsed.has(course.key)

@@ -174,6 +174,57 @@ describe('savePlanSettings', () => {
     expect(after.reduce((s, u) => s + (u.estimateMinutes ?? 0), 0)).toBe(2400)
   })
 
+  it('Undo puts back the previous settings, estimates and plan tasks', async () => {
+    const parsed = applyParse(
+      emptyPlannerDraft(TODAY),
+      parsePlanText('C182 Introduction to IT – 4 CUs OA\nUnit A\nUnit B', { today: TODAY }),
+      { source: 'paste', newKey: keys, today: TODAY },
+    )
+    const draft = { ...parsed, targetDate: '2027-03-01' as const }
+    const created = await createGoalWithCourses(
+      plannerRows(draft, { today: TODAY, now: NOW, newId: ids }),
+      { now: NOW },
+    )
+    const goalId = created.goal.id
+    // Restoring a row re-stamps `updatedAt` (a db hook); everything else must be as it was.
+    const noStamp = <T extends { updatedAt: number }>(rows: T[]) =>
+      rows.map(({ updatedAt: _stamp, ...rest }) => rest)
+    const snapshot = async () => ({
+      goal: await db.goals.get(goalId),
+      milestones: await db.milestones.where('goalId').equals(goalId).sortBy('id'),
+      units: await db.units.where('goalId').equals(goalId).sortBy('id'),
+      tasks: noStamp(await db.tasks.where('goalId').equals(goalId).sortBy('id')),
+    })
+    const before = await snapshot()
+    expect(before.tasks.length).toBeGreaterThan(0)
+
+    const stored = toGoalAvailability(withAddedTime(draft, 60).availability)
+    const saved = await savePlanSettings(
+      goalId,
+      {
+        targetDate: '2027-01-15',
+        asap: false,
+        availability: stored.availability,
+        planning: stored.planning,
+        bufferPct: 0.15,
+        cuHoursMultiplier: 10,
+      },
+      { now: NOW },
+    )
+    expect(saved?.planError).toBeNull()
+    const changed = await snapshot()
+    expect(changed.goal?.targetDate).toBe('2027-01-15')
+    expect(changed.units).not.toEqual(before.units)
+    expect(changed.tasks).not.toEqual(before.tasks)
+
+    await saved?.undo()
+    const after = await snapshot()
+    expect(after.goal).toEqual(before.goal)
+    expect(after.milestones).toEqual(before.milestones)
+    expect(after.units).toEqual(before.units)
+    expect(after.tasks).toEqual(before.tasks)
+  })
+
   it('returns null for a missing goal', async () => {
     const stored = toGoalAvailability(emptyPlannerDraft(TODAY).availability)
     expect(

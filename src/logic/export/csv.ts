@@ -31,9 +31,17 @@ const BOM = String.fromCharCode(0xfeff)
 const PRIORITY = ['none', 'low', 'medium', 'high', 'urgent'] as const
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-/** One field, quoted when it holds a comma, quote, CR or LF, or edge whitespace. */
+/** A spreadsheet reads a cell starting with one of these as a formula (or as a command, in old Excel). */
+const FORMULA_START = /^[=+\-@\t\r]/
+
+/**
+ * One field, quoted when it holds a comma, quote, CR or LF, or edge whitespace. A field that starts with
+ * `=`, `+`, `-`, `@`, a tab or a CR gets a leading `'`, so opening the file in Excel or Sheets shows the
+ * text instead of running it (CSV formula injection: a task titled `=HYPERLINK(...)` must stay a title).
+ */
 export function csvField(value: string): string {
-  return /[",\r\n]|^\s|\s$/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+  const safe = FORMULA_START.test(value) ? `'${value}` : value
+  return /[",\r\n]|^\s|\s$/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
 export function csvRow(fields: readonly string[]): string {

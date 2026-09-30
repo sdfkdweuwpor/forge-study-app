@@ -47,10 +47,10 @@ function TimeList({ heading, id, rows, goals, empty }: ListProps) {
                   </span>
                   <span className={styles.minutes}>{formatLogged(row.minutes)}</span>
                 </div>
+                {/* Decorative: the name and time are already read from the line above. */}
                 <div
                   className={styles.bar}
-                  role="img"
-                  aria-label={`${name}: ${formatLogged(row.minutes)}`}
+                  aria-hidden="true"
                   data-other={row.goalId === null || undefined}
                 >
                   <span

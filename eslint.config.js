@@ -96,6 +96,8 @@ export default tseslint.config(
       'extension/dist',
       'node_modules',
       'dev-dist',
+      'dist-*',
+      'test-results-*',
     ],
   },
   js.configs.recommended,

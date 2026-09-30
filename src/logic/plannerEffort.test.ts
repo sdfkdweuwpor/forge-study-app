@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { courseBaseMinutes, effortLabel, parseHoursInput, resolveEffort } from './plannerEffort'
+import {
+  courseBaseMinutes,
+  effortLabel,
+  parseDecimalInput,
+  parseHoursInput,
+  resolveEffort,
+} from './plannerEffort'
 
 describe('courseBaseMinutes', () => {
   it('uses hours, or CUs times the multiplier', () => {
@@ -67,5 +73,25 @@ describe('parseHoursInput and effortLabel', () => {
     expect(effortLabel(45)).toBe('45 min')
     expect(effortLabel(150)).toBe('2 h 30 min')
     expect(effortLabel(120)).toBe('2 h')
+  })
+})
+
+describe('parseDecimalInput (the hours-per-CU and CUs fields)', () => {
+  it('accepts what is typed on the way to a number', () => {
+    expect(parseDecimalInput('12')).toBe(12)
+    expect(parseDecimalInput('12.')).toBe(12)
+    expect(parseDecimalInput('0.5')).toBe(0.5)
+    expect(parseDecimalInput('.5')).toBe(0.5)
+    expect(parseDecimalInput(' 1,5 ')).toBe(1.5)
+  })
+
+  it('says nothing for an empty field or anything that is not a plain decimal', () => {
+    expect(parseDecimalInput('')).toBeNull()
+    expect(parseDecimalInput('.')).toBeNull()
+    expect(parseDecimalInput('abc')).toBeNull()
+    expect(parseDecimalInput('1e3')).toBeNull()
+    expect(parseDecimalInput('0x10')).toBeNull()
+    expect(parseDecimalInput('-2')).toBeNull()
+    expect(parseDecimalInput('1.2.3')).toBeNull()
   })
 })

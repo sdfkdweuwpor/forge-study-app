@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/db/hooks/useSettings'
 import { recordError } from '@/app/reportError'
 import {
@@ -40,6 +40,15 @@ export function timeLabel(t: string | null): string {
 
 const dayName = (d: ISODate): string => WEEKDAY[fromISODate(d).getDay()] ?? ''
 
+/** Sets a preview aside; a failure is reported, never thrown (there is nobody left to tell). */
+async function dismissQuietly(p: PlanProposal): Promise<void> {
+  try {
+    await dismissProposal(p.id)
+  } catch (error) {
+    recordError(error, 'dismissProposal')
+  }
+}
+
 export interface LifeHappenedDialogProps {
   goal: Goal
   today: ISODate
@@ -69,17 +78,29 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
   const [phase, setPhase] = useState<Phase>({ name: 'choose' })
   const [applying, setApplying] = useState(false)
   const pending = useRef<PlanProposal | null>(null)
+  /** Whether the dialog is still on screen: a preview that finishes after it closed has nobody to show it to. */
+  const live = useRef(open)
+  useEffect(() => {
+    live.current = open
+    return () => {
+      live.current = false
+    }
+  }, [open])
+
+  // Leaving the page with a preview showing sets it aside, like Cancel.
+  useEffect(
+    () => () => {
+      const p = pending.current
+      pending.current = null
+      if (p) void dismissQuietly(p)
+    },
+    [],
+  )
 
   async function discard() {
     const p = pending.current
     pending.current = null
-    if (p) {
-      try {
-        await dismissProposal(p.id)
-      } catch (error) {
-        recordError(error, 'dismissProposal')
-      }
-    }
+    if (p) await dismissQuietly(p)
   }
 
   async function close() {
@@ -96,6 +117,11 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
       })
       if (!proposal) {
         setPhase({ name: 'error' })
+        return
+      }
+      if (!live.current) {
+        // Closed while it was working out: nobody will confirm this preview, so it does not stay pending.
+        await dismissQuietly(proposal)
         return
       }
       pending.current = proposal
@@ -144,6 +170,11 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
       title="Life happened"
       description="Re-plan the rest of this week. Nothing changes until you confirm."
       size="md"
+      // While the new week is being worked out there is nothing to cancel yet: a way out would only
+      // leave a preview behind.
+      closeOnEsc={phase.name !== 'working'}
+      closeOnScrim={phase.name !== 'working'}
+      showClose={phase.name !== 'working'}
       footer={
         phase.name === 'preview' ? (
           <>
@@ -169,7 +200,11 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
           </>
         ) : (
           <>
-            <Button variant="ghost" onClick={() => void close()}>
+            <Button
+              variant="ghost"
+              disabled={phase.name === 'working'}
+              onClick={() => void close()}
+            >
               Cancel
             </Button>
             <Button

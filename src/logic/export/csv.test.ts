@@ -21,6 +21,22 @@ describe('csvField (RFC 4180)', () => {
     expect(csvField(' x')).toBe('" x"')
     expect(csvField('x ')).toBe('"x "')
   })
+  it('defuses formulas: a leading = + - @ tab or CR gets a leading apostrophe', () => {
+    expect(csvField('=1+1')).toBe("'=1+1")
+    expect(csvField('+44 20 7946 0958')).toBe("'+44 20 7946 0958")
+    expect(csvField('-2 days')).toBe("'-2 days")
+    expect(csvField('@SUM(A1:A9)')).toBe("'@SUM(A1:A9)")
+    expect(csvField('\tcmd')).toBe("'\tcmd")
+    expect(csvField('\rcmd')).toBe('"\'\rcmd"')
+  })
+  it('quotes a defused field that also needs quotes, and leaves mid-text characters alone', () => {
+    expect(csvField('=HYPERLINK("http://x.test","click")')).toBe(
+      '"\'=HYPERLINK(""http://x.test"",""click"")"',
+    )
+    expect(csvField('a=b')).toBe('a=b')
+    expect(csvField('C182 - Intro')).toBe('C182 - Intro')
+    expect(csvField('2026-10-01')).toBe('2026-10-01')
+  })
   it('keeps unicode and empty fields', () => {
     expect(csvField('Café ✓ 日本語')).toBe('Café ✓ 日本語')
     expect(csvField('')).toBe('')
@@ -67,6 +83,18 @@ describe('tasksToCsv', () => {
     const at = new Date(2026, 8, 30, 21, 5).getTime()
     const csv = tasksToCsv([makeTask({ status: 'done', completedAt: at })], ctx)
     expect(csv).toContain(',2026-09-30 21:05,')
+  })
+
+  it('does not let a task title, tag or note run as a formula', () => {
+    const t = makeTask({
+      title: '=cmd|\' /C calc\'!A0',
+      tags: ['@home'],
+      notes: [para('b1', '+1 800 555 0100')],
+    })
+    const row = tasksToCsv([t], ctx).split('\r\n')[1] ?? ''
+    expect(row.startsWith("'=cmd|' /C calc'!A0,")).toBe(true)
+    expect(row).toContain(",'@home,")
+    expect(row.endsWith(",'+1 800 555 0100")).toBe(true)
   })
 
   it('adds a BOM only when asked', () => {

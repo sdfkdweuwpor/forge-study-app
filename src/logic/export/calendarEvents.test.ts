@@ -129,6 +129,31 @@ describe('calendarEvents', () => {
     expect(ids).toEqual([])
   })
 
+  it('exports only active goals unless asked for the others too', () => {
+    const paused = { ...goal, status: 'paused' } as Goal
+    const archived = { ...goal, status: 'archived' } as Goal
+    const inactive = { ...src, goals: [paused, goal2] }
+    // Paused: none of its study blocks, course targets, assessments or goal target.
+    expect(calendarEvents(inactive, base).map((e) => e.uid)).toEqual([])
+    expect(calendarEvents({ ...src, goals: [archived, goal2] }, base)).toEqual([])
+    const all = calendarEvents(inactive, { ...base, includeInactiveGoals: true }).map((e) => e.uid)
+    expect(all).toEqual([
+      's1@forge',
+      's2@forge',
+      'milestone-m1@forge',
+      'assessment-pa1@forge',
+      'goal-g1@forge',
+    ])
+  })
+
+  it('keeps everyday tasks and their deadlines whatever the goals are', () => {
+    const ev = calendarEvents(
+      { ...src, goals: [{ ...goal, status: 'paused' } as Goal] },
+      { ...base, includeEveryday: true, includeDeadlines: true },
+    )
+    expect(ev.map((e) => e.uid)).toEqual(['due-e2@forge', 'e1@forge', 'e3@forge'])
+  })
+
   it('skips finished milestones and assessments', () => {
     const ev = calendarEvents(
       {

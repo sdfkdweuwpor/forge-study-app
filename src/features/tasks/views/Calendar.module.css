@@ -291,6 +291,19 @@
     height: 14px;
   }
 
+  /*
+   * The grip stays slim to look at, but a finger needs 44px. The invisible strip starts at the grip's top
+   * and reaches down past the block's edge into the free grid, so a short block keeps its body to drag.
+   */
+  .grip::before {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 44px;
+    content: '';
+  }
+
   .grip::after {
     opacity: 0.35;
   }
@@ -303,7 +316,7 @@
   left: 0;
   z-index: 2;
   height: 0;
-  border-top: 2px solid var(--danger);
+  border-top: 2px solid var(--accent);
   pointer-events: none;
 }
 
@@ -314,7 +327,7 @@
   width: 10px;
   height: 10px;
   border-radius: var(--radius-full);
-  background: var(--danger);
+  background: var(--accent);
   content: '';
 }
 

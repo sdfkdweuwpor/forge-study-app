@@ -26,7 +26,7 @@ const feature: FeatureContribution = {
       title: 'Show level & XP',
       group: 'Go to',
       icon: Trophy,
-      keywords: ['level', 'xp', 'experience', 'points', 'rewards', 'balance', 'progress'],
+      keywords: ['level', 'xp', 'experience', 'points', 'rewards', 'balance'],
       shortcutId: 'go.rewards',
       run: (c) => c.navigate('rewards'),
     },

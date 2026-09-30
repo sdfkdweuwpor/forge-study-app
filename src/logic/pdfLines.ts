@@ -53,3 +53,15 @@ export function pagesToText(pages: readonly (readonly PdfTextItem[])[]): string 
     .filter((t) => t !== '')
     .join('\n\n')
 }
+
+/**
+ * Why a PDF read threw. pdf.js loads as a separate chunk on first use, so with no connection (and nothing
+ * cached yet) the failure is the download, not the file: the person needs to hear that, not "unreadable".
+ */
+export function readFailureKind(
+  errorName: string,
+  online: boolean,
+): 'encrypted' | 'offline' | 'unreadable' {
+  if (errorName === 'PasswordException') return 'encrypted'
+  return online ? 'unreadable' : 'offline'
+}

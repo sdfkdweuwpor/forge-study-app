@@ -1,5 +1,5 @@
 import { FileText, Image as ImageIcon, PenLine, Upload } from 'lucide-react'
-import { useRef, useState, type Dispatch } from 'react'
+import { useEffect, useRef, useState, type Dispatch } from 'react'
 import type { ISODate } from '@/db/types'
 import { newId } from '@/lib/ids'
 import { formatHours, plural } from '@/logic/goalDisplay'
@@ -10,7 +10,6 @@ import {
   applyTemplate,
   draftEffort,
   emptyPlannerDraft,
-  isPristine,
   readSourceText,
   readTypedGoal,
   type DraftErrors,
@@ -23,9 +22,9 @@ import { Input } from '@/ui/Input'
 import { Spinner } from '@/ui/Spinner'
 import { Tabs } from '@/ui/Tabs'
 import { Textarea } from '@/ui/Textarea'
-import { useToast } from '@/ui/Toast'
 import { ClaudePath } from '../components/ClaudePath'
 import { extractPdfText, PDF_FAILURE_TEXT } from '../pdfText'
+import type { ReplaceDraft } from '../useReplaceDraft'
 import shared from '../shared.module.css'
 import styles from './StartStep.module.css'
 
@@ -40,6 +39,10 @@ export interface StartStepProps {
   onTab: (tab: InputTab) => void
   /** Go to a later step (the Claude path lands on Effort). */
   onGo: (step: PlannerStep) => void
+  /** Replaces the draft with an Undo toast (`useReplaceDraft`). */
+  replace: ReplaceDraft
+  /** The draft as it is now, for work that finishes after an `await`. */
+  latest: () => PlannerDraft
 }
 
 const SAMPLE = `C182 Introduction to IT – 4 CUs
@@ -60,8 +63,17 @@ export function contentSummary(draft: PlannerDraft): string {
     .join(', ')
 }
 
-export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: StartStepProps) {
-  const toast = useToast()
+export function StartStep({
+  draft,
+  dispatch,
+  errors,
+  today,
+  tab,
+  onTab,
+  onGo,
+  replace,
+  latest,
+}: StartStepProps) {
   const [pdf, setPdf] = useState<{
     state: 'idle' | 'reading' | 'error'
     message?: string
@@ -70,19 +82,14 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
     state: 'idle',
   })
   const fileInput = useRef<HTMLInputElement | null>(null)
-
-  /** Replaces the draft, with a way back when it replaced something. */
-  function replace(next: PlannerDraft, message: string, description?: string, to?: PlannerStep) {
-    const previous = draft
-    dispatch({ type: 'replaceDraft', draft: next, ...(to !== undefined ? { step: to } : {}) })
-    if (!isPristine(previous, today) && previous.courses.length > 0) {
-      toast.show({
-        title: message,
-        ...(description ? { description } : {}),
-        undo: () => dispatch({ type: 'replaceDraft', draft: previous }),
-      })
+  // A PDF takes seconds to read; if the person has moved on by then, its text is not theirs to apply.
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
     }
-  }
+  }, [])
 
   function pickTemplate(id: (typeof TEMPLATES)[number]['id']) {
     const t = templateById(id)
@@ -118,11 +125,14 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
       setPdf({ state: 'error', message: PDF_FAILURE_TEXT[r.reason] })
       return
     }
+    if (!alive.current) return
     setPdf({ state: 'idle', pages: r.pages })
-    dispatch({
-      type: 'replaceDraft',
-      draft: readSourceText(draft, r.text, { source: 'pdf', newKey: newId, today }),
-    })
+    // The draft as it is now, not as it was when the read began: edits made meanwhile are what Undo keeps.
+    replace(
+      readSourceText(latest(), r.text, { source: 'pdf', newKey: newId, today }),
+      'Read the PDF',
+      `${plural(r.pages, 'page')} read. Undo puts your outline back.`,
+    )
   }
 
   function useClaudePlan(plan: PlanDraft) {
@@ -197,7 +207,7 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
           items={[
             { value: 'paste', label: 'Paste text', icon: <FileText /> },
             { value: 'pdf', label: 'Upload a PDF', icon: <Upload /> },
-            { value: 'photo', label: 'Upload a photo', icon: <ImageIcon /> },
+            { value: 'photo', label: 'Photo (via Claude)', icon: <ImageIcon /> },
             { value: 'goal', label: 'Type a goal', icon: <PenLine /> },
           ]}
         >
@@ -296,9 +306,9 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
               {value === 'photo' ? (
                 <>
                   <p className={shared.hint}>
-                    Photos can’t be read offline, and Forge never uploads your pictures. Claude can
-                    read one for you: copy the prompt, attach the photo in Claude, and paste its
-                    reply back. You review everything before it becomes a plan.
+                    Forge doesn’t read photos and never uploads your pictures. Claude can read one for
+                    you: copy the prompt, attach the photo in a Claude chat, and paste its reply
+                    back here. You review everything before it becomes a plan.
                   </p>
                   <ClaudePath today={today} mode="photo" onPlan={useClaudePlan} />
                 </>

@@ -2,12 +2,22 @@ import type { Dispatch } from 'react'
 import type { ISODate } from '@/db/types'
 import { addDays, addMonths } from '@/logic/dates'
 import { termEndFor } from '@/logic/goalDraft'
-import { formatDay } from '@/logic/goalDisplay'
-import type { DraftErrors, DraftPatch, PlannerAction, PlannerDraft } from '@/logic/plannerDraft'
+import { formatDay, plural } from '@/logic/goalDisplay'
+import {
+  assessmentsBeforeStart,
+  shiftTemplateDates,
+  templateShiftDays,
+  type DraftErrors,
+  type DraftPatch,
+  type PlannerAction,
+  type PlannerDraft,
+} from '@/logic/plannerDraft'
+import { Button } from '@/ui/Button'
 import { DatePicker } from '@/ui/DatePicker'
 import { SegmentedControl } from '@/ui/SegmentedControl'
 import { Tag } from '@/ui/Tag'
 import { Toggle } from '@/ui/Toggle'
+import { useToast } from '@/ui/Toast'
 import shared from '../shared.module.css'
 import styles from './WhenStep.module.css'
 
@@ -19,7 +29,20 @@ export interface WhenStepProps {
 }
 
 export function WhenStep({ draft, dispatch, errors, today }: WhenStepProps) {
+  const toast = useToast()
   const patch = (p: DraftPatch) => dispatch({ type: 'patch', patch: p })
+  const shiftDays = templateShiftDays(draft)
+  const early = assessmentsBeforeStart(draft)
+  const firstEarly = early[0]
+
+  function shiftTemplate() {
+    const previous = draft
+    dispatch({ type: 'replaceDraft', draft: shiftTemplateDates(draft) })
+    toast.show({
+      title: `Moved the template’s dates ${plural(Math.abs(shiftDays), 'day')} ${shiftDays > 0 ? 'later' : 'earlier'}`,
+      undo: () => dispatch({ type: 'replaceDraft', draft: previous }),
+    })
+  }
   const quick: Array<{ label: string; date: ISODate }> = [
     { label: 'In 3 months', date: addDays(addMonths(draft.startDate, 3), -1) },
     { label: 'In 6 months (a WGU term)', date: termEndFor(draft.startDate) },
@@ -93,6 +116,32 @@ export function WhenStep({ draft, dispatch, errors, today }: WhenStepProps) {
           onChange={(v) => v && patch({ startDate: v })}
         />
         <p className={shared.hint}>Today, unless your term or course starts later.</p>
+        {shiftDays !== 0 && draft.templateStart !== null ? (
+          <div className={styles.notice} role="status">
+            <p className={shared.hint}>
+              The template’s finish and exam dates were set for a start on{' '}
+              {formatDay(draft.templateStart, today)}.
+            </p>
+            <Button size="sm" onClick={shiftTemplate}>
+              {shiftDays > 0
+                ? `Shift template dates by ${plural(shiftDays, 'day')}`
+                : `Shift template dates ${plural(-shiftDays, 'day')} earlier`}
+            </Button>
+          </div>
+        ) : null}
+        {firstEarly ? (
+          <div className={styles.notice} role={errors.assessmentDates ? 'alert' : 'status'}>
+            <p className={shared.error}>
+              {early.length === 1
+                ? `“${firstEarly.title}” is dated ${formatDay(firstEarly.date, today)}, before your start date.`
+                : `${early.length} assessments are dated before your start date, the first on ${formatDay(firstEarly.date, today)}.`}{' '}
+              Move the start earlier, or change those dates on the review step, to continue.
+            </p>
+            <Button size="sm" onClick={() => dispatch({ type: 'go', step: 4 })}>
+              Review the dates
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       {hasCus && draft.targetMode === 'date' ? (

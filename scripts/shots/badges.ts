@@ -84,7 +84,13 @@ async function earnSix(page: Page): Promise<void> {
 const list: ShotList = {
   feature: 'badges',
   shots: [
-    { name: 'grid', path: '/rewards/badges?seed=wgu', waitFor: COUNT, prepare: earnSix },
+    {
+      name: 'grid',
+      path: '/rewards/badges?seed=wgu',
+      waitFor: COUNT,
+      prepare: earnSix,
+      fullPage: true,
+    },
     { name: 'empty', path: '/rewards/badges?seed=empty', waitFor: COUNT },
     {
       name: 'tooltip',

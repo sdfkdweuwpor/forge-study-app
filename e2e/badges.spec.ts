@@ -56,6 +56,8 @@ test.describe('Badges', () => {
     await expect(early).toHaveAttribute('data-state', 'unlocked')
     await expect(card(page, 'first-focus')).toContainText('Unlocked Sep 29')
     await expect(count(page)).toHaveText('2 of 11 unlocked')
+    // Crediting old history at start-up is quiet: no "Badge unlocked" toast.
+    await expect(page.getByRole('region', { name: 'Notifications' })).not.toContainText('unlocked')
 
     // Locked: grayscale emoji, a muted title, the hint, and no date.
     const owl = card(page, 'night-owl')
@@ -109,6 +111,15 @@ test.describe('Badges', () => {
     await expect(count(page)).toHaveText('0 of 11 unlocked')
     await expect(page.getByText('Finish a focus session to earn your first badge.')).toBeVisible()
     await expect(page.locator('[data-badge][data-state="locked"]')).toHaveCount(11)
+  })
+
+  test('the palette has "Go to Badges"', async ({ page }) => {
+    await gotoApp(page, '/', 'empty')
+    await page.keyboard.press('ControlOrMeta+k')
+    await page.getByRole('combobox', { name: 'Command palette' }).fill('badges')
+    await page.getByRole('option', { name: /Go to Badges/ }).click()
+    await expect(page).toHaveURL(/\/rewards\/badges$/)
+    await expect(count(page)).toHaveText('0 of 11 unlocked')
   })
 
   test('the sample data already earned First Course Complete (C182 is done)', async ({ page }) => {

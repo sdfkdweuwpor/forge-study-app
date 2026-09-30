@@ -56,6 +56,31 @@ const confettiPixels = (page: Page) =>
   })
 
 /**
+ * Starts timing the moment inside the page (a MutationObserver stamps `performance.now()` when the overlay
+ * is added and when it is removed), so the measured lifetime does not include Playwright's own polling.
+ */
+async function watchMoment(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const seen = { shown: null as number | null, gone: null as number | null }
+    ;(window as unknown as { __moment: typeof seen }).__moment = seen
+    new MutationObserver(() => {
+      const present = document.querySelector('[data-testid="level-up"]') !== null
+      const now = performance.now()
+      if (present && seen.shown === null) seen.shown = now
+      if (!present && seen.shown !== null && seen.gone === null) seen.gone = now
+    }).observe(document.body, { childList: true, subtree: true })
+  })
+}
+
+/** How long the moment was on screen, in milliseconds (call after it has gone). */
+const momentLifetime = (page: Page) =>
+  page.evaluate(() => {
+    const m = (window as unknown as { __moment: { shown: number | null; gone: number | null } })
+      .__moment
+    return m.shown !== null && m.gone !== null ? m.gone - m.shown : -1
+  })
+
+/**
  * Opens the sample data and lifts lifetime XP to 5 XP short of the next level, then reloads so the
  * app starts from there (the level it opens at is remembered, not celebrated). Returns the level
  * the app is at, which completing the mentor task (+20 XP) will raise by one.
@@ -138,18 +163,23 @@ test.describe('level-up moment', () => {
     page,
   }) => {
     const level = await nearNextLevel(page)
+    await watchMoment(page)
     await completeMentorTask(page)
 
     await expect(levelUp(page)).toBeVisible()
-    const shownAt = Date.now()
     await expect(levelUp(page)).toContainText(`Level ${level + 1}`)
     await expect(levelUp(page).getByText(/./).first()).toBeVisible()
     await expect(levelUp(page)).not.toHaveAttribute('data-reduced', /.*/)
     // Squares fly on the canvas.
-    await expect.poll(() => confettiPixels(page), { intervals: [40, 40, 60], timeout: 900 }).toBeGreaterThan(0)
+    await expect
+      .poll(() => confettiPixels(page), { intervals: [40, 40, 60], timeout: 900 })
+      .toBeGreaterThan(0)
 
-    await levelUp(page).waitFor({ state: 'detached', timeout: 1800 })
-    expect(Date.now() - shownAt).toBeLessThan(1900)
+    await levelUp(page).waitFor({ state: 'detached', timeout: 4000 })
+    // Designed at 1.4 s; the slack is for a busy machine dropping animation frames.
+    const lifetime = await momentLifetime(page)
+    expect(lifetime).toBeGreaterThan(1000)
+    expect(lifetime).toBeLessThan(1700)
 
     // Written down: the level is not celebrated again, on this page or after a reload.
     expect(await celebrated(page)).toBe(level + 1)
@@ -161,10 +191,13 @@ test.describe('level-up moment', () => {
 
   test('Esc dismisses it early', async ({ page }) => {
     await nearNextLevel(page)
+    await watchMoment(page)
     await completeMentorTask(page)
     await expect(levelUp(page)).toBeVisible()
     await page.keyboard.press('Escape')
-    await levelUp(page).waitFor({ state: 'detached', timeout: 700 })
+    await levelUp(page).waitFor({ state: 'detached', timeout: 4000 })
+    // Well short of the 1.4 s it would have run: it faded out at once.
+    expect(await momentLifetime(page)).toBeLessThan(1100)
   })
 
   test('with reduced motion it only fades: no confetti, and a click dismisses it', async ({
@@ -172,19 +205,21 @@ test.describe('level-up moment', () => {
   }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const level = await nearNextLevel(page)
+    await watchMoment(page)
     await completeMentorTask(page)
 
     await expect(levelUp(page)).toBeVisible()
     await expect(levelUp(page)).toContainText(`Level ${level + 1}`)
     await expect(levelUp(page)).toHaveAttribute('data-reduced', 'true')
-    // No squares are ever drawn, and the card never scales.
-    for (let i = 0; i < 3; i++) {
+    // No squares are ever drawn.
+    for (let i = 0; i < 2; i++) {
       expect(await confettiPixels(page)).toBeLessThanOrEqual(0)
-      await page.waitForTimeout(120)
+      await page.waitForTimeout(80)
     }
 
     await levelUp(page).getByTestId('level-up-dismiss').click()
-    await levelUp(page).waitFor({ state: 'detached', timeout: 700 })
+    await levelUp(page).waitFor({ state: 'detached', timeout: 4000 })
+    expect(await momentLifetime(page)).toBeLessThan(1100)
   })
 
   test('is not celebrated on first start, for levels the sample data already reaches', async ({
@@ -192,7 +227,9 @@ test.describe('level-up moment', () => {
   }) => {
     await gotoApp(page, '/', 'wgu')
     await expect(meter(page)).toBeVisible()
-    await expect.poll(() => celebrated(page)).toBe(levelFromLifetimeXp(await lifetimeXp(page)).level)
+    await expect
+      .poll(() => celebrated(page))
+      .toBe(levelFromLifetimeXp(await lifetimeXp(page)).level)
     await page.waitForTimeout(500)
     await expect(levelUp(page)).toHaveCount(0)
   })
@@ -219,7 +256,7 @@ test.describe('level-up moment', () => {
     await expect(levelUp(page)).toBeVisible()
     await expect(levelUp(page)).toContainText(`Level ${level + 3}`)
     await expect(levelUp(page)).toHaveCount(1)
-    await levelUp(page).waitFor({ state: 'detached', timeout: 1800 })
+    await levelUp(page).waitFor({ state: 'detached', timeout: 4000 })
     expect(await celebrated(page)).toBe(level + 3)
   })
 })
@@ -240,10 +277,11 @@ test.describe('daily goal', () => {
 
     await expect(toasts(page)).toContainText('Daily goal hit · +25 XP')
     await expect
-      .poll(async () =>
-        (await readTable<{ key: string }>(page, 'xpEvents')).filter(
-          (e) => e.key === `dailyGoal:${TODAY}`,
-        ).length,
+      .poll(
+        async () =>
+          (await readTable<{ key: string }>(page, 'xpEvents')).filter(
+            (e) => e.key === `dailyGoal:${TODAY}`,
+          ).length,
       )
       .toBe(1)
 

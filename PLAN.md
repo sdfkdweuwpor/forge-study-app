@@ -786,12 +786,13 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **5H [B] Planner UI** (after 5G). Paste/upload → `parsePlanText` → a review screen (edit, reorder, delete, self-rating, "We couldn't read these lines", and templates or the Claude prompt when `needsBreakdown`). Then availability windows, shift pattern, session length and buffer; a preview with feasibility and its three choices; the goal page's behind banner with proposals; "Life happened"; the task do-date/deadline split and the auto-slot toggle. PDF/photo upload is text extraction only (a dependency decision for 5H, recorded in DECISIONS).
 
 ### Phase 6 — Gamification
-- [ ] **6A [B] XP & levels** (∥ 6B, 6C). Owns `src/logic/xp.ts` (levels section), `src/db/hooks/useXp.ts` and `src/features/gamification/{feature.ts,Level*,XpFloat*,LevelUp*,handlers.ts}`.
+- [x] **6A [B] XP & levels** (∥ 6B, 6C). Owns `src/logic/xp.ts` (levels section), `src/db/hooks/useXp.ts` and `src/features/gamification/{feature.ts,Level*,XpFloat*,LevelUp*,handlers.ts}`.
   - `sidebar.footer` level meter ("Level 7 ▓▓▓░ 1,240/1,852 XP").
   - Level-up moment: square confetti in tag colors, under 1.5 s, sound, reduced-motion opacity fallback; watcher uses `lastCelebratedLevel`.
   - Daily-goal +25 handler.
-- [ ] **6B [B] Rewards shop** (∥). Owns `src/db/repos/rewards.ts` and `src/features/gamification/{Rewards*,Redemption*}`. Covers CRUD, buy (confirm, balance check, undo), history, and the `/rewards` tabs.
-- [ ] **6C [B] Badges** (∥). Owns `src/logic/badges.ts` and test, `src/db/repos/badges.ts` and `src/features/gamification/Badge*`.
+- [x] **6B [B] Rewards shop** (∥). Owns `src/db/repos/rewards.ts` and `src/features/gamification/{Rewards*,Redemption*}`. Covers CRUD, buy (confirm, balance check, undo), history, and the `/rewards` tabs.
+  - Done: `logic/rewards.ts` (price parsing, affordability, reorder plan, month totals; tests), `db/repos/rewards.ts` (`createReward`, `updateReward`, `archiveReward`/`unarchiveReward`, `reorderRewards`, `redeemReward` with `InsufficientXpError`, `refundRedemption`, `seedStarterRewards`; fake-indexeddb tests) and `db/hooks/useRewards.ts`. `features/gamification/{Rewards.feature.ts,RewardsPage,RewardsShop,RewardsCard,RewardsNewRow,RewardsInline,RewardsIconPicker,RewardsSortable,RewardsRedeemDialog,RewardsArchived,RewardsBalance,RewardsStates,RewardsActions,RewardsShortcuts,RedemptionHistory}`, `e2e/rewards.spec.ts`, `scripts/shots/rewards.ts`. Keys: `n` (scope `rewards`); palette: "New reward", "Go to Rewards shop", "Go to Redemption history".
+- [x] **6C [B] Badges** (∥). Owns `src/logic/badges.ts` and test, `src/db/repos/badges.ts` and `src/features/gamification/Badge*`.
   - Definitions:
     - Early bird: session started before 08:00.
     - Night owl: session started 22:00–03:59.
@@ -801,6 +802,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
     - Term complete: all courses in a term done.
   - Grid shows locked (grayscale + hint) and unlocked (date) states.
   - Handlers plus an `onAppStart` reconcile.
+  - Done: `logic/badges.ts` (`evaluateBadges`, `BADGES`, `computeStreakForBadges` seam for 7A, display helpers; 76 tests incl. DST and re-evaluation stability), `db/repos/badges.ts` (`reconcileBadges`, `watchStreakDays`) and `db/hooks/useBadges.ts`, `features/gamification/{Badges.feature.ts,badgeHandlers.ts,BadgeUnlockToaster,BadgesGrid,BadgeCard,BadgeRecent (RecentBadges)}` (exported from `index.ts`), `e2e/badges.spec.ts`, `scripts/shots/badges.ts`. Palette: "Go to Badges".
 - [ ] **6D [D] Review** of the level-up moment, badges and shop screenshots.
 
 ### Phase 7 — Streaks, Progress, charts, weekly review

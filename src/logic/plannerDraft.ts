@@ -25,7 +25,7 @@ import type {
   UnitEstimateSource,
   WguTerm,
 } from '@/db/types'
-import { compareISODate, diffDays, isISODate } from './dates'
+import { addDays, compareISODate, diffDays, isISODate } from './dates'
 import type { PlanDraft } from './planImport/draft'
 import { parsePlanText, type PlanParseResult } from './planParse'
 import {
@@ -100,6 +100,8 @@ export interface PlannerDraft {
   v: typeof DRAFT_VERSION
   source: DraftSource
   templateId: TemplateId | null
+  /** The start date a template's dates were worked out from, so a later start can offer to shift them. */
+  templateStart: ISODate | null
   title: string
   icon: string
   kind: Goal['kind']
@@ -152,6 +154,7 @@ export function emptyPlannerDraft(today: ISODate): PlannerDraft {
     v: DRAFT_VERSION,
     source: 'blank',
     templateId: null,
+    templateStart: null,
     title: '',
     icon: DEFAULT_ICON,
     kind: 'custom',
@@ -291,6 +294,8 @@ export function applyPlanDraft(
     courses,
     unparsed: [],
     needsBreakdown: false,
+    // Only `applyTemplate` knows the dates came from a template (it sets this after filling).
+    templateStart: null,
     startDate,
     targetDate,
     targetMode,
@@ -331,6 +336,53 @@ export function readTypedGoal(base: PlannerDraft, opts: Omit<FillOptions, 'sourc
   return { ...filled, description: base.description, sourceText: '', readText: '' }
 }
 
+const normalizeSource = (text: string): string => text.replace(/\r\n?/g, '\n').trim()
+
+/**
+ * Whether the pasted or PDF text was edited since the courses were last read from it. Only a real edit
+ * counts: line endings and whitespace around the text do not.
+ */
+export function sourceChanged(draft: PlannerDraft): boolean {
+  if (draft.source !== 'paste' && draft.source !== 'pdf') return false
+  const text = normalizeSource(draft.sourceText)
+  return text !== '' && text !== normalizeSource(draft.readText)
+}
+
+/** The parts of an outline a person edits, without keys (which differ on every read). */
+function outlineSignature(draft: Pick<PlannerDraft, 'courses' | 'title' | 'unparsed'>): string {
+  const index = new Map(draft.courses.map((c, i) => [c.key, i]))
+  return JSON.stringify([
+    clean(draft.title),
+    draft.unparsed.map((u) => [u.line, u.text]),
+    draft.courses.map((c) => [
+      c.code,
+      c.title,
+      c.cus,
+      c.hours,
+      c.effortBy,
+      c.courseType,
+      c.rating,
+      c.prerequisiteKeys.map((k) => index.get(k) ?? -1),
+      c.units.map((u) => [u.title, u.minutes, u.rating, u.optional]),
+      c.assessments.map((a) => [a.title, a.kind, a.date]),
+    ]),
+  ])
+}
+
+/**
+ * Whether the courses differ from what reading `readText` gives: edited, reordered or deleted rows, hours,
+ * ratings, dates. Reading the text again would throw those away, so the caller asks first.
+ */
+export function hasReviewEdits(draft: PlannerDraft, today: ISODate): boolean {
+  let n = 0
+  const fresh = readSourceText(emptyPlannerDraft(today), draft.readText, {
+    source: draft.source === 'pdf' ? 'pdf' : 'paste',
+    newKey: () => `k${n++}`,
+    today,
+  })
+  return outlineSignature(fresh) !== outlineSignature(draft)
+}
+
 /** A template as the draft: its courses and dates, its suggested weekly windows and session length. */
 export function applyTemplate(
   base: PlannerDraft,
@@ -353,6 +405,7 @@ export function applyTemplate(
   return {
     ...filled,
     templateId: template.id,
+    templateStart: start,
     icon: template.icon,
     kind: template.kind,
     availability,
@@ -469,18 +522,37 @@ export type PlannerAction =
   | { type: 'go'; step: PlannerStep }
   | { type: 'attempt' }
   | { type: 'addCourse'; key: string }
-  | { type: 'insertCourse'; index: number; course: PlannerCourse }
+  | {
+      type: 'insertCourse'
+      index: number
+      course: PlannerCourse
+      /** Courses that required this one before it was deleted; the requirement comes back. */
+      dependents?: readonly string[]
+    }
   | {
       type: 'patchCourse'
       key: string
       patch: Partial<Omit<PlannerCourse, 'key' | 'units' | 'assessments'>>
     }
   | { type: 'removeCourse'; key: string }
-  | { type: 'reorderCourses'; keys: readonly string[] }
+  | {
+      type: 'reorderCourses'
+      keys: readonly string[]
+      /** Requirements to put back (by course key) before the order is applied (Undo of a reorder). */
+      prerequisites?: Readonly<Record<string, readonly string[]>>
+    }
   | { type: 'replaceCourse'; course: PlannerCourse }
   | { type: 'addUnit'; courseKey: string; key: string; title?: string; minutes?: number | null }
   | { type: 'patchUnit'; courseKey: string; key: string; patch: Partial<Omit<PlannerUnit, 'key'>> }
   | { type: 'removeUnit'; courseKey: string; key: string }
+  | {
+      type: 'insertUnit'
+      courseKey: string
+      index: number
+      unit: PlannerUnit
+      /** Siblings' minutes that `removeUnit` wrote down (by key); they share again if still untouched. */
+      thaw?: Readonly<Record<string, number>>
+    }
   | { type: 'reorderUnits'; courseKey: string; keys: readonly string[] }
   | { type: 'setCourseRating'; courseKey: string; rating: SelfRating }
   | { type: 'addAssessment'; courseKey: string; key: string; kind?: AssessmentKind }
@@ -491,6 +563,7 @@ export type PlannerAction =
       patch: Partial<Omit<PlannerAssessmentDraft, 'key'>>
     }
   | { type: 'removeAssessment'; courseKey: string; key: string }
+  | { type: 'insertAssessment'; courseKey: string; index: number; assessment: PlannerAssessmentDraft }
   | { type: 'dismissUnparsed'; line: number }
   | {
       type: 'unparsedToUnit'
@@ -521,6 +594,68 @@ export function pruneStalePrerequisites(courses: readonly PlannerCourse[]): Plan
     const kept = c.prerequisiteKeys.filter((k) => earlier.has(k))
     earlier.add(c.key)
     return kept.length === c.prerequisiteKeys.length ? c : { ...c, prerequisiteKeys: kept }
+  })
+}
+
+/** What Undo needs to put a deleted course back exactly: where it was and who required it. */
+export function courseRemovalUndo(
+  courses: readonly PlannerCourse[],
+  key: string,
+): { index: number; course: PlannerCourse; dependents: string[] } | null {
+  const index = courses.findIndex((c) => c.key === key)
+  const course = courses[index]
+  if (!course) return null
+  return {
+    index,
+    course,
+    dependents: courses.filter((c) => c.prerequisiteKeys.includes(key)).map((c) => c.key),
+  }
+}
+
+/** What Undo needs to put a deleted unit back: its place, and the minutes deleting it wrote into siblings. */
+export function unitRemovalUndo(
+  draft: PlannerDraft,
+  courseKey: string,
+  unitKey: string,
+): { index: number; unit: PlannerUnit; thaw: Record<string, number> } | null {
+  const course = draft.courses.find((c) => c.key === courseKey)
+  const index = course ? course.units.findIndex((u) => u.key === unitKey) : -1
+  const unit = course?.units[index]
+  if (!course || !unit) return null
+  const frozen = freezeShares(course, draft.cuMultiplier)
+  const thaw: Record<string, number> = {}
+  course.units.forEach((u, i) => {
+    const minutes = frozen.units[i]?.minutes
+    if (u.key !== unitKey && u.minutes === null && minutes !== null && minutes !== undefined)
+      thaw[u.key] = minutes
+  })
+  return { index, unit, thaw }
+}
+
+export interface PrerequisiteLoss {
+  courseKey: string
+  /** The requirements the course had before the reorder (all of them, so Undo can put them back). */
+  before: string[]
+  /** The ones that no longer name an earlier course. */
+  lost: string[]
+}
+
+/** The courses that would lose a prerequisite if the courses were put in the order of `keys`. */
+export function prerequisiteLossesByOrder(
+  courses: readonly PlannerCourse[],
+  keys: readonly string[],
+): PrerequisiteLoss[] {
+  const after = pruneStalePrerequisites(orderBy(courses, keys))
+  return after.flatMap((c) => {
+    const old = courses.find((x) => x.key === c.key)
+    if (!old || old.prerequisiteKeys.length === c.prerequisiteKeys.length) return []
+    return [
+      {
+        courseKey: c.key,
+        before: [...old.prerequisiteKeys],
+        lost: old.prerequisiteKeys.filter((k) => !c.prerequisiteKeys.includes(k)),
+      },
+    ]
   })
 }
 
@@ -563,14 +698,28 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
       const at = Math.max(0, Math.min(draft.courses.length, action.index))
       const next = [...draft.courses]
       next.splice(at, 0, action.course)
-      return setCourses(next)
+      const back = new Set(action.dependents ?? [])
+      const restored = next.map((c, i) =>
+        back.has(c.key) && i > at && !c.prerequisiteKeys.includes(action.course.key)
+          ? { ...c, prerequisiteKeys: [...c.prerequisiteKeys, action.course.key] }
+          : c,
+      )
+      return setCourses(pruneStalePrerequisites(restored))
     }
     case 'patchCourse':
       return setCourses(mapCourse(draft.courses, action.key, (c) => ({ ...c, ...action.patch })))
     case 'removeCourse':
       return setCourses(pruneStalePrerequisites(draft.courses.filter((c) => c.key !== action.key)))
-    case 'reorderCourses':
-      return setCourses(pruneStalePrerequisites(orderBy(draft.courses, action.keys)))
+    case 'reorderCourses': {
+      const given = action.prerequisites
+      const base = given
+        ? draft.courses.map((c) => {
+            const keys = given[c.key]
+            return keys ? { ...c, prerequisiteKeys: [...keys] } : c
+          })
+        : draft.courses
+      return setCourses(pruneStalePrerequisites(orderBy(base, action.keys)))
+    }
     case 'replaceCourse':
       return setCourses(mapCourse(draft.courses, action.course.key, () => action.course))
     case 'addUnit':
@@ -603,6 +752,18 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
           return { ...frozen, units: frozen.units.filter((u) => u.key !== action.key) }
         }),
       )
+    case 'insertUnit':
+      return setCourses(
+        mapCourse(draft.courses, action.courseKey, (c) => {
+          if (c.units.some((u) => u.key === action.unit.key)) return c
+          const thaw = action.thaw ?? {}
+          const units = c.units.map((u) =>
+            thaw[u.key] !== undefined && u.minutes === thaw[u.key] ? { ...u, minutes: null } : u,
+          )
+          units.splice(Math.max(0, Math.min(units.length, action.index)), 0, action.unit)
+          return { ...c, units }
+        }),
+      )
     case 'reorderUnits':
       return setCourses(
         mapCourse(draft.courses, action.courseKey, (c) => ({
@@ -611,13 +772,10 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
         })),
       )
     case 'setCourseRating':
+      // Units that follow the course (`rating: null`) follow the new rating; a unit the person rated on
+      // its own keeps its rating. (Every unit used to be reset here, which threw those choices away.)
       return setCourses(
-        mapCourse(draft.courses, action.courseKey, (c) => ({
-          ...c,
-          rating: action.rating,
-          // Choosing a rating for the course sets every unit to it.
-          units: c.units.map((u) => ({ ...u, rating: null })),
-        })),
+        mapCourse(draft.courses, action.courseKey, (c) => ({ ...c, rating: action.rating })),
       )
     case 'addAssessment':
       return setCourses(
@@ -644,6 +802,19 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
           ...c,
           assessments: c.assessments.filter((a) => a.key !== action.key),
         })),
+      )
+    case 'insertAssessment':
+      return setCourses(
+        mapCourse(draft.courses, action.courseKey, (c) => {
+          if (c.assessments.some((a) => a.key === action.assessment.key)) return c
+          const assessments = [...c.assessments]
+          assessments.splice(
+            Math.max(0, Math.min(assessments.length, action.index)),
+            0,
+            action.assessment,
+          )
+          return { ...c, assessments }
+        }),
       )
     case 'dismissUnparsed':
       return set({ ...draft, unparsed: draft.unparsed.filter((u) => u.line !== action.line) })
@@ -692,8 +863,62 @@ export function validateStart(draft: PlannerDraft): DraftErrors {
   return {}
 }
 
+export interface EarlyAssessment {
+  courseKey: string
+  key: string
+  title: string
+  date: ISODate
+}
+
+/** Assessments dated before the start date (earliest first): nothing can be studied for them. */
+export function assessmentsBeforeStart(draft: PlannerDraft): EarlyAssessment[] {
+  if (!isISODate(draft.startDate)) return []
+  return draft.courses
+    .flatMap((c) =>
+      c.assessments.flatMap((a) =>
+        a.date !== null && isISODate(a.date) && compareISODate(a.date, draft.startDate) < 0
+          ? [{ courseKey: c.key, key: a.key, title: a.title || 'Untitled assessment', date: a.date }]
+          : [],
+      ),
+    )
+    .sort((a, b) => compareISODate(a.date, b.date))
+}
+
+/**
+ * How many days later (or earlier) the start is than the one a template's dates were worked out from; 0
+ * when the draft is not from a template, or its dates already follow the start.
+ */
+export function templateShiftDays(draft: PlannerDraft): number {
+  if (draft.templateId === null || draft.templateStart === null) return 0
+  if (!isISODate(draft.startDate) || !isISODate(draft.templateStart)) return 0
+  return diffDays(draft.startDate, draft.templateStart)
+}
+
+/**
+ * The template's dates moved with the start: the target date and every assessment date shift by
+ * `templateShiftDays`, and the draft remembers the new start so the offer goes away.
+ */
+export function shiftTemplateDates(draft: PlannerDraft): PlannerDraft {
+  const days = templateShiftDays(draft)
+  if (days === 0) return draft
+  const move = (d: ISODate | null): ISODate | null => (d === null ? null : addDays(d, days))
+  return {
+    ...draft,
+    templateStart: draft.startDate,
+    targetDate: draft.targetMode === 'date' ? move(draft.targetDate) : draft.targetDate,
+    courses: draft.courses.map((c) => ({
+      ...c,
+      assessments: c.assessments.map((a) => ({ ...a, date: move(a.date) })),
+    })),
+  }
+}
+
 export function validateWhen(draft: PlannerDraft, today: ISODate): DraftErrors {
   const errors: DraftErrors = {}
+  const early = assessmentsBeforeStart(draft)
+  if (early.length > 0) {
+    errors.assessmentDates = `${early.length === 1 ? '1 assessment is' : `${early.length} assessments are`} dated before your start date.`
+  }
   if (!isISODate(draft.startDate)) errors.startDate = 'Pick a start date.'
   else if (compareISODate(draft.startDate, today) < 0) errors.startDate = 'Start today or later.'
   if (draft.targetMode === 'date') {

@@ -24,7 +24,7 @@ export interface PlanSettingsDialogProps {
 /**
  * Plan settings: the finish date (or as fast as possible), study windows, shift pattern, session length,
  * days off, the buffer and the hours per CU. The same editors as the planner's steps. Saving re-plans the
- * goal from today (`rebalanceGoal`, reason `edit`). Mount it with a fresh `key` each time it opens.
+ * goal from today (`rebalanceGoal`, reason `edit`) and offers Undo. Mount it with a fresh `key` each time it opens.
  */
 export function PlanSettingsDialog({ goal, open, onClose }: PlanSettingsDialogProps) {
   const today = useToday()
@@ -56,11 +56,16 @@ export function PlanSettingsDialog({ goal, open, onClose }: PlanSettingsDialogPr
       } else if (r.planError !== null) {
         recordError(r.planError, 'planSettings')
         toast.error('Saved, but the plan could not be rebuilt', {
-          description: 'Try Re-plan again from the goal.',
+          description: 'Try Re-plan again from the goal, or undo the change.',
+          undo: r.undo,
         })
         onClose()
       } else {
-        toast.success('Plan settings saved', { description: 'The goal was re-planned from today.' })
+        toast.success('Plan settings saved', {
+          description:
+            'The goal was re-planned from today. Undo puts the old settings and plan back.',
+          undo: r.undo,
+        })
         onClose()
       }
     } catch (error) {
@@ -127,6 +132,7 @@ export function PlanSettingsDialog({ goal, open, onClose }: PlanSettingsDialogPr
           />
         </section>
         <AvailabilityEditor
+          headingLevel={3}
           value={s.availability}
           errors={errors}
           today={today}

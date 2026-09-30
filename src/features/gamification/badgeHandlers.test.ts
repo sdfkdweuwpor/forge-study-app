@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+// Tests clear the fake database directly; the lint rule keeps app code on repos and queries.
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { db } from '@/db/db'
 import { emit, resetDomainEvents, settleDomainEvents, subscribeAll } from '@/db/events'
 import type { Badge, Milestone, Session } from '@/db/types'
@@ -154,7 +156,7 @@ describe('reconcileAndAnnounce', () => {
 })
 
 describe('badgeAppStart', () => {
-  it('credits old history silently on a device with no badges', async () => {
+  it('credits old history silently', async () => {
     await db.sessions.bulkAdd([sessionRow(at(1, 7, 0)), sessionRow(at(2, 23, 0))])
     await db.milestones.add(courseRow())
     await badgeAppStart({ now: NOW })
@@ -167,14 +169,13 @@ describe('badgeAppStart', () => {
     ])
   })
 
-  it('announces something new that turned up once badges exist', async () => {
+  it('stays silent about what turns up later too: that came without an event', async () => {
     await db.sessions.add(sessionRow(at(1, 9, 0)))
     await badgeAppStart({ now: NOW })
-    expect(announced).toEqual([])
-
     await db.milestones.add(courseRow())
     await badgeAppStart({ now: NOW })
-    expect(announcedIds()).toEqual(['first-course'])
+    expect(announced).toEqual([])
+    expect(await db.badges.count()).toBe(2)
   })
 
   it('does nothing for a new person with no history', async () => {

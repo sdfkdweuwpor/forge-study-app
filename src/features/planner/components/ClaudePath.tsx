@@ -13,6 +13,7 @@ import { Button } from '@/ui/Button'
 import { Textarea } from '@/ui/Textarea'
 import { useToast } from '@/ui/Toast'
 import shared from '../shared.module.css'
+import { Heading, type HeadingLevel } from './Heading'
 import styles from './ClaudePath.module.css'
 
 export interface ClaudePathProps {
@@ -37,6 +38,8 @@ export function ClaudePath({ today, mode, goalText, onPlan }: ClaudePathProps) {
   const [json, setJson] = useState('')
   const [copied, setCopied] = useState(false)
   const deferred = useDeferredValue(json)
+  // The photo path sits under the section's h2; the goal path sits under the "big goal" h3 inside it.
+  const level: HeadingLevel = mode === 'goal' ? 4 : 3
 
   const prompt = useMemo(() => {
     const base = buildPrompt({ today })
@@ -62,7 +65,9 @@ export function ClaudePath({ today, mode, goalText, onPlan }: ClaudePathProps) {
         <li>
           <div className={styles.stepHead}>
             <span className={styles.n}>1</span>
-            <h4 className={styles.stepTitle}>Copy the prompt</h4>
+            <Heading level={level} className={styles.stepTitle}>
+              Copy the prompt
+            </Heading>
           </div>
           <div className={shared.actions}>
             <Button size="sm" iconLeft={copied ? <Check /> : <Copy />} onClick={() => void copy()}>
@@ -81,9 +86,9 @@ export function ClaudePath({ today, mode, goalText, onPlan }: ClaudePathProps) {
         <li>
           <div className={styles.stepHead}>
             <span className={styles.n}>2</span>
-            <h4 className={styles.stepTitle}>
+            <Heading level={level} className={styles.stepTitle}>
               {mode === 'photo' ? 'Attach your photo and send' : 'Send it to Claude'}
-            </h4>
+            </Heading>
           </div>
           <p className={shared.hint}>
             {mode === 'photo'
@@ -94,7 +99,9 @@ export function ClaudePath({ today, mode, goalText, onPlan }: ClaudePathProps) {
         <li>
           <div className={styles.stepHead}>
             <span className={styles.n}>3</span>
-            <h4 className={styles.stepTitle}>Paste Claude’s reply here</h4>
+            <Heading level={level} className={styles.stepTitle}>
+              Paste Claude’s reply here
+            </Heading>
           </div>
           <Textarea
             aria-label="Claude’s JSON reply"

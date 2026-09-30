@@ -11,9 +11,9 @@ import {
 } from '@/logic/plannerDraft'
 import { effortLabel } from '@/logic/plannerEffort'
 import { SELF_RATING_FACTORS } from '@/logic/scheduler'
-import { Input } from '@/ui/Input'
 import { SegmentedControl } from '@/ui/SegmentedControl'
 import { HoursField } from './HoursField'
+import { NumberField } from './NumberField'
 import shared from '../shared.module.css'
 import styles from './EffortEditor.module.css'
 
@@ -51,7 +51,7 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
   return (
     <section className={styles.card} aria-label={label}>
       <header className={styles.head}>
-        <h3 className={styles.title}>{label}</h3>
+        <h2 className={styles.title}>{label}</h2>
         <p className={styles.total} aria-live="polite">
           <strong className={shared.num}>{effortLabel(effort.totalMinutes)}</strong>
           <span> to plan</span>
@@ -73,20 +73,16 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
               ]}
             />
             {byCus ? (
-              <Input
-                size="sm"
-                aria-label={`Competency units of ${label}`}
-                inputMode="decimal"
-                value={course.cus === null ? '' : String(course.cus)}
+              <NumberField
+                label={`Competency units of ${label}`}
+                value={course.cus}
                 placeholder="3"
-                trailing={<span className={shared.unit}>CUs</span>}
-                className={shared.hours}
-                onChange={(e) => {
-                  const n = Number(e.target.value.replace(',', '.'))
-                  patch({
-                    cus: e.target.value.trim() === '' || !Number.isFinite(n) || n < 0 ? null : n,
-                  })
-                }}
+                unit="CUs"
+                above={0}
+                max={100}
+                nullable
+                invalidText="Try 3 or 4.5"
+                onCommit={(cus) => patch({ cus })}
               />
             ) : (
               <HoursField

@@ -63,26 +63,25 @@ export function RewardsShop({ creating, onCreatingChange }: Props) {
       {onSale.length === 0 && !creating ? (
         <RewardsEmpty onNew={() => onCreatingChange(true)} />
       ) : (
-        <RewardsSortable
-          aria-label="Rewards"
-          items={shown}
-          nameOf={(r) => r.title}
-          onReorder={(ids) => void reorder(ids)}
-          renderRow={(reward, { handle }) => (
-            <RewardsCard
-              reward={reward}
-              balance={summary.balance}
-              handle={handle}
-              actions={actions}
-              onRedeem={(r) => setDialog({ reward: r, open: true })}
-            />
-          )}
-        />
+        <div className={styles.rows}>
+          <RewardsSortable
+            aria-label="Rewards"
+            items={shown}
+            nameOf={(r) => r.title}
+            onReorder={(ids) => void reorder(ids)}
+            renderRow={(reward, { handle }) => (
+              <RewardsCard
+                reward={reward}
+                balance={summary.balance}
+                handle={handle}
+                actions={actions}
+                onRedeem={(r) => setDialog({ reward: r, open: true })}
+              />
+            )}
+          />
+          <RewardsNewRow open={creating} onOpenChange={onCreatingChange} actions={actions} />
+        </div>
       )}
-
-      {onSale.length > 0 || creating ? (
-        <RewardsNewRow open={creating} onOpenChange={onCreatingChange} actions={actions} />
-      ) : null}
 
       <RewardsArchived archived={archived} actions={actions} />
 

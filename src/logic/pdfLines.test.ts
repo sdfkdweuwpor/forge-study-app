@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { itemsToLines, pagesToText, type PdfTextItem } from './pdfLines'
+import { itemsToLines, pagesToText, readFailureKind, type PdfTextItem } from './pdfLines'
 
 const item = (str: string, x: number, y: number, width = str.length * 5): PdfTextItem => ({
   str,
@@ -37,5 +37,17 @@ describe('pagesToText', () => {
     expect(pagesToText([[item('Page one', 0, 10)], [], [item('Page two', 0, 10)]])).toBe(
       'Page one\n\nPage two',
     )
+  })
+})
+
+describe('readFailureKind', () => {
+  it('blames the missing connection when offline, the file when online', () => {
+    expect(readFailureKind('UnknownErrorException', false)).toBe('offline')
+    expect(readFailureKind('TypeError', false)).toBe('offline')
+    expect(readFailureKind('InvalidPDFException', true)).toBe('unreadable')
+  })
+  it('a password is a password, online or not', () => {
+    expect(readFailureKind('PasswordException', true)).toBe('encrypted')
+    expect(readFailureKind('PasswordException', false)).toBe('encrypted')
   })
 })

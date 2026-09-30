@@ -122,6 +122,18 @@ export function parseHoursInput(text: string): number | null {
   return null
 }
 
+/**
+ * A plain decimal typed into a number field: "12", "12." (still typing), ".5", "0,5". `null` for an empty
+ * field or anything that is not a decimal (no exponents, signs or units), so a half-typed number is never
+ * mistaken for a different one.
+ */
+export function parseDecimalInput(text: string): number | null {
+  const t = text.trim().replace(',', '.')
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(t)) return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
 // ─── Changing the multiplier after the goal exists ──────────────────────────
 
 export interface CuRescale {

@@ -1,10 +1,11 @@
-import { pagesToText, type PdfTextItem } from '@/logic/pdfLines'
+import { pagesToText, readFailureKind, type PdfTextItem } from '@/logic/pdfLines'
 
 /** A syllabus is small; anything bigger is probably not one, and reading it would stall the tab. */
 export const MAX_PDF_BYTES = 25 * 1024 * 1024
 export const MAX_PDF_PAGES = 80
 
-export type PdfFailure = 'tooLarge' | 'tooManyPages' | 'noText' | 'encrypted' | 'unreadable'
+export type PdfFailure =
+  'tooLarge' | 'tooManyPages' | 'noText' | 'encrypted' | 'offline' | 'unreadable'
 
 export type PdfResult =
   { ok: true; text: string; pages: number } | { ok: false; reason: PdfFailure }
@@ -15,6 +16,7 @@ export const PDF_FAILURE_TEXT: Readonly<Record<PdfFailure, string>> = {
   noText:
     'This PDF has no text Forge can read. It is probably a scan. Use the photo path with Claude instead.',
   encrypted: 'This PDF is password protected. Remove the password and try again.',
+  offline: "PDF reading needs a one-time download — try again when you're online.",
   unreadable: 'Forge could not read that PDF. Paste the text instead, or use the photo path.',
 }
 
@@ -77,6 +79,6 @@ export async function extractPdfText(file: File): Promise<PdfResult> {
     }
   } catch (error) {
     const name = error instanceof Error ? error.name : ''
-    return { ok: false, reason: name === 'PasswordException' ? 'encrypted' : 'unreadable' }
+    return { ok: false, reason: readFailureKind(name, navigator.onLine !== false) }
   }
 }

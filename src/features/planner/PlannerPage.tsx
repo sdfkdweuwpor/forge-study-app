@@ -17,6 +17,7 @@ import { PREF_KEYS, readPref, removePref, writePref } from '@/lib/localPrefs'
 import {
   emptyPlannerDraft,
   firstInvalidStep,
+  hasReviewEdits,
   initialPlannerState,
   isPristine,
   LAST_STEP,
@@ -24,8 +25,10 @@ import {
   plannerRows,
   readSourceText,
   readTypedGoal,
+  sourceChanged,
   STEP_NAMES,
   validatePlannerStep,
+  type PlannerDraft,
   type PlannerState,
   type PlannerStep,
 } from '@/logic/plannerDraft'
@@ -34,6 +37,7 @@ import { Breadcrumbs, type BreadcrumbLinkProps } from '@/ui/Breadcrumbs'
 import { Button } from '@/ui/Button'
 import { IconButton } from '@/ui/IconButton'
 import { Kbd } from '@/ui/Kbd'
+import { Modal } from '@/ui/Modal'
 import { ProgressBar } from '@/ui/ProgressBar'
 import { useToast } from '@/ui/Toast'
 import { AvailabilityStep } from './steps/AvailabilityStep'
@@ -43,6 +47,8 @@ import { PreviewStep } from './steps/PreviewStep'
 import { ReviewStep } from './steps/ReviewStep'
 import { StartStep, type InputTab } from './steps/StartStep'
 import { WhenStep } from './steps/WhenStep'
+import { useReplaceDraft } from './useReplaceDraft'
+import shared from './shared.module.css'
 import styles from './PlannerPage.module.css'
 
 const STEP_HEADINGS: readonly string[] = [
@@ -97,6 +103,9 @@ function PlannerScreen() {
   )
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState(false)
+  /** Continue on the first step with edited text over a reviewed outline: waits for a yes or no. */
+  const [confirmReread, setConfirmReread] = useState(false)
+  const { replace, latest } = useReplaceDraft(draft, dispatch, today)
   const done = useRef(false)
   const top = useRef<HTMLDivElement | null>(null)
   usePageTitle('New goal')
@@ -118,41 +127,67 @@ function PlannerScreen() {
 
   const go = (to: PlannerStep) => dispatch({ type: 'go', step: to })
 
-  async function next() {
+  function next() {
     if (saving) return
     let current = draft
-    // On the first step, text that was typed but not read yet is read now.
-    if (step === 0 && current.courses.length === 0) {
-      if (tab === 'goal' && current.title.trim() !== '') {
-        current = readTypedGoal(current, { newKey: newId, today })
-      } else if ((tab === 'paste' || tab === 'pdf') && current.sourceText.trim() !== '') {
-        current = readSourceText(current, current.sourceText, {
-          source: tab === 'pdf' ? 'pdf' : 'paste',
-          newKey: newId,
-          today,
-        })
+    if (step === 0) {
+      // On the first step, text that was typed but not read yet is read now.
+      if (current.courses.length === 0) {
+        if (tab === 'goal' && current.title.trim() !== '') {
+          current = readTypedGoal(current, { newKey: newId, today })
+        } else if ((tab === 'paste' || tab === 'pdf') && current.sourceText.trim() !== '') {
+          current = readSourceText(current, current.sourceText, {
+            source: tab === 'pdf' ? 'pdf' : 'paste',
+            newKey: newId,
+            today,
+          })
+        }
+        if (current !== draft) replace(current, 'Read the text')
+      } else if (sourceChanged(current)) {
+        // The text was edited since the courses were read. Reading it again replaces the outline, so
+        // when the outline has been reviewed (edited, reordered, rated) the person is asked first.
+        if (hasReviewEdits(current, today)) {
+          setConfirmReread(true)
+          return
+        }
+        current = rereadText(current)
       }
-      if (current !== draft) dispatch({ type: 'replaceDraft', draft: current })
-    } else if (
-      step === 0 &&
-      (current.source === 'paste' || current.source === 'pdf') &&
-      current.sourceText !== current.readText &&
-      current.sourceText.trim() !== ''
-    ) {
-      current = readSourceText(current, current.sourceText, {
-        source: current.source,
-        newKey: newId,
-        today,
-      })
-      dispatch({ type: 'replaceDraft', draft: current })
     }
+    advance(current)
+  }
+
+  /** The draft's courses read again from its edited text, with an Undo toast for the outline it replaces. */
+  function rereadText(from: PlannerDraft): PlannerDraft {
+    const next = readSourceText(from, from.sourceText, {
+      source: from.source === 'pdf' ? 'pdf' : 'paste',
+      newKey: newId,
+      today,
+    })
+    replace(next, 'Read the text again')
+    return next
+  }
+
+  /** Checks the step and moves on (or creates the goal from the last step). */
+  function advance(current: PlannerDraft) {
     const problems = validatePlannerStep(current, step, today)
     if (Object.keys(problems).length > 0) {
       dispatch({ type: 'attempt' })
       return
     }
     if (!last) go((step + 1) as PlannerStep)
-    else await create(current)
+    else void create(current)
+  }
+
+  function resolveReread(replaceOutline: boolean) {
+    setConfirmReread(false)
+    const current = latest()
+    if (replaceOutline) advance(rereadText(current))
+    else {
+      // Keep the reviewed outline; the edited text is no longer waiting to be read.
+      const kept = { ...current, readText: current.sourceText }
+      dispatch({ type: 'replaceDraft', draft: kept })
+      advance(kept)
+    }
   }
 
   function back() {
@@ -210,7 +245,7 @@ function PlannerScreen() {
     })
   }
 
-  useShortcutHandler('planner.next', () => void next())
+  useShortcutHandler('planner.next', () => next())
   useShortcutHandler('planner.back', () => back())
 
   const stepProps = { draft, dispatch, errors, today }
@@ -241,7 +276,9 @@ function PlannerScreen() {
         <p className={styles.stepCount} aria-live="polite">
           Step {step + 1} of {STEP_NAMES.length}
         </p>
-        <h1 className={styles.heading}>{STEP_HEADINGS[step]}</h1>
+        <h1 id="planner-heading" tabIndex={-1} className={styles.heading}>
+          {STEP_HEADINGS[step]}
+        </h1>
         <ProgressBar
           size="sm"
           value={Math.round(((step + 1) / STEP_NAMES.length) * 100)}
@@ -266,15 +303,24 @@ function PlannerScreen() {
         </nav>
       </header>
 
-      <main className={styles.body} id="planner-step">
-        {step === 0 ? <StartStep {...stepProps} tab={tab} onTab={setTab} onGo={go} /> : null}
+      <div className={styles.body} id="planner-step">
+        {step === 0 ? (
+          <StartStep
+            {...stepProps}
+            tab={tab}
+            onTab={setTab}
+            onGo={go}
+            replace={replace}
+            latest={latest}
+          />
+        ) : null}
         {step === 1 ? <WhenStep {...stepProps} /> : null}
         {step === 2 ? <AvailabilityStep {...stepProps} /> : null}
         {step === 3 ? <EffortStep draft={draft} dispatch={dispatch} errors={errors} /> : null}
         {step === 4 ? <ReviewStep {...stepProps} /> : null}
         {step === 5 ? <PreviewStep draft={draft} dispatch={dispatch} today={today} /> : null}
         {step === 6 ? <ConfirmStep {...stepProps} failed={failed} /> : null}
-      </main>
+      </div>
 
       <footer className={styles.footer}>
         <span className={styles.keyHint}>
@@ -286,11 +332,33 @@ function PlannerScreen() {
               Back
             </Button>
           ) : null}
-          <Button variant="primary" loading={saving} onClick={() => void next()}>
-            {last ? 'Create goal' : step === 5 ? 'Continue' : 'Continue'}
+          <Button variant="primary" loading={saving} onClick={next}>
+            {last ? 'Create goal' : 'Continue'}
           </Button>
         </div>
       </footer>
+
+      <Modal
+        open={confirmReread}
+        onClose={() => setConfirmReread(false)}
+        title="Replace your reviewed outline with the new text?"
+        description="You changed the pasted text after reading it, and you have edited the outline since. Reading the text again starts the courses over. You can undo it."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => resolveReread(false)}>
+              Keep my outline
+            </Button>
+            <Button variant="primary" onClick={() => resolveReread(true)}>
+              Replace outline
+            </Button>
+          </>
+        }
+      >
+        <p className={shared.hint}>
+          Keep my outline continues with what you reviewed and leaves the new text unread.
+        </p>
+      </Modal>
     </div>
   )
 }

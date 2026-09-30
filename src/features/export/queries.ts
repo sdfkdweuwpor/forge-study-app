@@ -23,12 +23,12 @@ export async function loadExportData(): Promise<ExportData> {
   )
 }
 
-/** Active and paused goals, for the calendar's "which goals" choice. `undefined` while loading. */
+/** Active goals, for the calendar's "which goals" choice (the file only ever holds active goals). `undefined` while loading. */
 export function useExportGoals(): Pick<Goal, 'id' | 'title'>[] | undefined {
   return useLiveQuery(async () => {
     const goals = await db.goals.toArray()
     return goals
-      .filter((g) => g.status !== 'archived')
+      .filter((g) => g.status === 'active')
       .sort((a, b) => a.order - b.order)
       .map((g) => ({ id: g.id, title: g.title }))
   })

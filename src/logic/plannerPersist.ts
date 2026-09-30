@@ -13,6 +13,7 @@ import {
   type PlannerStep,
 } from './plannerDraft'
 import { clampSession, SHIFT_PRESET_IDS } from './plannerAvailability'
+import type { ShiftPresetId } from './scheduler/windows'
 
 const isoDate = z.string().refine(isISODate)
 const isoOrEmpty = z.union([z.literal(''), isoDate])
@@ -54,7 +55,7 @@ const availabilitySchema = z.object({
   ),
   shift: z
     .object({
-      preset: z.enum(SHIFT_PRESET_IDS as [string, ...string[]]),
+      preset: z.enum(SHIFT_PRESET_IDS as [ShiftPresetId, ...ShiftPresetId[]]),
       anchor: isoDate,
       onWindows: z.array(windowSchema),
       offWindows: z.array(windowSchema),
@@ -68,6 +69,8 @@ const draftSchema = z.object({
   templateId: z
     .enum(['wgu-term', 'certification', 'semester-course', 'personal-project'])
     .nullable(),
+  // Drafts saved before templates could shift their dates have none.
+  templateStart: isoDate.nullable().default(null),
   title: z.string(),
   icon: z.string(),
   kind: z.enum(['degree', 'certification', 'skill', 'custom']),
@@ -110,7 +113,7 @@ export function restorePlanner(text: string | null, today: ISODate): PlannerStat
   }
   const parsed = stateSchema.safeParse(raw)
   if (!parsed.success) return null
-  const draft = parsed.data.draft as unknown as PlannerDraft
+  const draft: PlannerDraft = parsed.data.draft
   const base = emptyPlannerDraft(today)
   const startDate: ISODate = draft.startDate < today ? today : draft.startDate
   return {

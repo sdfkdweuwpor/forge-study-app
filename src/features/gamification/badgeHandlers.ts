@@ -6,13 +6,14 @@
  * ending, a course being completed, the streak rows changing (Phase 7 writes them without an event of
  * its own) and app start, which also catches whatever happened while no tab was open.
  *
- * Newly earned badges are announced ("Badge unlocked · Early Bird 🌅") through a small listener list that
- * `BadgeUnlockToaster` subscribes to. The first reconcile on a device that has no badges yet is history
- * being credited, not news, so it stays silent.
+ * Badges earned by a live event or a streak change are announced ("Badge unlocked · Early Bird 🌅")
+ * through a small listener list that `BadgeUnlockToaster` subscribes to. The reconcile at app start is
+ * silent: whatever it finds arrived without an event (older history, an import, a restored backup, the
+ * first run on this device), so it is credited quietly and simply appears in the grid.
  */
 import { recordError } from '@/app/reportError'
 import { defineHandler, type DomainHandler } from '@/db/events'
-import { getBadges, reconcileBadges, watchStreakDays } from '@/db/repos/badges'
+import { reconcileBadges, watchStreakDays } from '@/db/repos/badges'
 import type { Badge } from '@/db/types'
 
 // ─── Announcements ──────────────────────────────────────────────────────────
@@ -73,15 +74,12 @@ export function stopBadgeWatch(): void {
 }
 
 /**
- * The feature's `onAppStart` (runs on load and at each local midnight). Credits earned history: silently
- * when the device has no badges yet (first run, or a restored backup), with a toast otherwise (something
- * new turned up since the last run). Then watches the streak rows, once, so a streak that moves later
- * reconciles too.
+ * The feature's `onAppStart` (runs on load and at each local midnight). Credits whatever the history has
+ * earned, silently, then watches the streak rows once, so a streak that moves later reconciles too (and
+ * announces, like any live unlock).
  */
 export async function badgeAppStart(ctx: { now: number }): Promise<void> {
-  const firstRun = (await getBadges()).length === 0
-  const fresh = await reconcileBadges(ctx.now)
-  if (!firstRun) announce(fresh)
+  await reconcileBadges(ctx.now)
 
   if (stopWatching === null) {
     stopWatching = watchStreakDays(

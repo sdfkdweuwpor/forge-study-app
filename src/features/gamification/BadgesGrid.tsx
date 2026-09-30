@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
 import { useBadges } from '@/db/hooks/useBadges'
@@ -12,6 +12,7 @@ import styles from './BadgesGrid.module.css'
 function BadgesGridBody() {
   const rows = useBadges()
   const today = useToday()
+  const headingId = useId()
   const states = useMemo(() => (rows === undefined ? null : badgeStates(rows)), [rows])
   if (states === null) return <BadgesSkeleton />
 
@@ -20,7 +21,10 @@ function BadgesGridBody() {
   const nowMs = dayStartMs(today)
 
   return (
-    <section className={styles.root} aria-label="Badges">
+    <section className={styles.root} aria-labelledby={headingId}>
+      <h2 id={headingId} className="sr-only">
+        Badges
+      </h2>
       <div className={styles.head}>
         <p className={styles.count} data-testid="badges-count">
           {summary}

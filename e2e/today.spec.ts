@@ -394,15 +394,15 @@ test.describe('Today: one list, start timer, time per goal', () => {
       focusSession('e2e-s4', '2026-09-28', 'goal-wgu-bscs', 60),
     ])
     await page.goto('/')
-    await expect(
-      today.getByRole('img', { name: 'B.S. Computer Science — WGU: 1 h 25 min' }),
-    ).toBeVisible()
-    await expect(today.getByRole('img', { name: 'Other: 20 min' })).toBeVisible()
+    const row = (scope: typeof today, name: string) =>
+      scope.getByRole('listitem').filter({ hasText: name })
+    await expect(row(today, 'B.S. Computer Science — WGU')).toContainText('1 h 25 min')
+    await expect(row(today, 'Other')).toContainText('20 min')
+    // The bars only repeat those numbers, so they are hidden from screen readers.
+    await expect(today.getByRole('img')).toHaveCount(0)
     await expect(today.getByRole('heading')).toContainText('1 h 45 min')
     // Monday's hour counts toward the week (Mon Sep 28 to Tue Sep 29).
-    await expect(
-      week.getByRole('img', { name: 'B.S. Computer Science — WGU: 2 h 25 min' }),
-    ).toBeVisible()
-    await expect(week.getByRole('img', { name: 'Other: 20 min' })).toBeVisible()
+    await expect(row(week, 'B.S. Computer Science — WGU')).toContainText('2 h 25 min')
+    await expect(row(week, 'Other')).toContainText('20 min')
   })
 })

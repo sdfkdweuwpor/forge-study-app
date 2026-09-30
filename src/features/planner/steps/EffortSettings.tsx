@@ -1,5 +1,5 @@
 import { BUFFER_CHOICES } from '../buffer'
-import { Input } from '@/ui/Input'
+import { NumberField } from '../components/NumberField'
 import { SegmentedControl } from '@/ui/SegmentedControl'
 import shared from '../shared.module.css'
 
@@ -24,16 +24,15 @@ export function EffortSettings({
     <div className={shared.actions} style={{ gap: 'var(--space-8)', alignItems: 'flex-start' }}>
       <div className={shared.field}>
         <span className={shared.fieldLabel}>Hours per CU</span>
-        <Input
-          size="sm"
-          aria-label="Hours per competency unit"
-          inputMode="decimal"
-          value={String(multiplier)}
-          trailing={<span className={shared.unit}>h</span>}
-          className={shared.hours}
-          onChange={(e) => {
-            const n = Number(e.target.value.replace(',', '.'))
-            if (Number.isFinite(n) && n > 0 && n <= 60) onMultiplier(n)
+        <NumberField
+          label="Hours per competency unit"
+          value={multiplier}
+          unit="h"
+          above={0}
+          max={60}
+          invalidText="Try 12 or 7.5"
+          onCommit={(n) => {
+            if (n !== null) onMultiplier(n)
           }}
         />
         <p className={shared.hint}>A 3-CU course is about {Math.round(multiplier * 3)} h.</p>

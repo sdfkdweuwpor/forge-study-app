@@ -387,15 +387,12 @@ test.describe('Rewards shop', () => {
     await expect(page.getByTestId('history-month')).toHaveText('800 XP')
     await expect(page.getByTestId('history-all')).toHaveText('2,300 XP')
 
-    // Both were bought at the frozen clock's one instant, so their order is not defined; each is listed.
+    // Both were bought at the frozen clock's one instant: the one bought second is still on top.
     const september = page.getByRole('region', { name: 'September 2026' })
-    await expect(september.getByRole('listitem')).toHaveCount(2)
-    await expect(september.getByRole('listitem').filter({ hasText: 'Coffee out' })).toContainText(
-      '−500 XP',
-    )
-    await expect(
-      september.getByRole('listitem').filter({ hasText: '30 min gaming' }),
-    ).toContainText('−300 XP')
+    await expect(september.getByRole('listitem')).toHaveText([
+      /Coffee out.*−500 XP/,
+      /30 min gaming.*−300 XP/,
+    ])
     // Months run newest first, and inside one the newest purchase is on top.
     const august = page.getByRole('region', { name: 'August 2026' })
     await expect(august.getByRole('listitem')).toHaveText([

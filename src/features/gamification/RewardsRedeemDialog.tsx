@@ -37,6 +37,7 @@ export function RewardsRedeemDialog({ reward, open, balance, onClose, onConfirm 
       open={open && reward !== null}
       onClose={onClose}
       size="sm"
+      phoneLayout="sheet"
       title={reward ? `Redeem ${reward.title} for ${formatPrice(price)}?` : 'Redeem reward'}
       description={`You have ${formatXpNumber(balance)} XP, so ${formatXpNumber(Math.max(0, balance - price))} XP will be left. You can undo it right after.`}
       footer={

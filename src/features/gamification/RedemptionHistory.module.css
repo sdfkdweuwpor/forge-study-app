@@ -71,6 +71,7 @@
   list-style: none;
 }
 
+/* A record, not a control: no hover fill, so nothing suggests it can be clicked. */
 .item {
   display: flex;
   align-items: center;
@@ -78,12 +79,6 @@
   min-height: 52px;
   padding: var(--space-2);
   border-radius: var(--radius-lg);
-}
-
-@media (hover: hover) {
-  .item:hover {
-    background: var(--bg-hover);
-  }
 }
 
 .icon {
@@ -128,8 +123,17 @@
   text-decoration: line-through;
 }
 
+/* Phones: the three figures stay one row (three equal columns) instead of wrapping two-and-one. */
 @media (max-width: 639px) {
   .totals {
-    gap: var(--space-4) var(--space-6);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .amount,
+  .count {
+    font-size: var(--fs-20);
+    letter-spacing: var(--tracking-snug);
   }
 }

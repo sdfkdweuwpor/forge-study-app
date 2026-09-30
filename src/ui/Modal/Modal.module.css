@@ -132,6 +132,15 @@
     height: auto;
   }
 
+  /* A bottom sheet: only as tall as a short confirmation, top corners rounded, lifted off the page. */
+  .panel[data-phone='sheet'] {
+    align-self: end;
+    height: auto;
+    max-height: calc(100dvh - var(--space-12));
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: var(--shadow-pop);
+  }
+
   .header {
     padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) 0;
   }

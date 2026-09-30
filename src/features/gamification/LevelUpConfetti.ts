@@ -1,11 +1,20 @@
 import { CONFETTI_MS, confettiPose, type ConfettiPiece } from '@/logic/levelUpMotion'
 import { TAG_COLORS } from '@/ui/Tag'
 
-/** The nine tag text colours, resolved for the theme that is showing (a canvas cannot read `var()`). */
+/** The tag hues that make confetti. Gray squares read as dust, so it sits this one out. */
+export const CONFETTI_COLORS = TAG_COLORS.filter((name) => name !== 'gray')
+
+/**
+ * The confetti colours (`--confetti-<tag>`, falling back to the tag's text colour), resolved for the
+ * theme that is showing (a canvas cannot read `var()`).
+ */
 export function readConfettiPalette(element: Element): string[] {
   const style = getComputedStyle(element)
-  return TAG_COLORS.map(
-    (name) => style.getPropertyValue(`--tag-${name}-text`).trim() || 'CanvasText',
+  return CONFETTI_COLORS.map(
+    (name) =>
+      style.getPropertyValue(`--confetti-${name}`).trim() ||
+      style.getPropertyValue(`--tag-${name}-text`).trim() ||
+      'CanvasText',
   )
 }
 

@@ -1,6 +1,7 @@
 /**
- * The level-up moment (BRIEF §3.5): a centred, full-screen card, "Level 8" in 40px bold, a short warm
- * line, and a burst of small square confetti in the nine tag colours on a canvas. Under 1.5 s, then it
+ * The level-up moment (BRIEF §3.5): a centred, full-screen card, a quiet "You reached" over "Level 8" in
+ * 64px bold (40px on phones), a short gold rule and a warm line, and a burst of small square confetti in
+ * the tag colours on a canvas. Under 1.5 s, then it
  * leaves by itself; a click or Esc ends it early (it fades). It plays a sound when sound is on. With
  * reduced motion there is no confetti and nothing moves: it only fades in and out.
  *
@@ -13,12 +14,11 @@ import { useTheme } from '@/app/providers/ThemeProvider'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import { useSettings } from '@/db/hooks/useSettings'
 import { levelUpFrame, makeConfetti } from '@/logic/levelUpMotion'
-import { TAG_COLORS } from '@/ui/Tag'
 import { drawConfetti, readConfettiPalette } from './LevelUpConfetti'
 import { levelUpLine } from './LevelUpLines'
 import styles from './LevelUp.module.css'
 
-const CONFETTI_COUNT = 63
+const CONFETTI_COUNT = 64
 
 interface MomentProps {
   level: number
@@ -74,7 +74,7 @@ export default function LevelUpMoment({ level, onDone }: MomentProps) {
     if (!root || !card) return undefined
     const ctx = reducedMotion ? null : (canvas?.getContext('2d') ?? null)
     const palette = readConfettiPalette(root)
-    const pieces = makeConfetti(level, CONFETTI_COUNT, TAG_COLORS.length)
+    const pieces = makeConfetti(level, CONFETTI_COUNT, palette.length)
     const start = performance.now()
     startedAt.current = start
     dismissedAt.current = null
@@ -123,6 +123,7 @@ export default function LevelUpMoment({ level, onDone }: MomentProps) {
         data-testid="level-up-dismiss"
       >
         <span ref={cardRef} className={styles.card} aria-hidden="true">
+          <span className={styles.eyebrow}>You reached</span>
           <span className={styles.level}>Level {level}</span>
           <span className={styles.rule} />
           <span className={styles.line}>{line}</span>

@@ -51,10 +51,10 @@
   border-radius: var(--radius-lg);
 }
 
-/* Phones: two compact columns, so eleven badges are not eleven screens. */
+/* Phones: one column of compact rows (see BadgeCard), 8px apart. */
 @media (max-width: 639px) {
   .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
   }
 }

@@ -51,11 +51,12 @@ export function EverydayHoursSection() {
 
   // Arrived from the "No open time" hint: bring this section into view.
   const arrived = pathname === `/settings/${EVERYDAY_HOURS_SECTION}`
+  const loaded = saved !== null
   useEffect(() => {
-    if (!arrived) return
+    if (!arrived || !loaded) return
     heading.current?.scrollIntoView({ block: 'start' })
     heading.current?.focus()
-  }, [arrived])
+  }, [arrived, loaded])
 
   if (saved === null) {
     return (

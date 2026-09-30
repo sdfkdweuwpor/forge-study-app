@@ -1,7 +1,8 @@
 /**
  * `/rewards/:tab?`: the rewards shop (BRIEF §5.5). Three tabs: Shop (the balance and the rewards you can
  * buy), Badges (6C's grid) and History (what you redeemed). The page owns the "new reward" row's open
- * state so `n`, the palette and the empty state all open the same row.
+ * state so `n`, the palette and the empty state all open the same row. Each tab has its own error
+ * boundary, so a failed read leaves the heading and the tabs in place.
  */
 import { Award } from 'lucide-react'
 import { Suspense, lazy, useCallback, useEffect, useState, type ComponentType } from 'react'
@@ -113,15 +114,21 @@ function RewardsScreen() {
         {(value) => (
           <div className={styles.panel}>
             {value === 'shop' ? (
-              ready ? (
-                <RewardsShop creating={creating} onCreatingChange={setCreating} />
-              ) : (
-                <RewardsSkeleton />
-              )
+              <ErrorBoundary fallback={(_e, reset) => <RewardsError onRetry={reset} />}>
+                {ready ? (
+                  <RewardsShop creating={creating} onCreatingChange={setCreating} />
+                ) : (
+                  <RewardsSkeleton />
+                )}
+              </ErrorBoundary>
             ) : value === 'badges' ? (
               <BadgesTab />
             ) : (
-              <RedemptionHistory />
+              <ErrorBoundary
+                fallback={(_e, reset) => <RewardsError what="history" onRetry={reset} />}
+              >
+                <RedemptionHistory />
+              </ErrorBoundary>
             )}
           </div>
         )}

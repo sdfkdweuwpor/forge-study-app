@@ -11,7 +11,7 @@ import { focusInside, getFocusable } from '../Popover/focus'
 import { useLayer } from '../Popover/layers'
 import { OverlayPortal } from '../Popover/OverlayPortal'
 import { usePresence } from '../Popover/usePresence'
-import { ModalPanel, type ModalSize } from './ModalPanel'
+import { ModalPanel, type ModalPhoneLayout, type ModalSize } from './ModalPanel'
 import { useModalPresence } from './ModalPresence'
 import { lockBodyScroll } from './scrollLock'
 import styles from './Modal.module.css'
@@ -24,8 +24,13 @@ export interface ModalProps {
   description?: ReactNode
   /** Actions, right-aligned. Put the primary action last. */
   footer?: ReactNode
-  /** sm 400px (confirmations), md 520px (forms), lg 720px. Below 640px every modal is a full-screen sheet. */
+  /** sm 400px (confirmations), md 520px (forms), lg 720px. */
   size?: ModalSize
+  /**
+   * Below 640px: `full` (default) is a full-screen sheet; `sheet` is a bottom sheet only as tall as its
+   * content, for a short yes/no that would otherwise leave a screen of empty space.
+   */
+  phoneLayout?: ModalPhoneLayout
   /** Escape closes. Default true. Turn off while something unsaved or in flight needs a decision. */
   closeOnEsc?: boolean
   /** Clicking the scrim closes. Default true. */
@@ -44,7 +49,8 @@ const EXIT_MS = 220
  * A modal dialog: scrim, focus trap, body scroll lock, `aria-modal`, labelled by its title. Focus
  * moves to the first `[data-autofocus]` element, else the first control in the content, else the
  * close button, and returns to whatever had it when the modal closes. Esc and the scrim close it
- * (each can be turned off). Below 640px it is a full-screen sheet.
+ * (each can be turned off). Below 640px it is a full-screen sheet, or a bottom sheet with
+ * `phoneLayout="sheet"`.
  */
 export function Modal({
   open,
@@ -53,6 +59,7 @@ export function Modal({
   description,
   footer,
   size = 'md',
+  phoneLayout = 'full',
   closeOnEsc = true,
   closeOnScrim = true,
   hideTitle,
@@ -174,6 +181,7 @@ export function Modal({
               description={description}
               footer={footer}
               size={size}
+              phoneLayout={phoneLayout}
               hideTitle={hideTitle}
               onClose={showClose ? onClose : undefined}
               closeRef={(el) => {

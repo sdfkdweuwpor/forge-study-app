@@ -43,7 +43,7 @@ export function RedemptionHistory() {
           </dd>
         </div>
         <div className={styles.total}>
-          <dt className={styles.caption}>Rewards redeemed</dt>
+          <dt className={styles.caption}>Redeemed</dt>
           <dd className={styles.count}>{totals.redeemedCount}</dd>
         </div>
       </dl>

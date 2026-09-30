@@ -113,7 +113,11 @@ export function reorderPlan(
 
 // ─── History ────────────────────────────────────────────────────────────────
 
-/** Newest first. Equal instants keep a stable order (later-created first). */
+/**
+ * Newest first. Equal instants keep a stable order: later-created first (`redeemReward` keeps
+ * `createdAt` strictly increasing, so two purchases in one millisecond list in the order they were
+ * made), then by id so the order never depends on how the rows were read.
+ */
 export function sortRedemptions<T extends Pick<Redemption, 'id' | 'at' | 'createdAt'>>(
   redemptions: readonly T[],
 ): T[] {

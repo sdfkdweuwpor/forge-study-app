@@ -189,10 +189,7 @@ export function PreviewStep({ draft, dispatch, today }: PreviewStepProps) {
 
       <dl className={styles.stats}>
         <Stat label="Finish" value={end ? formatDay(end, today) : '—'} />
-        <Stat
-          label={asap ? 'Target' : 'Target'}
-          value={asap || !target ? 'None' : formatDay(target, today)}
-        />
+        <Stat label="Target" value={asap || !target ? 'None' : formatDay(target, today)} />
         <Stat label="Per week" value={`${stats.hoursPerWeek} h`} />
         <Stat
           label="Slack"

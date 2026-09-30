@@ -13,6 +13,7 @@ import {
 import { Button } from '@/ui/Button'
 import { Dropdown, type MenuEntry } from '@/ui/Dropdown'
 import { IconButton } from '@/ui/IconButton'
+import { ProgressBar } from '@/ui/ProgressBar'
 import type { RewardActions } from './RewardsActions'
 import { RewardsIconPicker } from './RewardsIconPicker'
 import { RewardsInline } from './RewardsInline'
@@ -36,8 +37,9 @@ const priceProblem = (text: string): string | null =>
 
 /**
  * One reward: icon, title and price you edit in place, how far away it is, and Redeem. Not a boxed card:
- * the row is plain until hovered. An unaffordable reward keeps its Redeem button, disabled, with the
- * distance said out loud beside the price.
+ * the row is plain until hovered. An unaffordable reward keeps its Redeem button, disabled, and says how
+ * close it is beside the price: a short gold bar of the balance against the price and "240 XP to go".
+ * Progress toward it, never a red "not enough".
  */
 export function RewardsCard({ reward, balance, handle, actions, onRedeem }: Props) {
   const toGoId = useId()
@@ -87,8 +89,17 @@ export function RewardsCard({ reward, balance, handle, actions, onRedeem }: Prop
             }}
           />
           {toGo !== null ? (
-            <span id={toGoId} className={styles.toGo}>
-              {toGo}
+            <span className={styles.toGo}>
+              <ProgressBar
+                tone="xp"
+                size="sm"
+                value={balance}
+                max={reward.price}
+                label={`Progress toward ${reward.title}`}
+                className={styles.toGoBar}
+                aria-hidden="true"
+              />
+              <span id={toGoId}>{toGo}</span>
             </span>
           ) : null}
         </div>

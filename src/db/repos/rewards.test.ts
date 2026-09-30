@@ -211,6 +211,20 @@ describe('redeemReward', () => {
     expect((await getXpSummary(TODAY)).balance).toBe(100)
   })
 
+  it('lists two purchases made in the same millisecond newest first, every time', async () => {
+    const gaming = await createReward({ title: '30 min gaming', price: 300 })
+    const coffee = await createReward({ title: 'Coffee out', price: 500 })
+    await earn(2000)
+    const first = await redeemReward(gaming.id, NOW)
+    const second = await redeemReward(coffee.id, NOW)
+    expect(second.redemption.at).toBe(first.redemption.at)
+    expect(second.redemption.createdAt).toBeGreaterThan(first.redemption.createdAt)
+    expect((await listRedemptions()).map((r) => r.rewardTitle)).toEqual([
+      'Coffee out',
+      '30 min gaming',
+    ])
+  })
+
   it('cannot overspend when two purchases race', async () => {
     const r = await createReward({ title: '30 min gaming', price: 300 })
     await earn(500)

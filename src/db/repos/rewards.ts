@@ -237,9 +237,13 @@ export async function redeemReward(id: ID, now: Millis = Date.now()): Promise<Re
       ])
       const available = balance(events, redemptions)
       if (available < reward.price) throw new InsufficientXpError(reward.price, available)
+      // History sorts by `at`, then `createdAt`, then id. Two purchases in the same millisecond (a
+      // double click, a frozen test clock) share `at`, so `createdAt` is kept strictly increasing:
+      // the later purchase always lists first, never by the luck of a random id.
+      const lastCreated = redemptions.reduce((max, r) => Math.max(max, r.createdAt), -Infinity)
       const row: Redemption = {
         id: newId(),
-        createdAt: now,
+        createdAt: Math.max(now, lastCreated + 1),
         updatedAt: now,
         rewardId: reward.id,
         rewardTitle: reward.title,

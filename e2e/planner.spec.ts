@@ -652,7 +652,7 @@ test.describe('a template and its dates', () => {
 
     await page.getByLabel('Start date').fill('2026-12-01')
     // Exam dates from the template are now before the start: said inline, and Continue stays put.
-    await expect(page.getByText(/dated before your start date/)).toBeVisible()
+    await expect(page.getByText(/before your start date/)).toBeVisible()
     await next(page)
     await expect(heading(page, 'When')).toBeVisible()
 
@@ -660,7 +660,7 @@ test.describe('a template and its dates', () => {
     await expect(shift).toBeVisible()
     await shift.click()
     await expect(target).toHaveValue(isoPlus(was, 63))
-    await expect(page.getByText(/dated before your start date/)).toHaveCount(0)
+    await expect(page.getByText(/before your start date/)).toHaveCount(0)
     await expect(shift).toHaveCount(0)
     await expect(toasts(page).getByText(/Moved the template’s dates 63 days later/)).toBeVisible()
     await next(page)

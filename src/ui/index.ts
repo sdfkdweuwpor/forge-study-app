@@ -65,7 +65,7 @@ export type {
   MenuSeparator,
 } from './Dropdown'
 export { Modal, ModalPanel } from './Modal'
-export type { ModalPanelProps, ModalProps, ModalSize } from './Modal'
+export type { ModalPanelProps, ModalPhoneLayout, ModalProps, ModalSize } from './Modal'
 export { ToastCard, ToastProvider, useToast } from './Toast'
 export type {
   ToastApi,

@@ -40,13 +40,17 @@ function ModalDemo() {
             Esc and scrim disabled
           </Button>
         </div>
-        <span className={styles.note}>Below 640px every modal becomes a full-screen sheet.</span>
+        <span className={styles.note}>
+          Below 640px a modal becomes a full-screen sheet; a short confirmation can ask for a bottom
+          sheet instead (<code>phoneLayout=&quot;sheet&quot;</code>, used by “Small: confirm”).
+        </span>
       </div>
 
       <Modal
         open={open === 'confirm'}
         onClose={close}
         size="sm"
+        phoneLayout="sheet"
         title="Move “C779 Web Development Foundations” to trash?"
         description="Its 14 tasks and 3 notes go with it. You can restore it for 30 days."
         footer={

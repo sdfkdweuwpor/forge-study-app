@@ -1,4 +1,9 @@
-/* One badge. Hierarchy from type and spacing: a hairline, an emoji tile, a title, one line of words. */
+/*
+ * One badge. Hierarchy from type and spacing: a hairline, an emoji tile, a title, one line of words.
+ * Earned and not-yet-earned cards share one surface and one border, so the locked ones read as places
+ * waiting to be filled, not as disabled controls. What tells them apart is the tile: soft gold with the
+ * emoji in colour once earned, a neutral tile with the emoji in grayscale before.
+ */
 .card {
   display: flex;
   flex-direction: column;
@@ -25,6 +30,7 @@
 
 .icon {
   display: grid;
+  flex: none;
   place-items: center;
   width: 44px;
   height: 44px;
@@ -32,6 +38,10 @@
   border-radius: var(--radius-lg);
   background: var(--xp-soft);
   font-size: 1.5rem;
+  line-height: 1;
+}
+
+.glyph {
   line-height: 1;
 }
 
@@ -50,6 +60,7 @@
   line-height: var(--lh-body);
 }
 
+/* The date is metadata: muted, like every other date. The gold tile already says "earned". */
 .status {
   display: inline-flex;
   align-items: center;
@@ -58,18 +69,19 @@
   padding-top: var(--space-2);
   color: var(--text-muted);
   font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
   line-height: 1.4;
 }
 
-/* Locked: the emoji goes grey, the title steps back, the tile loses its gold. The hint stays readable. */
-.card[data-state='locked'] {
-  background: var(--bg-sidebar);
-}
-
+/* Not earned yet: the same card, quieter. The tile goes neutral and the emoji grayscale (still clearly
+   drawn, not a ghost), the title steps back a weight; the hint stays full-strength muted text. */
 .card[data-state='locked'] .icon {
   background: var(--bg-active);
   filter: grayscale(1);
-  opacity: 0.7;
+}
+
+.card[data-state='locked'] .glyph {
+  filter: var(--locked-glyph-filter);
 }
 
 .card[data-state='locked'] .title {
@@ -77,6 +89,55 @@
   font-weight: var(--fw-medium);
 }
 
-.card[data-state='unlocked'] .status {
-  color: var(--xp-text);
+.tip {
+  display: flex;
+  flex-direction: column;
+}
+
+.tipContext {
+  color: var(--text-inverse-muted);
+}
+
+/*
+ * Phones: one column of rows (tile on the left, words beside it) instead of two narrow cards that wrap
+ * every hint onto three lines. Eleven badges stay a short scroll and read like a list.
+ */
+@media (max-width: 639px) {
+  .card {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-areas:
+      'icon title'
+      'icon detail'
+      'icon status';
+    align-content: start;
+    align-items: start;
+    column-gap: var(--space-3);
+    row-gap: 2px;
+    padding: var(--space-3);
+  }
+
+  .icon {
+    grid-area: icon;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    font-size: 1.375rem;
+  }
+
+  .title {
+    grid-area: title;
+    align-self: end;
+    padding-top: 2px;
+  }
+
+  .detail {
+    grid-area: detail;
+  }
+
+  .status {
+    grid-area: status;
+    margin: 0;
+    padding-top: var(--space-1);
+  }
 }

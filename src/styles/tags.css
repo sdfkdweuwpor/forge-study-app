@@ -1,7 +1,9 @@
 /*
  * Notion-style tag colours (TagColor in src/db/types.ts): an opaque soft background plus a text
  * colour per hue, per theme. Every pair is at least 5:1 (contrast.test.ts). Use
- * --tag-<name>-text on its own for dots, icons and confetti; it is at least 3:1 on the page too.
+ * --tag-<name>-text on its own for dots and icons; it is at least 3:1 on the page too.
+ * --confetti-<name> is the level-up confetti (decoration, never text): the same hues at full strength.
+ * The light text colours are darkened for AA, which turns a burst of them muddy; gray is left out.
  * Dark values are repeated for the prefers-color-scheme block; the test keeps them equal.
  */
 
@@ -25,6 +27,15 @@
   --tag-pink-text: #91496b;
   --tag-red-bg: #ffdedb;
   --tag-red-text: #9a4541;
+
+  --confetti-brown: #a8735a;
+  --confetti-orange: #de7a1a;
+  --confetti-yellow: #d19a2e;
+  --confetti-green: #4a8f69;
+  --confetti-blue: #3386bd;
+  --confetti-purple: #9468c4;
+  --confetti-pink: #cc5395;
+  --confetti-red: #d9534e;
 }
 
 [data-theme='dark'] {
@@ -46,6 +57,15 @@
   --tag-pink-text: #d399b2;
   --tag-red-bg: #4a2c29;
   --tag-red-text: #dc9892;
+
+  --confetti-brown: #c79a85;
+  --confetti-orange: #df9a62;
+  --confetti-yellow: #dcb866;
+  --confetti-green: #74b98a;
+  --confetti-blue: #6fb0dd;
+  --confetti-purple: #b596e0;
+  --confetti-pink: #e08bb2;
+  --confetti-red: #e8867f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -69,5 +89,14 @@
     --tag-pink-text: #d399b2;
     --tag-red-bg: #4a2c29;
     --tag-red-text: #dc9892;
+
+    --confetti-brown: #c79a85;
+    --confetti-orange: #df9a62;
+    --confetti-yellow: #dcb866;
+    --confetti-green: #74b98a;
+    --confetti-blue: #6fb0dd;
+    --confetti-purple: #b596e0;
+    --confetti-pink: #e08bb2;
+    --confetti-red: #e8867f;
   }
 }

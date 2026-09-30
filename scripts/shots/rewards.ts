@@ -226,7 +226,10 @@ const list: ShotList = {
         await shopWith(page, 1260)
         for (const title of ['30 min gaming', 'Coffee out', 'Order takeout']) {
           await page.getByRole('button', { name: `Actions for ${title}` }).click()
-          await page.getByRole('menuitem', { name: 'Archive' }).click()
+          await page
+            .getByRole('menu', { name: `Actions for ${title}` })
+            .getByRole('menuitem', { name: 'Archive' })
+            .click()
         }
         await page.getByRole('heading', { name: 'Add a reward worth working for' }).waitFor()
         // Three "archived" toasts stack up; clear them so the empty state is what shows.

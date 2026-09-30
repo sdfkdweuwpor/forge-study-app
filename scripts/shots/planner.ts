@@ -121,7 +121,7 @@ const list: ShotList = {
       path: NEW,
       waitFor: 'main h1',
       prepare: async (page) => {
-        await page.getByRole('tab', { name: 'Upload a photo' }).click()
+        await page.getByRole('tab', { name: 'Photo (via Claude)' }).click()
         await settle(page)
       },
       fullPage: true,

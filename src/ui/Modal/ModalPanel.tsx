@@ -5,6 +5,9 @@ import { cx } from '../internal/cx'
 import styles from './Modal.module.css'
 
 export type ModalSize = 'sm' | 'md' | 'lg'
+/** Below 640px: `full` is a full-screen sheet (forms, long content); `sheet` rises from the bottom only
+ * as tall as its content (a short confirmation). */
+export type ModalPhoneLayout = 'full' | 'sheet'
 
 export interface ModalPanelProps extends Omit<ComponentProps<'div'>, 'title'> {
   title: string
@@ -13,6 +16,8 @@ export interface ModalPanelProps extends Omit<ComponentProps<'div'>, 'title'> {
   /** Actions, right-aligned. Put the primary action last. */
   footer?: ReactNode
   size?: ModalSize
+  /** How it sits on a phone (below 640px). Default `full`. */
+  phoneLayout?: ModalPhoneLayout
   /** Keep the title for screen readers only. */
   hideTitle?: boolean
   /** Shows the close (X) button when given. */
@@ -34,6 +39,7 @@ export function ModalPanel({
   description,
   footer,
   size = 'md',
+  phoneLayout = 'full',
   hideTitle,
   onClose,
   titleId,
@@ -48,6 +54,7 @@ export function ModalPanel({
     <div
       data-motion="opacity"
       data-size={size}
+      data-phone={phoneLayout}
       data-inline={inline || undefined}
       className={cx(styles.panel, className)}
       {...rest}

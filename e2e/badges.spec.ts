@@ -89,7 +89,7 @@ test.describe('Badges', () => {
     await early.hover()
     const tip = page.getByRole('tooltip')
     await expect(tip).toContainText('Unlocked Tuesday, September 29, 2026')
-    await expect(tip).toContainText('Started at 07:30')
+    await expect(tip).toContainText('Started at 7:30 AM')
 
     await page.mouse.move(0, 0)
     await expect(tip).toHaveCount(0)

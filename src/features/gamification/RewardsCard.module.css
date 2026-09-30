@@ -50,9 +50,17 @@
 }
 
 .toGo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-muted);
   font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.toGoBar {
+  width: 48px;
 }
 
 .actions {
@@ -78,17 +86,22 @@
   }
 }
 
-/* Phones: the buttons drop under the title and price, aligned with them. */
+/*
+ * Phones: the same single row, with the handle and icon columns sized to their (touch-sized) controls so
+ * nothing reserves empty space, and Redeem kept beside the reward instead of on a line of its own.
+ */
 @media (max-width: 639px) {
   .card {
-    grid-template-columns: 32px 44px minmax(0, 1fr);
-    row-gap: var(--space-2);
-    padding-block: var(--space-3);
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    padding-right: 0;
+  }
+
+  .main {
+    padding-left: 0;
   }
 
   .actions {
-    grid-column: 3;
-    justify-content: space-between;
-    padding-left: var(--space-1);
+    gap: var(--space-1);
   }
 }

@@ -174,22 +174,22 @@ test.describe('everyday tasks', () => {
   }) => {
     await gotoApp(page, '/', 'empty')
     await quickAdd(page, 'pay parking ticket due today 10am')
-    const ticket = await byTitle(page, 'pay parking ticket')
-    if (!ticket) throw new Error('the task was not saved')
-    await page.goto(`/task/${ticket.id}`)
-    await page.getByRole('switch', { name: 'Auto-schedule before deadline' }).click()
+    await quickAdd(page, 'pay phone bill due fri 30m')
+    for (const title of ['pay parking ticket', 'pay phone bill']) {
+      const task = await byTitle(page, title)
+      if (!task) throw new Error('the task was not saved')
+      await page.goto(`/task/${task.id}`)
+      await page.getByRole('switch', { name: 'Auto-schedule before deadline' }).click()
+      await expect.poll(async () => (await byTitle(page, title))?.autoSlot).toBe(true)
+    }
+
+    // The ticket has no room today; the hint takes you to the hours.
     await page.goto('/tasks/inbox')
     await page.getByRole('link', { name: 'Adjust your everyday hours' }).click()
     await expect(page).toHaveURL(/\/settings\/everyday-hours$/)
     await expect(page.getByRole('heading', { name: 'Everyday task hours' })).toBeFocused()
 
     // Tuesday's window is 18:00 to 21:00 by default; start it later and the suggestion follows.
-    await quickAdd(page, 'pay phone bill due fri 30m')
-    const bill = await byTitle(page, 'pay phone bill')
-    if (!bill) throw new Error('the task was not saved')
-    await page.goto(`/task/${bill.id}`)
-    await page.getByRole('switch', { name: 'Auto-schedule before deadline' }).click()
-    await page.goto('/settings')
     await page.getByLabel('Tuesday window 1 start').fill('20:00')
     await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible()
     await page.goto('/tasks/upcoming')

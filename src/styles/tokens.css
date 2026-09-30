@@ -75,6 +75,8 @@
     0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
     0 9px 24px rgba(15, 15, 15, 0.2);
   --scrim: rgba(15, 15, 15, 0.35);
+  /* A not-yet-earned badge's emoji, already grayscale: pale ones (sun, cloud) need darkening on light. */
+  --locked-glyph-filter: brightness(0.78) contrast(1.35);
 
   /* Loading placeholders: the bone, and the lighter band that sweeps across it */
   --skeleton: rgba(55, 53, 47, 0.08);
@@ -128,6 +130,7 @@
   --shadow-pop:
     0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4), 0 9px 24px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.62);
+  --locked-glyph-filter: opacity(0.85);
 
   --skeleton: rgba(255, 255, 255, 0.06);
   --skeleton-shine: rgba(255, 255, 255, 0.06);
@@ -183,6 +186,7 @@
       0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.4),
       0 9px 24px rgba(0, 0, 0, 0.5);
     --scrim: rgba(0, 0, 0, 0.62);
+    --locked-glyph-filter: opacity(0.85);
 
     --skeleton: rgba(255, 255, 255, 0.06);
     --skeleton-shine: rgba(255, 255, 255, 0.06);
@@ -215,6 +219,7 @@
   --fs-24: 1.5rem;
   --fs-32: 2rem;
   --fs-40: 2.5rem; /* page titles */
+  --fs-64: 4rem; /* celebration headline (the level-up moment): weight 700 */
   --fs-display: 6rem; /* focus timer: weight 600, tabular */
 
   --fw-regular: 400;

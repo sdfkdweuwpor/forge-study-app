@@ -58,7 +58,7 @@ export function RewardsEmpty({ onNew }: { onNew: () => void }) {
       titleAs="h2"
       icon={<Gift />}
       title="Add a reward worth working for"
-      description="Name something you enjoy and give it an XP price: 30 min of gaming for 300 XP, takeout for 1,500 XP. Tasks and focus sessions earn the XP; spending it never lowers your level."
+      description="Name something you enjoy and price it in XP, like takeout for 1,500 XP."
       action={
         <>
           <Button variant="primary" iconLeft={<Plus />} onClick={onNew}>

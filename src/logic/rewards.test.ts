@@ -161,6 +161,18 @@ describe('sortRedemptions', () => {
     ]
     expect(sortRedemptions(list).map((r) => r.id)).toEqual(['new', 'mid', 'old'])
   })
+
+  it('breaks a tie on the same instant by creation, then by id, whatever the input order', () => {
+    const list = [
+      redemption('b', { at: 50, createdAt: 50 }),
+      redemption('first', { at: 50, createdAt: 50 }),
+      redemption('second', { at: 50, createdAt: 51 }),
+      redemption('a', { at: 50, createdAt: 50 }),
+    ]
+    const expected = ['second', 'first', 'b', 'a']
+    expect(sortRedemptions(list).map((r) => r.id)).toEqual(expected)
+    expect(sortRedemptions([...list].reverse()).map((r) => r.id)).toEqual(expected)
+  })
 })
 
 describe('redemptionTotals', () => {

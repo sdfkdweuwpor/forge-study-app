@@ -224,6 +224,24 @@ test.describe('Morning plan', () => {
     await expect(dialog).toBeVisible()
   })
 
+  test('the /rituals/:kind link opens the dialog, and closing it moves on to Today', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/rituals/morning', 'wgu')
+    await expect(page.getByRole('heading', { level: 1, name: 'Morning plan' })).toBeVisible()
+    await expect(morning(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(morning(page)).toBeHidden()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(prompt(page)).toContainText('Plan your day')
+    // Back does not return to the link.
+    await page.goBack()
+    await expect(page).not.toHaveURL(/\/rituals\//)
+
+    await page.goto('/rituals/evening')
+    await expect(evening(page)).toBeVisible()
+  })
+
   test('a clear day says so, and an empty list offers a task or a routine', async ({ page }) => {
     await gotoApp(page, '/', 'empty')
     await page.keyboard.press('w')

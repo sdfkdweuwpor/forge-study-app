@@ -174,6 +174,8 @@ test.describe('the page', () => {
       'Calendar',
       'Everyday task hours',
       'Sound and notifications',
+      'Rituals',
+      'Routines',
       'Site blocker',
       'Export & calendar',
       'Snapshots',

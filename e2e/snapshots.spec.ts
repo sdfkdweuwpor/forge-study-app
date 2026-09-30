@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import type { CDPSession, Page } from '@playwright/test'
-import { expect, gotoApp, test } from './fixtures'
+import { FIXED_NOW, expect, gotoApp, test } from './fixtures'
 import { putRows, readTable } from './idb'
 
 /**
@@ -46,6 +46,18 @@ async function tablesOf(page: Page): Promise<Record<string, unknown[]>> {
 async function takeSnapshotNow(page: Page): Promise<void> {
   await section(page).getByRole('button', { name: 'Take snapshot now' }).click()
   await expect(toasts(page)).toContainText('Snapshot saved')
+}
+
+/**
+ * Waits until the start-up chores have begun for the start at `at` (they note it as the first thing they do),
+ * so a check that something was NOT done afterwards begins at the right moment instead of at a guess.
+ */
+async function choresStartedAt(page: Page, at: Date): Promise<void> {
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem('forge:trash:last-seen')), {
+      timeout: 20_000,
+    })
+    .toBe(String(at.getTime()))
 }
 
 async function cpuClock(page: Page): Promise<() => Promise<number>> {
@@ -171,17 +183,19 @@ test.describe('taking and restoring a snapshot', () => {
   test('taking one costs the main thread under 300 ms on the WGU sample', async ({ page }) => {
     await gotoApp(page, '/settings/snapshots', 'wgu')
     await expect(section(page).getByRole('button', { name: 'Take snapshot now' })).toBeVisible()
-    // Let the start-up work (the daily snapshot included) finish, so only this snapshot is measured.
-    await expect
-      .poll(async () => (await snapshots(page)).length, { timeout: 20_000 })
-      .toBeGreaterThan(0)
-    await page.waitForTimeout(500)
+    // Let the start-up work (the daily snapshot included) finish, so only this snapshot is measured: it is
+    // done once the list shows it.
+    await expect(
+      snapshotList(page).getByRole('listitem').filter({ hasText: 'Automatic' }),
+    ).toHaveCount(1, { timeout: 20_000 })
     const cpu = await cpuClock(page)
     const work: number[] = []
+    const manual = snapshotList(page).getByRole('listitem').filter({ hasText: 'Manual' })
     for (let run = 0; run < 3; run += 1) {
       const c0 = await cpu()
       await takeSnapshotNow(page)
-      await page.waitForTimeout(300)
+      // The list has drawn the new row: the whole click, toast and list included, is what is measured.
+      await expect(manual).toHaveCount(run + 1)
       work.push((await cpu()) - c0)
     }
     // The whole click: reading the tables, writing the JSON, the write, and drawing the toast and the list.
@@ -202,9 +216,13 @@ test.describe('the automatic daily snapshot', () => {
     expect(first).toMatchObject({ reason: 'daily', day: '2026-09-29' })
     expect(first?.counts?.tasks).toBeGreaterThan(20)
 
-    // Another start the same day: no second one.
+    // Another start the same day: no second one. The chores begin once the start is noted; a snapshot
+    // would take a moment more, so the check waits that long from there.
+    const later = new Date(FIXED_NOW.getTime() + 60_000)
+    await page.clock.setFixedTime(later)
     await page.goto('/')
-    await page.waitForTimeout(4000)
+    await choresStartedAt(page, later)
+    await page.waitForTimeout(2000)
     expect((await snapshots(page)).filter((s) => s.reason === 'daily')).toHaveLength(1)
 
     // The next morning: a new one, and both are listed.
@@ -226,7 +244,8 @@ test.describe('the automatic daily snapshot', () => {
   }) => {
     await gotoApp(page, '/settings/snapshots', 'empty')
     await expect(section(page)).toContainText('No snapshots yet')
-    await page.waitForTimeout(4000)
+    await choresStartedAt(page, FIXED_NOW)
+    await page.waitForTimeout(2000)
     expect(await snapshots(page)).toEqual([])
   })
 })

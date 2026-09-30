@@ -187,6 +187,80 @@ test.describe('the Trash page', () => {
     expect(await trash(page)).toEqual([])
   })
 
+  test('groups read as "Tasks, 2 items", not "Tasks2"', async ({ page }) => {
+    await trashTwoInboxTasks(page)
+    await page.goto('/trash')
+    await expect(page.getByRole('heading', { level: 2, name: 'Tasks, 2 items' })).toBeVisible()
+  })
+
+  test('focus goes to the next row after a restore or a delete, and to the heading when nothing is left', async ({
+    page,
+  }) => {
+    await trashTwoInboxTasks(page)
+    await page.goto('/trash')
+    const rows = page.getByRole('main').getByRole('listitem')
+    await expect(rows).toHaveCount(2)
+    const [firstTitle, secondTitle] = await rows
+      .locator('span[title]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('title') ?? ''))
+
+    // Restore the first: the second row's Restore button has the focus, not <body>.
+    await restoreButton(page, firstTitle ?? '').click()
+    await expect(rows).toHaveCount(1)
+    await expect(restoreButton(page, secondTitle ?? '')).toBeFocused()
+
+    // Delete the last one forever: after the dialog closes, focus lands on the page heading.
+    await page.getByRole('button', { name: `Delete “${secondTitle}” forever` }).click()
+    await page
+      .getByRole('dialog', { name: /forever\?$/ })
+      .getByRole('button', { name: 'Delete forever' })
+      .click()
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Nothing in the trash' }),
+    ).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Trash' })).toBeFocused()
+    // ...and the empty Trash is announced, politely.
+    await expect(page.getByRole('status').filter({ hasText: 'The Trash is empty.' })).toHaveCount(1)
+  })
+
+  test('pressing r twice restores once and shows no error', async ({ page }) => {
+    await trashTaskOnItsPage(page, UNIT3_ID)
+    await openTrashWithKeys(page)
+    await page.keyboard.press('j')
+    await page.keyboard.press('r')
+    await page.keyboard.press('r')
+    await expect(toasts(page)).toContainText(`Restored “${UNIT3}”`)
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Nothing in the trash' }),
+    ).toBeVisible()
+    await expect(toasts(page)).not.toContainText('Couldn’t restore')
+    expect((await tasks(page)).filter((t) => t.id === UNIT3_ID)).toHaveLength(1)
+  })
+
+  test('there is nothing to empty on an empty Trash: no dialog, no palette command', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/trash?do=empty', 'wgu')
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Nothing in the trash' }),
+    ).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Empty the Trash?' })).toHaveCount(0)
+    // The stale link is cleaned up.
+    await expect(page).toHaveURL(/\/trash$/)
+
+    await page.keyboard.press('ControlOrMeta+k')
+    const input = page.getByRole('combobox', { name: 'Command palette' })
+    // The palette reads the count the safety feature keeps (loaded a moment after the page), and lists again
+    // on each keystroke: search again until it has caught up.
+    await expect(async () => {
+      await input.fill('')
+      await input.fill('empty trash')
+      await expect(page.getByRole('option', { name: /Empty Trash/ })).toHaveCount(0, {
+        timeout: 500,
+      })
+    }).toPass({ timeout: 15_000 })
+  })
+
   test('Empty trash needs the words typed, and deletes everything for good', async ({ page }) => {
     await trashTwoInboxTasks(page)
 
@@ -283,9 +357,16 @@ test.describe('the 30-day purge, with a moving clock', () => {
     expect(await trash(page)).toHaveLength(1)
 
     // A later start the same day does not purge again (once a day), even after its time has passed...
-    await page.clock.setFixedTime(new Date('2026-10-29T10:00:00-04:00'))
+    const afterItsTime = new Date('2026-10-29T10:00:00-04:00')
+    await page.clock.setFixedTime(afterItsTime)
     await page.reload()
-    await page.waitForTimeout(3500)
+    // The chore notes every start first; a purge would follow within a moment, so wait that long from there.
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem('forge:trash:last-seen')), {
+        timeout: 20_000,
+      })
+      .toBe(String(afterItsTime.getTime()))
+    await page.waitForTimeout(1500)
     expect(await trash(page)).toHaveLength(1)
 
     // ...and the next day it is gone.

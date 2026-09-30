@@ -1,5 +1,5 @@
 import { CalendarPlus, Pencil, Trash2 } from 'lucide-react'
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { deleteRoutine, renameRoutine, type RoutineRow } from '@/db/repos/templates'
@@ -28,8 +28,23 @@ export function RoutinesSection() {
   const actions = useRitualActions()
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  // Enter commits and the field then goes away, which may also blur it: commit once.
+  const editing = useRef<string | null>(null)
+
+  function startRename(row: RoutineRow): void {
+    editing.current = row.template.id
+    setDraft(row.template.name)
+    setRenaming(row.template.id)
+  }
+
+  function cancelRename(): void {
+    editing.current = null
+    setRenaming(null)
+  }
 
   async function commitRename(row: RoutineRow): Promise<void> {
+    if (editing.current !== row.template.id) return
+    editing.current = null
     const name = draft.trim()
     setRenaming(null)
     if (name === '' || name === row.template.name) return
@@ -59,7 +74,7 @@ export function RoutinesSection() {
     } else if (e.key === 'Escape') {
       // Only the rename closes; the page's own Escape stays out of it.
       e.stopPropagation()
-      setRenaming(null)
+      cancelRename()
     }
   }
 
@@ -161,10 +176,7 @@ export function RoutinesSection() {
                     <IconButton
                       label={`Rename ${template.name}`}
                       icon={<Pencil />}
-                      onClick={() => {
-                        setDraft(template.name)
-                        setRenaming(template.id)
-                      }}
+                      onClick={() => startRename(row)}
                     />
                   ) : null}
                   <IconButton

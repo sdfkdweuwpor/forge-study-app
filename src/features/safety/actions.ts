@@ -13,7 +13,7 @@ import {
 import { emptyTrash, purgeTrashItem, restoreTrashItem, type RestoreOutcome } from '@/db/repos/trash'
 import { downloadText } from '@/lib/download'
 import { snapshotFilename } from '@/logic/retention'
-import { appVersion } from './appVersion'
+import { appVersion } from '@/lib/appVersion'
 import { rememberRestore } from './restoreNotice'
 
 const messageOf = (e: unknown): string =>

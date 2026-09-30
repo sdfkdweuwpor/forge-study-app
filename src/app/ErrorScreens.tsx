@@ -1,4 +1,5 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
+import { appVersion } from '@/lib/appVersion'
 import { copyText } from '@/lib/clipboard'
 import { isChunkLoadError } from '@/logic/chunkError'
 import { buildErrorReport } from '@/logic/errorReport'
@@ -36,9 +37,6 @@ function ExportButton({ onStatus }: { onStatus: OnStatus }) {
   )
 }
 
-/** The app's version (from package.json at build time), or "dev" where the build constant does not exist. */
-const version = (): string => (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')
-
 /** Copies what a bug report needs (the error, the page, the version and browser; nothing the person wrote). */
 function CopyDetailsButton({
   error,
@@ -59,7 +57,7 @@ function CopyDetailsButton({
           ...(error.stack ? { stack: error.stack } : {}),
         },
         where,
-        appVersion: version(),
+        appVersion: appVersion(),
         userAgent: navigator.userAgent,
         url: `${window.location.pathname}${window.location.search}`,
         at: Date.now(),

@@ -6,6 +6,7 @@
  * running), which is how the end-of-session dialog lists "parked during this session".
  */
 import { newId } from '@/lib/ids'
+import { UndoRefusedError } from '@/logic/undo'
 import { db } from '../db'
 import { emit } from '../events'
 import type { ID, ParkingItem, Task } from '../types'
@@ -22,6 +23,15 @@ export function cleanParkingText(text: string): string {
   return chars.length <= PARKING_TEXT_MAX
     ? clean
     : chars.slice(0, PARKING_TEXT_MAX).join('').trimEnd()
+}
+
+/**
+ * Thrown by an `undo` that could not put things back because they changed since. Its message is plain
+ * and calm, so a caller may show it. Rejecting (rather than returning quietly) is what makes a toast say
+ * "Couldn't undo" instead of a false "Undone".
+ */
+export class ParkingUndoError extends UndoRefusedError {
+  override name = 'ParkingUndoError'
 }
 
 export interface ParkingInput {
@@ -77,8 +87,9 @@ export async function countOpenParkingItems(): Promise<number> {
 }
 
 /**
- * Marks a thought done (`'done'`) or brings it back (`'open'`). `null` when it is gone or a task was made
- * from it. `undo` puts the previous status back.
+ * Marks a thought done (`'done'`) or brings it back (`'open'`). `null` when it is gone, a task was made
+ * from it, or it already has that status (nothing changed, so there is nothing to undo). `undo` puts the
+ * previous status back, and throws `ParkingUndoError` if the status was changed again since.
  */
 export async function setParkingStatus(
   id: ID,
@@ -89,15 +100,16 @@ export async function setParkingStatus(
   return db.transaction('rw', db.parkingLot, async () => {
     const item = await db.parkingLot.get(id)
     if (!item || item.status === 'converted') return null
-    if (item.status === status) return { undo: async () => undefined }
+    if (item.status === status) return null
     await db.parkingLot.update(id, { status, updatedAt: now })
     return {
       undo: async () => {
         await db.transaction('rw', db.parkingLot, async () => {
           const current = await db.parkingLot.get(id)
-          if (current?.status === status) {
-            await db.parkingLot.update(id, { status: item.status, updatedAt: Date.now() })
+          if (current?.status !== status) {
+            throw new ParkingUndoError('The thought changed since, so it was left as it is')
           }
+          await db.parkingLot.update(id, { status: item.status, updatedAt: Date.now() })
         })
       },
     }
@@ -126,8 +138,9 @@ export interface ConvertResult extends Undoable {
  * Makes a task of an open thought (its text is the title; no date, so it lands in the Inbox) and marks
  * the thought `converted` with the task's id, in one transaction. `null` when the thought is gone or is
  * no longer open, so pressing twice, or from two tabs, never makes two tasks. `undo` removes the new
- * task and reopens the thought, as long as the task has not been touched since (a task that was already
- * completed or renamed is the person's now and stays).
+ * task and reopens the thought, as long as the task has not been touched since: a task that was completed
+ * or edited is the person's now and stays, and `undo` then throws `ParkingUndoError` so nobody is told
+ * "Undone" about something that was kept.
  */
 export async function convertParkingItem(
   id: ID,
@@ -144,10 +157,14 @@ export async function convertParkingItem(
       undo: async () => {
         await db.transaction('rw', db.parkingLot, db.tasks, async () => {
           const current = await db.parkingLot.get(id)
-          if (current?.taskId !== task.id) return
+          if (current?.taskId !== task.id) {
+            throw new ParkingUndoError('The thought changed since, so it was left as it is')
+          }
           const made = await db.tasks.get(task.id)
           // Untouched: still open and never edited since it was made.
-          if (made && (made.status !== 'todo' || made.updatedAt !== task.updatedAt)) return
+          if (made && (made.status !== 'todo' || made.updatedAt !== task.updatedAt)) {
+            throw new ParkingUndoError('The task changed since, so it was kept')
+          }
           if (made) {
             await db.tasks.delete(task.id)
             emit({ type: 'task.deleted', taskId: task.id })

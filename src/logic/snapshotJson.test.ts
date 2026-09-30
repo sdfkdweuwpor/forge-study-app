@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { buildBackup } from './backup'
-import { markTrashBlobs, serializeInChunks, withoutMarkedTrashFiles } from './snapshotJson'
+import {
+  filesInTrash,
+  markTrashBlobs,
+  serializeInChunks,
+  withoutMarkedTrashFiles,
+} from './snapshotJson'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 
@@ -69,5 +74,34 @@ describe('trash blobs', () => {
     expect(dropped.payload.milestones).toEqual([{ id: 'm1' }])
     const legacy = { ...trashRow, payload: { files: [{ id: 'f2', blob: {} }] } }
     expect((withoutMarkedTrashFiles([legacy])[0] as typeof legacy).payload.files).toEqual([])
+  })
+})
+
+describe('filesInTrash', () => {
+  const pdf = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'application/pdf' })
+
+  it('lists the payload files that hold real bytes, and none that are markers or `{}`', () => {
+    const rows = [
+      {
+        id: 't1',
+        payload: {
+          files: [
+            { id: 'f1', blob: pdf },
+            { id: 'f2', blob: {} },
+          ],
+        },
+      },
+      { id: 't2', payload: { tasks: [{ id: 'x' }] } },
+      {
+        id: 't3',
+        payload: {
+          files: [{ id: 'f3', blob: { __blob: true, type: 'application/pdf', size: 4 } }],
+        },
+      },
+      'not a row',
+      { id: 't4', payload: { files: [{ id: 'f4', blob: pdf }] } },
+    ]
+    expect(filesInTrash(rows).map((f) => f.id)).toEqual(['f1', 'f4'])
+    expect(filesInTrash([])).toEqual([])
   })
 })

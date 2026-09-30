@@ -101,7 +101,7 @@ test.describe('Parking lot', () => {
     await heading.click()
     await expect(section.getByTestId('parked-item')).toBeVisible()
 
-    await section.getByRole('button', { name: 'Convert to task' }).click()
+    await section.getByRole('button', { name: `Convert to task “${THOUGHT}”`, exact: true }).click()
     await expect(toasts(page)).toContainText('Added to your tasks')
     await expect(dialog.getByText('Everything you parked is sorted.')).toBeVisible()
     await expect(section).toBeHidden()
@@ -137,7 +137,7 @@ test.describe('Parking lot', () => {
     const card = page.getByTestId('parked-card')
     await expect(card).toContainText('Parked thoughts (1)')
 
-    await card.getByRole('button', { name: 'Convert to task' }).click()
+    await card.getByRole('button', { name: `Convert to task “${THOUGHT}”`, exact: true }).click()
     await expect(toasts(page)).toContainText('Added to your tasks')
     await expect(card).toContainText('Parked thoughts (0)')
     await toasts(page).getByRole('button', { name: 'Undo' }).click()
@@ -146,6 +146,50 @@ test.describe('Parking lot', () => {
       (await readTable<StoredTask>(page, 'tasks')).filter((t) => t.title === THOUGHT),
     ).toHaveLength(0)
     expect(await parked(page)).toMatchObject([{ status: 'open', taskId: null }])
+  })
+
+  test('Undo does not claim success when the task was changed since: it says so and keeps the task', async ({
+    page,
+  }) => {
+    await openApp(page, '/')
+    await putRows(page, 'parkingLot', [
+      {
+        id: 'p1',
+        createdAt: 1,
+        updatedAt: 1,
+        text: THOUGHT,
+        sessionId: null,
+        status: 'open',
+        taskId: null,
+      },
+    ])
+    await gotoApp(page, '/')
+    const card = page.getByTestId('parked-card')
+    await card.getByRole('button', { name: `Convert to task “${THOUGHT}”`, exact: true }).click()
+    await expect(toasts(page)).toContainText('Added to your tasks')
+    await expect(card).toContainText('Parked thoughts (0)')
+
+    // The person edits the new task (a date, a rename) before pressing Undo.
+    const [made] = (await readTable<StoredTask & { updatedAt: number }>(page, 'tasks')).filter(
+      (t) => t.title === THOUGHT,
+    )
+    expect(made).toBeDefined()
+    await putRows(page, 'tasks', [
+      { ...made, title: `${THOUGHT} by Friday`, updatedAt: (made?.updatedAt ?? 0) + 60_000 },
+    ])
+
+    await toasts(page).getByRole('button', { name: 'Undo' }).click()
+    await expect(toasts(page)).toContainText('Couldn’t undo')
+    await expect(toasts(page)).toContainText('The task changed since, so it was kept')
+    await expect(toasts(page)).not.toContainText('Undone')
+    // A refused undo would find the same change again, so there is nothing to retry.
+    await expect(toasts(page).getByRole('button', { name: 'Retry' })).toHaveCount(0)
+    // Nothing moved: the task stays and the thought stays converted.
+    expect(
+      (await readTable<StoredTask>(page, 'tasks')).filter((t) => t.title.startsWith(THOUGHT)),
+    ).toHaveLength(1)
+    expect(await parked(page)).toMatchObject([{ status: 'converted', taskId: made?.id }])
+    await expect(card).toContainText('Parked thoughts (0)')
   })
 
   test('full-screen focus: p opens the box inside it, Esc closes only the box, Enter parks', async ({
@@ -324,13 +368,22 @@ test.describe('Parked thoughts on Today', () => {
     // Oldest first.
     await expect(card.getByTestId('parked-item')).toHaveText(rows.map((r) => r.text))
 
-    await card.getByTestId('parked-item').first().getByRole('button', { name: 'Done' }).click()
+    // Each row's buttons say which thought they are about, so nine buttons are not nine twins.
+    const names = await card
+      .getByRole('button', { name: /^(Convert to task|Done|Delete) “/ })
+      .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
+    expect(names).toHaveLength(9)
+    expect(new Set(names).size).toBe(9)
+
+    await card.getByRole('button', { name: `Done “${seeded[0]?.[1] ?? ''}”`, exact: true }).click()
     await expect(card).toContainText('Parked thoughts (2)')
     await expect(toasts(page)).toContainText('Marked done')
     await toasts(page).getByRole('button', { name: 'Undo' }).click()
     await expect(card).toContainText('Parked thoughts (3)')
 
-    await card.getByTestId('parked-item').nth(1).getByRole('button', { name: 'Delete' }).click()
+    await card
+      .getByRole('button', { name: `Delete “${seeded[1]?.[1] ?? ''}”`, exact: true })
+      .click()
     await expect(card).toContainText('Parked thoughts (2)')
     await expect(card).not.toContainText('D278 proctoring')
     await toasts(page).getByRole('button', { name: 'Undo' }).click()
@@ -381,9 +434,7 @@ test.describe('Parked thoughts on Today', () => {
     )
     expect(overflow).toBeLessThanOrEqual(0)
     await card
-      .getByTestId('parked-item')
-      .first()
-      .getByRole('button', { name: 'Convert to task' })
+      .getByRole('button', { name: `Convert to task “${seeded[0]?.[1] ?? ''}”`, exact: true })
       .click()
     await expect(card).toContainText('Parked thoughts (2)')
   })

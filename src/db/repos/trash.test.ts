@@ -578,6 +578,55 @@ describe('restoreTrashItem: containers', () => {
   })
 })
 
+describe('the Undo that moveToTrash returns', () => {
+  it('brings back a goal that was trashed after the task, so the task never points at a trashed goal', async () => {
+    const { chunk779 } = await seedDegree()
+    const before = await db.tasks.get(chunk779)
+    const task = await moveToTrash('tasks', chunk779, { now: NOW })
+    await moveToTrash('goals', 'g1', { now: NOW + 1000 })
+
+    await task!.undo()
+    expect(await db.tasks.get(chunk779)).toEqual(before)
+    expect(await db.goals.get('g1')).toBeDefined()
+    expect(await db.milestones.count()).toBe(2)
+    expect(await db.trash.count()).toBe(0)
+  })
+
+  it('restores a task without its links when the goal is gone for good, and does not throw', async () => {
+    const { chunk779 } = await seedDegree()
+    const task = await moveToTrash('tasks', chunk779, { now: NOW })
+    const goalEntry = await moveToTrash('goals', 'g1', { now: NOW + 1000 })
+    await purgeTrashItem(goalEntry!.trashId)
+
+    await task!.undo()
+    expect(await db.tasks.get(chunk779)).toMatchObject({
+      goalId: null,
+      milestoneId: null,
+      unitId: null,
+    })
+    expect(await db.goals.count()).toBe(0)
+  })
+
+  it('throws, and writes nothing, for a unit whose course and goal are gone for good', async () => {
+    await seedDegree()
+    const unitEntry = await moveToTrash('units', 'u1', { now: NOW })
+    const goalEntry = await moveToTrash('goals', 'g1', { now: NOW + 1000 })
+    await purgeTrashItem(goalEntry!.trashId)
+
+    await expect(unitEntry!.undo()).rejects.toThrow(/deleted for good/)
+    expect(await db.units.count()).toBe(0)
+    expect(await db.trash.count()).toBe(1)
+  })
+
+  it('does nothing, quietly, when the entry was already restored from the Trash page', async () => {
+    const task = await createTask({ title: 'Renew library card' }, { now: NOW })
+    const trashed = await moveToTrash('tasks', task.id, { now: NOW })
+    await restoreTrashItem(trashed!.trashId)
+    await expect(trashed!.undo()).resolves.toBeUndefined()
+    expect(await db.tasks.get(task.id)).toEqual(task)
+  })
+})
+
 describe('purgeTrashItem and emptyTrash', () => {
   it('deletes one entry for good, then reports it gone', async () => {
     const a = await createTask({ title: 'A' }, { now: NOW })

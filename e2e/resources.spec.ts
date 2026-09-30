@@ -647,9 +647,8 @@ test.describe('the Resources panel', () => {
     await expect(rows(page)).toHaveCount(2)
   })
 
-  test('the palette finds a resource by title and opens its course at the panel', async ({
-    page,
-  }) => {
+  /** A library across two courses, written while the app sits on the Inbox; the palette is then opened there. */
+  async function seedPaletteLibrary(page: Page): Promise<void> {
     await gotoApp(page, '/tasks/inbox', 'wgu')
     const base = { createdAt: 1, updatedAt: 1, goalId: 'goal-wgu-bscs', fileId: null, notes: '' }
     await putRows(page, 'resources', [
@@ -687,6 +686,12 @@ test.describe('the Resources panel', () => {
     ])
     await page.goto('/tasks/inbox')
     await page.keyboard.press('ControlOrMeta+k')
+  }
+
+  test('the palette finds a resource by title and opens its course at the panel', async ({
+    page,
+  }) => {
+    await seedPaletteLibrary(page)
     const input = page.getByRole('combobox', { name: 'Command palette' })
     await input.fill('mdn grid')
     const option = page.getByRole('option', { name: /MDN: CSS grid guide/ })
@@ -700,9 +705,13 @@ test.describe('the Resources panel', () => {
     await expect(tab(page, 'All')).toHaveAttribute('aria-selected', 'true')
     await expect(panel(page).getByRole('link', { name: /MDN: CSS grid guide/ })).toBeFocused()
     await expect(page.getByRole('checkbox', { name: 'Done: MDN: CSS grid guide' })).toBeChecked()
+  })
 
-    // A course with no such title is not found from the palette; another course's resource opens that course.
-    await page.keyboard.press('ControlOrMeta+k')
+  test('a resource of another course opens that course, not the one you were on', async ({
+    page,
+  }) => {
+    await seedPaletteLibrary(page)
+    const input = page.getByRole('combobox', { name: 'Command palette' })
     await input.fill('comptia')
     await page.getByRole('option', { name: /CompTIA IT Fundamentals overview/ }).click()
     await expect(page).toHaveURL(new RegExp(`${C182}$`))

@@ -68,7 +68,8 @@ export function RestoreDialog({ snapshot: asked, now, busy, error, onCancel, onC
         ) : null}
         <p className={styles.note}>
           Forge first saves your current data as a “Before restore” snapshot, so you can undo this.
-          Attached PDFs aren’t part of a snapshot and stay as they are.
+          Attached PDFs aren’t part of a snapshot: the ones on this device, including any in the
+          Trash, stay as they are.
         </p>
         {error ? (
           <p className={styles.error} role="alert">

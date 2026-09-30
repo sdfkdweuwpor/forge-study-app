@@ -178,6 +178,21 @@ describe('toastReducer: undo lifecycle', () => {
     expect(failed.items[0]?.phase).toBe('undone')
   })
 
+  it('keeps the reason for a refused undo and does not retry it', () => {
+    const refused = run(
+      [
+        { type: 'undoStart', id: 'a' },
+        { type: 'undoFailed', id: 'a', refusal: 'The task changed since, so it was kept' },
+      ],
+      withUndo(),
+    )
+    expect(refused.items[0]).toMatchObject({
+      phase: 'undoFailed',
+      undoRefusal: 'The task changed since, so it was kept',
+    })
+    expect(toastReducer(refused, { type: 'undoStart', id: 'a' })).toBe(refused)
+  })
+
   it('ignores a second undo while one is running', () => {
     const running = run([{ type: 'undoStart', id: 'a' }], withUndo())
     expect(toastReducer(running, { type: 'undoStart', id: 'a' })).toBe(running)

@@ -1,7 +1,11 @@
 import { useMemo } from 'react'
 import { recordError } from '@/app/reportError'
 import { navigate } from '@/app/router'
-import { convertParkingItem, deleteParkingItem, setParkingStatus } from '@/db/repos/parking'
+import {
+  convertParkingItem,
+  deleteParkingItem,
+  setParkingStatus,
+} from '@/db/repos/parking'
 import type { ParkingItem } from '@/db/types'
 import { useToast } from '@/ui/Toast'
 
@@ -13,13 +17,17 @@ export interface ParkedActions {
   remove: (item: ParkingItem) => Promise<void>
 }
 
-function shorten(text: string, max = 48): string {
+export function shorten(text: string, max = 48): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
 
 /**
  * What the buttons on a parked thought do, with a toast that can undo each one. Errors are reported and
  * say that nothing changed; a thought that is already gone (another tab dealt with it) is left alone.
+ *
+ * An undo that finds things changed since (the new task was edited, say) rejects with a
+ * `ParkingUndoError`, an `UndoRefusedError`, so the toast reads "Couldn’t undo" with the reason rather
+ * than a false "Undone".
  */
 export function useParkedActions(): ParkedActions {
   const toast = useToast()
@@ -48,7 +56,11 @@ export function useParkedActions(): ParkedActions {
         try {
           const changed = await setParkingStatus(item.id, 'done')
           if (!changed) return
-          toast.show({ title: 'Marked done', description: shorten(item.text), undo: changed.undo })
+          toast.show({
+            title: 'Marked done',
+            description: shorten(item.text),
+            undo: changed.undo,
+          })
         } catch (error) {
           failed(error, 'mark that done')
         }
@@ -57,7 +69,11 @@ export function useParkedActions(): ParkedActions {
         try {
           const removed = await deleteParkingItem(item.id)
           if (!removed) return
-          toast.show({ title: 'Deleted', description: shorten(item.text), undo: removed.undo })
+          toast.show({
+            title: 'Deleted',
+            description: shorten(item.text),
+            undo: removed.undo,
+          })
         } catch (error) {
           failed(error, 'delete that')
         }

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { listSnapshots, type SnapshotInfo } from '@/db/repos/snapshots'
-import { listTrash } from '@/db/repos/trash'
+import { countTrash, listTrash } from '@/db/repos/trash'
 import type { TrashEntry } from '@/logic/trashList'
 
 /**
@@ -17,4 +17,9 @@ export function useTrash(): TrashEntry[] | undefined {
 /** Every snapshot, newest first (without their data). */
 export function useSnapshots(): SnapshotInfo[] | undefined {
   return useLiveQuery(() => listSnapshots(), [])
+}
+
+/** How many entries are in the Trash (cheaper than `useTrash`, for what only needs to know if there are any). */
+export function useTrashCount(): number | undefined {
+  return useLiveQuery(() => countTrash(), [])
 }

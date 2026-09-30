@@ -12,6 +12,8 @@ export interface ToastCardProps extends Omit<ComponentProps<'div'>, 'title'> {
   description?: string
   /** Where the optional Undo action is. `undone` and `undoFailed` replace the message. */
   phase?: UndoPhase
+  /** Why a failed undo was refused; replaces "Try again" and hides Retry. */
+  undoRefusal?: string | undefined
   /** Shows an Undo button (ignored once undone). */
   onUndo?: () => void
   /** Shows an action button (ignored once undone or while an undo failed). */
@@ -37,6 +39,7 @@ export function ToastCard({
   title,
   description,
   phase = 'idle',
+  undoRefusal,
   onUndo,
   action,
   onDismiss,
@@ -48,7 +51,14 @@ export function ToastCard({
   const shownVariant: ToastVariant = failed ? 'error' : undone ? 'success' : variant
   const icon = undone ? <Undo2 /> : ICONS[shownVariant]
   const heading = undone ? 'Undone' : failed ? 'Couldn’t undo' : title
-  const detail = undone ? undefined : failed ? 'Nothing was changed. Try again.' : description
+  const refused = failed && undoRefusal !== undefined
+  const detail = undone
+    ? undefined
+    : refused
+      ? undoRefusal
+      : failed
+        ? 'Nothing was changed. Try again.'
+        : description
 
   return (
     <div className={cx(styles.toast, className)} data-variant={shownVariant} {...rest}>
@@ -68,7 +78,7 @@ export function ToastCard({
               {action.label}
             </Button>
           )}
-          {onUndo && !undone && (
+          {onUndo && !undone && !refused && (
             <Button
               variant="ghost"
               size="sm"

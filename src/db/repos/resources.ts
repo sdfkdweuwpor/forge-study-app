@@ -27,6 +27,7 @@ import {
   titleFromNote,
   titleFromUrl,
 } from '@/logic/resources'
+import { UndoRefusedError } from '@/logic/undo'
 import { db } from '../db'
 import type { ID, Resource, StoredFile } from '../types'
 import { storeFile } from './files'
@@ -306,8 +307,8 @@ export async function deleteResource(id: ID): Promise<DeletedResource | null> {
     trashId: trashed.trashId,
     undo: async () => {
       if (milestoneId !== undefined && (await db.milestones.get(milestoneId)) === undefined) {
-        throw new ResourceError(
-          'course-missing',
+        // The toast says this as it is and offers no Retry: trying again would find the same thing.
+        throw new UndoRefusedError(
           'Its course is in the Trash now. Restore the course to get this back.',
         )
       }

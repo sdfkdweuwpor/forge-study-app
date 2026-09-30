@@ -11,10 +11,10 @@ import {
   markBackedUp,
   resetAllData,
 } from '@/db/repos/backup'
+import { appVersion } from '@/lib/appVersion'
 import { backupAgeLabel, parseBackup, type BackupFile } from '@/logic/backup'
 import { Button } from '@/ui/Button'
 import { Toggle } from '@/ui/Toggle'
-import { appVersion } from './appVersion'
 import { clearDevicePrefs, saveExport } from './backupActions'
 import styles from './data.module.css'
 import { ImportDialog } from './ImportDialog'

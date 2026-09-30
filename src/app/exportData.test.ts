@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/db/db'
 import { defaultSettings } from '@/db/defaults'
 import { BACKUP_CONTEXT } from '@/db/repos/backup'
-import { parseBackup, serializeBackup } from '@/logic/backup'
-import { buildRawDump, FILES_EMBED_LIMIT_BYTES } from './exportData'
+import { FILES_EMBED_LIMIT_BYTES, parseBackup, serializeBackup } from '@/logic/backup'
+import { buildRawDump } from './exportData'
 
 const NOW = Date.UTC(2026, 8, 29, 13, 30)
 

@@ -5,7 +5,7 @@
  * The keyboard: `j`/`k` move, `r` restores, `Mod+Backspace` deletes forever, `Shift+E` empties, `f` searches.
  */
 import { Search, Trash2 } from 'lucide-react'
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useNow } from '@/app/hooks/useNow'
 import { setQuery, useQuery } from '@/app/router'
@@ -22,11 +22,23 @@ import { TrashRow, restoreButtonId } from './TrashRow'
 import { TrashEmpty, TrashError, TrashNoMatches, TrashSkeleton } from './TrashStates'
 import styles from './TrashPage.module.css'
 
-function Heading({ children }: { children?: ReactNode }) {
+/** Where focus goes when the item it was on has left the list. */
+type Landing = { kind: 'row'; id: string } | { kind: 'heading' } | { kind: 'search' }
+
+function Heading({
+  children,
+  headingRef,
+}: {
+  children?: ReactNode
+  headingRef?: Ref<HTMLHeadingElement>
+}) {
   return (
     <header className={styles.header}>
       <div className={styles.headText}>
-        <h1 className={styles.heading}>Trash</h1>
+        {/* tabIndex -1: after the last item is restored or deleted, focus lands here instead of on <body>. */}
+        <h1 ref={headingRef} tabIndex={-1} className={styles.heading}>
+          Trash
+        </h1>
         <p className={styles.lead}>
           Deleted items stay here for 30 days, then they’re gone for good.
         </p>
@@ -50,8 +62,11 @@ function TrashScreen() {
   const [deleting, setDeleting] = useState<TrashEntry | null>(null)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  // The Empty trash dialog lives in the URL (`?do=empty`), so the palette and a link can open it.
-  const emptyOpen = query.do === 'empty'
+  // Whether the Trash was emptied by something done here, so a screen reader is told (politely) it is empty.
+  const [emptied, setEmptied] = useState(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  // Entries being restored right now: a second `r` (or click) on the same one must not run it twice.
+  const restoring = useRef(new Set<string>())
 
   const visible = useMemo(
     () => (entries ?? []).filter((e) => matchesQuery(e, search)),
@@ -68,21 +83,74 @@ function TrashScreen() {
     )
   }, [cursor, order])
   const total = entries?.length ?? 0
+  // The Empty trash dialog lives in the URL (`?do=empty`), so the palette and a link can open it. It only
+  // opens on a Trash that has something in it: there is nothing to confirm otherwise.
+  const emptyOpen = query.do === 'empty' && entries !== undefined && total > 0
+  const staleEmptyLink = query.do === 'empty' && entries !== undefined && total === 0
+  useEffect(() => {
+    if (staleEmptyLink) setQuery({ do: undefined })
+  }, [staleEmptyLink])
+
+  // Where focus goes once an item has left the list (its button is about to disappear). It waits for the
+  // dialog that asked (Delete forever, Empty trash) to close, or the dialog would hand focus back to <body>.
+  const landing = useRef<Landing | null>(null)
+  const [, nudge] = useState(0)
+  const land = useCallback((next: Landing) => {
+    landing.current = next
+    nudge((n) => n + 1)
+  }, [])
+  useEffect(() => {
+    const target = landing.current
+    if (target === null || deleting !== null || emptyOpen) return
+    landing.current = null
+    if (target.kind === 'heading') heading.current?.focus()
+    else if (target.kind === 'search') searchField.current?.focus()
+    else {
+      document
+        .querySelector<HTMLElement>(`[data-trash-id="${target.id}"] button:not(:disabled)`)
+        ?.focus()
+    }
+  })
+
+  /** Sends focus to the row that takes over from `entry` (and anything restored with it), or to a place that still exists. */
+  const landAfter = useCallback(
+    (entry: TrashEntry, alsoGone: readonly string[] = []) => {
+      const left = order.filter((e) => e.id !== entry.id && !alsoGone.includes(e.id))
+      const at = order.findIndex((e) => e.id === entry.id)
+      const next = order.slice(at + 1).find((e) => left.includes(e)) ?? left.at(-1)
+      if (next) land({ kind: 'row', id: next.id })
+      else land(total - 1 - alsoGone.length <= 0 ? { kind: 'heading' } : { kind: 'search' })
+    },
+    [order, total, land],
+  )
 
   const restore = useCallback(
     async (entry: TrashEntry) => {
-      const out = await restoreFromTrashPage(entry.id)
-      if (!out.ok) {
-        toast.error('Couldn’t restore it', { description: out.message })
-        return
+      if (restoring.current.has(entry.id)) return
+      restoring.current.add(entry.id)
+      try {
+        const out = await restoreFromTrashPage(entry.id)
+        // Already restored (a second key press, another tab): the list is about to say so itself.
+        if (!out.ok && out.reason === 'missing') return
+        if (!out.ok) {
+          toast.error('Couldn’t restore it', { description: out.message })
+          return
+        }
+        const note = restoreNote(out.alsoRestored, out.detached)
+        toast.success(`Restored “${entry.title}”`, {
+          ...(note ? { description: note } : {}),
+          undo: out.undo,
+        })
+        setEmptied(true)
+        landAfter(
+          entry,
+          out.alsoRestored.map((i) => i.id),
+        )
+      } finally {
+        restoring.current.delete(entry.id)
       }
-      const note = restoreNote(out.alsoRestored, out.detached)
-      toast.success(`Restored “${entry.title}”`, {
-        ...(note ? { description: note } : {}),
-        undo: out.undo,
-      })
     },
-    [toast],
+    [toast, landAfter],
   )
 
   function askDelete(entry: TrashEntry) {
@@ -101,6 +169,8 @@ function TrashScreen() {
       return
     }
     toast.success(`Deleted “${deleting.title}” forever`)
+    setEmptied(true)
+    landAfter(deleting)
     setDeleting(null)
   }
 
@@ -122,6 +192,8 @@ function TrashScreen() {
     toast.success(
       `Emptied the Trash · ${out.count.toLocaleString('en-US')} ${out.count === 1 ? 'item' : 'items'} deleted`,
     )
+    setEmptied(true)
+    land({ kind: 'heading' })
     closeEmpty()
   }
 
@@ -159,7 +231,10 @@ function TrashScreen() {
 
   return (
     <div className={styles.root}>
-      <Heading>
+      <p className="sr-only" role="status">
+        {emptied && total === 0 ? 'The Trash is empty.' : ''}
+      </p>
+      <Heading headingRef={heading}>
         {total > 0 ? (
           <div className={styles.toolbar}>
             <Input
@@ -204,7 +279,13 @@ function TrashScreen() {
             >
               <h2 id={`trash-${group.table}`} className={styles.groupTitle}>
                 {group.label}
-                <span className={styles.groupCount}>{group.entries.length}</span>
+                {/* Read as "Tasks, 3 items", drawn as a quiet number. */}
+                <span className="sr-only">
+                  , {group.entries.length} {group.entries.length === 1 ? 'item' : 'items'}
+                </span>
+                <span className={styles.groupCount} aria-hidden="true">
+                  {group.entries.length}
+                </span>
               </h2>
               <ul className={styles.list}>
                 {group.entries.map((entry) => (

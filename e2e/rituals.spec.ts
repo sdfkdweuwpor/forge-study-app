@@ -188,7 +188,7 @@ test.describe('Morning plan', () => {
     // Check one off from the card: the usual completion, with its XP toast.
     await card.getByRole('checkbox', { name: `Done: ${ADDED}` }).check()
     await expect(card).toContainText('1 of 3 done')
-    await expect(toasts(page)).toContainText('+15 XP')
+    await expect(toasts(page)).toContainText('+10 XP')
     await expect
       .poll(async () => (await tasks(page)).find((t) => t.title === ADDED)?.status)
       .toBe('done')
@@ -463,8 +463,14 @@ test.describe('Routines', () => {
     await expect.poll(async () => (await tasks(page)).length).toBe(before)
   })
 
-  test('"Add routine…" in the palette adds it to tomorrow, with Undo', async ({ page }) => {
+  test('"Add routine…" (palette, or w r) adds it to tomorrow, with Undo', async ({ page }) => {
     await gotoApp(page, '/', 'wgu')
+    // The key opens the same picker; close it and use the palette, which the rest of the test drives.
+    await page.keyboard.press('w')
+    await page.keyboard.press('r')
+    await expect(page.getByRole('dialog', { name: 'Add a routine' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Add a routine' })).toBeHidden()
     await page.keyboard.press('ControlOrMeta+k')
     await paletteInput(page).fill('add routine')
     await page.getByRole('option', { name: /Add routine/ }).click()

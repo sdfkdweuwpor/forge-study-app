@@ -61,6 +61,18 @@ export function dailyDue(lastDay: ISODate | null, today: ISODate): boolean {
   return lastDay === null || lastDay < today
 }
 
+/** The longest gap between two starts that is taken as ordinary use; a longer one may be a clock that jumped. */
+export const CLOCK_JUMP_MS = 2 * 24 * 60 * 60 * 1000
+
+/**
+ * Whether the clock has moved more than two days past the last start's (`lastSeen`; `null` on the first
+ * start). Someone who was away for a week and a device whose clock was set years ahead look the same, so
+ * the purge, which deletes for good, skips that one start and waits for the next.
+ */
+export function clockJumpedForward(lastSeen: Millis | null, now: Millis): boolean {
+  return lastSeen !== null && now - lastSeen > CLOCK_JUMP_MS
+}
+
 // ─── Snapshots ──────────────────────────────────────────────────────────────
 
 /** Newest snapshots kept per kind. Automatic ones cover a week; the rest are chosen or safety copies. */
@@ -93,7 +105,8 @@ export function snapshotsToPrune(
   const doomed: string[] = []
   for (const [reason, list] of byReason) {
     list.sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
-    const limit = Math.max(0, keep[reason] ?? 0)
+    // A kind this build does not know (a newer build's) is kept whole: pruning must never delete what it cannot judge.
+    const limit = Math.max(0, keep[reason] ?? Infinity)
     for (const s of list.slice(limit)) doomed.push(s.id)
   }
   return doomed

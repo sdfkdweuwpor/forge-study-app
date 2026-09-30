@@ -7,7 +7,8 @@
  *   afterwards. Dismissing a queued item deletes it at once.
  * - Adding an item whose `id` already exists updates it in place (same slot) and bumps `revision`,
  *   which restarts its timer. Use a fixed id for status toasts such as "Saving…" then "Saved".
- * - Undo has its own lifecycle: idle → undoing → undone | undoFailed (Retry goes back to undoing).
+ * - Undo has its own lifecycle: idle → undoing → undone | undoFailed (Retry goes back to undoing,
+ *   except after a refusal: an undo that found things changed since cannot succeed on a retry).
  */
 
 /** Default number of toasts on screen at once. */
@@ -35,6 +36,11 @@ export interface ToastItem {
   /** Present when the toast offers an action button ("Open"). */
   action?: ToastActionButton
   phase: UndoPhase
+  /**
+   * Why the undo was refused (things changed since), shown in place of "Try again". A refused undo
+   * offers no Retry. Absent for an undo that simply failed.
+   */
+  undoRefusal?: string
   /** Exit animation running; removed shortly after. */
   leaving: boolean
   /** Bumped when the item is updated in place, to restart timers. */
@@ -74,7 +80,7 @@ export type ToastAction =
   | { type: 'remove'; id: string }
   | { type: 'undoStart'; id: string }
   | { type: 'undoDone'; id: string }
-  | { type: 'undoFailed'; id: string }
+  | { type: 'undoFailed'; id: string; refusal?: string }
 
 /** Resolves the auto-dismiss delay: an explicit value wins, then undoable, then the variant default. */
 export function resolveDuration(
@@ -142,7 +148,9 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
 
     case 'undoStart':
       return patch(state, action.id, (item) =>
-        item.undo && (item.phase === 'idle' || item.phase === 'undoFailed') && !item.leaving
+        item.undo &&
+        (item.phase === 'idle' || (item.phase === 'undoFailed' && item.undoRefusal === undefined)) &&
+        !item.leaving
           ? { ...item, phase: 'undoing' }
           : item,
       )
@@ -165,6 +173,7 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
           ? {
               ...item,
               phase: 'undoFailed',
+              ...(action.refusal !== undefined ? { undoRefusal: action.refusal } : {}),
               duration: TOAST_DURATION.undoFailed,
               revision: item.revision + 1,
             }

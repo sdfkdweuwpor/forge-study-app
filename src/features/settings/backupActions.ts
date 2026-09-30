@@ -3,7 +3,7 @@ import { exportBackup, markBackedUp, type BackupExport } from '@/db/repos/backup
 import { downloadText } from '@/lib/download'
 import { PREF_KEYS, removePref } from '@/lib/localPrefs'
 import { formatMegabytes } from '@/logic/backup'
-import { appVersion } from './appVersion'
+import { appVersion } from '@/lib/appVersion'
 
 export type BackupOutcome =
   { ok: true; filename: string; items: number; message: string } | { ok: false; message: string }

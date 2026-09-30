@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CLOCK_JUMP_MS,
   SNAPSHOT_KEEP,
   TRASH_DAYS,
+  clockJumpedForward,
   dailyDue,
   daysUntilPurge,
   formatBytes,
@@ -88,6 +90,25 @@ describe('daysUntilPurge and purgeLabel', () => {
   })
 })
 
+describe('clockJumpedForward', () => {
+  const at0 = at(2026, 9, 29)
+
+  it('is not a jump on the first start, or for an ordinary gap', () => {
+    expect(clockJumpedForward(null, at0)).toBe(false)
+    expect(clockJumpedForward(at0, at0 + 60_000)).toBe(false)
+    expect(clockJumpedForward(at0, at0 + CLOCK_JUMP_MS)).toBe(false)
+  })
+
+  it('is a jump once the gap passes two days, even by a minute', () => {
+    expect(clockJumpedForward(at0, at0 + CLOCK_JUMP_MS + 60_000)).toBe(true)
+    expect(clockJumpedForward(at0, at(2031, 1, 1))).toBe(true)
+  })
+
+  it('a clock set back is not a forward jump', () => {
+    expect(clockJumpedForward(at0, at0 - 10 * CLOCK_JUMP_MS)).toBe(false)
+  })
+})
+
 describe('dailyDue', () => {
   it('is due when it never ran or last ran on an earlier day', () => {
     expect(dailyDue(null, '2026-09-29')).toBe(true)
@@ -144,9 +165,14 @@ describe('snapshotsToPrune', () => {
     expect(second).toEqual(first)
   })
 
-  it('drops an unknown kind entirely rather than keeping it forever', () => {
-    const rows = [stub('z', 'from-the-future' as SnapshotStub['reason'], 1)]
-    expect(snapshotsToPrune(rows)).toEqual(['z'])
+  it('keeps an unknown kind whole: pruning never deletes what it cannot judge', () => {
+    const rows = Array.from({ length: 9 }, (_, i) =>
+      stub(`z${i}`, 'from-the-future' as SnapshotStub['reason'], i),
+    )
+    expect(snapshotsToPrune(rows)).toEqual([])
+    // ...while the known kinds beside it are still trimmed.
+    const mixed = [...rows, ...Array.from({ length: 9 }, (_, i) => stub(`d${i}`, 'daily', i))]
+    expect(snapshotsToPrune(mixed).sort()).toEqual(['d0', 'd1'])
   })
 
   it('accepts other limits', () => {

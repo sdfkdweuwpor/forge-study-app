@@ -3,6 +3,7 @@ import { db } from '@/db/db'
 import { onDomainEvent, resetDomainEvents, settleDomainEvents, type DomainEvent } from '@/db/events'
 import {
   PARKING_TEXT_MAX,
+  ParkingUndoError,
   addParkingItem,
   cleanParkingText,
   convertParkingItem,
@@ -11,7 +12,7 @@ import {
   listParkingItems,
   setParkingStatus,
 } from '@/db/repos/parking'
-import { updateTask } from '@/db/repos/tasks'
+import { completeTask, updateTask } from '@/db/repos/tasks'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 
@@ -114,6 +115,27 @@ describe('setParkingStatus', () => {
     expect(await setParkingStatus(item.id, 'done')).toBeNull()
     expect((await db.parkingLot.get(item.id))?.status).toBe('converted')
   })
+
+  it('changes nothing, and offers no undo, when it already has that status', async () => {
+    const item = await addParkingItem({ text: 'x' }, { now: NOW })
+    expect(await setParkingStatus(item.id, 'open', { now: NOW + 1000 })).toBeNull()
+    expect((await db.parkingLot.get(item.id))?.updatedAt).toBe(NOW)
+    await setParkingStatus(item.id, 'done')
+    expect(await setParkingStatus(item.id, 'done')).toBeNull()
+  })
+
+  it('undo throws, and leaves the thought as it is, when its status changed since', async () => {
+    const item = await addParkingItem({ text: 'x' })
+    const done = await setParkingStatus(item.id, 'done')
+    // Another tab brought it back, and then a task was made from it.
+    await setParkingStatus(item.id, 'open')
+    await convertParkingItem(item.id)
+
+    const undone = done?.undo()
+    await expect(undone).rejects.toBeInstanceOf(ParkingUndoError)
+    await expect(undone).rejects.toThrow('changed since')
+    expect((await db.parkingLot.get(item.id))?.status).toBe('converted')
+  })
 })
 
 describe('deleteParkingItem', () => {
@@ -184,7 +206,7 @@ describe('convertParkingItem', () => {
     expect(emitted.map((e) => e.type)).toEqual(['task.created', 'task.deleted'])
   })
 
-  it('undo leaves a task alone once it has been edited', async () => {
+  it('undo throws, and keeps the task, once it has been edited', async () => {
     const item = await addParkingItem({ text: 'Skim the D278 syllabus' })
     const result = await convertParkingItem(item.id, { now: NOW })
     await updateTask(
@@ -192,9 +214,43 @@ describe('convertParkingItem', () => {
       { title: 'Skim the D278 syllabus and take notes' },
       { now: NOW + 60_000 },
     )
-    await result?.undo()
+    const undone = result?.undo()
 
+    // Not a silent success: a toast would otherwise say "Undone" about a task that stays.
+    await expect(undone).rejects.toBeInstanceOf(ParkingUndoError)
+    await expect(undone).rejects.toThrow('The task changed since, so it was kept')
     expect(await db.tasks.count()).toBe(1)
-    expect(await db.parkingLot.get(item.id)).toMatchObject({ status: 'converted' })
+    expect(await db.parkingLot.get(item.id)).toMatchObject({
+      status: 'converted',
+      taskId: result?.task.id,
+    })
+  })
+
+  it('undo throws, and keeps the task, once it has been completed', async () => {
+    const item = await addParkingItem({ text: 'Skim the D278 syllabus' })
+    const result = await convertParkingItem(item.id, { now: NOW })
+    await completeTask(result?.task.id ?? '', { now: NOW + 60_000 })
+
+    await expect(result?.undo()).rejects.toThrow('The task changed since, so it was kept')
+    expect((await db.tasks.get(result?.task.id ?? ''))?.status).toBe('done')
+    expect((await db.parkingLot.get(item.id))?.status).toBe('converted')
+  })
+
+  it('undo throws when the thought was changed since (deleted, say)', async () => {
+    const item = await addParkingItem({ text: 'Skim the D278 syllabus' })
+    const result = await convertParkingItem(item.id, { now: NOW })
+    await deleteParkingItem(item.id)
+
+    await expect(result?.undo()).rejects.toBeInstanceOf(ParkingUndoError)
+    // Nothing was removed on the way to failing.
+    expect(await db.tasks.count()).toBe(1)
+  })
+
+  it('undo still works when the task was removed by hand: the thought comes back', async () => {
+    const item = await addParkingItem({ text: 'Skim the D278 syllabus' })
+    const result = await convertParkingItem(item.id, { now: NOW })
+    await db.tasks.delete(result?.task.id ?? '')
+    await result?.undo()
+    expect(await db.parkingLot.get(item.id)).toMatchObject({ status: 'open', taskId: null })
   })
 })

@@ -3,7 +3,9 @@ import { useToast } from '@/ui/Toast'
 import { formatBytes, whenLabel } from '@/logic/retention'
 import { restoreAndReload, snapshotNow } from './actions'
 import { listenForSnapshotNow } from './commandBus'
+import { useTrashCount } from './queries'
 import { takeRestoreNotice } from './restoreNotice'
+import { publishTrashCount } from './trashCount'
 
 /**
  * Renders nothing (slot `global.overlays`). It takes the snapshot asked for by the palette or `o s` and
@@ -12,6 +14,12 @@ import { takeRestoreNotice } from './restoreNotice'
  */
 export function SafetyHost() {
   const toast = useToast()
+  const trashCount = useTrashCount()
+
+  // The palette hides "Empty Trash…" while the Trash is empty; its `when` reads this.
+  useEffect(() => {
+    publishTrashCount(trashCount)
+  }, [trashCount])
 
   useEffect(
     () =>
@@ -37,7 +45,7 @@ export function SafetyHost() {
       return
     }
     toast.success('Snapshot restored', {
-      description: `${notice.items.toLocaleString('en-US')} items from ${whenLabel(notice.takenAt, Date.now())}.`,
+      description: `${notice.items.toLocaleString('en-US')} items from ${whenLabel(notice.takenAt, Date.now())}. Attached PDFs were left as they are.`,
       duration: 15_000,
       undo: async () => {
         const out = await restoreAndReload(notice.preRestoreId, notice.takenAt, 'undo')

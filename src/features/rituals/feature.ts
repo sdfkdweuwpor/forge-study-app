@@ -28,7 +28,7 @@ const ReflectionsSection = lazy(() =>
  *   once a day.
  * - Routines: named sets of tasks (`Template`, kind `task`) added to a day in one click; two starters.
  *
- * Entry points: the palette ("Morning plan", "Evening shutdown", "Add routine…"), `w m` and `w e`, a gentle
+ * Entry points: the palette ("Morning plan", "Evening shutdown", "Add routine…"), `w m`, `w e` and `w r`, a gentle
  * card on Today (morning before noon, evening from 17:00, both times in Settings, dismissible for the day),
  * the `/rituals/:kind` link, and Settings.
  *

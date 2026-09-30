@@ -1,5 +1,11 @@
 import { db } from '@/db/db'
-import { buildBackup, serializeBackup, type BackupFile } from '@/logic/backup'
+import { appVersion } from '@/lib/appVersion'
+import {
+  FILES_EMBED_LIMIT_BYTES,
+  buildBackup,
+  serializeBackup,
+  type BackupFile,
+} from '@/logic/backup'
 import { dayOf } from '@/logic/dates'
 
 export interface ExportResult {
@@ -10,9 +16,6 @@ export interface ExportResult {
   notes: string[]
 }
 
-/** Attached PDFs go into the dump (base64) only while they total no more than this; a bigger library is left out. */
-export const FILES_EMBED_LIMIT_BYTES = 50 * 1024 * 1024
-
 /**
  * What the crash screen exports: an ordinary backup file (the format Settings → Data imports, written by
  * the same `buildBackup` / `serializeBackup`), marked as coming from the crash screen. Every table is in
@@ -22,9 +25,6 @@ export const FILES_EMBED_LIMIT_BYTES = 50 * 1024 * 1024
 export interface RawDump extends BackupFile {
   kind: 'raw-dump'
 }
-
-/** The app's version (from package.json at build time), or "dev" where the build constant does not exist. */
-const version = (): string => (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')
 
 /**
  * Reads every table in ONE read transaction, so the dump is a consistent snapshot even while the app
@@ -44,7 +44,7 @@ export async function buildRawDump(
   const file = await buildBackup({
     tables,
     schemaVersion: db.verno,
-    appVersion: version(),
+    appVersion: appVersion(),
     now,
     // `buildBackup` embeds files that total *at most* the limit; the crash export's limit is exclusive.
     embedLimitBytes: embedLimitBytes - 1,

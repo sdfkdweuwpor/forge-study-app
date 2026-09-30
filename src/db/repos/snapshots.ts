@@ -20,10 +20,10 @@ import { yieldToMain } from '@/lib/idle'
 import { buildBackup, countItems, hasUserData, parseBackup, planRestore } from '@/logic/backup'
 import { dayOf } from '@/logic/dates'
 import { dailyDue, snapshotsToPrune } from '@/logic/retention'
-import { serializeInChunks } from '@/logic/snapshotJson'
+import { filesInTrash, serializeInChunks } from '@/logic/snapshotJson'
 import { db } from '../db'
 import { SCHEMA_VERSION } from '../schema'
-import type { ID, ISODate, Millis, Snapshot, SnapshotReason } from '../types'
+import type { ID, ISODate, Millis, Snapshot, SnapshotReason, StoredFile } from '../types'
 import { BACKUP_CONTEXT, BACKUP_TABLES, readBackupTables } from './backup'
 import { ensureSettings } from './settings'
 
@@ -190,7 +190,8 @@ export interface RestoreSnapshotResult {
  * Replaces the app's data with a snapshot. In order: read and check the snapshot (a bad one stops here),
  * write a `pre-restore` snapshot of the data as it is (if that fails nothing is touched), then clear and
  * refill every backup table in ONE transaction (any failure rolls all of it back). The `files` table is left
- * as it is, because snapshots hold no file bytes; `snapshots` is left alone too. The caller reloads the
+ * as it is, because snapshots hold no file bytes (it only gains the bytes of files that were sitting in the
+ * Trash, which the restore would otherwise lose); `snapshots` is left alone too. The caller reloads the
  * app afterwards so every screen starts from the restored data.
  */
 export async function restoreSnapshot(
@@ -210,18 +211,19 @@ export async function restoreSnapshot(
 
   const plan = planRestore(parsed.file, BACKUP_CONTEXT, opts.now)
   const replaced = BACKUP_TABLES.filter((name) => name !== 'files')
-  await db.transaction(
-    'rw',
-    replaced.map((name) => db.table(name)),
-    async () => {
-      for (const name of replaced) {
-        const table = db.table(name)
-        await table.clear()
-        const rows = plan.tables[name] ?? []
-        if (rows.length > 0) await table.bulkPut(rows)
-      }
-    },
-  )
+  await db.transaction('rw', [...replaced.map((name) => db.table(name)), db.files], async () => {
+    // Deleting a PDF resource moves its file out of `files` into the Trash entry, and a snapshot's Trash
+    // holds no bytes. Put the bytes of every trashed file back in `files` before the Trash is replaced, so
+    // a later restore from the Trash (or Undo restore) still finds them through `resource.fileId`.
+    const rescued = filesInTrash(await db.trash.toArray())
+    if (rescued.length > 0) await db.files.bulkPut(rescued as unknown as StoredFile[])
+    for (const name of replaced) {
+      const table = db.table(name)
+      await table.clear()
+      const rows = plan.tables[name] ?? []
+      if (rows.length > 0) await table.bulkPut(rows)
+    }
+  })
   await ensureSettings()
   const items = countItems({ ...plan.tables, files: [] })
   return { items, preRestoreId: safety.id, fromVersion: parsed.file.schemaVersion }

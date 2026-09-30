@@ -4,6 +4,7 @@ import type { CommandDef, FeatureManifest } from '@/app/registry'
 import { scheduleSafetyChores } from './chores'
 import { requestSnapshotNow } from './commandBus'
 import { safetyShortcuts } from './shortcuts'
+import { trashIsKnownEmpty } from './trashCount'
 
 // The page, the Settings section and the host are not needed for the first paint.
 const TrashPage = lazy(() => import('./TrashPage'))
@@ -28,6 +29,8 @@ const commands: CommandDef[] = [
     group: 'Data',
     icon: Trash2,
     keywords: ['delete forever', 'permanently', 'purge', 'clear'],
+    // Nothing to empty: the command steps aside (until the Trash has been read, it shows).
+    when: () => !trashIsKnownEmpty(),
     // Opens the confirmation; nothing is deleted until the words are typed.
     run: (c) => c.navigate('trash', undefined, { query: { do: 'empty' } }),
   },

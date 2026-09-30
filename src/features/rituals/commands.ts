@@ -36,6 +36,7 @@ export const ritualCommands: CommandDef[] = [
     title: 'Add routine…',
     group: 'Create',
     icon: ListPlus,
+    shortcutId: 'rituals.addRoutine',
     keywords: ['template', 'study day', 'weekly reset', 'tasks', 'repeat', 'set of tasks'],
     run: (c) => {
       c.overlays.close('palette')

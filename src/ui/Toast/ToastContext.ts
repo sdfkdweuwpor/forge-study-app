@@ -18,7 +18,8 @@ export interface ToastOptions {
   duration?: number
   /**
    * Adds an Undo button. It runs this, then the toast reads "Undone". If it throws or rejects,
-   * the toast says it could not undo and offers Retry.
+   * the toast says it could not undo and offers Retry; an `UndoRefusedError` (@/logic/undo), for
+   * things that changed since, shows its message instead and no Retry.
    */
   undo?: () => void | Promise<void>
   /** Adds an action button beside Undo, e.g. `{ label: 'Open', onClick }`. */

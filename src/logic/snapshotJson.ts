@@ -65,3 +65,19 @@ export function withoutMarkedTrashFiles(rows: readonly unknown[]): unknown[] {
     return { ...row, payload: { ...row.payload, files } }
   })
 }
+
+/**
+ * The attached files whose real bytes sit inside trash rows. `moveToTrash` takes a trashed resource's file
+ * out of `files` and into its entry's payload, and a snapshot only ever holds a marker for it, so when a
+ * restore replaces the Trash these rows are the only copy of the bytes.
+ */
+export function filesInTrash(rows: readonly unknown[]): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = []
+  for (const row of rows) {
+    if (!isRow(row) || !isRow(row.payload) || !Array.isArray(row.payload.files)) continue
+    for (const f of row.payload.files) {
+      if (isRow(f) && typeof Blob !== 'undefined' && f.blob instanceof Blob) out.push(f)
+    }
+  }
+  return out
+}

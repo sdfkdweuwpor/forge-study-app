@@ -246,7 +246,8 @@ describe('restoreSnapshot', () => {
     expect(Array.from(bytes)).toEqual(Array.from(pdfBytes))
   })
 
-  it('brings the Trash back with the data, and a trashed resource’s file is not restored (no bytes)', async () => {
+  /** A course with a PDF resource, then the course moved to the Trash: its file's bytes now live only in the trash row. */
+  async function trashCourseWithPdf() {
     await applySeed('wgu')
     const goal = (await db.goals.toArray())[0]!
     const course = (await db.milestones.where('goalId').equals(goal.id).toArray())[0]!
@@ -264,22 +265,66 @@ describe('restoreSnapshot', () => {
       order: 0,
     })
     const trashed = await moveToTrash('milestones', course.id, { now: NOW })
+    expect(await db.files.count()).toBe(0)
+    expect(trashed?.item.payload.files).toHaveLength(1)
+    return { course, trashed: trashed! }
+  }
+
+  const bytesOf = async (id: string): Promise<number[]> =>
+    Array.from(new Uint8Array(await (await db.files.get(id))!.blob.arrayBuffer()))
+
+  it('keeps a trashed PDF’s bytes when the restore replaces the Trash, and the entry still restores with its file', async () => {
+    const { course, trashed } = await trashCourseWithPdf()
     const snap = await takeSnapshot('manual', { now: NOW, appVersion: VERSION })
-    // The snapshot's JSON never holds `{}` for the file.
+    // The snapshot's JSON never holds `{}` for the file, only a marker.
     expect(await readSnapshotText(snap!.id)).toContain('"__blob":true')
 
-    await db.trash.clear()
     await restoreSnapshot(snap!.id, { now: NOW + 1000, appVersion: VERSION })
-    const back = await db.trash.get(trashed!.trashId)
-    expect(back?.title).toBe(trashed!.item.title)
+    const back = await db.trash.get(trashed.trashId)
+    expect(back?.title).toBe(trashed.item.title)
     expect(back?.payload.files ?? []).toEqual([])
     expect(back?.payload.resources).toHaveLength(1)
+    // The bytes moved from the Trash row to `files`, where the resource's `fileId` finds them.
+    expect(await bytesOf('file-1')).toEqual(Array.from(pdfBytes))
 
-    // ...and the entry still restores.
-    const out = await restoreTrashItem(trashed!.trashId)
+    const out = await restoreTrashItem(trashed.trashId)
     expect(out.ok).toBe(true)
     expect(await db.milestones.get(course.id)).toBeDefined()
-    expect(await db.resources.get('r1')).toMatchObject({ fileId: 'file-1' })
+    const resource = await db.resources.get('r1')
+    expect(resource).toMatchObject({ fileId: 'file-1' })
+    expect(await bytesOf(resource!.fileId!)).toEqual(Array.from(pdfBytes))
+  })
+
+  it('does not lose a trashed PDF when the snapshot has no such Trash entry, and Undo restore brings the entry back with its file', async () => {
+    await applySeed('wgu')
+    const early = await takeSnapshot('manual', { now: NOW, appVersion: VERSION })
+    const goal = (await db.goals.toArray())[0]!
+    const course = (await db.milestones.where('goalId').equals(goal.id).toArray())[0]!
+    await addPdf('file-1')
+    await db.resources.add({
+      id: 'r1',
+      goalId: goal.id,
+      milestoneId: course.id,
+      kind: 'pdf',
+      title: 'Study guide',
+      url: null,
+      fileId: 'file-1',
+      status: 'toRead',
+      notes: '',
+      order: 0,
+    })
+    const trashed = await moveToTrash('milestones', course.id, { now: NOW + 500 })
+
+    // Restoring the earlier snapshot drops the Trash entry, but not the bytes.
+    const result = await restoreSnapshot(early!.id, { now: NOW + 1000, appVersion: VERSION })
+    expect(await db.trash.count()).toBe(0)
+    expect(await bytesOf('file-1')).toEqual(Array.from(pdfBytes))
+
+    // Undo restore: the entry is back (the pre-restore snapshot holds no bytes) and restores with its file.
+    await restoreSnapshot(result.preRestoreId, { now: NOW + 2000, appVersion: VERSION })
+    expect((await db.trash.get(trashed!.trashId))?.payload.files ?? []).toEqual([])
+    expect((await restoreTrashItem(trashed!.trashId)).ok).toBe(true)
+    expect(await bytesOf((await db.resources.get('r1'))!.fileId!)).toEqual(Array.from(pdfBytes))
   })
 
   it('restores a snapshot made where the browser could not compress', async () => {

@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { newId } from '@/lib/ids'
+import { isUndoRefused } from '@/logic/undo'
 import { getFocusable } from '../Popover/focus'
 import { ToastCard } from './ToastCard'
 import { ToastContext, type ToastApi, type ToastExtras, type ToastOptions } from './ToastContext'
@@ -109,8 +110,12 @@ function ToastEntry({ item, dispatch }: ToastEntryProps) {
       try {
         await undo()
         dispatch({ type: 'undoDone', id })
-      } catch {
-        dispatch({ type: 'undoFailed', id })
+      } catch (error) {
+        dispatch(
+          isUndoRefused(error)
+            ? { type: 'undoFailed', id, refusal: error.message }
+            : { type: 'undoFailed', id },
+        )
       }
     })()
   }
@@ -142,6 +147,7 @@ function ToastEntry({ item, dispatch }: ToastEntryProps) {
         title={item.title}
         description={item.description}
         phase={item.phase}
+        undoRefusal={item.undoRefusal}
         onUndo={item.undo ? runUndo : undefined}
         action={
           item.action

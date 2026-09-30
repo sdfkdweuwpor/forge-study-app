@@ -91,6 +91,10 @@ export function EmptyTrashDialog({ open, count, busy, error, onCancel, onConfirm
     setWasOpen(open)
     if (!open) setTyped('')
   }
+  // The count stays what it was while the dialog fades out after emptying (the Trash is 0 by then).
+  const [keptCount, setKeptCount] = useState(count)
+  if (count > 0 && count !== keptCount) setKeptCount(count)
+  const shownCount = count > 0 ? count : keptCount
   const ready = isEmptyTrashPhrase(typed)
 
   function close() {
@@ -105,7 +109,7 @@ export function EmptyTrashDialog({ open, count, busy, error, onCancel, onConfirm
       title="Empty the Trash?"
       size="sm"
       phoneLayout="sheet"
-      description={`This permanently deletes ${itemCount(count)}, with everything inside them. It can’t be undone.`}
+      description={`This permanently deletes ${itemCount(shownCount)}, with everything inside them. It can’t be undone.`}
       closeOnEsc={!busy}
       closeOnScrim={!busy}
       showClose={!busy}
@@ -115,7 +119,7 @@ export function EmptyTrashDialog({ open, count, busy, error, onCancel, onConfirm
             Cancel
           </Button>
           <Button variant="danger" disabled={!ready} loading={busy} onClick={onConfirm}>
-            {`Delete ${itemCount(count)}`}
+            {`Delete ${itemCount(shownCount)}`}
           </Button>
         </>
       }

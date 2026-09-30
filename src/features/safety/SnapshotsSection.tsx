@@ -72,7 +72,7 @@ export function SnapshotsSection() {
       <p className={styles.intro}>
         Forge saves a copy of your data inside this browser once a day and keeps the last{' '}
         {SNAPSHOT_KEEP.daily}. Restoring one replaces what is on this device. Attached PDFs aren’t
-        included.
+        part of a snapshot, and restoring one never removes them.
       </p>
 
       <div className={styles.row}>

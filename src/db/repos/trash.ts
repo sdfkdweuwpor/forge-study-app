@@ -37,7 +37,12 @@ export interface TrashResult {
   /** The id of the `trash` row. */
   trashId: ID
   item: TrashItem
-  /** Puts everything back (restore from trash). */
+  /**
+   * Puts everything back, the way the Trash page restores it (`restoreTrashItem`): if its goal or course was
+   * trashed since, that comes back too; if it is gone for good, a task returns without the link. Quietly
+   * does nothing when the entry is already restored or purged; throws (so a toast can offer Retry) when a
+   * course or unit has nowhere to return to.
+   */
   undo: () => Promise<void>
 }
 
@@ -156,7 +161,7 @@ export interface MoveToTrashOptions {
 
 /**
  * Moves a row and its cascade to the trash in one transaction. Returns `null` when the row does not
- * exist (already deleted in another tab, say). `undo()` is `restoreFromTrash` for the new entry.
+ * exist (already deleted in another tab, say). `undo()` restores the new entry (see `TrashResult.undo`).
  */
 export async function moveToTrash(
   name: TableName,
@@ -185,7 +190,14 @@ export async function moveToTrash(
     return entry
   })
   if (!item) return null
-  return { trashId: item.id, item, undo: async () => void (await restoreFromTrash(item.id)) }
+  return {
+    trashId: item.id,
+    item,
+    undo: async () => {
+      const out = await restoreTrashItem(item.id)
+      if (!out.ok && out.reason !== 'missing') throw new Error(out.message)
+    },
+  }
 }
 
 /**

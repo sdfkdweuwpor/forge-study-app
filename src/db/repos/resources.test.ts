@@ -16,6 +16,7 @@ import {
 import { listTrash, moveToTrash, restoreFromTrash, restoreTrashItem } from '@/db/repos/trash'
 import { dayOf } from '@/logic/dates'
 import { MAX_PDF_BYTES } from '@/logic/resources'
+import { UndoRefusedError } from '@/logic/undo'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 const C779 = COURSE_IDS.C779
@@ -426,7 +427,7 @@ describe('deleteResource', () => {
     const r = await createLinkResource(C779, { url: 'https://example.com', title: 'Stray' })
     const deleted = await deleteResource(r.id)
     await moveToTrash('milestones', C779)
-    await expect(deleted?.undo()).rejects.toBeInstanceOf(ResourceError)
+    await expect(deleted?.undo()).rejects.toBeInstanceOf(UndoRefusedError)
     expect(await db.resources.count()).toBe(0)
     expect(await db.trash.count()).toBe(2)
   })

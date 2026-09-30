@@ -9,56 +9,46 @@ import { getRecordedErrors } from './reportError'
 import { href } from './router'
 import styles from './ErrorScreens.module.css'
 
-type ExportState =
-  | { kind: 'idle' }
-  | { kind: 'busy' }
-  | { kind: 'done'; text: string }
-  | { kind: 'failed'; text: string }
+/** Reports what a recovery button did, in the one status line under the buttons. */
+type OnStatus = (text: string) => void
 
-function ExportButton() {
-  const [state, setState] = useState<ExportState>({ kind: 'idle' })
+function ExportButton({ onStatus }: { onStatus: OnStatus }) {
+  const [busy, setBusy] = useState(false)
 
   async function run() {
-    setState({ kind: 'busy' })
+    setBusy(true)
+    onStatus('')
     try {
       const r = await exportAllData()
       // A note means something was left out (attached files over the size limit): say so, don't hide it.
       const left = r.notes.length > 0 ? ` ${r.notes.join(' ')}` : ''
-      setState({ kind: 'done', text: `Saved ${r.filename} (${r.rows} records).${left}` })
+      onStatus(`Saved ${r.filename} (${r.rows} records).${left}`)
     } catch (e) {
-      setState({
-        kind: 'failed',
-        text: `Could not read the database${e instanceof Error ? `: ${e.message}` : '.'}`,
-      })
+      onStatus(`Could not read the database${e instanceof Error ? `: ${e.message}` : '.'}`)
     }
+    setBusy(false)
   }
 
   return (
-    <>
-      <button
-        type="button"
-        className={styles.secondary}
-        onClick={() => void run()}
-        disabled={state.kind === 'busy'}
-      >
-        {state.kind === 'busy' ? 'Exporting…' : 'Export my data'}
-      </button>
-      <p className={styles.status} role="status">
-        {state.kind === 'done' || state.kind === 'failed' ? state.text : ''}
-      </p>
-    </>
+    <button type="button" className={styles.secondary} onClick={() => void run()} disabled={busy}>
+      {busy ? 'Exporting…' : 'Export my data'}
+    </button>
   )
 }
 
 /** The app's version (from package.json at build time), or "dev" where the build constant does not exist. */
 const version = (): string => (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')
 
-type CopyState = 'idle' | 'copied' | 'failed'
-
 /** Copies what a bug report needs (the error, the page, the version and browser; nothing the person wrote). */
-function CopyDetailsButton({ error, where }: { error: Error; where: string }) {
-  const [state, setState] = useState<CopyState>('idle')
-
+function CopyDetailsButton({
+  error,
+  where,
+  onStatus,
+}: {
+  error: Error
+  where: string
+  onStatus: OnStatus
+}) {
   async function run() {
     let ok = false
     try {
@@ -79,22 +69,26 @@ function CopyDetailsButton({ error, where }: { error: Error; where: string }) {
     } catch {
       ok = false
     }
-    setState(ok ? 'copied' : 'failed')
+    onStatus(
+      ok
+        ? 'Copied. Paste it wherever you report the problem.'
+        : 'Couldn’t copy. Select the message above and copy it by hand.',
+    )
   }
 
   return (
-    <>
-      <button type="button" className={styles.secondary} onClick={() => void run()}>
-        Copy error details
-      </button>
-      <p className={styles.status} role="status">
-        {state === 'copied'
-          ? 'Copied. Paste it wherever you report the problem.'
-          : state === 'failed'
-            ? 'Couldn’t copy. Select the message above and copy it by hand.'
-            : ''}
-      </p>
-    </>
+    <button type="button" className={styles.secondary} onClick={() => void run()}>
+      Copy error details
+    </button>
+  )
+}
+
+/** The line that says what the last button did. Always in the page, so a screen reader hears it appear. */
+function Status({ text }: { text: string }) {
+  return (
+    <p className={styles.status} role="status">
+      {text}
+    </p>
   )
 }
 
@@ -179,6 +173,7 @@ function FullScreenError({
   where = 'the app',
   snapshots = false,
 }: FullScreenProps) {
+  const [status, setStatus] = useState('')
   return (
     <CrashGuard>
       <main className={styles.screen}>
@@ -201,9 +196,10 @@ function FullScreenError({
                 Reload
               </button>
             )}
-            {canExport ? <ExportButton /> : null}
-            {error ? <CopyDetailsButton error={error} where={where} /> : null}
+            {canExport ? <ExportButton onStatus={setStatus} /> : null}
+            {error ? <CopyDetailsButton error={error} where={where} onStatus={setStatus} /> : null}
           </div>
+          <Status text={status} />
           {snapshots ? <SnapshotsLink /> : null}
         </div>
       </main>
@@ -259,6 +255,7 @@ export function FatalScreen({ fatal }: { fatal: FatalState }) {
 
 /** Inline fallback when one page fails; the sidebar and the rest of the app keep working. */
 export function RouteErrorView({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  const [status, setStatus] = useState('')
   // A lazy chunk that 404s after a deploy: reload once automatically; the button covers the rest.
   const outdated = isChunkLoadError(error)
   useEffect(() => {
@@ -291,9 +288,10 @@ export function RouteErrorView({ error, onRetry }: { error: Error; onRetry: () =
         <button type="button" className={styles.primary} onClick={onRetry}>
           Try again
         </button>
-        <ExportButton />
-        <CopyDetailsButton error={error} where="a page" />
+        <ExportButton onStatus={setStatus} />
+        <CopyDetailsButton error={error} where="a page" onStatus={setStatus} />
       </div>
+      <Status text={status} />
       <SnapshotsLink />
     </section>
   )

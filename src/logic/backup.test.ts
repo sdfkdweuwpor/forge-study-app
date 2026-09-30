@@ -184,6 +184,38 @@ describe('buildBackup', () => {
   })
 })
 
+describe('a trashed resource’s attached file', () => {
+  const pdf = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'application/pdf' })
+  const trashRow = {
+    id: 'trash-1',
+    entityTable: 'milestones',
+    payload: { milestones: [{ id: 'm1' }], files: [{ id: 'f1', name: 'guide.pdf', blob: pdf }] },
+  }
+
+  it('is written as a marker (JSON would make `{}` of a Blob), and comes back without the file', async () => {
+    const file = await buildBackup({
+      tables: { settings: [{ id: 'app' }], trash: [trashRow] },
+      schemaVersion: 2,
+      appVersion: '0.1.0',
+      now: NOW,
+    })
+    const text = serializeBackup(file)
+    expect(text).toContain('"__blob": true')
+    expect(text).not.toContain('"blob": {}')
+
+    const parsed = parseBackup(text, { ...CTX, knownTables: [...CTX.knownTables, 'trash'] })
+    if (!parsed.ok) throw new Error(parsed.errors.join('\n'))
+    const plan = planRestore(
+      parsed.file,
+      { ...CTX, knownTables: [...CTX.knownTables, 'trash'] },
+      NOW,
+    )
+    const [entry] = plan.tables.trash as (typeof trashRow)[]
+    expect(entry?.payload.milestones).toEqual([{ id: 'm1' }])
+    expect(entry?.payload.files).toEqual([])
+  })
+})
+
 describe('file names', () => {
   it('names the export and the pre-import copy by local day', () => {
     expect(backupFilename(NOW)).toBe('forge-backup-2026-09-29.json')

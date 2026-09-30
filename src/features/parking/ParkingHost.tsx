@@ -3,7 +3,8 @@ import { useShortcutHandler } from '@/app/shortcuts'
 import { useTimer } from '@/features/focus'
 import { ParkingNotice } from './ParkingNotice'
 import { ParkingPopover } from './ParkingPopover'
-import { closeParking, openParking, useParkingOpen } from './store'
+import { useOpenParked } from './queries'
+import { closeParking, openParking, setParkingContext, useParkingOpen } from './store'
 
 /** How long the "Parked" confirmation stays. */
 const NOTICE_MS = 2600
@@ -24,6 +25,12 @@ export function ParkingHost() {
   useShortcutHandler('parking.open', openParking)
   useShortcutHandler('parking.open.fullscreen', openParking)
   useShortcutHandler('parking.open.session', openParking, sessionId !== null)
+
+  // The palette offers "Park a thought" and "Review parked thoughts" only when they help.
+  const waiting = useOpenParked()?.length ?? 0
+  useEffect(() => {
+    setParkingContext({ sessionRunning: sessionId !== null, waiting })
+  }, [sessionId, waiting])
 
   const parked = useCallback((host: HTMLElement) => setNotice(host), [])
   useEffect(() => {

@@ -222,7 +222,9 @@ test.describe('a pasted course list', () => {
     await expect(page.getByRole('heading', { name: /This fits/ })).toBeVisible()
     await next(page)
     await page.getByRole('button', { name: 'Create goal' }).click()
-    await expect(page).toHaveURL(/\/goals\/[^/]+$/)
+    // Not `/goals/new` itself (which the plain pattern also matches): the goal's page, once the plan is
+    // written, since the tasks are read straight from the database below.
+    await expect(page).toHaveURL(/\/goals\/(?!new$)[^/]+$/)
 
     const before = await readTable<{
       scheduleKey: string | null

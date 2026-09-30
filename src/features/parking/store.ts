@@ -1,11 +1,13 @@
 /**
- * Two tiny signals shared between the palette commands, the shortcuts and the components that answer
+ * Small signals shared between the palette commands, the shortcuts and the components that answer
  * them. They live outside React so a command can ask without knowing who is listening.
  *
  * - The popover: open or closed (`openParking`, `closeParking`, `useParkingOpen`).
  * - The review request ("Review parked thoughts"): the Today card scrolls itself into view and takes
  *   focus. A request that nobody answers within `REVIEW_WINDOW_MS` (the page never showed the card) is
  *   forgotten, so it cannot fire at some later visit.
+ * - What the palette needs to know to offer its two commands only when they help (`when` is synchronous):
+ *   whether a focus session runs and how many thoughts wait. `ParkingHost` keeps them current.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -42,6 +44,20 @@ export function useParkingOpen(): boolean {
     () => false,
   )
 }
+
+// ── What the palette can see ────────────────────────────────────────────────────────────────────
+let sessionRunning = false
+let waiting = 0
+
+export function setParkingContext(next: { sessionRunning: boolean; waiting: number }): void {
+  sessionRunning = next.sessionRunning
+  waiting = next.waiting
+}
+
+/** A focus session is running or paused. */
+export const isFocusSessionRunning = (): boolean => sessionRunning
+/** Thoughts still waiting (0 while they load). */
+export const waitingThoughts = (): number => waiting
 
 // ── The review request ──────────────────────────────────────────────────────────────────────────
 export const REVIEW_WINDOW_MS = 5000

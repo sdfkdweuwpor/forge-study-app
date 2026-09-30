@@ -11,6 +11,7 @@
 import type { Millis } from '@/db/types'
 import { dayOf, diffDays } from './dates'
 import { migrateTablesV1toV2 } from './schemaV2'
+import { markTrashBlobs, withoutMarkedTrashFiles } from './snapshotJson'
 
 /** The part of a backup file the migrators read and write. */
 export interface VersionedTables {
@@ -155,6 +156,10 @@ export async function buildBackup(input: BuildBackupInput): Promise<BackupFile> 
       ),
     )
   }
+
+  // A trashed resource carries its attached file inside the trash row's payload. JSON cannot hold a Blob
+  // (it would write `{}`), so it is listed the way the `files` table lists a file it left out.
+  if (out.trash) out.trash = markTrashBlobs(out.trash)
 
   return {
     app: BACKUP_APP,
@@ -383,6 +388,9 @@ export function planRestore(file: BackupFile, ctx: BackupContext, now: Millis): 
   const migrated = migrateBackup(file, ctx.currentVersion, now)
   const tables: Record<string, unknown[]> = {}
   for (const name of ctx.knownTables) tables[name] = [...(migrated.tables[name] ?? [])]
+
+  // Trashed files were never in a backup (see `buildBackup`): an entry restores without them.
+  if (tables.trash) tables.trash = withoutMarkedTrashFiles(tables.trash)
 
   let skippedFiles = 0
   tables.files = (tables.files ?? []).flatMap((row) => {

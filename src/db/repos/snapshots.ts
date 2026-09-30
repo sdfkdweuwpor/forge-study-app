@@ -20,7 +20,7 @@ import { yieldToMain } from '@/lib/idle'
 import { buildBackup, countItems, hasUserData, parseBackup, planRestore } from '@/logic/backup'
 import { dayOf } from '@/logic/dates'
 import { dailyDue, snapshotsToPrune } from '@/logic/retention'
-import { markTrashBlobs, serializeInChunks, withoutMarkedTrashFiles } from '@/logic/snapshotJson'
+import { serializeInChunks } from '@/logic/snapshotJson'
 import { db } from '../db'
 import { SCHEMA_VERSION } from '../schema'
 import type { ID, ISODate, Millis, Snapshot, SnapshotReason } from '../types'
@@ -108,7 +108,6 @@ export async function takeSnapshot(
     if (name !== 'settings') counts[name] = rows.length
   if (opts.skipIfEmpty && !hasUserData(counts)) return null
 
-  tables.trash = markTrashBlobs(tables.trash ?? [])
   const file = await buildBackup({
     tables,
     schemaVersion: SCHEMA_VERSION,
@@ -218,10 +217,7 @@ export async function restoreSnapshot(
       for (const name of replaced) {
         const table = db.table(name)
         await table.clear()
-        const rows =
-          name === 'trash'
-            ? withoutMarkedTrashFiles(plan.tables[name] ?? [])
-            : (plan.tables[name] ?? [])
+        const rows = plan.tables[name] ?? []
         if (rows.length > 0) await table.bulkPut(rows)
       }
     },

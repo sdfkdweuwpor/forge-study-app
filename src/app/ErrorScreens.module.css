@@ -78,8 +78,11 @@
   opacity: 0.6;
 }
 
+.status:empty {
+  min-height: 0;
+}
+
 .status {
-  flex-basis: 100%;
   min-height: 1.5em;
   color: var(--text-muted);
   font-size: var(--fs-14);

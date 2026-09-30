@@ -1,7 +1,6 @@
 import { db } from '@/db/db'
 import { buildBackup, serializeBackup, type BackupFile } from '@/logic/backup'
 import { dayOf } from '@/logic/dates'
-import { markTrashBlobs } from '@/logic/snapshotJson'
 
 export interface ExportResult {
   filename: string
@@ -41,8 +40,6 @@ export async function buildRawDump(
   await db.transaction('r', readable, async () => {
     for (const table of readable) tables[table.name] = await table.toArray()
   })
-  // A trashed resource carries its file inside the trash row; JSON cannot hold a Blob (it would write `{}`).
-  if (tables.trash) tables.trash = markTrashBlobs(tables.trash)
 
   const file = await buildBackup({
     tables,

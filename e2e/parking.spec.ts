@@ -257,6 +257,32 @@ test.describe('Parking lot', () => {
     await expect(page.getByTestId('parked-card')).toContainText('Parked thoughts (3)')
   })
 
+  test('the palette offers the parking commands only when they help, so "prog" still finds Progress', async ({
+    page,
+  }) => {
+    const options = page.getByRole('option')
+    await openApp(page, '/')
+    // Nothing running and nothing parked: neither command is listed, and a page name is not crowded out.
+    await page.keyboard.press('ControlOrMeta+k')
+    const input = page.getByRole('combobox', { name: 'Command palette' })
+    await input.fill('park')
+    await expect(options.filter({ hasText: 'Park a thought' })).toHaveCount(0)
+    await input.fill('prog')
+    await expect(options).toHaveCount(1)
+    await expect(options.first()).toContainText('Go to Progress')
+    await page.keyboard.press('Escape')
+
+    // On the Focus page "Park a thought" is offered even with nothing running.
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Focus', exact: true })
+      .click()
+    await page.keyboard.press('ControlOrMeta+k')
+    await page.getByRole('combobox', { name: 'Command palette' }).fill('park')
+    await expect(options.filter({ hasText: 'Park a thought' })).toHaveCount(1)
+    await expect(options.filter({ hasText: 'Review parked thoughts' })).toHaveCount(0)
+  })
+
   test('the Park a thought button on the Focus page works without a keyboard', async ({ page }) => {
     await openApp(page)
     await page.getByTestId('park-open').click()

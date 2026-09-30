@@ -30,6 +30,14 @@ interface SettingsRow {
   backup: { lastExportAt: number | null; remindWeekly: boolean; lastRemindedAt: number | null }
 }
 
+/**
+ * The safety copies taken by an import or a reset. The automatic daily snapshot (Phase 11c) is left out:
+ * it is written by the app a moment after it starts, whenever that happens to be.
+ */
+async function safetyCopies(page: Page): Promise<SnapshotRow[]> {
+  return (await readTable<SnapshotRow>(page, 'snapshots')).filter((s) => s.reason !== 'daily')
+}
+
 async function settingsRow(page: Page): Promise<SettingsRow> {
   const row = (await readTable<SettingsRow>(page, 'settings'))[0]
   if (!row) throw new Error('no settings row')
@@ -301,9 +309,7 @@ test.describe('Reset and Import', () => {
     expect(await readTable(page, 'xpEvents')).toEqual([])
     expect((await readTable<SettingsRow>(page, 'settings')).length).toBe(1)
     // The pre-reset copy is kept inside the app.
-    expect((await readTable<SnapshotRow>(page, 'snapshots')).map((s) => s.reason)).toEqual([
-      'pre-reset',
-    ])
+    expect((await safetyCopies(page)).map((s) => s.reason)).toEqual(['pre-reset'])
 
     // Now bring it all back from the file.
     await page.goto('/settings/data')
@@ -331,7 +337,7 @@ test.describe('Reset and Import', () => {
     expect(after.map((t) => t.id).sort()).toEqual(before.map((t) => t.id).sort())
     expect(await readTable(page, 'goals')).toEqual(goalsBefore)
     // The copies taken on the way are still there.
-    const reasons = (await readTable<SnapshotRow>(page, 'snapshots')).map((s) => s.reason).sort()
+    const reasons = (await safetyCopies(page)).map((s) => s.reason).sort()
     expect(reasons).toEqual(['pre-import', 'pre-reset'])
     // Back in the app, today's task from the sample is on screen.
     await page.goto('/')
@@ -403,7 +409,7 @@ test.describe('Reset and Import', () => {
     await preview.getByRole('button', { name: 'Cancel' }).click()
     await expect(preview).toHaveCount(0)
     expect(await readTable<TaskRow>(page, 'tasks')).toEqual(before)
-    expect(await readTable(page, 'snapshots')).toEqual([])
+    expect(await safetyCopies(page)).toEqual([])
   })
 })
 

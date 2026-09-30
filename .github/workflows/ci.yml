@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# Public repo: the token only needs to read the code.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

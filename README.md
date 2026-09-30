@@ -68,7 +68,7 @@ Press and hold (Android) or right-click (desktop) the installed icon for the sho
 
 **Install the extension:**
 
-1. Download `forge-extension.zip` from the [Releases](https://github.com/jobany860/forge-study-app/releases) page.
+1. Download `forge-extension.zip` from the [Releases](https://github.com/sdfkdweuwpor/forge-study-app/releases) page.
    - Note: The repository is private. You must be logged into GitHub to download. Alternatively, build it locally with `npm run zip:ext`.
 2. Unzip the file to a folder on your computer.
 3. Open Chrome and go to `chrome://extensions`.

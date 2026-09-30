@@ -13,6 +13,9 @@
  * - `settings.changed` (daily goal, pomodoro length): today's target and goal flag; the week start
  *   moves the freezes, so milestones are reconciled again (quietly). The goal is only one way to
  *   qualify (a counted session always does), so it never changes a streak.
+ * - `sync.applied` (cloud sync brought rows from another device): the same full check the start-up makes,
+ *   so `streakDays` and the badges those rows earn follow the synced history. Quiet like the start-up:
+ *   no milestone XP is paid and nothing is announced for work done elsewhere.
  * - App start (and each midnight): `syncProgressAtStart` (the last three days, or the whole history the
  *   first time, after a schema change, an import or a restored backup) together with the badges those
  *   rows earn, in one transaction so the badge watcher stays quiet; then milestones for streaks that
@@ -25,7 +28,7 @@ import {
   syncProgressAtStart,
   type StreakMilestoneAward,
 } from '@/db/repos/progress'
-import type { ISODate } from '@/db/types'
+import type { ISODate, TableName } from '@/db/types'
 import { dayOf } from '@/logic/dates'
 
 // ─── Announcements ──────────────────────────────────────────────────────────
@@ -118,12 +121,31 @@ const settingsChanged = defineHandler({
   },
 })
 
+/** Tables whose rows change what a day held (`planDays` reads them) or how it is read (week start, goal). */
+const STREAK_INPUTS: ReadonlySet<TableName> = new Set<TableName>([
+  'sessions',
+  'tasks',
+  'xpEvents',
+  'settings',
+])
+
+const syncApplied = defineHandler({
+  id: 'streaks.syncApplied',
+  event: 'sync.applied',
+  async handle(event) {
+    if (!event.tables.some((t) => STREAK_INPUTS.has(t))) return
+    const now = Date.now()
+    await syncProgressAtStart({ today: dayOf(now), now, full: true })
+  },
+})
+
 export const streakDomainHandlers: DomainHandler[] = [
   sessionEnded,
   taskCompleted,
   taskUncompleted,
   xpChanged,
   settingsChanged,
+  syncApplied,
 ]
 
 // ─── Start-up ───────────────────────────────────────────────────────────────

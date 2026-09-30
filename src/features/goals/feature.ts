@@ -1,6 +1,8 @@
 import { BookOpen, Check, Plus, Target } from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest, SearchProvider } from '@/app/registry'
+import { defineHandler } from '@/db/events'
+import { waitForStartupSync } from '@/db/repos/syncGate'
 import { GoalsNav } from './GoalsNav'
 import { withPlanImport } from './import'
 import { openNewGoalFlow } from './newGoal'
@@ -75,6 +77,21 @@ const commands: CommandDef[] = [
 ]
 
 /**
+ * Cloud sync (PLAN §4.7.5): two devices that both re-planned a goal offline each made a task for the same
+ * plan item. After a pull, a goal with two open tasks for one plan item is re-planned once, which keeps
+ * the older and removes the other (the same one on every device). Loaded on demand, like the planner.
+ */
+const healDuplicatePlans = defineHandler({
+  id: 'goals.healDuplicatePlanTasks',
+  event: 'sync.applied',
+  async handle(event) {
+    if (event.goalIds.length === 0) return
+    const { healDuplicatePlanTasks } = await import('@/db/repos/syncHeal')
+    await healDuplicatePlanTasks(event.goalIds)
+  },
+})
+
+/**
  * Goals (Phase 5B): the goals list, goal page and course page, the new-goal route (the planner), the
  * sidebar tree, palette search and commands. "Go to Goals" already exists in the app's own commands.
  * Other features add to a goal or course page through the `goal.header`, `goal.panels` and
@@ -94,9 +111,13 @@ const manifest: FeatureManifest = {
   commands,
   search: [goalSearch],
   slots: [{ slot: 'sidebar.nav.goals', id: 'goals.tree', order: 10, component: GoalsNav }],
+  domainHandlers: [healDuplicatePlans],
   // At the first open of a day, missed plan items roll forward (applied only when slightly behind;
-  // far behind writes proposals instead). Loaded on demand: the planner is not in the first chunk.
+  // far behind writes proposals instead). With cloud sync on, the start-up sync comes first (up to 8 s),
+  // so the device opened second adopts the first one's roll-forward (`lastDailyRunDay` syncs); with sync
+  // off the wait returns at once. Loaded on demand: the planner is not in the first chunk.
   onAppStart: async ({ now }) => {
+    await waitForStartupSync(8000)
     const { runDailyPlanning } = await import('@/db/repos/proposals')
     await runDailyPlanning({ now })
   },

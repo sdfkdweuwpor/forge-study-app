@@ -757,6 +757,12 @@ export interface SyncStateRow {
   lastError: SyncError | null
   /** Server clock minus this device's clock, when measured. */
   clockSkewMs: number | null
+  /**
+   * The `deviceId` a `pre-sync` snapshot was already taken for. A first sync that restarts after an
+   * interruption must not snapshot again: the data is half merged by then, and the keep-5 pruning would
+   * eventually push out the snapshot of the real "before". Absent until the first sync snapshots.
+   */
+  preSyncFor?: string | null
 }
 
 // ─── Table → row map ────────────────────────────────────────────────────────

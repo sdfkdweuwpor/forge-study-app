@@ -14,7 +14,7 @@
 import { recordError } from '@/app/reportError'
 import { defineHandler, type DomainHandler } from '@/db/events'
 import { reconcileBadges, watchStreakDays } from '@/db/repos/badges'
-import type { Badge } from '@/db/types'
+import type { Badge, TableName } from '@/db/types'
 
 // ─── Announcements ──────────────────────────────────────────────────────────
 
@@ -61,7 +61,29 @@ const courseCompleted = defineHandler({
   },
 })
 
-export const badgeDomainHandlers: DomainHandler[] = [sessionEnded, courseCompleted]
+/** Tables `reconcileBadges` reads from the synced data (the streak rows are rebuilt locally, see progress). */
+const BADGE_INPUTS: ReadonlySet<TableName> = new Set<TableName>([
+  'sessions',
+  'milestones',
+  'goals',
+  'settings',
+])
+
+/**
+ * Cloud sync brought rows from another device: credit whatever this history now earns, quietly. The
+ * badges the other device earned arrive as rows and need no toast here, and nothing is announced for
+ * work done elsewhere, so this reconciles without `announce`.
+ */
+const syncApplied = defineHandler({
+  id: 'badges.syncApplied',
+  event: 'sync.applied',
+  async handle(event) {
+    if (!event.tables.some((t) => BADGE_INPUTS.has(t))) return
+    await reconcileBadges()
+  },
+})
+
+export const badgeDomainHandlers: DomainHandler[] = [sessionEnded, courseCompleted, syncApplied]
 
 // ─── Start-up and streak changes ────────────────────────────────────────────
 

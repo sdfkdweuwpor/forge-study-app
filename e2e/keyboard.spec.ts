@@ -17,6 +17,16 @@ import { expect, gotoApp, test } from './fixtures'
  * Deterministic on purpose: no fixed sleeps, only web-first assertions and polls. Focus is placed with
  * `locator.focus()` where a test needs a known opener (that is a script, not a mouse), and everything
  * after it is a key press.
+ *
+ * The walk reads each stop from the page (position, accessible name, the ring's computed style, what
+ * covers it), then checks the whole list in Node. A ring counts when the element or something around it
+ * (a wrapper with :focus-within, a sibling box) is styled as a ring while it has focus and looks
+ * different once focus has moved on, so a card's permanent shadow does not pass for one.
+ *
+ * Defects in files outside this package (the layout shell, the gamification and world features, the CSS
+ * modules) cannot be fixed here. Each has a test in "known defects outside this package" marked
+ * `test.fail`: it passes while the defect is there, and fails the day it is fixed, which is the cue to
+ * delete it.
  */
 
 declare global {
@@ -69,7 +79,8 @@ async function readFocus(
   page: Page,
 ): Promise<(Omit<Stop, 'ringCleared'> & { prevRingCleared: boolean | null }) | null> {
   return page.evaluate(async () => {
-    // A ring that fades in or out is measured once its transition has ended.
+    // A ring that fades in or out is measured once its transition has ended (600 ms at most: an
+    // endless animation, such as a spinner, never ends, and is not what is being waited for).
     const settling = document
       .getAnimations()
       .filter((a): a is CSSTransition => a instanceof CSSTransition)
@@ -586,24 +597,45 @@ const routeNamed = (name: string): RouteCase => {
 // Defects in files this package does not own (the report has the fix for each). A test marked `fail`
 // must fail: when its owner fixes the defect Playwright says "expected to fail, but passed", which is
 // the cue to delete the test (and, for the tab bar, the `covered: 'bottom-bars-allowed'` above).
-test.describe('known phone layout defects (375)', () => {
-  test.use({ viewport: PHONE })
+test.describe('known defects outside this package', () => {
+  test.describe('375', () => {
+    test.use({ viewport: PHONE })
 
-  test('the tab bar and the + button do not hide the focused control', async ({ page }) => {
-    test.fail(true, 'src/app/layout: the page needs scroll-padding-bottom for the fixed tab bar')
-    await checkWalk(page, routeNamed('today'))
+    test('the tab bar and the + button do not hide the focused control', async ({ page }) => {
+      test.fail(true, 'src/app/layout: the page needs scroll-padding-bottom for the fixed tab bar')
+      await checkWalk(page, routeNamed('today'))
+    })
+
+    test('progress: Tab order follows the phone layout', async ({ page }) => {
+      test.fail(
+        true,
+        'ProgressPage.module.css reorders the sections with `order` below 640px; the DOM keeps two columns',
+      )
+      await checkWalk(
+        page,
+        { name: 'progress', url: '/progress' },
+        { covered: 'bottom-bars-allowed' },
+      )
+    })
   })
 
-  test('progress: Tab order follows the phone layout', async ({ page }) => {
-    test.fail(
-      true,
-      'ProgressPage.module.css reorders the sections with `order` below 640px; the DOM keeps two columns',
-    )
-    await checkWalk(
-      page,
-      { name: 'progress', url: '/progress' },
-      { covered: 'bottom-bars-allowed' },
-    )
+  test.describe('1440', () => {
+    test.use({ viewport: DESKTOP })
+
+    test('rewards: the arrow keys walk the tabs without losing focus', async ({ page }) => {
+      test.fail(
+        true,
+        'Shell remounts the page when a route param changes, and the router then moves focus to the heading',
+      )
+      await gotoApp(page, '/rewards', 'wgu')
+      await settled(page)
+      const tabs = page.getByRole('tablist')
+      await tabs.getByRole('tab').first().focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(tabs.getByRole('tab').nth(1)).toBeFocused()
+      await page.keyboard.press('ArrowRight')
+      await expect(tabs.getByRole('tab').nth(2)).toBeFocused()
+    })
   })
 })
 
@@ -1097,8 +1129,27 @@ test.describe('shortcuts', () => {
     await page.keyboard.press('Enter')
     await expect(paletteDialog(page)).toBeHidden()
     await expect.poll(() => pathnameOf(page)).toBe('/blocker')
+    // The palette's own element is gone with the old page: focus is on the new page's heading, not lost.
+    await expect(pageHeading(page)).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(pageHeading(page)).toBeVisible()
+  })
+
+  test('quick add: type, Enter adds the task and focus goes back to where it was', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    const where = page.getByRole('link', { name: 'Progress', exact: true })
+    await where.focus()
+    await page.keyboard.press('q')
+    const field = quickAddDialog(page).getByRole('textbox', { name: 'New task' })
+    await expect(field).toBeFocused()
+    await page.keyboard.type('Read chapter 5 tomorrow 2p #C182')
+    await page.keyboard.press('Enter')
+    await expect(quickAddDialog(page)).toBeHidden()
+    await expect(toasts(page)).toContainText('Read chapter 5')
+    await expect(where).toBeFocused()
   })
 
   test('mod+k works from inside quick add and swaps the overlays', async ({ page }) => {
@@ -1201,28 +1252,49 @@ test.describe('shortcuts', () => {
   })
 
   test('tabs and segmented controls answer the arrow keys', async ({ page }) => {
-    await gotoApp(page, '/rewards', 'wgu')
+    await gotoApp(page, '/goals/new', 'wgu')
     await settled(page)
-    const tabs = page.getByRole('tablist')
-    const shop = tabs.getByRole('tab').first()
-    await expect(shop).toHaveAttribute('aria-selected', 'true')
-    await shop.focus()
+    const tabs = page.getByRole('tablist').first()
+    const first = tabs.getByRole('tab').first()
+    await first.focus()
     await page.keyboard.press('ArrowRight')
-    const second = tabs.getByRole('tab').nth(1)
-    await expect(second).toBeFocused()
+    await expect(tabs.getByRole('tab').nth(1)).toBeFocused()
     await page.keyboard.press('End')
     await expect(tabs.getByRole('tab').last()).toBeFocused()
     await page.keyboard.press('Home')
-    await expect(shop).toBeFocused()
+    await expect(first).toBeFocused()
 
     await gotoApp(page, '/focus', 'wgu')
-    const radios = page.getByRole('radiogroup').first()
     await expect(page.getByTestId('timer-display')).toBeVisible()
+    const radios = page.getByRole('radiogroup').first()
     await radios.getByRole('radio', { name: 'Pomodoro' }).focus()
     await page.keyboard.press('ArrowRight')
     await expect(radios.getByRole('radio', { name: 'Custom' })).toBeChecked()
     await page.keyboard.press('ArrowLeft')
     await expect(radios.getByRole('radio', { name: 'Pomodoro' })).toBeChecked()
+  })
+
+  test('a menu open over a dialog: Esc closes the menu first and the dialog second', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/', 'wgu')
+    await settled(page)
+    await page.keyboard.press('w')
+    await page.keyboard.press('m')
+    const dialog = page.getByRole('dialog', { name: 'Morning plan' })
+    await expect(dialog).toBeVisible()
+    const add = dialog.getByRole('button', { name: 'Add a routine' })
+    await add.focus()
+    await page.keyboard.press('Enter')
+    const menu = page.getByRole('menu', { name: 'Add a routine' })
+    await expect(menu).toBeVisible()
+    await expectFocusInside(menu)
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(dialog).toBeVisible()
+    await expect(add).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
   })
 
   test('F8 reaches the toast: Enter on Undo brings the task back and focus goes where it was', async ({
@@ -1469,9 +1541,7 @@ test.describe('Modal focus', () => {
     await expect(opener).toBeFocused()
   })
 
-  test('the page behind a modal cannot be reached, and its shortcuts stay quiet', async ({
-    page,
-  }) => {
+  test('the page behind a modal stays quiet: its shortcuts do nothing', async ({ page }) => {
     await gotoApp(page, '/design', 'wgu')
     await settled(page, { demo: true })
     const opener = lightColumn(page, 'modal').getByRole('button', { name: 'Medium: form' })
@@ -1479,16 +1549,23 @@ test.describe('Modal focus', () => {
     await page.keyboard.press('Enter')
     const dialog = page.getByRole('dialog', { name: 'New goal' })
     await expect(dialog).toBeVisible()
-    // g then t / q / ?: none of them acts on the page behind.
+    // Focus is on a button, not a text field, so these would all fire if the page still listened.
+    await dialog.getByRole('button', { name: 'Cancel' }).focus()
+    for (const keys of ['g', 'f', 'q', '?', '/', 'Shift+S']) await page.keyboard.press(keys)
+    await expect(dialog).toBeVisible()
+    await expect(page).toHaveURL(/\/design$/)
+    await expect(quickAddDialog(page)).toHaveCount(0)
+    await expect(shortcutSheet(page)).toHaveCount(0)
+    await expect(paletteDialog(page)).toHaveCount(0)
+    // mod+k is the one key that works from anywhere: the palette opens over the dialog, Esc closes only it.
+    await page.keyboard.press('ControlOrMeta+k')
+    await expect(paletteDialog(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(paletteDialog(page)).toBeHidden()
+    await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
-    await opener.focus()
-    await page.keyboard.press('Enter')
-    await expect(dialog).toBeVisible()
-    await dialog.getByLabel('Name').focus()
-    await page.keyboard.press('g')
-    await page.keyboard.press('f')
-    await expect(page).toHaveURL(/\/design/)
+    await expect(opener).toBeFocused()
   })
 })
 

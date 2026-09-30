@@ -708,7 +708,17 @@ export async function deleteUnit(id: ID, opts: GoalWriteOptions = {}): Promise<T
 
 /** Why a rebalance ran. `wizard` (plan accepted) also resets the goal's baseline end date. */
 export type RebalanceReason =
-  'daily' | 'wizard' | 'import' | 'edit' | 'complete' | 'skip' | 'catchUp' | 'manual' | 'proposal'
+  | 'daily'
+  | 'wizard'
+  | 'import'
+  | 'edit'
+  | 'complete'
+  | 'skip'
+  | 'catchUp'
+  | 'manual'
+  | 'proposal'
+  /** Cloud sync found two open tasks for one plan item (`healDuplicatePlanTasks`). */
+  | 'sync'
 
 export interface RebalanceOptions {
   /** Injected clock for tests; defaults to `Date.now()`. `today` is its local day. */

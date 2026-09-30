@@ -5,7 +5,7 @@
  * never thrown back into the writer.
  */
 import Dexie, { type Transaction } from 'dexie'
-import type { ID, ISODate, Millis, SettingsData, XpSource } from './types'
+import type { ID, ISODate, Millis, SettingsData, TableName, XpSource } from './types'
 
 export type SettingsSection = keyof SettingsData
 
@@ -25,6 +25,14 @@ export type DomainEvent =
   | { type: 'redemption.changed'; redemptionId: ID }
   | { type: 'day.started'; day: ISODate }
   | { type: 'settings.changed'; sections: SettingsSection[] }
+  /**
+   * Cloud sync applied rows from the server (PLAN §4.7.5): raised once per sync cycle that changed
+   * anything, never per row. Remote work raises none of the per-action events above (their handlers pay XP
+   * and show toasts for things done on this device), so this is how derived data catches up: handlers
+   * rebuild caches, reconcile badges and heal plan tasks, quietly. `tables` are the tables that changed;
+   * `goalIds` the goals whose plan tasks arrived.
+   */
+  | { type: 'sync.applied'; tables: TableName[]; goalIds: ID[] }
 
 export type DomainEventType = DomainEvent['type']
 export type DomainEventOf<T extends DomainEventType> = Extract<DomainEvent, { type: T }>

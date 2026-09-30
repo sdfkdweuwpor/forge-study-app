@@ -31,7 +31,7 @@
 @media (min-width: 1280px) {
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 248px;
+    grid-template-columns: minmax(0, 1fr) 280px;
     gap: var(--space-12);
     align-items: start;
   }
@@ -42,6 +42,21 @@
     max-width: none;
     margin-inline: 0;
   }
+}
+
+/* The mode switch, with the full-screen button at the edge of the column. */
+.top {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.fullscreen {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
 }
 
 /* ── Custom length ───────────────────────────────────────────────────────── */

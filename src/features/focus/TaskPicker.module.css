@@ -13,12 +13,18 @@
   color: var(--text-muted);
 }
 
+/* The popover panel takes its width and padding from these variables (ui/Popover). */
+.popover {
+  --panel-min-w: 280px;
+  --panel-max-w: 392px;
+  --panel-pad: var(--space-2);
+}
+
 .panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: min(360px, calc(100vw - 32px));
-  padding: var(--space-2);
+  width: min(376px, calc(100vw - 4 * var(--space-2)));
 }
 
 .list {

@@ -39,6 +39,9 @@ import { TimerContext } from './useTimer'
 /** Loaded when the first "Done with this task?" is due: it pulls in the tasks repo and the modal. */
 const EndDialog = lazy(() => import('./EndDialog'))
 
+/** An unanswered "Done with this task?" is asked again after a refresh, but not days later. */
+const PENDING_END_MAX_MS = 12 * 60 * 60 * 1000
+
 interface EndState {
   id: ID | null
   open: boolean
@@ -150,7 +153,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     if (!id) return
     void getSessionById(id).then(
       (s) => {
-        if (s && s.kind === 'focus' && s.status === 'completed') openEnd(id)
+        const fresh = s?.endedAt != null && Date.now() - s.endedAt < PENDING_END_MAX_MS
+        if (s && fresh && s.kind === 'focus' && s.status === 'completed') openEnd(id)
         else removePref(PREF_KEYS.focusPendingEnd)
       },
       () => removePref(PREF_KEYS.focusPendingEnd),

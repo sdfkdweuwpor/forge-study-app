@@ -602,7 +602,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Also: inline title edit, `j/k/x`, trash with undo, and the shortcut-scope fix (blocking overlay scopes; regressions for the palette, dialogs, drawer and More sheet).
 
 ### Phase 4 — Focus timer
-- [ ] **4A [B] Timer & sessions** (∥ 4B). Owns `src/logic/timer.ts` and test, `src/db/repos/sessions.ts`, `src/db/hooks/useActiveSession.ts` and `src/features/focus/**`.
+- [x] **4A [B] Timer & sessions** (∥ 4B). Owns `src/logic/timer.ts` and test, `src/db/repos/sessions.ts`, `src/db/hooks/useActiveSession.ts` and `src/features/focus/**`.
   - Modes: pomodoro 25/5 with long break 15 every 4 (all from settings), custom, stopwatch.
   - Worker ticks; `reconcileRunning`; XP (1/min, counted rule) in the same transaction; `session.ended` event.
   - Focus page: 96 px/600 tabular timer, ring, task link picker.

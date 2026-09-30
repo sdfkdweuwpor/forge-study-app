@@ -114,20 +114,21 @@ function LogBody({ day }: { day: ISODate }) {
                     ? formatMinutes(s.actualMinutes ?? 0)
                     : `${s.actualMinutes ?? 0} of ${s.plannedMinutes} min`}
                 </span>
-                <span className={styles.badges}>
-                  {s.interrupted ? (
-                    <Tag size="sm" color="orange">
-                      Interrupted
-                    </Tag>
-                  ) : null}
-                  {!s.counted ? (
-                    <Tag size="sm" color="gray">
-                      Not counted
-                    </Tag>
-                  ) : (
-                    <span className={styles.xpBadge}>+{earnedXp(s)} XP</span>
-                  )}
-                </span>
+                <span className={styles.xpBadge}>{s.counted ? `+${earnedXp(s)} XP` : ''}</span>
+                {s.interrupted || !s.counted ? (
+                  <span className={styles.badges}>
+                    {s.interrupted ? (
+                      <Tag size="sm" color="orange">
+                        Interrupted
+                      </Tag>
+                    ) : null}
+                    {!s.counted ? (
+                      <Tag size="sm" color="gray">
+                        Not counted
+                      </Tag>
+                    ) : null}
+                  </span>
+                ) : null}
                 {s.note ? <span className={styles.note}>{s.note}</span> : null}
               </li>
             )

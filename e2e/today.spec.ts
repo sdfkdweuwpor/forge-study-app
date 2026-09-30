@@ -189,10 +189,12 @@ test.describe('Today', () => {
     await expect(toasts(page)).toContainText(`Completed “${NOW_TITLE}”`)
   })
 
-  test('Start focus opens the Focus route for the Now task', async ({ page }) => {
+  test('Start focus starts a session on the Now task and opens the Focus route', async ({ page }) => {
     await gotoApp(page, '/', 'wgu')
     await nowCard(page).getByRole('button', { name: 'Start focus' }).click()
-    await expect(page).toHaveURL(/\/focus\?task=task-c779-u3-2$/)
+    await expect(page).toHaveURL(/\/focus$/)
+    await expect(page.getByTestId('task-picker')).toContainText(NOW_TITLE)
+    await expect(page.getByTestId('timer-toggle')).toHaveText('Pause')
   })
 
   test('with nothing left, the Now card says so and offers quick add', async ({ page }) => {

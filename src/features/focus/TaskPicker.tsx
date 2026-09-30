@@ -55,6 +55,7 @@ export function TaskPicker({ taskId, title, onChange }: TaskPickerProps) {
   return (
     <Popover
       label="Link a task"
+      className={styles.popover}
       side="bottom"
       align="center"
       offset={8}

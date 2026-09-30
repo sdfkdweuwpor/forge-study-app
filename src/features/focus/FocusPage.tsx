@@ -110,8 +110,10 @@ function FocusScreen() {
   }, [store, urlTask])
 
   const session = timer.session
-  const linkedId = session?.taskId ?? timer.draftTaskId
-  const linked = useTask(linkedId ?? undefined)
+  const pickedId = session?.taskId ?? timer.draftTaskId
+  const linked = useTask(pickedId ?? undefined)
+  // A task that no longer exists (a stale `?task=` link, one trashed since) is shown as none.
+  const linkedId = pickedId !== null && linked === null ? null : pickedId
 
   const cycle = settings ? normalizeCycle(settings.timer) : null
   const next = useMemo(
@@ -171,13 +173,25 @@ function FocusScreen() {
   return (
     <div className={styles.layout}>
       <div className={styles.main}>
-        <SegmentedControl
-          label="Timer mode"
-          options={MODE_OPTIONS}
-          value={shownMode}
-          disabled={active}
-          onValueChange={setMode}
-        />
+        <div className={styles.top}>
+          <SegmentedControl
+            label="Timer mode"
+            options={MODE_OPTIONS}
+            value={shownMode}
+            disabled={active}
+            onValueChange={setMode}
+          />
+          <IconButton
+            label="Full-screen focus"
+            shortcut="f"
+            size="md"
+            variant="ghost"
+            icon={<Maximize2 />}
+            className={styles.fullscreen}
+            data-testid="fullscreen-open"
+            onClick={() => overlays.open('focusFullscreen')}
+          />
+        </div>
 
         {!active && mode === 'custom' && !idleBreak ? (
           <div className={styles.length}>
@@ -290,20 +304,11 @@ function FocusScreen() {
               ) : null}
             </>
           )}
-          <IconButton
-            label="Full-screen focus"
-            shortcut="f"
-            size="md"
-            variant="ghost"
-            icon={<Maximize2 />}
-            data-testid="fullscreen-open"
-            onClick={() => overlays.open('focusFullscreen')}
-          />
         </div>
 
         <p className={styles.hint} aria-hidden="true">
           <span>
-            <Kbd keys="space" variant="plain" size="sm" /> {active ? 'pause' : 'start'}
+            <Kbd keys="space" variant="plain" size="sm" /> {paused ? 'resume' : active ? 'pause' : 'start'}
           </span>
           {active ? (
             <span>

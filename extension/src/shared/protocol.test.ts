@@ -61,7 +61,9 @@ describe('isAppMessage', () => {
     expect(isAppMessage(sync({ ...config, allowlist: [null] }))).toBe(false)
     expect(isAppMessage(sync({ ...config, motivation: [{ text: 'hi' }] }))).toBe(false)
     expect(isAppMessage(sync({ ...config, schedule: 'always' }))).toBe(false)
-    expect(isAppMessage(sync({ ...config, schedule: [{ days: [7], start: '09:00', end: '17:00' }] }))).toBe(false)
+    expect(
+      isAppMessage(sync({ ...config, schedule: [{ days: [7], start: '09:00', end: '17:00' }] })),
+    ).toBe(false)
     const { motivation: _omitted, ...withoutMotivation } = config
     expect(isAppMessage(sync(withoutMotivation))).toBe(false)
   })
@@ -87,14 +89,18 @@ describe('isAppMessage', () => {
 describe('isBlockerConfig', () => {
   it('accepts empty lists and all three modes', () => {
     for (const mode of ['focus', 'schedule', 'always']) {
-      expect(isBlockerConfig({ mode, blocklist: [], allowlist: [], schedule: [], motivation: [] })).toBe(true)
+      expect(
+        isBlockerConfig({ mode, blocklist: [], allowlist: [], schedule: [], motivation: [] }),
+      ).toBe(true)
     }
   })
 
   it('caps list sizes', () => {
     const tooMany = Array.from({ length: LIMITS.blocklist + 1 }, (_, i) => `site${i}.com`)
     expect(isBlockerConfig({ ...config, blocklist: tooMany })).toBe(false)
-    expect(isBlockerConfig({ ...config, blocklist: ['x'.repeat(LIMITS.entryLength + 1)] })).toBe(false)
+    expect(isBlockerConfig({ ...config, blocklist: ['x'.repeat(LIMITS.entryLength + 1)] })).toBe(
+      false,
+    )
   })
 })
 
@@ -129,10 +135,14 @@ describe('isSessionState / isBlockEvent', () => {
 
   it('validates events, including the optional unlockMinutes', () => {
     expect(isBlockEvent({ id: 'e1', at: 10, kind: 'blocked', domain: 'x.com' })).toBe(true)
-    expect(isBlockEvent({ id: 'e2', at: 10, kind: 'unlock', domain: 'x.com', unlockMinutes: 5 })).toBe(true)
+    expect(
+      isBlockEvent({ id: 'e2', at: 10, kind: 'unlock', domain: 'x.com', unlockMinutes: 5 }),
+    ).toBe(true)
     expect(isBlockEvent({ id: '', at: 10, kind: 'blocked', domain: 'x.com' })).toBe(false)
     expect(isBlockEvent({ id: 'e3', at: 10, kind: 'visited', domain: 'x.com' })).toBe(false)
     expect(isBlockEvent({ id: 'e4', at: '10', kind: 'blocked', domain: 'x.com' })).toBe(false)
-    expect(isBlockEvent({ id: 'e5', at: 10, kind: 'unlock', domain: 'x.com', unlockMinutes: '5' })).toBe(false)
+    expect(
+      isBlockEvent({ id: 'e5', at: 10, kind: 'unlock', domain: 'x.com', unlockMinutes: '5' }),
+    ).toBe(false)
   })
 })

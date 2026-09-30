@@ -1,0 +1,78 @@
+/* popup.html: a 320px toolbar popup. Hierarchy from type and spacing only. */
+body {
+  width: 320px;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4);
+}
+
+.wins-count {
+  font-size: var(--fs-24);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-title);
+}
+
+.wins-note {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+}
+
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.row dt {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.row dd {
+  min-width: 0;
+  font-weight: var(--fw-medium);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.open {
+  width: 100%;
+}
+
+/* Loading: quiet bones in the app's skeleton colour. */
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bone {
+  display: block;
+  height: var(--space-4);
+  width: 70%;
+  border-radius: var(--radius-sm);
+  background: var(--skeleton);
+}
+
+.bone-lg {
+  height: var(--space-6);
+  width: 45%;
+}

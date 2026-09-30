@@ -19,7 +19,8 @@ import {
   type ExtensionState,
 } from './state.js'
 
-const local = (y: number, mo: number, d: number, h = 0, mi = 0) => new Date(y, mo, d, h, mi).getTime()
+const local = (y: number, mo: number, d: number, h = 0, mi = 0) =>
+  new Date(y, mo, d, h, mi).getTime()
 const NOW = local(2026, 8, 30, 12, 0) // Wed Sep 30 2026, noon
 
 const withConfig = (patch: Partial<ExtensionState['config']>): ExtensionState => {
@@ -89,7 +90,10 @@ describe('activeSession / isBlockingNow', () => {
   })
 
   it('schedule mode follows the windows', () => {
-    const state = withConfig({ mode: 'schedule', schedule: [{ days: [3], start: '09:00', end: '17:00' }] })
+    const state = withConfig({
+      mode: 'schedule',
+      schedule: [{ days: [3], start: '09:00', end: '17:00' }],
+    })
     expect(isBlockingNow(state, NOW)).toBe(true)
     expect(isBlockingNow(state, local(2026, 8, 30, 18, 0))).toBe(false)
   })
@@ -98,7 +102,9 @@ describe('activeSession / isBlockingNow', () => {
 describe('unlocks', () => {
   it('grants five minutes, logs an unlock event and replaces an earlier grant', () => {
     const first = grantUnlock(defaultState(), 'instagram.com', 'u1', NOW)
-    expect(first.unlocks).toEqual([{ domain: 'instagram.com', until: NOW + UNLOCK_MINUTES * 60_000 }])
+    expect(first.unlocks).toEqual([
+      { domain: 'instagram.com', until: NOW + UNLOCK_MINUTES * 60_000 },
+    ])
     expect(first.events).toEqual([
       { id: 'u1', at: NOW, kind: 'unlock', domain: 'instagram.com', unlockMinutes: UNLOCK_MINUTES },
     ])
@@ -161,7 +167,12 @@ describe('appendEvent / recordBlocked', () => {
 })
 
 describe('eventsSince', () => {
-  const at = (id: string, t: number): BlockEvent => ({ id, at: t, kind: 'blocked', domain: 'x.com' })
+  const at = (id: string, t: number): BlockEvent => ({
+    id,
+    at: t,
+    kind: 'blocked',
+    domain: 'x.com',
+  })
 
   it('returns events after `since` and a cursor at the newest returned event', () => {
     const r = eventsSince([at('a', 10), at('b', 20), at('c', 30)], 10)
@@ -178,7 +189,11 @@ describe('eventsSince', () => {
     let events = [at('a', 10), at('b', 20)]
     const first = eventsSince(events, 0)
     expect(first.cursor).toBe(20)
-    events = appendEvent({ ...defaultState(), events }, { id: 'c', kind: 'blocked', domain: 'x.com' }, 20).events
+    events = appendEvent(
+      { ...defaultState(), events },
+      { id: 'c', kind: 'blocked', domain: 'x.com' },
+      20,
+    ).events
     const second = eventsSince(events, first.cursor)
     expect(second.events.map((e) => e.id)).toEqual(['c']) // same millisecond as `b`, still delivered
     expect(second.cursor).toBe(21)
@@ -204,7 +219,9 @@ describe('nextRefreshAt', () => {
     }
     expect(nextRefreshAt(state, NOW)).toBe(NOW + 5 * 60_000)
     expect(nextRefreshAt({ ...state, unlocks: [] }, NOW)).toBe(NOW + 30 * 60_000)
-    expect(nextRefreshAt({ ...state, unlocks: [], session: null }, NOW)).toBe(local(2026, 8, 30, 17, 0))
+    expect(nextRefreshAt({ ...state, unlocks: [], session: null }, NOW)).toBe(
+      local(2026, 8, 30, 17, 0),
+    )
   })
 
   it('ignores an expired unlock and an ended session', () => {

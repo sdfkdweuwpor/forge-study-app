@@ -15,5 +15,8 @@ export type InternalResponse = { ok: true } | { ok: false; error: string }
 export function isInternalMessage(x: unknown): x is InternalMessage {
   if (typeof x !== 'object' || x === null) return false
   const m = x as Record<string, unknown>
-  return (m['type'] === 'internal:blocked' || m['type'] === 'internal:unlock') && typeof m['domain'] === 'string'
+  return (
+    (m['type'] === 'internal:blocked' || m['type'] === 'internal:unlock') &&
+    typeof m['domain'] === 'string'
+  )
 }

@@ -86,7 +86,8 @@ function setNotice(message: string, tone: 'info' | 'error'): void {
 async function sendToWorker(message: InternalMessage): Promise<InternalResponse> {
   try {
     const response: unknown = await chrome.runtime.sendMessage(message)
-    const ok = typeof response === 'object' && response !== null && 'ok' in response && response.ok === true
+    const ok =
+      typeof response === 'object' && response !== null && 'ok' in response && response.ok === true
     return ok ? { ok: true } : { ok: false, error: 'The extension did not accept that.' }
   } catch {
     return { ok: false, error: 'Could not reach the extension. Reload this page and try again.' }
@@ -214,7 +215,7 @@ async function init(): Promise<void> {
 
   const navigation = performance.getEntriesByType('navigation')[0]
   const navigationType = navigation instanceof PerformanceNavigationTiming ? navigation.type : ''
-  if (shouldLogAttempt({ isTopFrame, referrer: document.referrer, navigationType })) {
+  if (shouldLogAttempt({ isTopFrame, navigationType })) {
     void sendToWorker({ type: 'internal:blocked', domain: site })
   }
 

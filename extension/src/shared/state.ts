@@ -83,7 +83,9 @@ export function defaultState(): ExtensionState {
 function isUnlock(x: unknown): x is Unlock {
   if (typeof x !== 'object' || x === null) return false
   const u = x as Record<string, unknown>
-  return typeof u['domain'] === 'string' && typeof u['until'] === 'number' && Number.isFinite(u['until'])
+  return (
+    typeof u['domain'] === 'string' && typeof u['until'] === 'number' && Number.isFinite(u['until'])
+  )
 }
 
 function isDailyAttempts(x: unknown): x is DailyAttempts {
@@ -101,13 +103,19 @@ function isDailyAttempts(x: unknown): x is DailyAttempts {
 export function normalizeState(raw: unknown): ExtensionState {
   const stored = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
   const defaults = defaultState()
-  const events = Array.isArray(stored['events']) ? stored['events'].filter(isBlockEvent) : defaults.events
+  const events = Array.isArray(stored['events'])
+    ? stored['events'].filter(isBlockEvent)
+    : defaults.events
   return {
     config: isBlockerConfig(stored['config']) ? stored['config'] : defaults.config,
     session: isSessionState(stored['session']) ? stored['session'] : null,
-    unlocks: Array.isArray(stored['unlocks']) ? stored['unlocks'].filter(isUnlock) : defaults.unlocks,
+    unlocks: Array.isArray(stored['unlocks'])
+      ? stored['unlocks'].filter(isUnlock)
+      : defaults.unlocks,
     events: events.slice(-MAX_EVENTS),
-    dailyAttempts: isDailyAttempts(stored['dailyAttempts']) ? stored['dailyAttempts'] : defaults.dailyAttempts,
+    dailyAttempts: isDailyAttempts(stored['dailyAttempts'])
+      ? stored['dailyAttempts']
+      : defaults.dailyAttempts,
   }
 }
 
@@ -176,7 +184,12 @@ export function appendEvent(
 }
 
 /** A blocked page loaded: logs it and counts it towards today's wins (a local day, reset at local midnight). */
-export function recordBlocked(state: ExtensionState, domain: string, id: string, now: number): ExtensionState {
+export function recordBlocked(
+  state: ExtensionState,
+  domain: string,
+  id: string,
+  now: number,
+): ExtensionState {
   const today = localDayKey(now)
   const previous = state.dailyAttempts.date === today ? state.dailyAttempts.count : 0
   const next = appendEvent(state, { id, kind: 'blocked', domain }, now)
@@ -184,12 +197,21 @@ export function recordBlocked(state: ExtensionState, domain: string, id: string,
 }
 
 /** Grants UNLOCK_MINUTES of access to `domain` (replacing an earlier grant) and logs it. */
-export function grantUnlock(state: ExtensionState, domain: string, id: string, now: number): ExtensionState {
+export function grantUnlock(
+  state: ExtensionState,
+  domain: string,
+  id: string,
+  now: number,
+): ExtensionState {
   const unlocks = [
     ...state.unlocks.filter((u) => u.until > now && u.domain !== domain),
     { domain, until: now + UNLOCK_MINUTES * 60_000 },
   ]
-  return appendEvent({ ...state, unlocks }, { id, kind: 'unlock', domain, unlockMinutes: UNLOCK_MINUTES }, now)
+  return appendEvent(
+    { ...state, unlocks },
+    { id, kind: 'unlock', domain, unlockMinutes: UNLOCK_MINUTES },
+    now,
+  )
 }
 
 /**

@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { defaultState, type ExtensionState } from '../shared/state.js'
 import { popupModel, winsLabel } from './view.js'
 
-const local = (y: number, mo: number, d: number, h = 0, mi = 0) => new Date(y, mo, d, h, mi).getTime()
+const local = (y: number, mo: number, d: number, h = 0, mi = 0) =>
+  new Date(y, mo, d, h, mi).getTime()
 const NOW = local(2026, 8, 29, 21, 0) // Tue Sep 29 2026, 9pm: already Sep 30 in UTC
 
-function state(patch: Partial<ExtensionState> = {}, mode: ExtensionState['config']['mode'] = 'always'): ExtensionState {
+function state(
+  patch: Partial<ExtensionState> = {},
+  mode: ExtensionState['config']['mode'] = 'always',
+): ExtensionState {
   const base = defaultState()
   return { ...base, config: { ...base.config, mode }, ...patch }
 }
@@ -30,7 +34,10 @@ describe('popupModel', () => {
   })
 
   it('reports a running focus session with its task and end', () => {
-    const s = state({ session: { active: true, endsAt: NOW + 90_000, taskTitle: 'C182 Unit 3 practice' } }, 'focus')
+    const s = state(
+      { session: { active: true, endsAt: NOW + 90_000, taskTitle: 'C182 Unit 3 practice' } },
+      'focus',
+    )
     expect(popupModel(s, NOW)).toMatchObject({
       focusRunning: true,
       endsAt: NOW + 90_000,
@@ -41,7 +48,10 @@ describe('popupModel', () => {
   })
 
   it('treats a session past its end as not running', () => {
-    const s = state({ session: { active: true, endsAt: NOW - 1, taskTitle: 'C779 Web Development' } }, 'focus')
+    const s = state(
+      { session: { active: true, endsAt: NOW - 1, taskTitle: 'C779 Web Development' } },
+      'focus',
+    )
     expect(popupModel(s, NOW)).toMatchObject({ focusRunning: false, endsAt: null, taskTitle: null })
   })
 
@@ -53,6 +63,10 @@ describe('popupModel', () => {
   })
 
   it('always mode is blocking regardless of a session', () => {
-    expect(popupModel(state(), NOW)).toMatchObject({ mode: 'Always on', blocking: 'Blocking now', focusRunning: false })
+    expect(popupModel(state(), NOW)).toMatchObject({
+      mode: 'Always on',
+      blocking: 'Blocking now',
+      focusRunning: false,
+    })
   })
 })

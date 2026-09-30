@@ -81,6 +81,7 @@ h2:focus-visible {
   max-width: 34ch;
   color: var(--text-muted);
   font-size: var(--fs-16);
+  text-wrap: balance;
 }
 
 .actions {
@@ -100,6 +101,7 @@ h2:focus-visible {
   margin-top: var(--space-3);
   max-width: 36ch;
   font-size: var(--fs-16);
+  text-wrap: balance;
 }
 
 .count {

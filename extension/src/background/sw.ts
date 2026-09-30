@@ -4,7 +4,11 @@
  * one change at a time, so two writers can never read the same old state and overwrite each other.
  * The pure decisions live in ../shared and ./rules; this file is the thin chrome.* shell.
  */
-import { isInternalMessage, type InternalMessage, type InternalResponse } from '../shared/internal.js'
+import {
+  isInternalMessage,
+  type InternalMessage,
+  type InternalResponse,
+} from '../shared/internal.js'
 import { isAllowedOrigin } from '../shared/origins.js'
 import { isAppMessage, type AppMessage, type AppResponse } from '../shared/protocol.js'
 import {
@@ -49,7 +53,9 @@ async function applyRules(state: ExtensionState, now: number): Promise<void> {
  * Loads the state, applies `change` (return null to reject it), saves what changed, and rebuilds
  * the rules. Resolves to the new state, or null when the change was rejected.
  */
-function mutate(change: (state: ExtensionState, now: number) => ExtensionState | null): Promise<ExtensionState | null> {
+function mutate(
+  change: (state: ExtensionState, now: number) => ExtensionState | null,
+): Promise<ExtensionState | null> {
   return enqueue(async () => {
     const now = Date.now()
     const previous = await loadState()
@@ -110,7 +116,11 @@ function isBlockedPage(sender: chrome.runtime.MessageSender): boolean {
   if (sender.frameId !== undefined && sender.frameId !== 0) return false
   try {
     const url = new URL(sender.url)
-    return url.origin === new URL(chrome.runtime.getURL('')).origin && url.pathname === '/blocked.html'
+    const own = new URL(chrome.runtime.getURL(''))
+    // Compare scheme and host, not `origin`: `origin` is "null" for non-special schemes in some engines.
+    return (
+      url.protocol === own.protocol && url.host === own.host && url.pathname === '/blocked.html'
+    )
   } catch {
     return false
   }

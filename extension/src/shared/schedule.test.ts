@@ -3,7 +3,8 @@ import type { ScheduleWindow } from './protocol.js'
 import { isScheduleActive, minutesOfDay, nextScheduleBoundary } from './schedule.js'
 
 // Tests run with TZ=America/New_York. Months are 0-based; Sep 30 2026 is a Wednesday.
-const local = (y: number, mo: number, d: number, h = 0, mi = 0) => new Date(y, mo, d, h, mi).getTime()
+const local = (y: number, mo: number, d: number, h = 0, mi = 0) =>
+  new Date(y, mo, d, h, mi).getTime()
 
 const SUN = 0
 const MON = 1
@@ -42,11 +43,15 @@ describe('isScheduleActive: same-day windows', () => {
 
   it('an empty schedule and an equal start/end never block', () => {
     expect(isScheduleActive([], local(2026, 8, 30, 12, 0))).toBe(false)
-    expect(isScheduleActive([{ days: [WED], start: '09:00', end: '09:00' }], local(2026, 8, 30, 9, 0))).toBe(false)
+    expect(
+      isScheduleActive([{ days: [WED], start: '09:00', end: '09:00' }], local(2026, 8, 30, 9, 0)),
+    ).toBe(false)
   })
 
   it('ignores a malformed window instead of throwing', () => {
-    expect(isScheduleActive([{ days: [WED], start: 'nine', end: '17:00' }], local(2026, 8, 30, 12, 0))).toBe(false)
+    expect(
+      isScheduleActive([{ days: [WED], start: 'nine', end: '17:00' }], local(2026, 8, 30, 12, 0)),
+    ).toBe(false)
   })
 
   it('combines several windows', () => {
@@ -129,7 +134,9 @@ describe('nextScheduleBoundary', () => {
   })
 
   it('is the end when inside a window', () => {
-    expect(nextScheduleBoundary(workdays, local(2026, 8, 30, 12, 0))).toBe(local(2026, 8, 30, 17, 0))
+    expect(nextScheduleBoundary(workdays, local(2026, 8, 30, 12, 0))).toBe(
+      local(2026, 8, 30, 17, 0),
+    )
   })
 
   it('skips to the next listed day (Fri evening -> Mon 09:00)', () => {

@@ -28,7 +28,9 @@ export function popupModel(state: ExtensionState, now: number): PopupModel {
   let blocking = 'Blocking now'
   if (!blockingNow) {
     blocking =
-      state.config.mode === 'schedule' ? 'Off outside your scheduled times' : 'Starts with your next focus session'
+      state.config.mode === 'schedule'
+        ? 'Off outside your scheduled times'
+        : 'Starts with your next focus session'
   }
   return {
     wins: winsLabel(winsToday(state, now)),

@@ -14,7 +14,10 @@ export function waitSecondsLeft(deadline: number, now: number): number {
 }
 
 /** Picks a motivation line, or null when the list is empty. `random` is injectable for tests. */
-export function pickMotivation(lines: readonly string[], random: () => number = Math.random): string | null {
+export function pickMotivation(
+  lines: readonly string[],
+  random: () => number = Math.random,
+): string | null {
   const usable = lines.map((l) => l.trim()).filter((l) => l.length > 0)
   if (usable.length === 0) return null
   const index = Math.min(usable.length - 1, Math.floor(random() * usable.length))

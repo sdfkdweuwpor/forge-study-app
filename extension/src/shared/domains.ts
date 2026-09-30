@@ -4,7 +4,8 @@
  */
 
 /** Dot-separated DNS labels, at least two of them (so no bare `localhost`, no `*`, no spaces). */
-const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+const HOSTNAME =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
 
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i
 

@@ -73,7 +73,7 @@ function startServer(extId: string): Promise<Server> {
       )
     } else {
       response.end(
-        '<!doctype html><title>Forge app stand-in</title><p>C182 reading list</p><a href="https://www.instagram.com/p/C182?x=1&y=2#frag">instagram link</a>',
+        '<!doctype html><title>Forge app stand-in</title><p>C182 reading list</p><a href="https://www.instagram.com/p/C182?x=1&y=2#frag">instagram link</a> <a href="https://www.instagram.com/" target="_blank" rel="noopener">instagram in a new tab</a>',
       )
     }
   })
@@ -240,7 +240,7 @@ test.describe('Chrome extension', () => {
     await page.close()
   })
 
-  test('Back to work goes back when there is history, and closes a tab that has none', async () => {
+  test('Back to work goes back when there is history, and closes a tab opened straight onto the site', async () => {
     const h = ext()
     const page = await h.context.newPage()
     await page.goto(`http://localhost:${h.port}/`)
@@ -250,11 +250,17 @@ test.describe('Chrome extension', () => {
     await expect(page).toHaveURL(`http://localhost:${h.port}/`)
     await page.close()
 
-    const lonely = await h.context.newPage()
-    await lonely.goto('https://www.instagram.com/')
-    const closed = lonely.waitForEvent('close')
-    await lonely.getByRole('button', { name: 'Back to work' }).click()
+    // A tab opened straight onto a blocked site has no history to go back to, so it is closed.
+    const opener = await h.context.newPage()
+    await opener.goto(`http://localhost:${h.port}/`)
+    const opened = opener.waitForEvent('popup')
+    await opener.getByRole('link', { name: 'instagram in a new tab' }).click()
+    const tab = await opened
+    await expect(tab).toHaveURL(/blocked\.html/)
+    const closed = tab.waitForEvent('close')
+    await tab.getByRole('button', { name: 'Back to work' }).click()
     await closed
+    await opener.close()
   })
 
   test('answers the app on localhost and refuses malformed messages', async () => {

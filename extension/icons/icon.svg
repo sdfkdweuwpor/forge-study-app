@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The Forge mark, same drawing as public/favicon.svg and src/app/layout/Logo.tsx: a white upward chevron above a split bar on a #111 tile. -->
+  <rect width="64" height="64" rx="14" fill="#111111"/>
+  <path fill="#FFFFFF" d="M32 10 50 28 44 34 32 22 20 34 14 28Z"/>
+  <path fill="#FFFFFF" d="M12 42h16l-4 8H12zM36 42h16v8H40z"/>
+</svg>

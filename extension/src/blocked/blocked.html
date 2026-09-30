@@ -30,7 +30,9 @@
             <p class="clock tabular" id="clock" role="timer" aria-labelledby="clock-label">--:--</p>
             <p class="session-note" id="clock-label">Time left in this focus session</p>
           </div>
-          <p class="task" id="task" hidden>Working on <span class="task-title" id="task-title"></span></p>
+          <p class="task" id="task" hidden>
+            Working on <span class="task-title" id="task-title"></span>
+          </p>
 
           <p class="motivation" id="motivation" hidden></p>
 
@@ -43,7 +45,9 @@
 
         <section class="view" id="view-wait" aria-labelledby="wait-title" hidden>
           <h2 id="wait-title" tabindex="-1">Take a breath</h2>
-          <p class="lede">Pause and ask whether this matches what you set out to do. You can continue in:</p>
+          <p class="lede">
+            Pause and ask whether this matches what you set out to do. You can continue in:
+          </p>
           <p class="count tabular" id="wait-count" aria-hidden="true">60</p>
           <p class="sr-only" id="wait-live" aria-live="polite"></p>
           <div class="actions">
@@ -53,15 +57,28 @@
 
         <section class="view" id="view-phrase" aria-labelledby="phrase-title" hidden>
           <h2 id="phrase-title" tabindex="-1">Emergency access</h2>
-          <p class="lede">Type this phrase to unlock <span id="phrase-site">this site</span> for 5 minutes. Every unlock is logged.</p>
+          <p class="lede">
+            Type this phrase to unlock <span id="phrase-site">this site</span> for 5 minutes. Every
+            unlock is logged.
+          </p>
           <p class="phrase" id="phrase-text"></p>
           <form class="phrase-form" id="phrase-form" autocomplete="off">
             <label class="field-label" for="phrase-input">Type the phrase exactly</label>
-            <input class="field" id="phrase-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="phrase-error" />
+            <input
+              class="field"
+              id="phrase-input"
+              type="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="phrase-error"
+            />
             <p class="notice" id="phrase-error" role="alert" data-tone="error" hidden></p>
           </form>
           <div class="actions">
-            <button class="btn btn-primary" id="btn-phrase-cancel" type="button">Back to work</button>
+            <button class="btn btn-primary" id="btn-phrase-cancel" type="button">
+              Back to work
+            </button>
           </div>
         </section>
       </main>

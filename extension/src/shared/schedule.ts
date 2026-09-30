@@ -57,7 +57,10 @@ export function isScheduleActive(schedule: readonly ScheduleWindow[], now: numbe
 }
 
 /** The next moment (after `now`) at which a window opens or closes, or null when nothing is scheduled. */
-export function nextScheduleBoundary(schedule: readonly ScheduleWindow[], now: number): number | null {
+export function nextScheduleBoundary(
+  schedule: readonly ScheduleWindow[],
+  now: number,
+): number | null {
   let best: number | null = null
   for (const { start, end } of intervalsStartingBetween(schedule, now, -1, 8)) {
     for (const t of [start, end]) {

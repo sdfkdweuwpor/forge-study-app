@@ -49,17 +49,15 @@ describe('hostMatchesDomain', () => {
 
 describe('normalizeBlocklist', () => {
   it('drops invalid entries and duplicates, keeping order', () => {
-    expect(normalizeBlocklist(['x.com', 'X.COM', '', 'nonsense', 'reddit.com', 'https://x.com/home'])).toEqual([
-      'x.com',
-      'reddit.com',
-    ])
+    expect(
+      normalizeBlocklist(['x.com', 'X.COM', '', 'nonsense', 'reddit.com', 'https://x.com/home']),
+    ).toEqual(['x.com', 'reddit.com'])
   })
 
   it('drops subdomains already covered by a parent entry', () => {
-    expect(normalizeBlocklist(['m.youtube.com', 'youtube.com', 'music.youtube.com', 'twitch.tv'])).toEqual([
-      'youtube.com',
-      'twitch.tv',
-    ])
+    expect(
+      normalizeBlocklist(['m.youtube.com', 'youtube.com', 'music.youtube.com', 'twitch.tv']),
+    ).toEqual(['youtube.com', 'twitch.tv'])
   })
 
   it('keeps a subdomain entry when its parent is not listed', () => {
@@ -70,7 +68,9 @@ describe('normalizeBlocklist', () => {
 describe('normalizeAllowEntry', () => {
   it('keeps host and path, lowercases the host, strips scheme and fragment', () => {
     expect(normalizeAllowEntry('youtube.com/watch?v=aBc123')).toBe('youtube.com/watch?v=aBc123')
-    expect(normalizeAllowEntry('https://YouTube.com/@SomeChannel#about')).toBe('youtube.com/@SomeChannel')
+    expect(normalizeAllowEntry('https://YouTube.com/@SomeChannel#about')).toBe(
+      'youtube.com/@SomeChannel',
+    )
     expect(normalizeAllowEntry('reddit.com')).toBe('reddit.com')
     expect(normalizeAllowEntry('reddit.com/r/productivity/')).toBe('reddit.com/r/productivity/')
   })
@@ -94,16 +94,28 @@ describe('resolveReturnUrl', () => {
   })
 
   it('falls back to the site front page for another host', () => {
-    expect(resolveReturnUrl('https://evil.example/', 'instagram.com')).toBe('https://instagram.com/')
-    expect(resolveReturnUrl('https://instagram.com.evil.example/', 'instagram.com')).toBe('https://instagram.com/')
-    expect(resolveReturnUrl('https://notinstagram.com/', 'instagram.com')).toBe('https://instagram.com/')
-    expect(resolveReturnUrl('https://instagram.com@evil.example/', 'instagram.com')).toBe('https://instagram.com/')
+    expect(resolveReturnUrl('https://evil.example/', 'instagram.com')).toBe(
+      'https://instagram.com/',
+    )
+    expect(resolveReturnUrl('https://instagram.com.evil.example/', 'instagram.com')).toBe(
+      'https://instagram.com/',
+    )
+    expect(resolveReturnUrl('https://notinstagram.com/', 'instagram.com')).toBe(
+      'https://instagram.com/',
+    )
+    expect(resolveReturnUrl('https://instagram.com@evil.example/', 'instagram.com')).toBe(
+      'https://instagram.com/',
+    )
   })
 
   it('falls back for non-http(s) schemes and garbage', () => {
     expect(resolveReturnUrl('javascript:alert(1)', 'instagram.com')).toBe('https://instagram.com/')
-    expect(resolveReturnUrl('data:text/html,<p>hi</p>', 'instagram.com')).toBe('https://instagram.com/')
-    expect(resolveReturnUrl('chrome-extension://abc/blocked.html', 'instagram.com')).toBe('https://instagram.com/')
+    expect(resolveReturnUrl('data:text/html,<p>hi</p>', 'instagram.com')).toBe(
+      'https://instagram.com/',
+    )
+    expect(resolveReturnUrl('chrome-extension://abc/blocked.html', 'instagram.com')).toBe(
+      'https://instagram.com/',
+    )
     expect(resolveReturnUrl('file:///etc/passwd', 'instagram.com')).toBe('https://instagram.com/')
     expect(resolveReturnUrl('', 'instagram.com')).toBe('https://instagram.com/')
     expect(resolveReturnUrl('not a url', 'instagram.com')).toBe('https://instagram.com/')

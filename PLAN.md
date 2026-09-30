@@ -134,7 +134,8 @@ export interface SlotContribution<S extends SlotId = SlotId> { slot: S; id: stri
    │   └─ hooks/ useNow.ts  useToday.ts  useMediaQuery.ts
    ├─ db/
    │   ├─ types.ts  schema.ts  db.ts  defaults.ts  events.ts  db.test.ts
-   │   ├─ migrations/ README.md (how to add vN)   # future: v2.ts …
+   │   ├─ migrations/ README.md (how to add vN)  v2.ts  v3.ts (sync, §4.7.4)
+   │   ├─ sync/ tracking.ts stamp.ts remoteApply.ts   # P12: outbox middleware (§4.7.4), always installed, pass-through when off
    │   ├─ repos/ settings tasks xp trash sessions goals rewards badges progress blocker backup snapshots
    │   │         flashcards resources files checkins assessments parking rituals reviews templates views .ts
    │   └─ hooks/ useSettings useTasks useGoals useActiveSession useXp useStreak .ts
@@ -271,7 +272,7 @@ export interface Settings extends Base {                                // singl
   scheduling: { globalDaysOff: DateRange[]; defaultStudyStart: HHmm; bestHour: number | null; lastDailyRunDay: ISODate | null };
   backup: { lastExportAt: Millis | null; remindWeekly: boolean };
   tagColors: Record<string, TagColor>; lastCelebratedLevel: number;
-  sync: { enabled: boolean; url: string | null; anonKey: string | null; lastSyncAt: Millis | null };
+  sync: { enabled: boolean; url: string | null; anonKey: string | null; lastSyncAt: Millis | null }; // removed in v3: moved to the device-local `syncState` table (§4.7.4)
 }
 ```
 Defaults live in `src/db/defaults.ts`: 25/5/15 every 4, custom 50, daily goal 6, weekStartsOn 1, theme `system`, accent `blue`, the default blocklist from brief §5.8, and 5 sample motivation lines. `repos/settings.ensureSettings()` creates the row on first open.
@@ -315,6 +316,7 @@ export type TableName = keyof typeof STORES_V1;
 
 ### 3.4 Migrations
 - **v2 (planner) is §4.6, applied in 5G** (`migrations/v2.ts`; the recipe and version table are in `migrations/README.md`).
+- **v3 (cloud sync) is §4.7.4, applied in 12B1** (`migrations/v3.ts`: `syncOutbox`, `syncState`, `settings.sync` removed).
 - `db.version(1).stores(STORES_V1)`. **Never edit a released version string.** To add a v2, create `src/db/migrations/v2.ts` exporting `STORES_V2_DELTA` (only the changed tables, with `null` to drop one) and `upgradeV2(tx)`. Then add `db.version(2).stores(STORES_V2_DELTA).upgrade(upgradeV2)` in `db.ts`, bump `SCHEMA_VERSION`, and add `migrateBackupV1toV2()` in `logic/backup.ts` so old backup files and snapshots still import.
 - Every migration needs a fake-indexeddb test that opens a v(N−1) DB seeded with a fixture, reopens it at vN, and asserts the upgraded rows.
 
@@ -586,6 +588,388 @@ readiness: 'id, goalId, milestoneId',
 - A task with a deadline and no do date is planned for its deadline (`planDay = doDate ?? dueDate`) in Today, the lists, the board and the calendar. "Overdue" is gone from the UI: a past do date is "Carried over … from Tue" (neutral), and a deadline is a calm "Due Fri" chip, amber only on the due day.
 - `rebalanceGoal`: plan items become tasks by key (`diffPlanTasks`: study matched per unit with the skip passes, everything else by exact key); everyday tasks with a do time (and other goals' sessions) are blocked slots; a session finished today keeps its slot blocked; a session skipped today takes its length off the end of today; a planned assessment is done when its item is checked off or its course is done. `planning.paceMinutesPerStudyDay` stores the accepted pace. Titles and minutes-based editors keep `planning.weekly` and `availability.minutesByWeekday` in step (`logic/goalPlanning.ts`).
 - Proposals store `apply` (validated on accept by `parseProposalApply`) with the items for move-only kinds (roll forward, "life happened"); `baseRevision` is `planRevision` of the open items. Applying marks the goal's other pending proposals stale; Undo restores the goal, units, plan tasks and proposals.
+
+
+### 4.7 Cloud sync (Phase 12) — design (12A, 2026-09-30), built in 12B
+
+**In one paragraph.** Sync is off by default and nothing about it runs until it is switched on. The person brings their own free Supabase project: URL and anon (publishable) key go into Settings → Sync and stay on the device. Forge talks to it with plain `fetch` (no SDK): GoTrue for magic-link or email-code sign-in, PostgREST for one generic table `forge_rows` protected by row-level security. Locally, schema **v3** adds `syncOutbox` (one entry per changed record, written by a Dexie middleware that sees every write, deletes included) and `syncState` (this device's config, session and cursor). Conflicts resolve **per record, last write wins** on a write stamp; deletes travel as tombstones; the pull cursor is a server-assigned `seq`, not a timestamp. A device's first sync is a merge, never a wipe, and starts with a `pre-sync` snapshot. The app works exactly as before with sync off, and the initial bundle grows only by the always-installed pass-through middleware (≤ 2 KB gzip).
+
+#### 4.7.1 Client: plain `fetch`, not `@supabase/supabase-js`
+- **Measured** (esbuild `--minify`, `gzip -9`, 2026-09-30): `createClient` from `@supabase/supabase-js@2.117.2` is **222 KB min / 58 KB gzip** (it instantiates auth, PostgREST, storage, realtime and functions); `@supabase/auth-js` + `@supabase/postgrest-js` alone are 121 KB / 30 KB. Lazy loading would keep it out of the entry chunk, but the PWA precaches **every** JS chunk (`globPatterns` in `vite.config.ts`), so every install would download it with sync off. A hand-written client for the endpoints below is about 300 lines, **≈ 3–4 KB gzip**, in the lazy `features/sync` chunk.
+- **What we give up:** supabase-js's session storage and auto-refresh timers. We need neither: the session lives in `syncState`, and refresh is one single-flight call in the one tab that syncs (§4.7.5 leader). PKCE is 15 lines of `crypto.subtle` (`lib/pkce.ts`).
+- **Headers** on every call: `apikey: <key>`, `Content-Type: application/json`, `credentials: 'omit'`, `cache: 'no-store'`. `Authorization: Bearer <access_token>` once signed in. Before sign-in, a **legacy JWT anon key** is also sent as the bearer (as supabase-js does); a **new `sb_publishable_…` key never is** (it is not a JWT; supabase-js 2.117 omits it too). Auth calls add `X-Supabase-Api-Version: 2024-01-01`, which makes GoTrue return error codes (`otp_expired`, `over_email_send_rate_limit`, …).
+
+| Purpose | Request (base = the project URL) | Notes |
+|---|---|---|
+| Check the project | `GET /auth/v1/settings` | 200 and `external.email === true` → OK; 401 → wrong key; network error → wrong URL or offline. Run when the config is saved. |
+| Send the link | `POST /auth/v1/otp?redirect_to=<enc>` `{ email, create_user: true, data: {}, code_challenge, code_challenge_method: 's256' }` | The email carries a PKCE link and, with the template change in §4.7.2, a code. 429 / `over_email_send_rate_limit` → calm wait message. |
+| Link comes back | `POST /auth/v1/token?grant_type=pkce` `{ auth_code, code_verifier }` | The app opens at `/settings/sync?code=…` (or `?error=…&error_description=…`). |
+| Code from the email | `POST /auth/v1/verify` `{ type: 'email', email, token }` | 6–10 digits. The way in for the installed iPhone app (§4.7.2). |
+| Refresh | `POST /auth/v1/token?grant_type=refresh_token` `{ refresh_token }` | When `expiresAt − 60 s < now`, or once after a 401. `invalid_grant` → signed out. |
+| Sign out | `POST /auth/v1/logout?scope=local` (bearer) | Best effort; tokens are deleted locally whatever it answers. |
+| Server clock | `POST /rest/v1/rpc/forge_now` `{}` | Once per cycle at most hourly; skew = server − (sent + received)/2. |
+| Pull | `GET /rest/v1/forge_rows?select=tbl,id,updated_at,device_id,deleted,schema_version,data,seq&seq=gt.<cursor>&order=seq.asc&limit=500` | RLS limits it to the signed-in account. |
+| Push | `POST /rest/v1/forge_rows?on_conflict=user_id,tbl,id` with `Prefer: resolution=merge-duplicates,return=minimal`, body `[{ user_id, tbl, id, updated_at, device_id, deleted, schema_version, data }]` | Every object has the same keys (PostgREST bulk rule). `user_id` is the session's user id. |
+
+#### 4.7.2 Configuration
+- **Stored in `syncState`** (device-local, never synced, never in a backup, snapshot, crash export or error report): `url`, `anonKey`, `email`. Nothing is hard-coded; with no row the feature is off.
+- **URL** (`logic/syncConfig.parseProjectUrl`): trimmed, a missing scheme gets `https://`, the path is dropped; it must be `https://<ref>.supabase.co` with `ref` = 20 lowercase letters or digits. Anything else (http, custom domain, self-hosted, localhost) is refused with the reason: *"Forge can only reach addresses ending in .supabase.co."* (the CSP below).
+- **Key** (`parseApiKey`): a JWT whose payload has `role: 'anon'` (and, when present, `ref` equal to the URL's ref: *"This key belongs to another project."*), or `sb_publishable_…`. **Refused**, with *"This is a secret key. It must never be put in an app. Use the anon (public) key from Project Settings → API."*: a JWT with `role: 'service_role'` and any `sb_secret_…`. The anon/publishable key is public by design (RLS is the protection), so storing it is not storing a secret.
+- **Redirect URL**: `${location.origin}/settings/sync`, so production is `https://forge-study-app.netlify.app/settings/sync`. The person's project needs (README): Authentication → URL Configuration → **Site URL** `https://forge-study-app.netlify.app`, **Redirect URLs** `https://forge-study-app.netlify.app/settings/sync`, `http://localhost:5173/settings/sync`, `http://localhost:4173/settings/sync`. Deploy previews are not listed; the code works there.
+- **Email templates** (README): add `Or type this code in Forge: {{ .Token }}` to both **Magic Link** and **Confirm signup** (a first sign-in sends the second). Why: on iOS an installed PWA has its own storage and a link from Mail opens in Safari, which has neither the PKCE verifier nor the database, so the link cannot sign the app in. The code can. The link still works in any browser tab where it was requested.
+- **Recommended after the first sign-in** (README): Authentication → Providers → Email → turn off "Allow new users to sign up". The anon key never leaves the person's devices, and RLS isolates rows anyway; this closes the project to strangers who might guess its URL.
+- **CSP** (`security-headers.mjs`): `connect-src 'self' https://icons.duckduckgo.com https://*.supabase.co`. A CSP is a static response header written at build time; it cannot be derived from a URL typed into the app later. `https://*.supabase.co` covers every hosted project and nothing else (no `wss:`: realtime is not used). The cost: custom domains and self-hosted Supabase cannot sync (validation says so up front). Playwright mocks must therefore use a `https://<20 chars>.supabase.co` origin, because `page.route` sees a request only after the CSP allowed it.
+
+#### 4.7.3 Server schema: one generic table
+**Why one table.** Forge syncs 26 Dexie tables and adds tables and fields with every schema version. One table per Dexie table would mean 26 tables, 104 policies and a server migration in the person's project for every Forge release; a generic `jsonb` row means the server never migrates (each row carries `schema_version` and clients migrate on read, §4.7.5). We lose server-side querying of fields, which nothing needs. Last-write-wins, the clock clamp and the change cursor live in the database, so a client bug or an old client cannot overwrite newer data.
+
+**The SQL** (verbatim; README "Set up sync" and the Settings "Copy setup SQL" button carry exactly this text, `features/sync/setupSql.ts` holds it and a test checks the README matches). Verified 2026-09-30 on PostgreSQL 16 with a Supabase shim (`auth.users`, `auth.uid()` from `request.jwt.claims`, roles `anon`/`authenticated`): runs twice cleanly; an older stamp is skipped (`INSERT 0 0`), a tie goes to the larger device id, the same stamp from the same device (a retried push) is accepted, a stamp far in the future is capped at +5 min, a tombstone nulls `data`, another account sees 0 rows and cannot insert or update into this one, `anon` is denied; two concurrent pushes serialize (the second waits and gets the larger `seq`, a reader in between sees neither), and opposite-order upserts of the same rows do not deadlock.
+
+```sql
+-- Forge cloud sync: run once in your Supabase project's SQL editor. Safe to run again.
+-- One table holds every synced Forge row as JSON. Row-level security keeps each account's rows private.
+
+create table if not exists public.forge_rows (
+  user_id        uuid        not null references auth.users (id) on delete cascade,
+  tbl            text        not null check (char_length(tbl) between 1 and 64),
+  id             text        not null check (char_length(id) between 1 and 200),
+  updated_at     bigint      not null,  -- last-write-wins stamp: ms since 1970, from the device that wrote it
+  device_id      text        not null check (char_length(device_id) between 1 and 64),
+  deleted        boolean     not null default false,  -- a tombstone: the row was deleted
+  schema_version integer     not null check (schema_version > 0),
+  data           jsonb,                  -- the Forge row; null once deleted
+  seq            bigint      not null default 0,  -- change cursor, set by the trigger below
+  modified_at    timestamptz not null default now(),  -- server time of the last accepted write
+  primary key (user_id, tbl, id),
+  constraint forge_rows_data_check check (deleted or data is not null)
+);
+
+create sequence if not exists public.forge_rows_seq;
+
+create index if not exists forge_rows_user_seq on public.forge_rows (user_id, seq);
+
+-- Every write goes through here: an older write never replaces a newer one, a clock that runs far
+-- ahead cannot win for long, and `seq` follows commit order so a pull never misses a row.
+create or replace function public.forge_rows_accept()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  -- A stamp more than five minutes ahead of the server is capped there.
+  new.updated_at := least(
+    new.updated_at,
+    (extract(epoch from clock_timestamp()) * 1000)::bigint + 300000
+  );
+  if tg_op = 'UPDATE' then
+    -- Last write wins. Equal stamps go to the larger device id, so every device agrees.
+    if (new.updated_at, new.device_id) < (old.updated_at, old.device_id) then
+      return null;  -- keep the stored row
+    end if;
+  end if;
+  -- One writer per account at a time: `seq` is handed out in commit order.
+  perform pg_advisory_xact_lock(hashtextextended(new.user_id::text, 0));
+  new.seq := nextval('public.forge_rows_seq');
+  new.modified_at := now();
+  if new.deleted then
+    new.data := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists forge_rows_accept on public.forge_rows;
+create trigger forge_rows_accept
+  before insert or update on public.forge_rows
+  for each row execute function public.forge_rows_accept();
+
+-- The server's clock, so Forge can tell you when a device's clock is off.
+create or replace function public.forge_now()
+returns bigint
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select (extract(epoch from now()) * 1000)::bigint;
+$$;
+
+alter table public.forge_rows enable row level security;
+
+drop policy if exists forge_rows_select on public.forge_rows;
+create policy forge_rows_select on public.forge_rows
+  for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+drop policy if exists forge_rows_insert on public.forge_rows;
+create policy forge_rows_insert on public.forge_rows
+  for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists forge_rows_update on public.forge_rows;
+create policy forge_rows_update on public.forge_rows
+  for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists forge_rows_delete on public.forge_rows;
+create policy forge_rows_delete on public.forge_rows
+  for delete to authenticated
+  using ((select auth.uid()) = user_id);
+
+revoke all on table public.forge_rows from anon;
+revoke all on sequence public.forge_rows_seq from anon;
+revoke all on function public.forge_now() from anon, public;
+grant select, insert, update, delete on table public.forge_rows to authenticated;
+grant usage on sequence public.forge_rows_seq to authenticated;
+grant execute on function public.forge_now() to authenticated;
+```
+Notes for the builder: the `BEFORE INSERT` trigger fires for every proposed row *before* the conflict check, so the advisory lock is always taken before any row lock (that is why opposite-order pushes cannot deadlock); keep every client write an upsert. `seq` has gaps (an upsert draws twice); only its order matters. Tombstones are kept forever: a tombstone is ~100 bytes, and purging them would let a device that was offline longer than the purge window bring deleted rows back. The README also gives the one-liner to erase the cloud copy by hand (`delete from public.forge_rows where user_id = auth.uid();` run while signed in, or by user id in the dashboard); Forge has no button for it.
+
+#### 4.7.4 Local schema v3
+**Stores delta** (`src/db/migrations/v3.ts`; `SCHEMA_VERSION = 3`):
+```ts
+export const STORES_V3_DELTA = {
+  syncOutbox: '[tbl+id], at',   // one entry per changed record; `at` = the write stamp (push order)
+  syncState: 'id',              // one row, id = 'device'
+} as const
+```
+**Types** (`src/db/types.ts`). Neither table extends `Base`, and `installTimestampHooks` skips them (by name).
+```ts
+export interface SyncOutboxEntry { tbl: SyncTableName; id: ID; at: Millis }   // no payload: push reads the row
+export interface SyncSession { accessToken: string; refreshToken: string; expiresAt: Millis; userId: string; email: string }
+export interface SyncError { kind: SyncErrorKind; message: string; at: Millis }
+export type SyncErrorKind = 'offline' | 'server' | 'rateLimited' | 'signedOut' | 'setup' | 'forbidden' | 'tooLarge' | 'updateNeeded' | 'snapshot'
+export interface SyncStateRow {
+  id: 'device'
+  enabled: boolean                      // tracking + engine on
+  url: string | null; anonKey: string | null; email: string | null
+  session: SyncSession | null
+  pendingLogin: { email: string; codeVerifier: string; requestedAt: Millis } | null
+  deviceId: string | null               // newId() at every enable; the LWW tie-break and the echo filter
+  accountUserId: string | null          // the account this device last merged with; another one → bootstrap again
+  phase: 'off' | 'bootstrap' | 'steady'
+  pullCursor: number                    // last applied server seq
+  maxSeenStamp: Millis                  // highest remote stamp seen (≤ server time + 5 min)
+  lastSyncAt: Millis | null; lastAttemptAt: Millis | null; lastError: SyncError | null
+  clockSkewMs: number | null            // server − device
+}
+export type SnapshotReason = 'daily' | 'manual' | 'pre-import' | 'pre-restore' | 'pre-reset' | 'pre-sync'   // SNAPSHOT_KEEP['pre-sync'] = 5
+// Settings loses `sync` (it moves to syncState): device config must not ride in a synced row.
+```
+**Upgrade** (`upgradeV3(tx)`): `settings.modify(s => { delete s.sync })`; create nothing else (both tables start empty; with no `syncState` row sync is off). `logic/schemaV3.ts` holds `settingsToV3` and `logic/backup.ts` gains `migrateBackupV2toV3` (strips `settings.sync`, drops `syncOutbox`/`syncState` if a file has them) plus the step in `migrateBackup`. `BACKUP_CONTEXT.ignoredTables` adds `syncOutbox` and `syncState`.
+
+**Which tables sync** (`logic/syncTables.ts`, tiny, in the initial chunk because the middleware needs it):
+
+| Syncs (26) | Why / special rule |
+|---|---|
+| `tasks goals milestones units rewards redemptions blocklist parkingLot checkIns assessments flashcards resources savedViews rituals weeklyReviews templates plannedAssessments practiceQuestions questionAttempts` | Ordinary records, per-record LWW. |
+| `settings` | The singleton syncs **minus device paths** `notifications`, `blocker.extensionIdOverride`, `blocker.lastSyncedAt`, `blocker.eventsCursor`, `backup.lastRemindedAt` (`SETTINGS_DEVICE_PATHS`). A write that changes only device paths is not enqueued (the blocker's 60 s event pull must not push the settings row and overwrite the other device's real changes). On apply, local device paths are kept. `onboardedAt` never goes from set to null (earliest non-null wins). `lastCelebratedLevel`, `world.seed`, `rewardsSeeded`, `blocker.blocklistSeeded` and `scheduling.lastDailyRunDay` sync on purpose (one celebration, one city, no reseeding, one daily roll-forward). |
+| `sessions` | Only final rows. A `running`/`paused` row is not pushed (its entry is dropped); it is pushed when it ends. Only one running row per device stays true, and no device finishes another device's timer. |
+| `xpEvents` | Append-only: **union by id**. Rows are immutable, so LWW on one id only ever resolves a *deterministic-id* collision (next bullet), which is the intended dedupe. |
+| `badges` | Natural id (`BadgeId`): two devices unlocking the same badge collide and LWW keeps one. Also reconciled from history after a pull. |
+| `blockEvents` | Append-only, ids from the extension (so the phone sees "You tried Instagram 7 times"). A re-put of an existing id is not enqueued. |
+| `planProposals` | Synced so a proposal computed on one device can be accepted on the other; applying one already marks the goal's other pending proposals stale, which also retires a duplicate computed offline elsewhere. |
+| `trash` | Synced so the Trash (and Restore) is the same everywhere. Blobs in a payload (`files` of a resource or course) are replaced by the backup's `{ __blob, type, size }` marker on push; bytes never leave the device (below). |
+
+| Never syncs (7) | Why |
+|---|---|
+| `files` | PDF bytes (≤ 50 MB each) do not belong in `jsonb`, and Supabase Storage would add a bucket, policies and a second transfer path for a first version. The resource row syncs; on the other device it shows the existing "File missing" state, which says, while sync is on, "This PDF isn't on this device. PDFs stay on the device they were added on." Storage is the recorded follow-up (12C, optional). |
+| `snapshots` | Whole-data copies, per device. |
+| `streakDays`, `worldTiles`, `readiness` | Derived caches, rebuilt from synced history (§4.7.5 "After a pull"). |
+| `syncOutbox`, `syncState` | This device's sync bookkeeping. |
+
+**Deterministic ids for once-per-key awards** (`repos/xp.ts`): `awardXp` and `reverseXp` give the event `id = xpEventId(key, n)` = `` `xp:${key}#${n}` ``, `n` = how many events that key already has on this device. Two devices that both pay `dailyGoal:2026-10-01` offline both write `xp:dailyGoal:2026-10-01#0`, which collapses to one +25 instead of +50; award #0 → undo #1 → award #2 is the same state machine everywhere. Existing uuid events keep their ids. `appendXpEvent` (no key logic) keeps `newId()`. Starter rewards get ids `starter-reward:<i>` (like the blocklist's `defaultId(domain)`), so two devices seeding the shop collide instead of doubling.
+
+**The tracking middleware** (`src/db/sync/tracking.ts`, installed in the `ForgeDB` constructor with `this.use(syncTracking)`; level 10, i.e. above Dexie's hooks at 2 and observability at 0). Prototyped on dexie 4.4.6 + fake-indexeddb on 2026-09-30; all of the following was checked:
+```ts
+// sketch; the real one is typed with DBCore types and has no `any`
+create(down) { return { ...down,
+  transaction(stores, mode, opts) {                       // widen rw transactions that touch a synced table
+    const track = mode === 'readwrite' && trackingOn() && stores.some(isSyncTable)
+    const tx = down.transaction(track ? [...stores, 'syncOutbox'] : stores, mode, opts)
+    if (track) tracked.add(tx)                             // WeakSet<object>
+    return tx },
+  table(name) { const t = down.table(name); if (!isSyncTable(name)) return t
+    return { ...t, async mutate(req) {
+      if (!tracked.has(req.trans) || isRemoteApply(req.trans)) return t.mutate(req)
+      const keys = await keysOf(t, req)                   // add/put: req.keys ?? values[i].id; delete: req.keys;
+                                                          // deleteRange (clear(), where().delete()): query primary keys first
+      const filtered = await filterKeys(name, req, keys)  // settings: synced projection changed?; append-only: key is new?
+      const res = await t.mutate(req)
+      if (filtered.length) await down.table('syncOutbox').mutate({ trans: req.trans, type: 'put',
+        values: filtered.map((id) => ({ tbl: name, id, at: nextStamp() })) })
+      notifyTrackedWrite()                                // the engine's debounce (no-op when no engine)
+      return res } } } } }
+```
+- `req.trans` **is** `tx.idbtrans` (Dexie hands the top of the stack to `table.core.mutate`), so `markRemoteApply(tx.idbtrans)` (a `WeakSet`) switches tracking off for the sync's own writes; the same marker is visible to the `updating` hook, which must also **not stamp** `updatedAt` inside a remote-apply transaction (a remote row keeps its own).
+- `clear()` arrives as `deleteRange` and `where(…).delete()` as `deleteRange`/`delete`; both produce entries. Nested transactions reuse the parent's `idbtrans`, so they are tracked once. Upgrade transactions are never created through `transaction()`, so migrations are not tracked. An aborted transaction rolls its outbox entries back with it.
+- Writes to `syncOutbox` go through `down`, i.e. through Dexie's observability layer: `useLiveQuery(() => db.syncOutbox.count())` updates (the pending count in Settings).
+- **Off means pass-through:** with tracking off, `transaction()` does not widen and `mutate` returns at the first check. That check and a 20-line module are the only sync code in the initial bundle.
+- **The flag** is read in `db.on('ready')` (Dexie holds other queries until it resolves) from `syncState.get('device')?.enabled`, and changed in other tabs through a `BroadcastChannel('forge:sync')` `{ type: 'tracking', on }` message. The enabling tab waits 1 s after broadcasting before the first cycle reads the tables.
+- **The stamp clock** (`nextStamp`): `max(Date.now(), lastStamp + 1, maxSeenStamp + 1)`, strictly increasing per tab, seeded at ready from `syncState.maxSeenStamp` and the outbox's largest `at`. It is a Lamport-style hybrid clock: an edit made after seeing another device's change always carries a larger stamp than that change, whatever this device's clock says.
+
+**How every delete becomes a tombstone.** There is no local tombstone table: a delete writes an outbox entry, and at push time a record whose row is gone is sent as `deleted: true`. The server keeps the tombstone.
+
+| Path | What reaches the outbox | Effect elsewhere |
+|---|---|---|
+| Ordinary delete (`delete`, `bulkDelete`, plan tasks removed by `writePlanDiff`) | entry per key → tombstone | row deleted |
+| Move to Trash (`moveToTrash`) | tombstones for the entity and its cascade + a put for the new `trash` row | gone there too, and in its Trash |
+| Restore from Trash | puts for the restored rows (stamp = now, although they keep their old `updatedAt`) + tombstone for the `trash` row | back there too; before deleting its local `trash` row, the apply moves any real Blobs in that row's payload into `files` when a resource still points at them (`filesInTrash` rule), so PDF bytes on the deleting device are never lost |
+| Purge / Delete forever / Empty trash | tombstones for `trash` rows | gone from that Trash |
+| Snapshot restore, backup import | `clear()` → tombstones for everything, then puts for every restored row; one entry per key survives (coalesced) | **replaces the data on every synced device** (the dialogs say so when sync is on) |
+| Reset | none: `resetAllData` first turns sync off on this device (tracking off in all tabs, outbox and `syncState` cleared), then clears | the other devices and the cloud copy keep everything |
+| A remote tombstone applied here | none (remote-apply transaction) | — |
+
+**Does every write set `updatedAt`?** Yes for LWW's purposes, because LWW does not read it: the stamp is the outbox's write time. The audit found writes that deliberately keep or set a non-current `updatedAt`, all fine under this design: trash restore, snapshot restore and backup import (original timestamps, DECISIONS "Stamping edge cases"), block events (`updatedAt: e.at`, `repos/blocker.ts`), XP events (`updatedAt: at`, `repos/xp.ts`), migrations (not stamped), and sample seeds. Every other update is stamped by the `updating` hook. `updatedAt` is used by sync only as the stamp of a device's **first** push (bootstrap, §4.7.5).
+
+**Migration test plan** (`src/db/migrations/v3.test.ts`, the v2 test is the template): open a v2 database seeded with the WGU sample, a settings row with `sync: { enabled: false, … }` and a trash row holding a PDF Blob; reopen with `ForgeDB` → both new tables exist and are empty, `settings.sync` is gone, every `updatedAt` is unchanged, the trash Blob is intact, and running the upgrade again changes nothing; `migrateBackupV2toV3` of the same tables equals what the database holds; a v1 backup fixture still imports through v2 → v3; a v3 backup has no `syncOutbox`/`syncState`.
+
+#### 4.7.5 Algorithm
+**Types shared by the engine, the transport and the fake** (`logic/sync.ts`, type-only parts):
+```ts
+export interface Stamp { at: Millis; device: string }
+export interface PushRow { tbl: SyncTableName; id: string; updatedAt: Millis; deviceId: string; deleted: boolean; schemaVersion: number; data: unknown }
+export interface ServerRow extends PushRow { seq: number }
+export interface SyncServer {                          // Supabase transport in features/sync; in-memory fake in src/test
+  push(rows: readonly PushRow[]): Promise<void>        // throws SyncTransportError
+  pull(afterSeq: number, limit: number): Promise<ServerRow[]>
+  serverTime(): Promise<Millis>
+}
+export class SyncTransportError extends Error { kind: SyncErrorKind; status: number | null; retryAfterMs: number | null }
+export function newer(a: Stamp, b: Stamp): boolean     // a.at > b.at || (a.at === b.at && a.device > b.device): the SQL rule
+```
+
+**A cycle** (`db/repos/sync.ts → runSyncCycle(server, { now })`, one at a time):
+1. Read `syncState`. `phase === 'bootstrap'` → the first sync (below) and stop.
+2. **Push** until the outbox is empty: read up to 200 entries ordered by `at` (parents usually precede children, so other devices rarely see a task before its goal); build rows by reading each record now (missing → tombstone; `toServerRow` applies the settings projection, trash Blob markers and "running sessions are not pushed"); cut batches at ~1 MB of JSON (a single row over 8 MB is skipped with a `tooLarge` error naming it). After a 2xx, **compare-and-delete** in one transaction: an entry is removed only if its `at` still equals the pushed stamp, so an edit made during the request stays queued. A rejected (older) write needs nothing: the newer server row arrives with the pull.
+3. **Pull** pages of 500 from `pullCursor` until a page is short. Each page is applied in **one** Dexie transaction over the synced tables + `syncOutbox` + `syncState` + `files`, marked remote-apply, which also advances `pullCursor` and `maxSeenStamp`: data and cursor move together, so a crash re-pulls at most one page. `yieldToMain()` between pages.
+4. Write `lastSyncAt`, clear `lastError`; emit `sync.applied` once (below).
+
+**Why `seq` and not a timestamp cursor.** A client clock cannot order other devices' writes, and even server `now()` is the transaction *start*, so a transaction that started earlier can commit later and be skipped by a cursor that already passed its time. `seq` is drawn under a per-account advisory lock inside the writing transaction, so for one account seq order is commit order: when a row with seq *n* is visible, every row with a smaller seq already is. Rows written in one push share `modified_at`, another reason not to page on it. `modified_at` is kept for humans debugging in the dashboard.
+
+**Apply rules** (`logic/sync.ts → decideApply`, pure; `self` = this device's id, `pending` = the outbox entry for the key if any):
+
+| Mode | Local state | Decision |
+|---|---|---|
+| steady | pending entry | `newer(remote, {at: pending.at, device: self})` → apply and drop the entry; else skip (ours is newer; it will push and win on the server) |
+| steady | no entry, `remote.device === self` | skip (echo of our own push; the local row is at least as new) |
+| steady | no entry | apply (the server only serves winners, and a row with no entry is the last synced version) |
+| bootstrap | pending entry | as steady |
+| bootstrap | no entry, row absent | apply (a tombstone: nothing to do) |
+| bootstrap | no entry, row present | `newer(remote, {at: row.updatedAt, device: self})` → apply; else skip (the row is queued at the end of the bootstrap) |
+| bootstrap | `settings`, remote exists | apply: a new device adopts the settings of the account (device paths and the `onboardedAt` rule still hold) |
+
+Applying a row: `schemaVersion < SCHEMA_VERSION` → migrate it with the backup migrators (`migrateRows(tbl, [data], from)`); `> SCHEMA_VERSION` → stop before writing that page, `lastError = updateNeeded` ("Another device runs a newer Forge…"), the cursor stays. `data` that is not an object with a string `id` equal to the key is skipped and counted. `settings` goes through `mergeRemoteSettings(local, remote)`; a tombstone deletes the row (with the Trash Blob rescue above); anything else is `put` as is.
+
+**First sync of a device** (`phase: 'bootstrap'`, set by every enable and by a sign-in to a different account):
+1. **Pre-sync snapshot**: `takeSnapshot('pre-sync', { skipIfEmpty: true })`. If it fails, nothing syncs (`lastError = snapshot`).
+2. `pullCursor = 0`; pull everything with the bootstrap rules, keeping an in-memory index `key → Stamp` of every remote row (≈ 10 k entries at a year of study) and the signatures of remote seed rows.
+3. **Seed duplicates**: local rows that only exist because this device seeded them, and that the account already has, are deleted locally *without* tombstones: untouched starter rewards (`updatedAt === createdAt`, a starter title) when the account has a reward of that title; untouched onboarding starter tasks (`source: 'onboarding'`, `todo`, `updatedAt === createdAt`) when the account has an onboarding task of that title; blocklist entries whose `(kind, domain, pattern)` the account already has under another id. Pure: `seedDuplicates(localRows, remoteSignatures)`.
+4. **Queue what this device adds**: every local synced row with no outbox entry whose key is absent remotely, or whose `{at: updatedAt, device: self}` is newer than the remote stamp, gets an entry with `at = row.updatedAt` (not now: a phone's week-old default must not beat the laptop's yesterday edit). `settings` is queued only when the account had none.
+5. Push everything; `phase = 'steady'`. Interrupted anywhere → the next cycle starts the bootstrap again from step 2 (every step is idempotent; step 1 is skipped once a `pre-sync` snapshot was taken for this `deviceId`).
+
+This is a merge, never a wipe: the only local rows a first sync deletes are rows the other side deleted *later* than this device last changed them (and seed duplicates), and the snapshot holds the before state.
+
+**A second safety snapshot**: before applying any page with ≥ 25 tombstones, if none was taken in this cycle, a `pre-sync` snapshot is written first (`needsSafetySnapshot(page)`). That covers an import, snapshot restore or big delete made on the other device.
+
+**Clock skew.** Stamps come from device clocks, so a device whose clock is behind loses to earlier edits made elsewhere. Four guards: the hybrid stamp (an edit made after seeing a change beats it); the server caps any stamp at its own time + 5 min (a phone set to 2030 cannot win for years); `maxSeenStamp` only takes remote stamps ≤ server time + 5 min; and `forge_now()` measures skew, and Settings says *"This device's clock is 7 minutes behind. Sync keeps the newest change by time, so set the clock to update automatically."* when |skew| > 2 min.
+
+**After a pull: derived data and events.** Dexie live queries refresh by themselves (the apply writes go through the observability layer, also across tabs). Domain events for single actions (`task.completed`, …) are **not** emitted for remote rows: their handlers pay XP and show toasts for things done on *this* device. Instead `sync.applied { tables: TableName[]; goalIds: ID[] }` is emitted once per cycle (new member of `DomainEvent`) and handled idempotently:
+- progress: the start-up streak check (`syncProgressAtStart`'s full compare, 25–60 ms at a year) rebuilds `streakDays`;
+- badges: `reconcileBadges`;
+- goals: `healDuplicatePlanTasks(goalIds)`: a goal with two open plan tasks sharing a `scheduleKey` (both devices re-planned offline) is re-planned once with `reason: 'sync'`; `diffPlanTasks` keeps the older (`byAge`) and removes the other, the same one on every device. Nothing else re-plans on a pull (two devices re-planning each other's results with different `now` could ping-pong);
+- gamification: in the **apply transaction** itself, a page that brought `xpEvents` raises `settings.lastCelebratedLevel` to the current level (untracked), so XP earned on the laptop never plays the level-up moment on the phone. 12B checks every watcher that announces something (level-up, `BadgeUnlockToaster`, `StreakToaster`, celebrations) and makes each ignore rows that arrived by sync (asserted in e2e).
+- goals' `onAppStart` (`runDailyPlanning`) first awaits `waitForStartupSync(8000)` (`db/repos/syncGate.ts`, a few lines; resolves at once when sync is off), so the device that opens second each day usually adopts the first one's roll-forward (`lastDailyRunDay` syncs) instead of computing its own.
+
+**Triggers and the main thread** (`features/sync/engine.ts`):
+- Runs only when `syncState.enabled`; the feature's `onAppStart` returns at once otherwise (it reads the in-memory tracking flag, no I/O), and imports the engine chunk only when on.
+- **One tab syncs**: the leader holds `navigator.locks.request('forge:sync', …)` for its lifetime (the next tab takes over when it closes; without Web Locks every tab runs). This matters for refresh-token rotation. Other tabs track writes and send "Sync now" to the leader over `BroadcastChannel('forge:sync')`. Status is read by every tab from `syncState` and `syncOutbox.count()` through live queries.
+- When: at start (`whenIdle`, after first paint); 3 s after a tracked write (debounced, at most 30 s of waiting); on `visibilitychange` to visible and on window `focus` when the last cycle is > 30 s old; on `online`; every 5 min while visible; **Sync now** (resets the backoff). On `visibilitychange` to hidden, a push-only flush with `fetch(…, { keepalive: true })` when the pending rows fit in 60 KB and the token is valid (a phone that is put away still sends its last changes). A trigger during a cycle sets `again` and runs one more cycle after it.
+- Budgets: a steady cycle with ≤ 50 changed rows ≤ 30 ms of main-thread work; a 500-row page apply ≤ 60 ms in Chrome; the first sync of `wgu-year` never blocks input for more than one page. Tracking on must keep `db/repos/budgets.test.ts`'s budgets (`rebalanceGoal` < 300 ms, `completeTask` < 100 ms): add tracking-on variants.
+
+**Errors and backoff** (`classifySyncError`, pure: status + PostgREST/GoTrue code → kind):
+
+| Kind | From | Then |
+|---|---|---|
+| offline | `TypeError` from fetch, `navigator.onLine === false` | wait for `online`, else backoff |
+| server | 5xx, 520–540 (a paused free project), timeouts (20 s `AbortSignal.timeout`) | backoff 15 s, 1 min, 5 min, 15 min (cap), ±20 % jitter; reset on success |
+| rateLimited | 429 | backoff, at least `Retry-After` or 1 min |
+| signedOut | refresh answers `invalid_grant`/400, or 401 after a refresh | stop; tracking stays on and the outbox keeps growing until the person signs in again |
+| setup | `PGRST205` / `42P01` (table missing), `PGRST202` (`forge_now` missing) | stop until Sync now; show "Run the setup SQL" with the copy button |
+| forbidden | `42501` / 403 | stop; "The table's access rules are missing. Run the setup SQL again." |
+| tooLarge | 413 | halve the batch and retry; one row alone → skip it, report it |
+| updateNeeded | a newer `schema_version` in a page | stop; "Reload Forge to update" (the PWA update toast path) |
+
+**Turning it off.** "Sign out and stop syncing": tracking off in every tab, best-effort `logout`, then `syncState` keeps `url`, `anonKey` and `email` and resets everything else (`enabled: false`, `session: null`, `phase: 'off'`, `pullCursor: 0`, `deviceId: null`), and the outbox is cleared. Local data is untouched and so is the cloud copy. Turning sync on again is a new first sync with a new `deviceId` (writes made while it was off were not tracked; the bootstrap compares them by `updatedAt`).
+
+#### 4.7.6 The documented limitation (README "What sync can't do", and the same text, shorter, in the Settings disclosure)
+- **One record, one winner.** When the same item changes on two devices before they sync, the change made later (by the devices' clocks) wins **for the whole item**. Edit a task's title on the laptop and its date on the phone, both offline, and one of the two edits is lost. Notes, checklists and tags are part of their task, goal or course. Settings are one item.
+- **Delete versus edit.** An item deleted on one device and edited later on another comes back. Edited first and deleted later, it stays deleted (it is still in that device's Trash for 30 days).
+- **XP is a log, not a counter.** XP events are added, never overwritten, so XP from both devices adds up. The same award paid on two devices offline (a daily goal, a course, a streak milestone, a finished task) counts once. A task finished on one device while its completion is undone on the other can leave its XP and its checkbox disagreeing until you tick it again.
+- **Spending is not checked across devices.** Buying rewards on two devices offline can take the balance below zero.
+- **Rebuilt on each device, never synced:** streak days, My World's city (it grows from the synced history, so it is the same), levels and balances (from the XP log), readiness. Plan tasks two devices both re-planned offline can show twice for a moment; the next sync removes the duplicate.
+- **Clocks matter.** Keep "set time automatically" on; Forge warns when a device is more than 2 minutes off.
+- **PDFs stay on the device they were added on.** Their resource rows sync and say where the file is.
+- **A running timer shows on the other device when it ends.**
+- **Import, snapshot restore** replace the data on every synced device; **Reset** erases only this device and turns sync off.
+
+#### 4.7.7 UI: Settings → Sync (`settings.sections`, contribution id `sync`, lazy, order 65, after Export & calendar)
+One section, no new route (`/settings/sync` already exists in the table). Copy is plain and calm: no red unless something needs the person, no counts of what is missing, nothing that nags.
+
+| State | Shows |
+|---|---|
+| Off, not set up | "Keep Forge the same on your laptop and phone, through your own free Supabase project. Forge works fully without it." · **Set up sync** (reveals the form) · link "How to set up Supabase" (README anchor). |
+| Setting up | **Project URL** (`https://abcdefghijklmnopqrst.supabase.co`), **Anon (public) key** (a password-style field with Show; help: "This key is meant to be public. Never paste the service-role or secret key."), each validated on blur with the one-line reasons of §4.7.2; **Check connection** (`/auth/v1/settings`); **Copy setup SQL**. Then **Email** + **Send sign-in link**. |
+| Waiting for the email | "We sent a sign-in link to ana@example.com. Open it on this device. In the phone app, type the code from the email instead." · **Code** field (numeric, `autocomplete="one-time-code"`) + **Sign in** · **Send again** (disabled for 60 s with the seconds shown) · **Use another email**. A link opened where it was not requested says: "This link was opened in a different browser than the one that asked for it. Type the code from the email instead, or send a new link from here." |
+| First sync | "Bringing this device together with your cloud copy… Nothing is deleted: where both have a change, the newer one is kept. A snapshot was taken first." with a quiet progress count. |
+| On | Status line (`aria-live="polite"`, changes only on state change): "Synced · just now" / "Synced · 12 minutes ago" / "3 changes waiting" / "Offline. Changes will sync when you're back online." / "Trying again in 5 minutes." · **Sync now** · details: account email, this device's last sync time, the clock warning when needed · **Sign out and stop syncing** · disclosure "What sync can't do" (§4.7.6). |
+| Needs attention | Signed out: "Sign in again to keep syncing. Your changes are kept on this device." with the email prefilled. Setup: "The forge_rows table isn't there yet. Run the setup SQL in your project." + copy button. Update needed: "Another device runs a newer Forge. Reload to update this one; sync picks up where it left off." + Reload. Paused project (repeated 5xx): "Your Supabase project may be paused. Free projects pause after a week without use; restore it from the Supabase dashboard." |
+
+- "Sign out and stop syncing" confirms in a small dialog: "Forge stops syncing on this device. Everything stays on this device, and your cloud copy stays in your Supabase project." (Cancel focused).
+- The import, snapshot-restore and reset dialogs gain one line when sync is on (`useSyncOn()` from `db/hooks/useSyncState.ts`): import/restore "Sync is on: this also replaces the data on your other devices."; reset "Sync will be turned off on this device. Your other devices and the cloud copy keep their data."
+- Onboarding's first step gains a quiet link "Already use Forge on another device? Set up sync first." (`/settings/sync`), so a phone can skip seeding.
+- Palette: "Sync now" (only while on), "Sync settings". No new shortcut.
+- The magic link lands on `/settings/sync?code=…`: the section exchanges it, removes `code` from the address (`replace`), shows the first-sync state, and the page scrolls to it (the existing slug behaviour).
+
+#### 4.7.8 Testing
+- **Pure, exhaustive** (`logic/sync.test.ts`, `logic/syncConfig.test.ts`, `logic/syncTables.test.ts`):
+  - `newer` is a strict total order equal to the SQL rule (ties, same device, equal stamps).
+  - `decideApply`: every row of the table in §4.7.5, as a table-driven test over mode × pending × echo × tombstone × row present × tie.
+  - Settings: device paths kept on apply and stripped on push; a device-only change is "unchanged"; `onboardedAt` rule; bootstrap adopt.
+  - `toServerRow`: trash Blob markers (nested in a goal cascade), running/paused sessions → not pushed, JSON round trip equals the row.
+  - `seedDuplicates`, `xpEventId`, `needsSafetySnapshot`, batching by bytes (≤ 1 MB, one oversized row alone), backoff schedule and jitter bounds, `classifySyncError` for every status/code of §4.7.5, `migrateRows` from v1/v2, newer-schema detection.
+  - Config: URL forms (no scheme, trailing path, uppercase, http, custom domain, localhost, 19/21-char refs), keys (anon JWT, anon JWT for another ref, service-role JWT, `sb_publishable_`, `sb_secret_`, garbage, whitespace).
+  - **Model-based property test** (`logic/syncModel.test.ts`): 2–3 simulated devices (a `Map` of rows + a pending map each) and `logic/syncServerModel.ts` (the SQL rules in TS: clamp, LWW, seq), 500 random interleavings of edits, deletes, pushes, partial pushes and pulls with random clock offsets; after everyone syncs twice, every replica equals the server and every key holds the `newer`-maximal write.
+- **Middleware** (`src/db/sync/tracking.test.ts`, fake-indexeddb): exactly the expected keys for `add`, `put`, `bulkPut`, `update`, `modify`, `delete`, `bulkDelete`, `where().delete()`, `clear()`, `moveToTrash` + restore + purge, `importBackup`, `restoreSnapshot`, `rebalanceGoal`; local tables never; tracking off → no entries and no widened scope; remote-apply transaction → no entries and no `updatedAt` stamping; an upgrade → none; a device-only settings change → none; a re-put of an existing block event → none; an aborted transaction → none; stamps strictly increase.
+- **Repo engine** (`db/repos/sync.test.ts`, fake-indexeddb + `src/test/fakeSyncServer.ts` implementing `SyncServer` over `syncServerModel`, with switches for offline, failing the next N calls, 413 and a newer `schema_version`; two devices simulated in one database by `src/test/devices.ts`, which saves and loads every table, `syncOutbox` and `syncState` included, inside a remote-apply transaction): first sync into an empty device; first sync of two devices with data (merge, nothing lost, settings adopted, seed duplicates gone, a `pre-sync` snapshot exists); concurrent edit (later stamp wins on both); edit vs delete both ways; trash move/restore/purge round trips with a PDF Blob that survives on the device that had it; import on A replaces B and B took a safety snapshot; reset on A leaves B and the server untouched; a push interrupted after the server committed (retry is harmless); an edit during a push stays queued; crash mid-pull (cursor and data consistent); newer schema stops without advancing; running session not pushed until it ends; `dailyGoal` paid on both devices counts once; plan-task duplicates healed after `sync.applied`; no level-up for synced XP; `waitForStartupSync` resolves at once when off.
+- **Migration**: §4.7.4.
+- **e2e** (`e2e/sync.spec.ts`; `e2e/support/fakeSupabase.ts` serves `https://forgetestforgetestfo.supabase.co` through `page.route`, GoTrue and PostgREST subsets over the same `syncServerModel`, one instance per test, shared by two browser contexts):
+  - Sync off (also added to `smoke.spec.ts`): a full walk makes **no request** to `*.supabase.co`, and the sync engine chunk is never requested.
+  - Set up: bad URL, service-role key and secret key messages; Check connection; send link (asserts the PKCE body and `redirect_to`); open `/settings/sync?code=…` → signed in, first sync, the seeded server rows appear on Today; the address loses `code`.
+  - Code sign-in path; an expired link message; 429 on "Send again".
+  - Two devices (two contexts): A adds and completes a task → B sees it done, XP once; B edits, A pulls; both offline edit the same task → the later wins on both; A trashes a goal → B's Trash has it, restore on B → back on A.
+  - Offline: `route.abort` → "Offline…", pending count, recovers on `online`; Sync now.
+  - Sign out keeps every row; reset with sync on leaves the fake server's rows.
+  - Every spec still fails on console errors and page errors (`e2e/fixtures.ts`).
+- **Bundle**: `npm run build` before/after: the entry chunk grows ≤ 2 KB gzip; the sync chunk is lazy.
+- **SQL**: the text in README equals `setupSql.ts` (unit test). It was checked by hand on PostgreSQL 16 (above); there is no Postgres in CI.
+
+#### 4.7.9 Work breakdown (12B)
+Order matters: 12B1 touches shared data files and runs alone; 12B2 ∥ 12B4 after it; 12B3 after 12B2; 12B5–12B6 after 12B3 and 12B4.
+Layer rule: features reach the sync data layer only through `@/db/repos/sync`, `@/db/repos/syncGate` and `@/db/hooks/useSyncState` (never `@/db/sync/*`); `logic/sync.ts` stays pure (no `fetch`, no `Date.now()`, no `crypto`).
+
+| Step | Owner | Owns (creates or edits) | Accept |
+|---|---|---|---|
+| **12B1 Schema v3 + tracking** (alone, first) | [B], architect reviews the middleware | `src/db/migrations/{v3.ts,v3.test.ts,README.md}`, `src/db/{schema,types,db,defaults}.ts`, `src/db/sync/{tracking,tracking.test,stamp,remoteApply}.ts`, `src/logic/{syncTables,syncTables.test,schemaV3}.ts`, `src/logic/{backup,retention}.ts` (+ tests: v2→v3, `pre-sync` keep), `src/db/repos/{backup,xp,rewards}.ts` (+ tests: local tables out of backups, reset stops sync, deterministic XP and starter ids), `src/db/repos/settings.test.ts` (`sync` gone) | typecheck, lint, all unit tests; migration and middleware tests of §4.7.8; budgets with tracking on; entry chunk ≤ +2 KB gzip |
+| **12B2 Pure sync logic** | [B] | `src/logic/{sync,syncConfig,syncServerModel}.ts` + `{sync,syncConfig,syncModel}.test.ts` | every pure case of §4.7.8, property test green in < 2 s |
+| **12B3 Repo engine** | [B] | `src/db/repos/{sync,syncGate}.ts` + `sync.test.ts`, `src/db/hooks/useSyncState.ts`, `src/db/events.ts` (`sync.applied`), `src/test/{fakeSyncServer,devices}.ts`; handlers: `features/progress/handlers.ts`, `features/gamification/{handlers,badgeHandlers}.ts`, `features/goals/feature.ts` (gate + heal) | the repo scenarios of §4.7.8 |
+| **12B4 Transport + auth** | [B] | `src/lib/pkce.ts` (+ test), `src/features/sync/supabase/{http,auth,rest}.ts` | unit tests for request building (pure parts in `logic/sync.ts`: URLs, bodies, headers per key kind) |
+| **12B5 Engine + UI** | [B] | `src/features/sync/{feature,index,engine,leader,status,setupSql}.ts`, `SyncSection*.tsx`/`.module.css`, `SetupForm*`, `SignIn*`, `SyncStatus*`, `SyncLimits*`; one-line edits in `features/settings` (the import/restore/reset dialog lines), `features/onboarding` (the link), `features/resources` (the "PDFs stay on the device they were added on" wording) | screenshots light/dark × 1440/375 of each state (`scripts/shots/sync.ts`), designer glance |
+| **12B6 CSP, docs, e2e** | [B] then [H] for README | `security-headers.mjs`, `e2e/{sync.spec.ts,support/fakeSupabase.ts}`, `e2e/smoke.spec.ts` (no-request guard), README "Sync (optional)": setup steps, the SQL, email templates, redirect URLs, sign-ups off, the limitation, erasing the cloud copy | §7 protocol green; reviewer pass [R] |
+
+Follow-up, not in 12B: **12C (optional)** PDFs through Supabase Storage (bucket `forge-files`, object path `<uid>/<fileId>`, `storage.objects` RLS on the first path segment, upload on create, download on open; the CSP already allows the host).
 
 ---
 
@@ -898,8 +1282,9 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Done: wave A (11a–c) and wave B (11f, 11g) each had a reviewer pass; no blockers, and every should-fix and nit was fixed (trashed PDFs survive a snapshot restore; a refused Undo says why via `UndoRefusedError`; undo-twice, midnight and bundle fixes in rituals; touch targets and link validation in resources). Trash restore is covered by `e2e/trash.spec.ts`; the flashcards e2e is moot while 11d stays a hook. Full e2e on a quiet machine: 527/529, the two failures were a real keyboard-resize race (fixed: nudges read the stored task and run in turn) and a test that tried to catch a transient "saving" (now recorded with a MutationObserver).
 
 ### Phase 12 — Optional cloud sync (only if 0–11 are solid and the user wants it)
-- [ ] **12A [A] Design:** decide on `@supabase/supabase-js`, lazy-loaded, vs plain `fetch`. Add tombstones as schema **v3** (v2 is the planner schema, §4.6). Per-record last-write-wins on `updatedAt`, with the limitation documented. RLS policy SQL goes in the README. CSP `connect-src` gets the Supabase origin.
-- [ ] **12B [B] Implement** `features/sync` (magic-link login, settings section, push/pull, conflict tests in `logic/sync.ts`). The app must work 100% without it.
+- [x] **12A [A] Design** (2026-09-30): **§4.7**. Plain `fetch` (supabase-js measured at 58 KB gzip and would be precached for everyone); the person's own project (URL + anon/publishable key in `syncState`); one `forge_rows` table with RLS, a last-write-wins trigger, a stamp clamp and a commit-ordered `seq` cursor (SQL verified on PostgreSQL 16); schema v3 = `syncOutbox` (Dexie middleware, tombstones included) + `syncState`; per-record LWW on a hybrid write stamp; first sync = merge with a `pre-sync` snapshot; files, snapshots and derived caches never sync; CSP `connect-src https://*.supabase.co`. Decisions in DECISIONS.md "Cloud sync (Phase 12A)".
+- [ ] **12B [B] Implement** in the six steps of §4.7.9 (12B1 schema v3 + tracking, alone first; 12B2 pure logic ∥ 12B4 transport; 12B3 repo engine; 12B5 engine + Settings UI; 12B6 CSP, e2e, README). The app must work 100% without it, and the entry chunk grows ≤ 2 KB gzip.
+- [ ] **12C (optional, later)** PDFs through Supabase Storage (§4.7.9 follow-up).
 
 ### Phase 13 — Polish
 - [ ] **13A [D]** Every route at 375, 768 and 1440 in light and dark with seeded data; fix list.

@@ -91,14 +91,23 @@ const list: ShotList = {
     { name: 'empty-inbox', path: '/tasks/inbox?seed=empty', waitFor: 'main h1', prepare: settle },
 
     // Board, calendar and saved views (Phase 3D).
-    { name: 'board', path: '/tasks/all?seed=wgu&layout=board', waitFor: BOARD_CARDS, prepare: settle },
+    {
+      name: 'board',
+      path: '/tasks/all?seed=wgu&layout=board',
+      waitFor: BOARD_CARDS,
+      prepare: settle,
+    },
     {
       // A card picked up with the keyboard and moved into Doing: the target column lights up.
       name: 'board-picked-up',
       path: '/tasks/all?seed=wgu&layout=board',
       waitFor: BOARD_CARDS,
       prepare: async (page) => {
-        await page.locator('[data-column="todo"] li').first().getByRole('button', { name: /^Move / }).focus()
+        await page
+          .locator('[data-column="todo"] li')
+          .first()
+          .getByRole('button', { name: /^Move / })
+          .focus()
         await page.keyboard.press('Space')
         // The sensor starts listening for arrow keys a tick after Space.
         await page.waitForTimeout(200)

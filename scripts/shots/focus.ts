@@ -238,7 +238,11 @@ const list: ShotList = {
         await page.goto('/')
         // The stat row is the last part of Today to load its numbers.
         await page.getByText('earned today').waitFor()
-        await page.getByTestId('mini-timer').or(page.getByTestId('mini-timer-pill')).first().waitFor()
+        await page
+          .getByTestId('mini-timer')
+          .or(page.getByTestId('mini-timer-pill'))
+          .first()
+          .waitFor()
         await loaded(page)
       },
     },

@@ -316,7 +316,7 @@ test.describe('Today: one list, start timer, time per goal', () => {
     // A plan session shows its course chip and length; an everyday task shows its own chips.
     const first = rows(list).first()
     await expect(first).toContainText('C779')
-    await expect(first).toContainText('45m')
+    await expect(first).toContainText('about 50 min')
     await expect(rows(list).nth(3)).toContainText('mentor')
     // The time gutter is empty for untimed rows.
     await expect(rows(list).nth(3).getByTestId('row-time')).toHaveText('')

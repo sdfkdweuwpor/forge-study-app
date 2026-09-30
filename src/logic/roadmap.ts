@@ -31,7 +31,7 @@ const MONTH_NAMES = [
 export interface MonthCell {
   /** `2026-09`. */
   key: string
-  /** "Sep", or "Jan 2027" on the first month and at each new year. */
+  /** "Sep", or "Jan ’27" on the first month and at each new year. */
   label: string
   /** First day of the month. */
   start: ISODate
@@ -71,7 +71,7 @@ export function monthScale(today: ISODate, zoom: Zoom): Scale {
     const name = MONTH_NAMES[Number(start.slice(5, 7)) - 1] ?? ''
     months.push({
       key: start.slice(0, 7),
-      label: i === 0 || newYear ? `${name} ${start.slice(0, 4)}` : name,
+      label: i === 0 || newYear ? `${name} ’${start.slice(2, 4)}` : name,
       start,
       days: length,
       x: diffDays(start, from) / days,
@@ -199,6 +199,8 @@ export interface LaneLayout {
   finish: ISODate | null
   /** The target date's position, or `null` with no target or one outside the window. */
   target: number | null
+  /** Which side of the window a target outside it lies on, so the lane can say so at that edge. */
+  targetEdge: 'before' | 'after' | null
   courses: PlacedCourse[]
   rowCount: number
   markers: PlacedMarker[]
@@ -249,6 +251,7 @@ export function layoutLane(goal: RoadmapGoal, scale: Scale): LaneLayout {
     return inside(x) ? [{ milestone, x }] : []
   })
   const targetX = targetDate === null ? null : dayX(scale, targetDate)
+  const targetEdge = targetX === null || inside(targetX) ? null : targetX < 0 ? 'before' : 'after'
 
   return {
     goalId: goal.id,
@@ -256,6 +259,7 @@ export function layoutLane(goal: RoadmapGoal, scale: Scale): LaneLayout {
     overrun,
     finish,
     target: targetX !== null && inside(targetX) ? targetX : null,
+    targetEdge,
     courses: placed.map((p, i) => ({ ...p, row: rows[i] ?? 0 })),
     rowCount,
     markers,

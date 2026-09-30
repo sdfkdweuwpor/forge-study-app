@@ -151,6 +151,24 @@ export function Lane({ goal, layout, scale, today, projection, status }: LanePro
             />
           ))}
 
+          {layout.targetEdge && goal.targetDate ? (
+            <Stop
+              label={`Target ${day(goal.targetDate)}, ${layout.targetEdge === 'after' ? 'after' : 'before'} the months shown`}
+            >
+              {(a11y) => (
+                <span
+                  {...a11y}
+                  className={styles.edge}
+                  data-side={layout.targetEdge}
+                  data-testid="lane-target-edge"
+                  role="img"
+                >
+                  {layout.targetEdge === 'before' ? '← Target' : 'Target →'}
+                </span>
+              )}
+            </Stop>
+          ) : null}
+
           {layout.target !== null && goal.targetDate !== null ? (
             <Stop label={`Target ${day(goal.targetDate)}`}>
               {(a11y) => (

@@ -62,6 +62,7 @@ const list: ShotList = {
       path: '/roadmap?seed=wgu',
       waitFor: LANE,
       prepare: async (page) => {
+        await page.evaluate(() => window.localStorage.setItem('forge:roadmap:zoom', '12'))
         await projectAfterTarget(page)
         await page.goto('/roadmap')
         await page.locator(LANE).waitFor()

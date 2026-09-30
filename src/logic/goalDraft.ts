@@ -13,6 +13,7 @@ import type {
   ISODate,
   Millis,
   Milestone,
+  PlannedAssessment,
   Unit,
   WeekMinutes,
   WguTerm,
@@ -337,6 +338,8 @@ export interface DraftRows {
   goal: Goal
   milestones: Milestone[]
   units: Unit[]
+  /** Exams, projects and quizzes the planner reviewed with the courses (`plannerRows`). */
+  plannedAssessments?: PlannedAssessment[]
 }
 
 export interface RowsContext {

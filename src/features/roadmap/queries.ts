@@ -33,6 +33,14 @@ export function useRoadmapGoals(): RoadmapEntry[] | undefined {
         const minutes = new Map(work.courses.map((c) => [c.courseId, c.totalMinutes]))
         const sorted = sortCourses(courses)
         const codes = new Map(courses.map((c) => [c.id, c.code ?? c.title]))
+        const courseEnd = new Map(courses.map((c) => [c.id, c.projectedEnd]))
+        // An assessment without a date of its own sits where the plan put it (its task), else right
+        // after its course's planned finish, which is where the planner places it.
+        const plannedOn = new Map(
+          tasks
+            .filter((t) => t.kind === 'assessment' && t.assessmentId !== null && t.doDate !== null)
+            .map((t) => [t.assessmentId, t.doDate]),
+        )
         return {
           goal: {
             id: goal.id,
@@ -66,7 +74,10 @@ export function useRoadmapGoals(): RoadmapEntry[] | undefined {
                   a.milestoneId !== null && codes.has(a.milestoneId)
                     ? `${codes.get(a.milestoneId)} · ${a.title}`
                     : a.title,
-                date: a.date,
+                date:
+                  a.date ??
+                  plannedOn.get(a.id) ??
+                  (a.milestoneId === null ? null : (courseEnd.get(a.milestoneId) ?? null)),
                 done: a.status === 'done',
               })),
             weekly: tasks

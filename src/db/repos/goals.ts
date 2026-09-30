@@ -84,6 +84,7 @@ export async function createGoalWithCourses(
   opts: GoalWriteOptions = {},
 ): Promise<CreatedGoal> {
   const { milestones, units } = rows
+  const assessments = rows.plannedAssessments ?? []
   if (collapse(rows.goal.title) === '') throw new Error('A goal needs a title.')
   const courseIds = new Set(milestones.map((m) => m.id))
   if (courseIds.size !== milestones.length) throw new Error('Course ids must be unique.')
@@ -94,12 +95,21 @@ export async function createGoalWithCourses(
     throw new Error('Every unit must belong to a course of the new goal.')
   }
 
-  const goal = await db.transaction('rw', [db.goals, db.milestones, db.units], async () => {
+  if (
+    assessments.some(
+      (a) => a.goalId !== rows.goal.id || (a.milestoneId !== null && !courseIds.has(a.milestoneId)),
+    )
+  ) {
+    throw new Error('Every planned assessment must belong to the new goal.')
+  }
+
+  const goal = await db.transaction('rw', [db.goals, db.milestones, db.units, db.plannedAssessments], async () => {
     const last = await db.goals.orderBy('order').last()
     const saved: Goal = { ...rows.goal, order: last ? last.order + ORDER_STEP : 0 }
     await db.goals.add(saved)
     if (milestones.length > 0) await db.milestones.bulkAdd(milestones)
     if (units.length > 0) await db.units.bulkAdd(units)
+    if (assessments.length > 0) await db.plannedAssessments.bulkAdd(assessments)
     emit({ type: 'goal.changed', goalId: saved.id })
     return saved
   })

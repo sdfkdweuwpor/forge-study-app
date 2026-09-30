@@ -111,3 +111,57 @@ export function parseHoursInput(text: string): number | null {
   if (/^\d+(\.\d+)?$/.test(t)) return Math.round(Number(t) * 60)
   return null
 }
+
+// ─── Changing the multiplier after the goal exists ──────────────────────────
+
+export interface CuRescale {
+  /** The new `estimateHours` for a course without units; `null` when the course has units. */
+  estimateHours: number | null
+  units: Array<{ id: string; estimateMinutes: number; baseEstimateMinutes: number }>
+}
+
+/**
+ * What a new hours-per-CU multiplier changes in a saved course: the units whose estimate was derived from
+ * its CUs (`estimateSource: 'cus'`) share the new budget, and a course without units whose hours were
+ * `cus × oldMultiplier` gets the new figure. Estimates the person typed are left alone; `null` when
+ * nothing changes.
+ */
+export function rescaleCuEstimates(
+  course: { cus: number | null; estimateHours: number; selfRating: SelfRating | null },
+  units: ReadonlyArray<{
+    id: string
+    estimateSource: string
+    estimateMinutes: number | null
+    baseEstimateMinutes: number | null
+    selfRating: SelfRating | null
+  }>,
+  oldMultiplier: number,
+  newMultiplier: number,
+): CuRescale | null {
+  const cus = positive(course.cus)
+  if (cus === null || oldMultiplier === newMultiplier) return null
+  const rating = course.selfRating ?? 'new'
+  if (units.length === 0) {
+    const was = estimateUnitMinutes({ cus, cuHoursMultiplier: oldMultiplier, selfRating: rating })
+    if (was === null || Math.abs(course.estimateHours * 60 - was) > 1) return null
+    const now = estimateUnitMinutes({ cus, cuHoursMultiplier: newMultiplier, selfRating: rating })
+    return now === null ? null : { estimateHours: now / 60 + 1e-9, units: [] }
+  }
+  if (!units.some((u) => u.estimateSource === 'cus')) return null
+  const budget = courseBaseMinutes({ hours: null, cus, effortBy: 'cus', multiplier: newMultiplier })
+  const r = resolveEffort(
+    budget,
+    rating,
+    units.map((u) => ({
+      baseMinutes: u.estimateSource === 'cus' ? null : (u.baseEstimateMinutes ?? u.estimateMinutes),
+      rating: u.selfRating,
+    })),
+  )
+  const patches = units.flatMap((u, i) => {
+    const e = r.units[i]
+    return u.estimateSource === 'cus' && e
+      ? [{ id: u.id, estimateMinutes: e.minutes, baseEstimateMinutes: e.baseMinutes }]
+      : []
+  })
+  return { estimateHours: null, units: patches }
+}

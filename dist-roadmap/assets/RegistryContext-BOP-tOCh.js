@@ -1,0 +1,1 @@
+import{Y as e}from"./db-BvUt9GDY.js";import{n as t,r as n}from"./dexie-react-hooks-DJIBecl1.js";var r=e(n(),1),i=t(),a=(0,r.createContext)(null);function o({registry:e,children:t}){return(0,i.jsx)(a.Provider,{value:e,children:t})}function s(){let e=(0,r.useContext)(a);if(!e)throw Error(`useRegistry must be used inside <RegistryProvider>`);return e}export{s as n,o as t};

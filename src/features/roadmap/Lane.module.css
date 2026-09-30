@@ -285,3 +285,19 @@
 .laneWrap {
   display: block;
 }
+
+/* A target outside the visible months: a quiet note above the bar row, at that edge. */
+.edge {
+  position: absolute;
+  top: -15px;
+  right: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.edge[data-side='before'] {
+  right: auto;
+  left: 0;
+}

@@ -45,11 +45,20 @@ async function projectAfterTarget(page: Page, days: number): Promise<void> {
   )
 }
 
+/** Opens the Roadmap at a zoom (the saved choice is device-local), with the sample data. */
+async function openAt(page: Page, months: 3 | 6 | 12): Promise<void> {
+  await page.addInitScript(
+    (m) => window.localStorage.setItem('forge:roadmap:zoom', String(m)),
+    months,
+  )
+  await gotoApp(page, '/roadmap', 'wgu')
+}
+
 test.describe('Roadmap', () => {
   test('draws a lane per goal with progress, courses, a today line and the projected finish', async ({
     page,
   }) => {
-    await gotoApp(page, '/roadmap', 'wgu')
+    await openAt(page, 12)
     await expect(page.getByRole('heading', { level: 1, name: 'Roadmap' })).toBeVisible()
     await expect(lane(page)).toBeVisible()
     await expect(lane(page).getByRole('link', { name: GOAL })).toBeVisible()
@@ -88,14 +97,23 @@ test.describe('Roadmap', () => {
   test('a finish after the target is a quiet hatched span and a sentence, never an alarm', async ({
     page,
   }) => {
-    await gotoApp(page, '/roadmap', 'wgu')
+    await openAt(page, 12)
     await projectAfterTarget(page, 9)
-    await page.goto('/roadmap')
+    await gotoApp(page, '/roadmap')
     await expect(lane(page).getByTestId('lane-finish')).toContainText(
       /Projected .* · 9 days after target/,
     )
     await expect(lane(page).getByTestId('lane-overrun')).toBeVisible()
     await expect(lane(page)).not.toContainText(/overdue|late|behind/i)
+  })
+
+  test('a target beyond the visible months is noted at the edge', async ({ page }) => {
+    await openAt(page, 6)
+    await expect(lane(page).getByTestId('lane-target')).toHaveCount(0)
+    await expect(lane(page).getByTestId('lane-target-edge')).toHaveAttribute(
+      'aria-label',
+      /Target Feb 2, 2027/,
+    )
   })
 
   test('zoom switches between 3, 6 and 12 months and is remembered', async ({ page }) => {
@@ -143,12 +161,12 @@ test.describe('Roadmap', () => {
       .click()
     await expect(page).toHaveURL(/\/roadmap$/)
 
-    await page.goto('/')
+    await gotoApp(page, '/')
     await page.keyboard.press('g')
     await page.keyboard.press('m')
     await expect(page).toHaveURL(/\/roadmap$/)
 
-    await page.goto('/')
+    await gotoApp(page, '/')
     await page.keyboard.press('Control+k')
     await paletteInput(page).fill('go to roadmap')
     await page.keyboard.press('Enter')

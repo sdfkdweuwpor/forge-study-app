@@ -182,7 +182,7 @@ const list: ShotList = {
         await addFocusHistory(page)
         await page.goto('/')
         await page.locator(NOW_CARD).waitFor()
-        await page.getByRole('checkbox', { name: /Mark done: Email mentor/ }).click()
+        await page.getByRole('checkbox', { name: /Done: Email mentor/ }).click()
         await page.getByRole('button', { name: /Completed today/ }).waitFor()
         await page.getByRole('button', { name: /Completed today/ }).click()
         await loaded(page)

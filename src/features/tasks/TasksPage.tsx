@@ -60,6 +60,7 @@ import {
   savedViewState,
   type TaskLayout,
 } from '@/logic/taskViews'
+import { ExportMenu } from '@/features/export'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
 import { useToast } from '@/ui/Toast'
@@ -484,6 +485,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
           <span className={styles.viewsMenu}>
             <SavedViewsMenu />
           </span>
+          <ExportMenu />
           <Button
             variant="secondary"
             size="sm"

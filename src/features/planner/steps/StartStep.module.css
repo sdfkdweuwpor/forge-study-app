@@ -1,0 +1,128 @@
+.templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 639px) {
+  .templates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.template {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icon name'
+    'icon blurb'
+    'icon meta';
+  gap: 2px var(--space-3);
+  align-items: start;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .template:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.template[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.templateIcon {
+  grid-area: icon;
+  font-size: var(--fs-24);
+  line-height: 1.2;
+}
+
+.templateName {
+  grid-area: name;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.templateBlurb {
+  grid-area: blurb;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+}
+
+.templateMeta {
+  grid-area: meta;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding-top: var(--space-4);
+  min-width: 0;
+}
+
+.panel > * {
+  max-width: 100%;
+}
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  width: 100%;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.breakdownTitle {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+}
+
+.claudeDetails {
+  width: 100%;
+  font-size: var(--fs-14);
+}
+
+.claudeDetails summary {
+  padding: var(--space-2) 0;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.found {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-hover);
+}
+
+.found h2 {
+  font-size: var(--fs-14);
+}

@@ -16,14 +16,7 @@ describe('monthScale', () => {
     const s = monthScale(TODAY, 6)
     expect(s.from).toBe('2026-08-01')
     expect(s.to).toBe('2027-02-01')
-    expect(s.months.map((m) => m.label)).toEqual([
-      'Aug 2026',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-      'Jan 2027',
-    ])
+    expect(s.months.map((m) => m.label)).toEqual(['Aug ’26', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan ’27'])
     expect(s.days).toBe(184)
     expect(s.months.reduce((sum, m) => sum + m.w, 0)).toBeCloseTo(1, 10)
     expect(s.months[1]?.x).toBeCloseTo(31 / 184, 10)
@@ -184,9 +177,12 @@ describe('layoutLane', () => {
     expect(lane.ticks.map((t) => t.milestone.id)).toEqual(['w1'])
   })
 
-  it('omits a target that is outside the window', () => {
-    expect(
-      layoutLane(goal({ targetDate: '2027-09-01', projectedEnd: null }), scale).target,
-    ).toBeNull()
+  it('omits a target that is outside the window and says which side it is on', () => {
+    const after = layoutLane(goal({ targetDate: '2027-09-01', projectedEnd: null }), scale)
+    expect(after.target).toBeNull()
+    expect(after.targetEdge).toBe('after')
+    const before = layoutLane(goal({ targetDate: '2026-05-01', projectedEnd: null }), scale)
+    expect(before.targetEdge).toBe('before')
+    expect(layoutLane(goal(), scale).targetEdge).toBeNull()
   })
 })

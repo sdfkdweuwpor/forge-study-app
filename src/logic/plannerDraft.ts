@@ -27,7 +27,7 @@ import type {
 } from '@/db/types'
 import { compareISODate, diffDays, isISODate } from './dates'
 import type { PlanDraft } from './planImport/draft'
-import type { PlanParseResult } from './planParse'
+import { parsePlanText, type PlanParseResult } from './planParse'
 import {
   availabilityFromGoal,
   clampSession,
@@ -108,8 +108,12 @@ export interface PlannerDraft {
   title: string
   icon: string
   kind: Goal['kind']
-  /** The text typed or pasted or read from a PDF, so a refresh keeps it. */
+  /** A typed goal's longer description; saved as the goal's first note. */
+  description: string
+  /** The text pasted or read from a PDF, so a refresh keeps it. */
   sourceText: string
+  /** The text the courses below were last read from (`sourceText` differs once it is edited). */
+  readText: string
   courses: PlannerCourse[]
   /** "We couldn't read these lines". */
   unparsed: UnparsedLine[]
@@ -156,7 +160,9 @@ export function emptyPlannerDraft(today: ISODate): PlannerDraft {
     title: '',
     icon: DEFAULT_ICON,
     kind: 'custom',
+    description: '',
     sourceText: '',
+    readText: '',
     courses: [],
     unparsed: [],
     needsBreakdown: false,
@@ -195,6 +201,7 @@ export function isPristine(draft: PlannerDraft, today: ISODate): boolean {
     draft.courses.length === 0 &&
     draft.title === '' &&
     draft.sourceText === '' &&
+    draft.description === '' &&
     draft.unparsed.length === 0 &&
     draft.templateId === null &&
     draft.targetDate === null &&
@@ -300,6 +307,25 @@ export function applyParse(
 ): PlannerDraft {
   const filled = applyPlanDraft(base, parsed.draft, opts)
   return { ...filled, unparsed: parsed.unparsed.map((u) => ({ line: u.line, text: u.text })), needsBreakdown: parsed.needsBreakdown }
+}
+
+/** Reads pasted or PDF text into the draft's courses (replacing them). */
+export function readSourceText(
+  base: PlannerDraft,
+  text: string,
+  opts: FillOptions & { source: 'paste' | 'pdf' },
+): PlannerDraft {
+  const parsed = parsePlanText(text, { today: opts.today })
+  return { ...applyParse(base, parsed, opts), sourceText: text, readText: text }
+}
+
+/** A typed goal ("Learn conversational Spanish by June 2027") as one course that still needs a breakdown. */
+export function readTypedGoal(base: PlannerDraft, opts: Omit<FillOptions, 'source'>): PlannerDraft {
+  const title = clean(base.title)
+  if (title === '') return base
+  const parsed = parsePlanText(title, { today: opts.today })
+  const filled = applyParse(base, parsed, { ...opts, source: 'typed' })
+  return { ...filled, description: base.description, sourceText: '', readText: '' }
 }
 
 /** A template as the draft: its courses and dates, its suggested weekly windows and session length. */
@@ -414,6 +440,8 @@ export type DraftPatch = Partial<
     | 'icon'
     | 'kind'
     | 'sourceText'
+    | 'readText'
+    | 'description'
     | 'targetMode'
     | 'targetDate'
     | 'startDate'
@@ -856,7 +884,10 @@ export function plannerRows(draft: PlannerDraft, ctx: RowsContext): PlannerRows 
       paceMinutesPerStudyDay: null,
     },
     terms: term ? [term] : [],
-    notes: [],
+    notes:
+      clean(draft.description) === ''
+        ? []
+        : [{ id: id(`${goalId}:note`), type: 'p', text: draft.description.trim() }],
     order: ctx.goalOrder ?? 0,
     baselineEnd: null,
     projection: null,

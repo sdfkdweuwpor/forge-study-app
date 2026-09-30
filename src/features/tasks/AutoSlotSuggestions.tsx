@@ -118,19 +118,14 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
         ) : null}
       </header>
 
-      <ul className={styles.list}>
+      <div className={styles.list} role="group" aria-label="Suggestions">
         {suggestions.map((s) => (
-          <li key={s.taskId} className={styles.item} data-testid="suggestion">
+          <div key={s.taskId} className={styles.item}>
             <span className={styles.text}>
-              <span className={styles.name}>{s.title}</span>
-              <span className={styles.arrow} aria-hidden="true">
-                →
-              </span>
+              <span className={styles.name}>{s.title}</span>{' '}
+              <span className={styles.arrow}>→</span>{' '}
               <span className={styles.when}>
                 {suggestionWhen(s, today)} ({s.minutes} min)
-              </span>
-              <span className="sr-only">
-                {`, suggested for ${suggestionWhen(s, today)}, ${s.minutes} minutes`}
               </span>
             </span>
             <span className={styles.actions}>
@@ -153,10 +148,10 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
                 Dismiss
               </Button>
             </span>
-          </li>
+          </div>
         ))}
         {noRoom.map((n) => (
-          <li key={n.taskId} className={styles.item}>
+          <div key={n.taskId} className={styles.item}>
             <span className={styles.text}>
               <span className={styles.name}>{n.title}</span>
               <span className={styles.note}>{describeNoRoom(n, today)}</span>
@@ -166,9 +161,9 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
                 Pick a time
               </Button>
             </span>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   )
 }

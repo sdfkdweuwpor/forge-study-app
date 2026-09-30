@@ -207,3 +207,28 @@ describe('badgeAppStart', () => {
     await vi.waitFor(() => expect(announcedIds()).toEqual(['streak-7']))
   })
 })
+
+describe('sync.applied', () => {
+  it('credits what the synced history earns, without a toast', async () => {
+    unsubscribe = subscribeAll(badgeDomainHandlers)
+    // A morning session and a finished course arrived from another device as plain rows.
+    await db.sessions.add(sessionRow(at(1, 7, 0)))
+    await db.milestones.add(courseRow())
+    emit({ type: 'sync.applied', tables: ['sessions', 'milestones'], goalIds: [] })
+    await settleDomainEvents()
+    expect((await db.badges.toArray()).map((b) => b.id).sort()).toEqual([
+      'early-bird',
+      'first-course',
+      'first-focus',
+    ])
+    expect(announced).toEqual([])
+  })
+
+  it('ignores a sync that changed nothing badges read', async () => {
+    unsubscribe = subscribeAll(badgeDomainHandlers)
+    await db.sessions.add(sessionRow(at(1, 9, 0)))
+    emit({ type: 'sync.applied', tables: ['rewards', 'tasks'], goalIds: [] })
+    await settleDomainEvents()
+    expect(await db.badges.count()).toBe(0)
+  })
+})

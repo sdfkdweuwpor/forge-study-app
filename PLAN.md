@@ -1288,7 +1288,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - [x] **12B1** schema v3 + tracking (architect; finished and reviewed in the sync workflow): `db/sync/{stamp,tracking,remoteApply}.ts`, strictly increasing outbox stamps across tabs, the `seen` broadcast, `defaultSyncState()`, lossless idempotent v2→v3 (fixture test), tracking-on budgets. Everything `index.html` loads: +1.7 KB gzip for 12B1 (entry chunk itself −49 B).
   - [x] **12B2** pure logic: `logic/{sync,syncConfig,syncServerModel}.ts` + 223 tests incl. four seeded property tests (~1.1 s). Review blocker fixed: bootstrap no longer re-queues rows it just adopted.
   - [x] **12B4** transport + auth: `lib/pkce.ts` (RFC 7636 vector), `logic/syncRequests.ts` (pure request building; moved out of `logic/sync.ts` to avoid a clash with 12B2), `features/sync/supabase/{http,auth,rest}.ts`; 162 tests with a fake fetch. Text is scrubbed of lone surrogates and NUL before a push (jsonb refuses them). Untested against a live Supabase project.
-  - [ ] **12B3** repo engine, **12B5** engine + Settings UI, **12B6** CSP, e2e, README.
+  - [x] **12B3** repo engine: `db/repos/{sync,syncGate,syncHeal}.ts` (+ `sync.test.ts`, 60 scenarios incl. two-device and budgets), `db/hooks/useSyncState.ts`, `sync.applied` in `db/events.ts`, `logic/syncApply.ts`, `src/test/{fakeSyncServer,devices}.ts`; handlers in progress, badges and goals. Entry JS +333 B gzip. Decisions in DECISIONS.md "Cloud sync (Phase 12B3)".
+  - [ ] **12B5** engine + Settings UI, **12B6** CSP, e2e, README.
 - [ ] **12C (optional, later)** PDFs through Supabase Storage (§4.7.9 follow-up).
 
 ### Phase 13 — Polish

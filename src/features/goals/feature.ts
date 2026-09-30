@@ -1,6 +1,7 @@
 import { BookOpen, Check, Plus, Target } from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest, SearchProvider } from '@/app/registry'
+import { recordError } from '@/app/reportError'
 import { defineHandler } from '@/db/events'
 import { waitForStartupSync } from '@/db/repos/syncGate'
 import { GoalsNav } from './GoalsNav'
@@ -113,13 +114,18 @@ const manifest: FeatureManifest = {
   slots: [{ slot: 'sidebar.nav.goals', id: 'goals.tree', order: 10, component: GoalsNav }],
   domainHandlers: [healDuplicatePlans],
   // At the first open of a day, missed plan items roll forward (applied only when slightly behind;
-  // far behind writes proposals instead). With cloud sync on, the start-up sync comes first (up to 8 s),
-  // so the device opened second adopts the first one's roll-forward (`lastDailyRunDay` syncs); with sync
-  // off the wait returns at once. Loaded on demand: the planner is not in the first chunk.
+  // far behind writes proposals instead). With cloud sync on, the roll-forward waits for the start-up
+  // sync (up to 8 s), so the device opened second adopts the first one's roll-forward
+  // (`lastDailyRunDay` syncs); with sync off the wait returns at once. Scheduled, not awaited:
+  // `runAppStart` runs every feature's hook one after the other, and the sync feature's own hook starts
+  // the engine, so a hook that waited here would hold the engine (and every feature after this one) back
+  // until the wait timed out. Loaded on demand: the planner is not in the first chunk.
   onAppStart: async ({ now }) => {
-    await waitForStartupSync(8000)
-    const { runDailyPlanning } = await import('@/db/repos/proposals')
-    await runDailyPlanning({ now })
+    void (async () => {
+      await waitForStartupSync(8000)
+      const { runDailyPlanning } = await import('@/db/repos/proposals')
+      await runDailyPlanning({ now })
+    })().catch((error: unknown) => recordError(error, 'goals.dailyPlanning'))
   },
 }
 

@@ -39,7 +39,9 @@ const priceProblem = (text: string): string | null =>
  * One reward: icon, title and price you edit in place, how far away it is, and Redeem. Not a boxed card:
  * the row is plain until hovered. An unaffordable reward keeps its Redeem button, disabled, and says how
  * close it is beside the price: a short gold bar of the balance against the price and "240 XP to go".
- * Progress toward it, never a red "not enough".
+ * Progress toward it, never a red "not enough". On touch the title and the price are 44px targets, so the
+ * row is laid out to spend that height once: on a phone two lines (title and Redeem, price and its
+ * progress and the menu), on a tablet one.
  */
 export function RewardsCard({ reward, balance, handle, actions, onRedeem }: Props) {
   const toGoId = useId()
@@ -58,11 +60,13 @@ export function RewardsCard({ reward, balance, handle, actions, onRedeem }: Prop
   return (
     <div className={styles.card} data-affordable={affordable || undefined}>
       <span className={styles.handle}>{handle}</span>
-      <RewardsIconPicker
-        value={reward.icon}
-        rewardTitle={reward.title}
-        onPick={(icon) => void actions.save(reward.id, { icon })}
-      />
+      <span className={styles.icon}>
+        <RewardsIconPicker
+          value={reward.icon}
+          rewardTitle={reward.title}
+          onPick={(icon) => void actions.save(reward.id, { icon })}
+        />
+      </span>
       <div className={styles.main}>
         <div className={styles.title}>
           <RewardsInline
@@ -106,6 +110,7 @@ export function RewardsCard({ reward, balance, handle, actions, onRedeem }: Prop
       </div>
       <div className={styles.actions}>
         <Button
+          className={styles.redeem}
           variant="secondary"
           disabled={!affordable}
           aria-label={`Redeem ${reward.title} for ${formatPrice(reward.price)}`}

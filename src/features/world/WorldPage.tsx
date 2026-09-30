@@ -32,6 +32,8 @@ declare global {
       pointOf(id: string): { x: number; y: number } | null
       ids(): string[]
       stats(): WorldModel['stats'] | null
+      /** The zoom and where the whole world lies in the canvas (CSS px from its top left). */
+      view(): ReturnType<WorldHandle['viewInfo']>
     }
   }
 }
@@ -128,6 +130,7 @@ function WorldBody() {
         pointOf: (id) => handle.clientPointOf(id),
         ids: () => latest.current.model?.earned.map((p) => p.id) ?? [],
         stats: () => latest.current.model?.stats ?? null,
+        view: () => handle.viewInfo(),
       }
     }
     return () => {
@@ -149,9 +152,7 @@ function WorldBody() {
   }, [reducedMotion, mountedHandle])
 
   const zoomBy = useCallback(
-    (delta: number) => {
-      if (mountedHandle) mountedHandle.zoomTo(mountedHandle.zoom() + delta)
-    },
+    (dir: 1 | -1) => mountedHandle?.zoomStep(dir),
     [mountedHandle],
   )
   const fit = useCallback(() => mountedHandle?.fit(), [mountedHandle])

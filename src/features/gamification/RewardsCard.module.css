@@ -86,6 +86,11 @@
   }
 }
 
+.icon {
+  display: grid;
+  place-items: center;
+}
+
 /*
  * Phones: the same single row, with the handle and icon columns sized to their (touch-sized) controls so
  * nothing reserves empty space, and Redeem kept beside the reward instead of on a line of its own.
@@ -103,5 +108,82 @@
 
   .actions {
     gap: var(--space-1);
+  }
+}
+
+/*
+ * Touch. The title and the price are buttons with a 44px target each (RewardsInline), so stacking them
+ * in a padded row made every reward 114px tall (132 with "930 XP to go" on a third line). The targets
+ * stay 44px; the row stops paying for them twice:
+ *
+ * - no extra vertical padding (the targets are the height), a hairline of gap between rewards;
+ * - a phone lays the row out as two 44px lines, so each control sits on the line it belongs to: the title
+ *   with Redeem, the price with how close it is and the menu (96px a reward, and the same with "to go");
+ * - a tablet has room for the title and the price on one line (56px a reward).
+ */
+@media (pointer: coarse) {
+  .card {
+    padding-block: var(--space-1);
+  }
+
+  .main {
+    gap: 0;
+  }
+
+  .meta {
+    align-items: center;
+  }
+}
+
+@media (pointer: coarse) and (min-width: 640px) {
+  .main {
+    flex-flow: row wrap;
+    align-items: center;
+    column-gap: var(--space-3);
+  }
+}
+
+@media (pointer: coarse) and (max-width: 639px) {
+  .card {
+    grid-template-areas:
+      'handle icon title redeem'
+      'handle icon meta more';
+    row-gap: 0;
+  }
+
+  /* The two wrappers give their children to the grid, so each lands on its own line. */
+  .main,
+  .actions {
+    display: contents;
+  }
+
+  .handle {
+    grid-area: handle;
+  }
+
+  .icon {
+    grid-area: icon;
+  }
+
+  .title {
+    grid-area: title;
+  }
+
+  .meta {
+    grid-area: meta;
+  }
+
+  .redeem {
+    grid-area: redeem;
+  }
+
+  .more {
+    grid-area: more;
+    justify-self: end;
+  }
+
+  /* "930 XP to go" stays on the price's line at 375px with a shorter bar; on a narrower phone it wraps under. */
+  .toGoBar {
+    width: 32px;
   }
 }

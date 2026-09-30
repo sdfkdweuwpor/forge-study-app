@@ -116,26 +116,51 @@
 }
 
 /*
- * A fixed corner button. IconButton brings its own size and position, so these rules are one class
- * more specific than its. Touch targets are at least 44px: the tablet layout, and any coarse pointer.
+ * The fixed corner while the sidebar is out of sight: the "Open sidebar" button and, beside it, the
+ * sidebar's status widgets (`sidebar.rail`, the level ring). They sit in the top band of the page, above
+ * its content. `--rail-size` is the square every one of them takes: the open button's own size. Touch
+ * targets are at least 44px: the tablet layout, and any coarse pointer. `--corner-w` is how far the
+ * corner reaches from the left edge (with its right margin), for pages that run edge to edge.
  */
-.content .openButton {
+.shell {
+  --rail-size: var(--control-h-md);
+  --corner-w: calc(var(--space-3) * 2 + var(--rail-size));
+}
+
+.shell[data-mode='tablet'] {
+  --rail-size: var(--tap-min);
+}
+
+@media (pointer: coarse) {
+  .shell {
+    --rail-size: var(--tap-min);
+  }
+}
+
+.shell[data-rail] {
+  --corner-w: calc(var(--space-3) * 2 + var(--rail-size) * 2 + var(--space-1));
+}
+
+.corner {
   position: fixed;
   top: var(--space-3);
   left: var(--space-3);
   z-index: var(--z-sidebar);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
-.shell[data-mode='tablet'] .content .openButton {
-  width: var(--tap-min);
-  height: var(--tap-min);
+/* IconButton brings its own size, so this rule is one class more specific than its. */
+.content .openButton {
+  width: var(--rail-size);
+  height: var(--rail-size);
 }
 
-@media (pointer: coarse) {
-  .content .openButton {
-    width: var(--tap-min);
-    height: var(--tap-min);
-  }
+.rail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .main {
@@ -203,7 +228,7 @@
 
 .shell[data-mode='tablet'] .pageOuter[data-route='world'],
 .sidebarWrap[data-collapsed] ~ .content .pageOuter[data-route='world'] {
-  --world-inset: 56px;
+  --world-inset: var(--corner-w);
 }
 
 .shell[data-mode='tablet'] .pageOuter[data-route='world'],

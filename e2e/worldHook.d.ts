@@ -10,6 +10,13 @@ declare global {
       pointOf(id: string): { x: number; y: number } | null
       ids(): string[]
       stats(): { tiles: number; floors: number; landmarks: number; streakLevel: number } | null
+      view(): {
+        zoom: number
+        scale: number
+        width: number
+        height: number
+        world: { left: number; top: number; right: number; bottom: number }
+      }
     }
   }
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Tests clear the fake database directly; the lint rule keeps app code on repos and queries.
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { db } from '@/db/db'
-import { resetDomainEvents, settleDomainEvents, subscribeAll } from '@/db/events'
+import { emit, resetDomainEvents, settleDomainEvents, subscribeAll } from '@/db/events'
 import { getBadges } from '@/db/repos/badges'
 import { loadStreak, type StreakMilestoneAward } from '@/db/repos/progress'
 import { finishSession, startSession } from '@/db/repos/sessions'
@@ -225,5 +225,43 @@ describe('streaksAppStart', () => {
     await settleDomainEvents()
     expect(await db.streakDays.toArray()).toEqual(rows)
     expect(await streakXp()).toHaveLength(1)
+  })
+})
+
+describe('sync.applied', () => {
+  it('rebuilds the streak rows from the synced history, and announces and pays nothing for it', async () => {
+    // Eight days of work done on another device arrived as plain rows: no event ran for any of it.
+    for (let i = 0; i < 8; i++) await addSession(addDays(TODAY, -i))
+    expect(await db.streakDays.count()).toBe(0)
+
+    emit({ type: 'sync.applied', tables: ['sessions'], goalIds: [] })
+    await settleDomainEvents()
+
+    expect(await db.streakDays.count()).toBe(8)
+    expect((await loadStreak(TODAY)).current).toBe(8)
+    // No milestone XP for work done elsewhere (the other device pays its own, and it syncs), no toast.
+    expect(await streakXp()).toEqual([])
+    expect(announced).toEqual([])
+    // The badges those days earn are credited in the same quiet transaction.
+    expect((await getBadges()).map((b) => b.id)).toEqual(
+      expect.arrayContaining(['first-focus', 'streak-7']),
+    )
+  })
+
+  it('takes back a day whose sessions were deleted elsewhere', async () => {
+    await addSession(TODAY)
+    await streaksAppStart({ now: T0, today: TODAY })
+    expect(await db.streakDays.count()).toBe(1)
+    await db.sessions.clear()
+    emit({ type: 'sync.applied', tables: ['sessions'], goalIds: [] })
+    await settleDomainEvents()
+    expect(await db.streakDays.count()).toBe(0)
+  })
+
+  it('ignores a sync that changed nothing a day is built from', async () => {
+    await addSession(TODAY)
+    emit({ type: 'sync.applied', tables: ['rewards', 'flashcards'], goalIds: [] })
+    await settleDomainEvents()
+    expect(await db.streakDays.count()).toBe(0)
   })
 })

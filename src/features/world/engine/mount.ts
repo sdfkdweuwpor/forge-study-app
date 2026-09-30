@@ -14,10 +14,14 @@ import {
   originOf,
   panBy,
   pointInBox,
+  scaleOf,
   spriteBox,
+  stepZoom,
   zoomAbout,
+  zoomFloor,
   type Box,
   type Camera,
+  type Extent,
   type Placed,
   type Theme,
   type WorldModel,
@@ -43,11 +47,19 @@ export interface WorldHandle {
   resize(): void
   /** The item at a client (page) point. */
   hitTest(clientX: number, clientY: number): Placed | null
-  /** Sets the zoom (1-4, rounded) around the middle of the view. */
+  /** Sets the zoom (1-4, rounded; below 1 only the fit zoom) around the middle of the view. */
   zoomTo(level: number): void
+  /** One zoom level in or out around the middle of the view; out of 1 it reaches a fractional fit zoom. */
+  zoomStep(dir: 1 | -1): void
   /** The current zoom level. */
   zoom(): number
+  /**
+   * Fits the whole world in the view: the largest whole zoom that fits, and a fraction only when zoom 1
+   * does not (a phone, or a big city).
+   */
   fit(): void
+  /** Where the world lies in the canvas now, in CSS pixels from its top left; for tests and screenshots. */
+  viewInfo(): { zoom: number; scale: number; width: number; height: number; world: Extent }
   /** Where an item's middle is, in client (page) coordinates, or null if it is not in the model. */
   clientPointOf(id: string): { x: number; y: number } | null
   /** The whole world as a PNG (default zoom 2, reduced so neither side passes 8192 px). */
@@ -113,6 +125,14 @@ export function mountWorld(canvas: HTMLCanvasElement, initial: WorldModel, opts:
     cameraVersion += 1
   }
 
+  /** The lowest zoom now: 1, or the fit zoom while the whole world does not fit at 1. */
+  const floorZoom = (): number => zoomFloor(renderer.extent(), view, FIT_PADDING_CSS * toDevice, view.unit)
+  /** A view that was fitted and then given more room is never left below its floor. */
+  const raiseToFloor = (cam: Camera): Camera => {
+    const floor = floorZoom()
+    return cam.zoom < floor ? { ...cam, zoom: floor } : cam
+  }
+
   // ── Frame loop ─────────────────────────────────────────────────────────────────────────────────
   let raf = 0
   let lastFrameAt = -Infinity
@@ -169,7 +189,7 @@ export function mountWorld(canvas: HTMLCanvasElement, initial: WorldModel, opts:
     if (canvas.width !== view.width) canvas.width = view.width
     if (canvas.height !== view.height) canvas.height = view.height
     if (!touched && cssWidth > 0 && cssHeight > 0) fitView()
-    else camera = clampCam(camera)
+    else camera = clampCam(raiseToFloor(camera))
     cameraVersion += 1
     invalidate()
   }
@@ -230,7 +250,8 @@ export function mountWorld(canvas: HTMLCanvasElement, initial: WorldModel, opts:
   // ── Camera actions ─────────────────────────────────────────────────────────────────────────────
   const zoomStep = (dir: 1 | -1, around?: Pt): void => {
     const anchor = around ? { x: around.x * toDevice, y: around.y * toDevice } : { x: view.width / 2, y: view.height / 2 }
-    setCamera(zoomAbout(camera, camera.zoom + dir, anchor, view, view.unit), true)
+    const floor = floorZoom()
+    setCamera(zoomAbout(camera, stepZoom(camera.zoom, dir, floor), anchor, view, view.unit, floor), true)
   }
 
   const input = attachInput({
@@ -307,7 +328,7 @@ export function mountWorld(canvas: HTMLCanvasElement, initial: WorldModel, opts:
         opts.onHover?.(null, { x: 0, y: 0 }, 'pointer')
       }
       if (!touched && cssWidth > 0) fitView()
-      else camera = clampCam(camera)
+      else camera = clampCam(raiseToFloor(camera))
       cameraVersion += 1
       invalidate()
     },
@@ -328,7 +349,14 @@ export function mountWorld(canvas: HTMLCanvasElement, initial: WorldModel, opts:
     },
     zoomTo(level) {
       if (destroyed) return
-      setCamera(zoomAbout(camera, clampZoom(level), { x: view.width / 2, y: view.height / 2 }, view, view.unit), true)
+      const floor = floorZoom()
+      setCamera(
+        zoomAbout(camera, clampZoom(level, floor), { x: view.width / 2, y: view.height / 2 }, view, view.unit, floor),
+        true,
+      )
+    },
+    zoomStep: (dir) => {
+      if (!destroyed) zoomStep(dir)
     },
     zoom: () => camera.zoom,
     fit() {
@@ -336,6 +364,24 @@ export function mountWorld(canvas: HTMLCanvasElement, initial: WorldModel, opts:
       touched = false
       fitView()
       invalidate()
+    },
+    viewInfo() {
+      const e = renderer.extent()
+      const o = originOf(camera, view, view.unit)
+      const k = scaleOf(camera.zoom, view.unit)
+      const css = (device: number): number => device / toDevice
+      return {
+        zoom: camera.zoom,
+        scale: css(k),
+        width: cssWidth,
+        height: cssHeight,
+        world: {
+          left: css(o.x + e.left * k),
+          top: css(o.y + e.top * k),
+          right: css(o.x + e.right * k),
+          bottom: css(o.y + e.bottom * k),
+        },
+      }
     },
     clientPointOf(id) {
       const at = cssPointOf(id)

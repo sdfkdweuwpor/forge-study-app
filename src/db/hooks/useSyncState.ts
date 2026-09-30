@@ -25,7 +25,7 @@ export interface SyncStateView {
   clockSkewMs: number | null
 }
 
-function toView(row: SyncStateRow): SyncStateView {
+export function toSyncStateView(row: SyncStateRow): SyncStateView {
   return {
     enabled: row.enabled,
     phase: row.phase,
@@ -50,7 +50,7 @@ function toView(row: SyncStateRow): SyncStateView {
 export function useSyncState(): SyncStateView | null | undefined {
   return useLiveQuery(async () => {
     const row = await db.syncState.get(SYNC_STATE_ID)
-    return row ? toView(row) : null
+    return row ? toSyncStateView(row) : null
   }, [])
 }
 
@@ -60,8 +60,7 @@ export function useSyncState(): SyncStateView | null | undefined {
  */
 export function useSyncOn(): boolean {
   return (
-    useLiveQuery(async () => (await db.syncState.get(SYNC_STATE_ID))?.enabled === true, []) ===
-    true
+    useLiveQuery(async () => (await db.syncState.get(SYNC_STATE_ID))?.enabled === true, []) === true
   )
 }
 

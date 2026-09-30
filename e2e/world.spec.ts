@@ -40,6 +40,37 @@ async function pointOf(page: Page, id: string): Promise<{ x: number; y: number }
   return at
 }
 
+const pad = (n: number): string => String(n).padStart(2, '0')
+/** The local date `offset` days from the fixed "today". */
+const isoOf = (offset: number): string => {
+  const d = new Date(FIXED_NOW.getTime() + offset * 86_400_000)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Adds `count` finished tasks (none tied to a goal, so the planner has nothing to recompute) to the open database. */
+async function putFinishedTasks(page: Page, count: number): Promise<void> {
+  const template = await page.evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve, reject) => {
+        const open = indexedDB.open('forge')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const all = open.result.transaction(['tasks']).objectStore('tasks').getAll()
+          all.onsuccess = () => {
+            open.result.close()
+            resolve((all.result as Record<string, unknown>[]).find((r) => r.id === 'task-c182-oa') ?? {})
+          }
+        }
+      }),
+  )
+  const tasks = Array.from({ length: count }, (_, i) => {
+    const day = isoOf(-1 - Math.floor(i / 17))
+    const at = new Date(`${day}T${pad(6 + (i % 17))}:15:00-04:00`).getTime()
+    return { ...template, id: `many-${i}`, title: `Task ${i}`, goalId: null, milestoneId: null, unitId: null, estimatePomodoros: null, estimateMinutes: null, status: 'done', completedAt: at, completedDay: day, createdAt: at, updatedAt: at }
+  })
+  await putRows(page, 'tasks', tasks)
+}
+
 test.describe('My World', () => {
   test('draws the city for the sample data, with its stats and an accessible canvas', async ({ page }) => {
     await gotoApp(page, '/world', 'wgu')
@@ -198,32 +229,7 @@ test.describe('My World', () => {
   test('2,000 finished tasks and a 100-day streak still load fast and pan smoothly', async ({ page }) => {
     test.setTimeout(90_000)
     await gotoApp(page, '/world', 'wgu')
-    const template = await page.evaluate(
-      () =>
-        new Promise<Record<string, unknown>>((resolve, reject) => {
-          const open = indexedDB.open('forge')
-          open.onerror = () => reject(open.error)
-          open.onsuccess = () => {
-            const all = open.result.transaction(['tasks']).objectStore('tasks').getAll()
-            all.onsuccess = () => {
-              open.result.close()
-              resolve((all.result as Record<string, unknown>[]).find((r) => r.id === 'task-c182-oa') ?? {})
-            }
-          }
-        }),
-    )
-    const pad = (n: number): string => String(n).padStart(2, '0')
-    const isoOf = (offset: number): string => {
-      const d = new Date(FIXED_NOW.getTime() + offset * 86_400_000)
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-    }
-    // Not tied to a goal, so the planner has nothing to recompute for each of them.
-    const tasks = Array.from({ length: 2000 }, (_, i) => {
-      const day = isoOf(-1 - Math.floor(i / 17))
-      const at = new Date(`${day}T${pad(6 + (i % 17))}:15:00-04:00`).getTime()
-      return { ...template, id: `many-${i}`, title: `Task ${i}`, goalId: null, milestoneId: null, unitId: null, estimatePomodoros: null, estimateMinutes: null, status: 'done', completedAt: at, completedDay: day, createdAt: at, updatedAt: at }
-    })
-    await putRows(page, 'tasks', tasks)
+    await putFinishedTasks(page, 2000)
     await putRows(page, 'sessions', Array.from({ length: 100 }, (_, i) => focusSession(`many-s${i}`, isoOf(-1 - i), null, 60)))
     // The 100-day streak pays its milestone XP at start-up, and the level-up moment it raises would sit
     // over the canvas when the tooltip is hovered below (it did, 1 run in 4 to 4 in 4 depending on load).
@@ -263,8 +269,8 @@ test.describe('My World', () => {
     expect(gaps[Math.floor(gaps.length / 2)] ?? 0).toBeLessThan(34)
     expect(gaps[gaps.length - 1] ?? 0).toBeLessThan(350)
 
-    // Hovering still finds a task among two thousand. Back to the fitted view first; a city this size is
-    // wider than the screen at the smallest zoom, so pick the oldest task, which sits in the middle of it.
+    // Hovering still finds a task among two thousand. Back to the fitted view first (the whole city, at a
+    // fraction of a pixel per art pixel); the oldest task sits in the middle of it.
     await page.keyboard.press('0')
     const at = await pointOf(page, 'task:many-1999')
     await page.mouse.move(at.x, at.y)
@@ -313,3 +319,115 @@ test.describe('My World', () => {
     expect(await framesIn(800)).toBe(0)
   })
 })
+
+// ── Fit ────────────────────────────────────────────────────────────────────────────────────────
+// "Fit" puts the whole city in the canvas: the largest whole zoom (1 to 4) that fits, so the pixels
+// stay crisp, and a fraction only when not even zoom 1 fits (a phone, or a big city). The sample-data
+// build reports the zoom and where the city lies (`window.__forgeWorld.view()`), so these specs check
+// the picture's geometry and not just that something changed.
+
+const FIT_PADDING = 24
+
+const FIT_SIZES = [
+  { name: 'phone', width: 375, height: 812, fit: 'Fit to view' },
+  { name: 'tablet', width: 768, height: 1024, fit: 'Fit' },
+  { name: 'desktop', width: 1440, height: 900, fit: 'Fit' },
+] as const
+
+type WorldView = ReturnType<NonNullable<Window['__forgeWorld']>['view']>
+
+async function worldView(page: Page): Promise<WorldView> {
+  await expect.poll(() => page.evaluate(() => window.__forgeWorld !== undefined)).toBe(true)
+  const view = await page.evaluate(() => window.__forgeWorld?.view())
+  if (!view) throw new Error('the world is not mounted')
+  return view
+}
+
+/** The city's size in art pixels, read back from where it is drawn. */
+const artSize = (v: WorldView): { w: number; h: number } => ({
+  w: (v.world.right - v.world.left) / v.scale,
+  h: (v.world.bottom - v.world.top) / v.scale,
+})
+
+/** The largest whole zoom (1 to 4) at which the city fits the canvas with the padding, or null. */
+function largestWholeZoom(v: WorldView): number | null {
+  const { w, h } = artSize(v)
+  for (let zoom = 4; zoom >= 1; zoom--) {
+    if (w * zoom + 2 * FIT_PADDING <= v.width && h * zoom + 2 * FIT_PADDING <= v.height) return zoom
+  }
+  return null
+}
+
+/** The whole city is inside the canvas, and the zoom is the crisp one when a whole zoom fits. */
+async function expectFitted(page: Page): Promise<WorldView> {
+  const v = await worldView(page)
+  // The origin is rounded to a whole pixel, so allow one pixel either way.
+  expect(v.world.left).toBeGreaterThanOrEqual(FIT_PADDING - 1)
+  expect(v.world.top).toBeGreaterThanOrEqual(FIT_PADDING - 1)
+  expect(v.world.right).toBeLessThanOrEqual(v.width - FIT_PADDING + 1)
+  expect(v.world.bottom).toBeLessThanOrEqual(v.height - FIT_PADDING + 1)
+  const whole = largestWholeZoom(v)
+  if (whole !== null) {
+    expect(v.zoom, 'a whole zoom fits, so Fit uses the largest one').toBe(whole)
+  } else {
+    // Nothing whole fits: the largest fraction that does (within a percent of the exact fit).
+    const { w, h } = artSize(v)
+    const exact = Math.min((v.width - 2 * FIT_PADDING) / w, (v.height - 2 * FIT_PADDING) / h)
+    expect(v.zoom).toBeLessThan(1)
+    expect(v.zoom).toBeGreaterThan(exact * 0.99)
+  }
+  return v
+}
+
+for (const size of FIT_SIZES) {
+  test.describe(`Fit at ${size.width} px (${size.name})`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } })
+
+    test('the sample city is whole in view as it opens, and Fit brings it back after zooming', async ({
+      page,
+    }) => {
+      await gotoApp(page, '/world', 'wgu')
+      await expect.poll(() => page.evaluate(() => window.__forgeWorld?.ids().length ?? 0)).toBeGreaterThan(0)
+      const first = await expectFitted(page)
+      // The sample city is 352 x 193 art px: a phone is 327 px of room, so only a fraction fits there.
+      if (size.name === 'phone') expect(first.zoom).toBeLessThan(1)
+      else expect(Number.isInteger(first.zoom)).toBe(true)
+
+      await page.getByRole('button', { name: 'Zoom in' }).click()
+      await expect.poll(async () => (await worldView(page)).zoom).toBeGreaterThan(first.zoom)
+      await page.getByRole('button', { name: size.fit }).click()
+      await expect.poll(async () => (await worldView(page)).zoom).toBe(first.zoom)
+      await expectFitted(page)
+    })
+
+    test('a grown city (600 finished tasks) is whole in view, and zoom steps from it and back', async ({
+      page,
+    }) => {
+      await gotoApp(page, '/world', 'wgu')
+      await putFinishedTasks(page, 600)
+      await page.goto('/world')
+      await expect.poll(() => page.evaluate(() => window.__forgeWorld?.ids().length ?? 0)).toBeGreaterThan(600)
+      const fitted = await expectFitted(page)
+      // About 1,500 x 740 art px: more than any of these canvases shows at zoom 1.
+      expect(fitted.zoom).toBeLessThan(1)
+
+      // In goes to zoom 1 (never past it); out comes back to the fitted zoom and stays there.
+      await page.getByRole('button', { name: 'Zoom in' }).click()
+      await expect.poll(async () => (await worldView(page)).zoom).toBe(1)
+      await page.getByRole('button', { name: 'Zoom out' }).click()
+      await expect.poll(async () => (await worldView(page)).zoom).toBe(fitted.zoom)
+      await page.getByRole('button', { name: 'Zoom out' }).click()
+      await page.waitForTimeout(150)
+      expect((await worldView(page)).zoom).toBe(fitted.zoom)
+
+      // The 0 key fits too, from anywhere.
+      await canvas(page).focus()
+      await page.keyboard.press('=')
+      await page.keyboard.press('=')
+      await expect.poll(async () => (await worldView(page)).zoom).toBe(2)
+      await page.keyboard.press('0')
+      await expect.poll(async () => (await worldView(page)).zoom).toBe(fitted.zoom)
+      await expectFitted(page)
+    })
+  })
+}

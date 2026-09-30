@@ -4,11 +4,20 @@ import type { Extent } from './iso'
  * The camera of the world view. Pure maths on numbers: the canvas never appears here.
  *
  * The camera is the point of the world (in art pixels at zoom 1) that sits in the middle of the view,
- * plus an integer zoom. `unit` is how many screen pixels one art pixel takes at zoom 1 (the device
- * pixel ratio, rounded), so the screen scale is always a whole number and the pixel art stays crisp.
+ * plus a zoom. `unit` is how many screen pixels one art pixel takes at zoom 1 (the device pixel ratio,
+ * rounded), so at the whole zoom levels 1 to 4 the screen scale is a whole number and the pixel art
+ * stays crisp. One more level exists below them, and only when the whole city does not fit at zoom 1:
+ * the fit zoom, a fraction (see `fitZoom`). The person reaches it with Fit, or by zooming out from 1.
  */
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 4
+/**
+ * The smallest scale Fit will pick, in screen pixels per art pixel. Below this a city is a smear of
+ * dots, so a city too big for it is shown at this scale and panned, not shrunk further.
+ */
+export const MIN_FIT_SCALE = 0.1
+/** Zoom values closer than this are the same level (they come from a division). */
+const ZOOM_EPS = 1e-6
 
 export interface Camera {
   cx: number
@@ -26,10 +35,32 @@ export interface ScreenXY {
   y: number
 }
 
-/** Rounds to a whole zoom level and keeps it inside 1..4. */
-export function clampZoom(zoom: number): number {
-  if (!Number.isFinite(zoom)) return MIN_ZOOM
+/**
+ * Rounds to a whole zoom level and keeps it inside 1..4. `floor` is the lowest level the view can be at
+ * (the fit zoom when the whole city does not fit at zoom 1, otherwise 1): anything that rounds below 1
+ * lands there, so a fraction is only ever the floor itself, never an arbitrary in-between.
+ */
+export function clampZoom(zoom: number, floor: number = MIN_ZOOM): number {
+  const low = Math.min(MIN_ZOOM, floor)
+  if (!Number.isFinite(zoom) || zoom < MIN_ZOOM - ZOOM_EPS) return low
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom)))
+}
+
+/**
+ * One zoom level in or out from `zoom`: the next whole level above, or the next one below; out of 1 it
+ * goes to `floor` (the fit zoom) when that is a fraction, and from the floor it stays. A fractional zoom
+ * steps in to 1, never past it.
+ */
+export function stepZoom(zoom: number, dir: 1 | -1, floor: number = MIN_ZOOM): number {
+  const low = Math.min(MIN_ZOOM, floor)
+  if (!Number.isFinite(zoom)) return low
+  if (dir > 0) {
+    if (zoom < MIN_ZOOM - ZOOM_EPS) return MIN_ZOOM
+    return Math.min(MAX_ZOOM, Math.floor(zoom + ZOOM_EPS) + 1)
+  }
+  if (zoom <= low + ZOOM_EPS) return low
+  if (zoom <= MIN_ZOOM + ZOOM_EPS) return low
+  return Math.max(MIN_ZOOM, Math.ceil(zoom - ZOOM_EPS) - 1)
 }
 
 /** Screen pixels per art pixel. */
@@ -40,17 +71,30 @@ export function centreOf(extent: Extent): { cx: number; cy: number } {
 }
 
 /**
- * The largest zoom at which `extent` fits the view with `padding` screen pixels on every side; never
- * below 1 (a very large world is then panned, not shrunk).
+ * The zoom at which all of `extent` fits the view with `padding` screen pixels on every side.
+ *
+ * The largest whole zoom (1 to 4) that fits, so the pixels stay crisp. Only when not even zoom 1 fits (a
+ * phone, or a big city) does it fall back to a fraction: the largest one that fits, rounded down so it
+ * never overflows by a rounding error. A city too big for `MIN_FIT_SCALE` is shown at that scale and
+ * panned, not shrunk to dots.
  */
 export function fitZoom(extent: Extent, view: View, padding: number, unit: number): number {
   const w = Math.max(1, extent.right - extent.left)
   const h = Math.max(1, extent.bottom - extent.top)
-  for (let zoom = MAX_ZOOM; zoom > MIN_ZOOM; zoom--) {
+  const roomW = view.width - 2 * padding
+  const roomH = view.height - 2 * padding
+  for (let zoom = MAX_ZOOM; zoom >= MIN_ZOOM; zoom--) {
     const s = scaleOf(zoom, unit)
-    if (w * s + 2 * padding <= view.width && h * s + 2 * padding <= view.height) return zoom
+    if (w * s <= roomW && h * s <= roomH) return zoom
   }
-  return MIN_ZOOM
+  const exact = Math.min(roomW / w, roomH / h) / unit
+  const floored = Math.floor(exact * 1000) / 1000
+  return Math.max(MIN_FIT_SCALE / unit, Math.min(floored, MIN_ZOOM))
+}
+
+/** The lowest zoom the view can reach: the fit zoom when it is a fraction, otherwise 1. */
+export function zoomFloor(extent: Extent, view: View, padding: number, unit: number): number {
+  return Math.min(MIN_ZOOM, fitZoom(extent, view, padding, unit))
 }
 
 /** Fit to view: the fitting zoom, centred on the extent. */
@@ -79,8 +123,15 @@ export function artToScreen(cam: Camera, view: View, unit: number, art: ScreenXY
 }
 
 /** Zooms to `zoom` keeping the world point under `anchor` (screen pixels) where it is. */
-export function zoomAbout(cam: Camera, zoom: number, anchor: ScreenXY, view: View, unit: number): Camera {
-  const next = clampZoom(zoom)
+export function zoomAbout(
+  cam: Camera,
+  zoom: number,
+  anchor: ScreenXY,
+  view: View,
+  unit: number,
+  floor: number = MIN_ZOOM,
+): Camera {
+  const next = clampZoom(zoom, floor)
   if (next === cam.zoom) return cam
   const world = screenToArt(cam, view, unit, anchor)
   const s = scaleOf(next, unit)

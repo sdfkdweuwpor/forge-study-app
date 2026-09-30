@@ -48,6 +48,7 @@ import {
   toServerRow,
   tokenNeedsRefresh,
   SAFETY_SNAPSHOT_DELETIONS,
+  type ApplyDecision,
   type ApplyMode,
   type LocalRowStamp,
   type PullProgress,
@@ -59,6 +60,7 @@ import {
 } from '@/logic/sync'
 import {
   SYNC_TEXT,
+  accountWinsOverSeed,
   clockCheckDue,
   clockSkew,
   isRowRejection,
@@ -72,7 +74,12 @@ import { filesInTrash, markTrashBlobs } from '@/logic/snapshotJson'
 import { SYNC_TABLES, isSyncTable, type SyncTableName } from '@/logic/syncTables'
 import { levelFromLifetimeXp, lifetimeXp } from '@/logic/xp'
 import { db } from '../db'
-import { SETTINGS_ID, defaultSettings, defaultSyncState } from '../defaults'
+import {
+  DEFAULT_BLOCKED_DOMAINS,
+  SETTINGS_ID,
+  defaultSettings,
+  defaultSyncState,
+} from '../defaults'
 import { emit } from '../events'
 import { SCHEMA_VERSION } from '../schema'
 import { markRemoteApply, markUntracked } from '../sync/remoteApply'
@@ -158,8 +165,7 @@ export async function savePendingLogin(pending: SyncStateRow['pendingLogin']): P
  */
 export async function startSync(session: SyncSession): Promise<SyncStateRow> {
   const next = await writeState((row) => {
-    const continuing =
-      row.enabled && row.deviceId !== null && row.accountUserId === session.userId
+    const continuing = row.enabled && row.deviceId !== null && row.accountUserId === session.userId
     return {
       ...row,
       enabled: true,
@@ -300,6 +306,15 @@ interface BootstrapIndex {
   identical: Set<string>
 }
 
+/** A record the server refused, kept in the outbox until the cycle shows the server takes other rows. */
+interface HeldRefusal {
+  /** The outbox entry as read; removed only if it still has this stamp. */
+  entry: SyncOutboxEntry
+  record: RefusedRecord
+  /** What the server said, raised again when the refusal turns out to be about the request. */
+  error: SyncTransportError
+}
+
 interface Ctx {
   server: SyncServer
   opts: SyncCycleOptions
@@ -316,15 +331,21 @@ interface Ctx {
   applied: number
   touched: Set<TableName>
   goalIds: Set<ID>
+  /** Records left out of this cycle's push and reported: the cycle ended knowing the server takes other rows. */
   refused: RefusedRecord[]
+  /** Records the server refused, still queued: see `holdRefusal` and `finishHolds`. */
+  held: Map<string, HeldRefusal>
   yieldNow: () => Promise<void>
   report: (step: SyncProgress['step'], rows: number) => void
 }
 
-/** The most rows one cycle will skip before it decides something is wrong with the request, not the rows. */
+/** The most records one cycle will hold as refused before it decides the request is wrong, not the rows. */
 const MAX_REFUSED = 10
 /** Bound on push rounds of 200 entries: a safety net against an outbox that never drains. */
 const MAX_PUSH_ROUNDS = 2000
+
+/** What a first sync does with a seed row the account also has: the account's copy replaces it and its queued change goes. */
+const ACCOUNT_WINS: ApplyDecision = { apply: true, dropPending: true, reason: 'remoteNewer' }
 
 let running = false
 const clockChecks = new Map<string, Millis>()
@@ -404,7 +425,10 @@ interface BuiltRows {
 }
 
 /** Reads each record now and builds its server row: a missing record is a tombstone. */
-async function buildRows(deviceId: string, entries: readonly SyncOutboxEntry[]): Promise<BuiltRows> {
+async function buildRows(
+  deviceId: string,
+  entries: readonly SyncOutboxEntry[],
+): Promise<BuiltRows> {
   const byTable = new Map<SyncTableName, SyncOutboxEntry[]>()
   const dropped: SyncOutboxEntry[] = []
   for (const entry of entries) {
@@ -418,16 +442,12 @@ async function buildRows(deviceId: string, entries: readonly SyncOutboxEntry[]):
   }
   const records = new Map<string, unknown>()
   if (byTable.size > 0) {
-    await db.transaction(
-      'r',
-      [...byTable.keys()].map(rowsOf),
-      async () => {
-        for (const [tbl, list] of byTable) {
-          const found = await rowsOf(tbl).bulkGet(list.map((e) => e.id))
-          list.forEach((e, i) => records.set(rowKey(tbl, e.id), found[i]))
-        }
-      },
-    )
+    await db.transaction('r', [...byTable.keys()].map(rowsOf), async () => {
+      for (const [tbl, list] of byTable) {
+        const found = await rowsOf(tbl).bulkGet(list.map((e) => e.id))
+        list.forEach((e, i) => records.set(rowKey(tbl, e.id), found[i]))
+      }
+    })
   }
   const items: BuiltRows['items'] = []
   for (const entry of entries) {
@@ -472,15 +492,16 @@ async function settle(
 
 /**
  * Sends one batch. A batch the server says is too large, or refuses as content (a 4xx that is not about
- * signing in, access or rate), is halved until the one record at fault is alone; that record is left
- * out and reported, and the queue moves on. Anything else ends the cycle.
+ * signing in, access or rate), is halved until the one record at fault is alone; that record is held
+ * (`holdRefusal`) and the queue moves on. Anything else ends the cycle. Returns false when so many
+ * records were refused that the request itself must be wrong: the caller stops pushing.
  */
 async function sendBatch(
   ctx: Ctx,
   rows: readonly PushRow[],
   built: BuiltRows,
   keyed: ReadonlyMap<string, SyncOutboxEntry>,
-): Promise<void> {
+): Promise<boolean> {
   const queue: (readonly PushRow[])[] = [rows]
   while (queue.length > 0) {
     const batch = queue.shift()
@@ -499,8 +520,8 @@ async function sendBatch(
         }
         const only = batch[0]
         if (only) {
-          await refuse(ctx, only, error.kind === 'tooLarge' ? 'tooLarge' : 'refused', built, keyed)
-          if (ctx.refused.length > MAX_REFUSED) throw error
+          holdRefusal(ctx, only, error, built, keyed)
+          if (ctx.held.size > MAX_REFUSED) return false
           continue
         }
       }
@@ -514,38 +535,98 @@ async function sendBatch(
     ctx.pushed += batch.length
     ctx.report('push', ctx.pushed)
   }
+  return true
 }
 
-/** Leaves one record out of the push for good (until it is edited again) and remembers to say so. */
-async function refuse(
+/**
+ * Notes a record the server refused. Its outbox entry stays: one refusal does not say whether the record
+ * or the request is at fault (a setup without a column, a proxy's 400 and a lone bad row look alike), so
+ * nothing is dropped until `finishHolds` has seen the server take other rows. Until then the record is
+ * only skipped when the next 200 entries are read.
+ */
+function holdRefusal(
   ctx: Ctx,
   row: PushRow,
-  reason: RefusedRecord['reason'],
+  error: SyncTransportError,
+  built: BuiltRows,
+  keyed: ReadonlyMap<string, SyncOutboxEntry>,
+): void {
+  const entry = keyed.get(rowKey(row.tbl, row.id))
+  if (!entry) return
+  const label = recordLabel(row.tbl, built.records.get(rowKey(row.tbl, row.id)) ?? row.data)
+  const reason = error.kind === 'tooLarge' ? 'tooLarge' : 'refused'
+  ctx.held.set(rowKey(row.tbl, row.id), {
+    entry,
+    record: { tbl: row.tbl, id: row.id, reason, label },
+    error,
+  })
+}
+
+/**
+ * The end of a push: the refused records are left out for good (until edited) only if the server took at
+ * least one other row in this cycle and they are few; they are then removed with compare-and-delete and
+ * reported. Otherwise every one stays queued and the first refusal is returned, for the cycle to raise
+ * after it pulled: a server that refuses everything is a problem to fix, not a queue to empty.
+ */
+async function finishHolds(ctx: Ctx): Promise<SyncTransportError | null> {
+  const held = [...ctx.held.values()]
+  if (held.length === 0) return null
+  const first = held[0]
+  if (first && (ctx.pushed === 0 || held.length > MAX_REFUSED)) return first.error
+  await settle(
+    ctx,
+    held.map((h) => h.entry),
+    { raiseStamp: false },
+  )
+  ctx.refused.push(...held.map((h) => h.record))
+  ctx.held.clear()
+  return null
+}
+
+/**
+ * A record over the most any push carries is never sent, whatever the server would say: it is removed
+ * from the queue at once and reported. It says nothing about the server, so it is not counted as a refusal.
+ */
+async function skipOversize(
+  ctx: Ctx,
+  row: PushRow,
   built: BuiltRows,
   keyed: ReadonlyMap<string, SyncOutboxEntry>,
 ): Promise<void> {
   const label = recordLabel(row.tbl, built.records.get(rowKey(row.tbl, row.id)) ?? row.data)
-  ctx.refused.push({ tbl: row.tbl, id: row.id, reason, label })
+  ctx.refused.push({ tbl: row.tbl, id: row.id, reason: 'tooLarge', label })
   const entry = keyed.get(rowKey(row.tbl, row.id))
   if (entry) await settle(ctx, [entry], { raiseStamp: false })
 }
 
-/** Pushes the outbox, 200 entries at a time, until it is empty. Returns once nothing is left to send. */
-async function pushOutbox(ctx: Ctx): Promise<void> {
+/** Whether the server already refused this very version of the entry in this cycle. */
+const isHeld = (ctx: Ctx, entry: SyncOutboxEntry): boolean =>
+  ctx.held.get(rowKey(entry.tbl, entry.id))?.entry.at === entry.at
+
+/**
+ * Pushes the outbox, 200 entries at a time, until nothing is left to send. Refused records stay queued
+ * and are skipped, so the queue moves on (`finishHolds` decides their fate). Returns the error to raise
+ * after the cycle's pull when the server refused records and nothing showed that it takes other rows.
+ */
+async function pushOutbox(ctx: Ctx): Promise<SyncTransportError | null> {
   for (let round = 0; round < MAX_PUSH_ROUNDS; round++) {
-    const entries = nextPushEntries(await db.syncOutbox.orderBy('at').limit(PUSH_ENTRY_LIMIT).toArray())
-    if (entries.length === 0) return
+    const window = await db.syncOutbox
+      .orderBy('at')
+      .limit(PUSH_ENTRY_LIMIT + ctx.held.size)
+      .toArray()
+    const entries = nextPushEntries(window.filter((e) => !isHeld(ctx, e)))
+    if (entries.length === 0) break
     const built = await buildRows(ctx.deviceId, entries)
     await settle(ctx, built.dropped, { raiseStamp: false })
     const keyed = new Map(built.items.map((i) => [rowKey(i.row.tbl, i.row.id), i.entry]))
     const { batches, tooLarge } = batchRows(built.items.map((i) => i.row))
-    for (const row of tooLarge) await refuse(ctx, row, 'tooLarge', built, keyed)
-    if (ctx.refused.length > MAX_REFUSED) {
-      throw new SyncTransportError('server', 'Supabase would not take these changes.')
+    for (const row of tooLarge) await skipOversize(ctx, row, built, keyed)
+    for (const batch of batches) {
+      if (!(await sendBatch(ctx, batch, built, keyed))) return finishHolds(ctx)
     }
-    for (const batch of batches) await sendBatch(ctx, batch, built, keyed)
     await ctx.yieldNow()
   }
+  return finishHolds(ctx)
 }
 
 /**
@@ -556,7 +637,9 @@ async function pushOutbox(ctx: Ctx): Promise<void> {
 export async function pendingPushRows(): Promise<PushRow[]> {
   const state = await getSyncState()
   if (!state?.enabled || state.deviceId === null) return []
-  const entries = nextPushEntries(await db.syncOutbox.orderBy('at').limit(PUSH_ENTRY_LIMIT).toArray())
+  const entries = nextPushEntries(
+    await db.syncOutbox.orderBy('at').limit(PUSH_ENTRY_LIMIT).toArray(),
+  )
   return (await buildRows(state.deviceId, entries)).items.map((i) => i.row)
 }
 
@@ -622,7 +705,12 @@ async function applyPage(
   }
   const hasTrash = names.has('trash')
   if (hasTrash) names.add('resources')
-  const scope = [...[...names].map(rowsOf), db.syncOutbox, db.syncState, ...(hasTrash ? [db.files] : [])]
+  const scope = [
+    ...[...names].map(rowsOf),
+    db.syncOutbox,
+    db.syncState,
+    ...(hasTrash ? [db.files] : []),
+  ]
 
   let applied = 0
   const touched = new Set<TableName>()
@@ -660,14 +748,25 @@ async function applyPage(
       const key = rowKey(tbl, v.row.id)
       const local = locals.get(key)
       const pending = pendings[i]
-      const decision = decideApply({
-        mode,
-        self: ctx.deviceId,
-        tbl,
-        remote: { at: v.row.updatedAt, device: v.row.deviceId, deleted: v.kind === 'delete' },
-        pending: pending ? { at: pending.at } : null,
-        local: local ? { updatedAt: typeof local.updatedAt === 'number' ? local.updatedAt : 0 } : null,
-      })
+      // A first sync: the account's version of a row this device only seeded (a starter reward, a
+      // default site) replaces it, live or deleted, whatever the stamps say.
+      const decision =
+        boot !== null && accountWinsOverSeed(tbl, local, DEFAULT_BLOCKED_DOMAINS.length)
+          ? ACCOUNT_WINS
+          : decideApply({
+              mode,
+              self: ctx.deviceId,
+              tbl,
+              remote: {
+                at: v.row.updatedAt,
+                device: v.row.deviceId,
+                deleted: v.kind === 'delete',
+              },
+              pending: pending ? { at: pending.at } : null,
+              local: local
+                ? { updatedAt: typeof local.updatedAt === 'number' ? local.updatedAt : 0 }
+                : null,
+            })
       let after: unknown = local
       // The settings row is never deleted: a tombstone for it can only be left over from a wipe.
       if (decision.apply && !(tbl === 'settings' && v.kind === 'delete')) {
@@ -706,7 +805,11 @@ async function applyPage(
         }
       }
       if (boot) {
-        boot.remote.set(key, { at: v.row.updatedAt, device: v.row.deviceId, deleted: v.kind === 'delete' })
+        boot.remote.set(key, {
+          at: v.row.updatedAt,
+          device: v.row.deviceId,
+          deleted: v.kind === 'delete',
+        })
         indexRemoteSeedRow(boot.seed, v.row)
         noteIdenticalRow(boot.identical, v, tbl === 'trash' ? markTrashBlobs([after])[0] : after)
       }
@@ -806,12 +909,16 @@ async function pullPages(
 
 // ─── First sync ─────────────────────────────────────────────────────────────
 
-/** Local rows that only exist because this device seeded them and the account has them too: deleted here, no tombstones. */
+/**
+ * Local rows that only exist because this device seeded them and the account has them too: deleted here,
+ * without tombstones. A seed row something still points at (a redemption of a reward, a focus session
+ * started on a task) stays: deleting it would leave that row pointing at nothing.
+ */
 async function removeSeedDuplicates(ctx: Ctx, boot: BootstrapIndex): Promise<void> {
   const starters = new Set(STARTER_REWARDS.map((r) => r.title))
   await db.transaction(
     'rw',
-    [db.rewards, db.tasks, db.blocklist, db.syncOutbox, db.syncState],
+    [db.rewards, db.tasks, db.blocklist, db.redemptions, db.sessions, db.syncOutbox, db.syncState],
     async (tx) => {
       markUntracked(tx.idbtrans)
       const state = await db.syncState.get(SYNC_STATE_ID)
@@ -821,7 +928,18 @@ async function removeSeedDuplicates(ctx: Ctx, boot: BootstrapIndex): Promise<voi
         db.tasks.filter((t) => t.source === 'onboarding').toArray(),
         db.blocklist.toArray(),
       ])
-      const dups = seedDuplicates({ rewards, tasks, blocklist }, boot.seed, starters)
+      const candidates = seedDuplicates({ rewards, tasks, blocklist }, boot.seed, starters)
+      const idsOf = (tbl: string): string[] =>
+        candidates.filter((d) => d.tbl === tbl).map((d) => d.id)
+      const used = new Set<string>([
+        ...(await db.redemptions.where('rewardId').anyOf(idsOf('rewards')).toArray()).map(
+          (r) => r.rewardId,
+        ),
+        ...(await db.sessions.where('taskId').anyOf(idsOf('tasks')).toArray()).flatMap((s) =>
+          s.taskId === null ? [] : [s.taskId],
+        ),
+      ])
+      const dups = candidates.filter((d) => !used.has(d.id))
       const ids = (tbl: string): string[] => dups.filter((d) => d.tbl === tbl).map((d) => d.id)
       await db.rewards.bulkDelete(ids('rewards'))
       await db.tasks.bulkDelete(ids('tasks'))
@@ -891,11 +1009,18 @@ async function bootstrap(ctx: Ctx, state: SyncStateRow): Promise<void> {
 
   const boot: BootstrapIndex = { remote: new Map(), seed: emptySeedIndex(), identical: new Set() }
   await patchState(ctx, { pullCursor: 0 })
-  const end = await pullPages(ctx, { cursor: 0, maxSeenStamp: state.maxSeenStamp }, 'bootstrap', boot)
+  const end = await pullPages(
+    ctx,
+    { cursor: 0, maxSeenStamp: state.maxSeenStamp },
+    'bootstrap',
+    boot,
+  )
   await ctx.yieldNow()
   await removeSeedDuplicates(ctx, boot)
   await queueLocalRows(ctx, boot)
-  await pushOutbox(ctx)
+  const pushFailure = await pushOutbox(ctx)
+  // Still a first sync: the next cycle starts from the pull again, which is idempotent.
+  if (pushFailure) throw pushFailure
   await patchState(ctx, {
     phase: 'steady',
     accountUserId: ctx.userId ?? state.accountUserId,
@@ -909,7 +1034,12 @@ function failureOf(error: unknown, at: Millis): Extract<SyncCycleResult, { statu
   if (error instanceof SyncTransportError) {
     return {
       status: 'error',
-      error: { kind: error.kind, message: error.message, at },
+      // A refused sign-in always reads the same: the person has one thing to do.
+      error: {
+        kind: error.kind,
+        message: error.kind === 'signedOut' ? SYNC_TEXT.signedOut : error.message,
+        at,
+      },
       retryAfterMs: error.retryAfterMs,
       httpStatus: error.status,
       ...(error.cause === undefined ? {} : { cause: error.cause }),
@@ -926,17 +1056,25 @@ function failureOf(error: unknown, at: Millis): Extract<SyncCycleResult, { statu
 
 async function cycle(server: SyncServer, opts: SyncCycleOptions): Promise<SyncCycleResult> {
   const now = opts.now ?? Date.now
-  let state = await getSyncState()
-  if (!state?.enabled) return { status: 'off' }
-  if (state.deviceId === null) {
-    // Enabled without an id (a half-written row): start over as a new device.
-    state = await writeState((row) => ({ ...row, deviceId: newId(), phase: 'bootstrap', preSyncFor: null }))
-  }
+  const stored = await getSyncState()
+  if (!stored?.enabled) return { status: 'off' }
+  // Enabled without an id (a half-written row): start over as a new device.
+  const state =
+    stored.deviceId === null
+      ? await writeState((row) => ({
+          ...row,
+          deviceId: newId(),
+          phase: 'bootstrap',
+          preSyncFor: null,
+        }))
+      : stored
+  const deviceId = state.deviceId
+  if (deviceId === null) return { status: 'off' }
   const ctx: Ctx = {
     server,
     opts,
     now,
-    deviceId: state.deviceId as string,
+    deviceId,
     userId: state.session?.userId ?? null,
     version: opts.appVersion ?? appVersion(),
     skew: state.clockSkewMs,
@@ -948,6 +1086,7 @@ async function cycle(server: SyncServer, opts: SyncCycleOptions): Promise<SyncCy
     touched: new Set(),
     goalIds: new Set(),
     refused: [],
+    held: new Map(),
     yieldNow: opts.yieldNow ?? yieldToMain,
     report: (step, rows) => opts.onProgress?.({ step, rows }),
   }
@@ -961,9 +1100,16 @@ async function cycle(server: SyncServer, opts: SyncCycleOptions): Promise<SyncCy
     if (mode === 'bootstrap') {
       await bootstrap(ctx, state)
     } else {
-      await pushOutbox(ctx)
+      const pushFailure = await pushOutbox(ctx)
       const fresh = (await getSyncState()) ?? state
-      await pullPages(ctx, { cursor: fresh.pullCursor, maxSeenStamp: fresh.maxSeenStamp }, 'steady', null)
+      await pullPages(
+        ctx,
+        { cursor: fresh.pullCursor, maxSeenStamp: fresh.maxSeenStamp },
+        'steady',
+        null,
+      )
+      // After the pull: a refused push does not hold back what other devices sent.
+      if (pushFailure) throw pushFailure
     }
 
     const refusedError: SyncError | null = ctx.refused[0]
@@ -1023,6 +1169,9 @@ export async function runSyncCycle(
   running = true
   try {
     return await cycle(server, opts)
+  } catch (error) {
+    // Before the cycle could even read its state (the database itself failed).
+    return failureOf(error, (opts.now ?? Date.now)())
   } finally {
     running = false
     settleStartupSync()

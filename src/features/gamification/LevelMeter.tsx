@@ -2,14 +2,14 @@
  * The level meter in the sidebar footer (`sidebar.footer`, BRIEF §4/§5.5): one quiet line, "Level 7" with
  * "1,240 / 1,852 XP" beside it, and a thin gold bar under both. Hovering or focusing it shows what was
  * earned in all, what is left to spend and the distance to the next level, in the Rewards page's words;
- * clicking goes to the rewards page. It shows in the desktop sidebar and the tablet drawer. A phone has
- * no sidebar and the More sheet has no footer slot, so there it is simply not drawn (the level is still
- * on the rewards page); a collapsed sidebar takes it with it (the shell has no collapsed rail).
+ * clicking goes to the rewards page. It shows in the desktop sidebar and the tablet drawer. Where the
+ * sidebar is not on screen the same numbers come from `LevelCompact.tsx` (a ring beside the "Open
+ * sidebar" button, and a row at the foot of the phone's More sheet), through the same `useXp()`.
  */
 import { useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { Link } from '@/app/router'
-import { useXp } from '@/db/hooks/useXp'
+import { useXp, type XpSummary } from '@/db/hooks/useXp'
 import { onDomainEvent } from '@/db/events'
 import { dayOf } from '@/logic/dates'
 import { ProgressBar } from '@/ui/ProgressBar'
@@ -51,6 +51,20 @@ function useXpFloats(): { floats: Float[]; remove: (id: number) => void } {
   return { floats, remove: (id) => setFloats((cur) => cur.filter((f) => f.id !== id)) }
 }
 
+/** What hovering or focusing the level says, in the Rewards page's words. Shared with the compact level. */
+export function LevelTip({ xp }: { xp: XpSummary }) {
+  const { level, intoLevel, needed } = xp.level
+  return (
+    <span className={styles.tip}>
+      <span>{formatCount(xp.lifetime)} XP earned in all</span>
+      <span>{formatCount(xp.balance)} XP to spend</span>
+      <span className={styles.tipMuted}>
+        {formatCount(Math.max(0, needed - intoLevel))} XP to Level {level + 1}
+      </span>
+    </span>
+  )
+}
+
 function MeterSkeleton() {
   return (
     <div
@@ -75,21 +89,8 @@ function Meter() {
 
   const { level, intoLevel, needed } = xp.level
   const progress = `${formatCount(intoLevel)} / ${formatCount(needed)} XP`
-  const toNext = Math.max(0, needed - intoLevel)
   return (
-    <Tooltip
-      side="right"
-      describe={false}
-      content={
-        <span className={styles.tip}>
-          <span>{formatCount(xp.lifetime)} XP earned in all</span>
-          <span>{formatCount(xp.balance)} XP to spend</span>
-          <span className={styles.tipMuted}>
-            {formatCount(toNext)} XP to Level {level + 1}
-          </span>
-        </span>
-      }
-    >
+    <Tooltip side="right" describe={false} content={<LevelTip xp={xp} />}>
       <Link
         to="rewards"
         className={styles.meter}

@@ -10,12 +10,7 @@
  * talk to the same server object: the model is the cloud, and this is one person's connection to it.
  */
 import type { Millis } from '@/db/types'
-import {
-  SyncTransportError,
-  type PushRow,
-  type ServerRow,
-  type SyncServer,
-} from '@/logic/sync'
+import { SyncTransportError, type PushRow, type ServerRow, type SyncServer } from '@/logic/sync'
 import { SyncServerModel } from '@/logic/syncServerModel'
 
 export type FakeOp = 'push' | 'pull' | 'serverTime'
@@ -92,7 +87,11 @@ export class FakeSyncServer implements SyncServer {
   }
 
   /** Fails the next `count` calls (of one kind, or any) with `error`. */
-  failNext(count: number, error: SyncTransportError = serverError(), op: FakeOp | 'any' = 'any'): void {
+  failNext(
+    count: number,
+    error: SyncTransportError = serverError(),
+    op: FakeOp | 'any' = 'any',
+  ): void {
     this.failures.push({ op, left: count, error })
   }
 

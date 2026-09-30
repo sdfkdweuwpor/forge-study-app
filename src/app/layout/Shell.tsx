@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { PREF_KEYS, readBoolPref, readNumberPref, writeBoolPref, writePref } from '@/lib/localPrefs'
 import { IconButton } from '@/ui/IconButton'
 import { BREAKPOINTS, useMediaQuery } from '../hooks/useMediaQuery'
-import { Slot } from '../registry'
+import { Slot, useSlotCount } from '../registry'
 import { RouteView } from '../RouteView'
 import { usePathname, useRoute } from '../router'
 import { useShortcutHandler } from '../shortcuts'
@@ -86,6 +86,10 @@ export function Shell() {
 
   const sidebarHidden = mode === 'desktop' && collapsed
   const showOpenButton = sidebarHidden || mode === 'tablet'
+  // While the sidebar is out of sight (collapsed, or the tablet's closed drawer) its status widgets
+  // ("Level 7") keep a compact place beside the open button. Nothing is drawn when no feature adds one.
+  const hasRail = useSlotCount('sidebar.rail') > 0
+  const showRail = showOpenButton && hasRail
 
   // Pages with params (a goal, a course, a task) remount when the params change, so no state leaks between them.
   // Settings' param only names the section to scroll to (`/settings/data`), so it stays mounted.
@@ -109,6 +113,7 @@ export function Shell() {
     <div
       className={styles.shell}
       data-mode={mode}
+      data-rail={showRail || undefined}
       data-resizing={resizing || undefined}
       style={{ '--sidebar-w': `${width}px` } as CSSProperties}
     >
@@ -147,17 +152,24 @@ export function Shell() {
 
       <div className={styles.content} inert={overlayOpen}>
         {showOpenButton ? (
-          <IconButton
-            ref={openButtonRef}
-            className={styles.openButton}
-            label="Open sidebar"
-            shortcut={'mod+\\'}
-            icon={<PanelLeft />}
-            size="md"
-            tooltipSide="right"
-            onClick={toggleSidebarFromButton}
-            aria-expanded={mode === 'tablet' ? drawerOpen : !collapsed}
-          />
+          <div className={styles.corner}>
+            <IconButton
+              ref={openButtonRef}
+              className={styles.openButton}
+              label="Open sidebar"
+              shortcut={'mod+\\'}
+              icon={<PanelLeft />}
+              size="md"
+              tooltipSide="right"
+              onClick={toggleSidebarFromButton}
+              aria-expanded={mode === 'tablet' ? drawerOpen : !collapsed}
+            />
+            {showRail ? (
+              <div className={styles.rail}>
+                <Slot id="sidebar.rail" />
+              </div>
+            ) : null}
+          </div>
         ) : null}
         <main id="main" tabIndex={-1} className={styles.main}>
           <div className={styles.pageOuter} data-route={route.name}>

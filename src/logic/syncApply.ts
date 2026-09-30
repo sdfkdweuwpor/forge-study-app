@@ -76,7 +76,10 @@ export function duplicatePlanKeys(tasks: readonly PlanTaskLike[]): string[] {
     if (!isPlanTask(t)) continue
     seen.set(t.scheduleKey, (seen.get(t.scheduleKey) ?? 0) + 1)
   }
-  return [...seen].filter(([, n]) => n > 1).map(([key]) => key).sort()
+  return [...seen]
+    .filter(([, n]) => n > 1)
+    .map(([key]) => key)
+    .sort()
 }
 
 /** The goal a pulled task belongs to when it is an item of that goal's plan, else null. */
@@ -96,6 +99,42 @@ export function levelToAbsorb(lastCelebrated: number, currentLevel: number): num
   return d.kind === 'none' ? null : d.level
 }
 
+// ─── Seed rows with fixed ids ───────────────────────────────────────────────
+
+/**
+ * Whether `local` is a row this device only has because it seeded it, under an id every device uses
+ * (`starter-reward:N`, `default:<domain>`), and has not touched since. On a first sync the account wins
+ * over such a row whatever the stamps say: a seed is always newer than anything the account's owner did
+ * on another device, so comparing stamps would hand the account back its starter rewards and default
+ * sites after the person edited or removed them.
+ *  - a starter reward: `updatedAt === createdAt`;
+ *  - a default site: `kind: 'block'`, on, no pattern, no note, and `updatedAt` within `defaultSiteCount`
+ *    ms of `createdAt` (the seed spreads `createdAt` by one ms per site; any later edit is far past it).
+ * Rows of any other table, or with another id, are never seeds in this sense.
+ */
+export function accountWinsOverSeed(
+  tbl: string,
+  local: unknown,
+  defaultSiteCount: number,
+): boolean {
+  if (!isObj(local) || typeof local.id !== 'string') return false
+  const { createdAt, updatedAt } = local
+  if (typeof createdAt !== 'number' || typeof updatedAt !== 'number') return false
+  if (tbl === 'rewards') return /^starter-reward:\d+$/.test(local.id) && updatedAt === createdAt
+  if (tbl === 'blocklist') {
+    return (
+      typeof local.domain === 'string' &&
+      local.id === `default:${local.domain}` &&
+      local.kind === 'block' &&
+      local.enabled === true &&
+      local.pattern === null &&
+      local.note === null &&
+      Math.abs(updatedAt - createdAt) < defaultSiteCount
+    )
+  }
+  return false
+}
+
 // ─── Refusals ───────────────────────────────────────────────────────────────
 
 /**
@@ -112,26 +151,25 @@ export function isRowRejection(kind: SyncErrorKind, status: number | null): bool
 // ─── Words ──────────────────────────────────────────────────────────────────
 
 const PLAIN_NAMES: Partial<Record<SyncTableName, string>> = {
-  tasks: 'task',
-  goals: 'goal',
-  milestones: 'course',
-  units: 'unit',
-  resources: 'resource',
-  flashcards: 'flashcard',
-  rewards: 'reward',
-  parkingLot: 'parking-lot note',
-  checkIns: 'check-in',
-  weeklyReviews: 'weekly review',
-  savedViews: 'saved view',
-  templates: 'template',
-  trash: 'Trash entry',
-  rituals: 'ritual entry',
-  settings: 'settings',
+  tasks: 'a task',
+  goals: 'a goal',
+  milestones: 'a course',
+  units: 'a unit',
+  resources: 'a resource',
+  flashcards: 'a flashcard',
+  rewards: 'a reward',
+  parkingLot: 'a parking-lot note',
+  checkIns: 'a check-in',
+  weeklyReviews: 'a weekly review',
+  savedViews: 'a saved view',
+  templates: 'a template',
+  trash: 'a Trash entry',
+  rituals: 'a ritual entry',
+  settings: 'the settings',
 }
 
-/** How an error names a record: “Title” for a row with a title or name, else “a task”. Never longer than 60 characters of the title. */
+/** How an error names a record: “Title” for a row with a title or name (shortened to 60 characters), else “a task”. */
 export function recordLabel(tbl: string, data: unknown): string {
-  const kind = PLAIN_NAMES[tbl as SyncTableName] ?? 'item'
   if (isObj(data)) {
     const text = [data.title, data.name, data.note].find(
       (v): v is string => typeof v === 'string' && v.trim() !== '',
@@ -141,7 +179,7 @@ export function recordLabel(tbl: string, data: unknown): string {
       return `“${clean.length > 60 ? `${clean.slice(0, 59)}…` : clean}”`
     }
   }
-  return `a ${kind}`
+  return PLAIN_NAMES[tbl as SyncTableName] ?? 'an item'
 }
 
 /** One error, stamped. */
@@ -154,7 +192,7 @@ export const SYNC_TEXT = {
     'Another device runs a newer Forge. Reload to update this one; sync picks up where it left off.',
   snapshot:
     "Forge couldn't save a safety snapshot first, so it changed nothing. It will try again shortly.",
-  stalled: "Supabase answered with the same rows again, so Forge stopped. It will try again.",
+  stalled: 'Supabase answered with the same rows again, so Forge stopped. It will try again.',
   signedOut: 'Sign in again to keep syncing. Your changes are kept on this device.',
   tooLarge: (label: string): string =>
     `${label} is too large to sync, so it stays on this device. Everything else synced.`,
@@ -169,5 +207,6 @@ export function clockCheckDue(lastCheckedAt: Millis | null, now: Millis): boolea
 
 /** Server time minus this device's time, from a call sent at `sentAt` and answered at `receivedAt`. */
 export function clockSkew(serverNow: Millis, sentAt: Millis, receivedAt: Millis): number {
-  return Math.round(serverNow - (sentAt + receivedAt) / 2)
+  // `+ 0` turns a rounded -0 into 0.
+  return Math.round(serverNow - (sentAt + receivedAt) / 2) + 0
 }

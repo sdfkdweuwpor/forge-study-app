@@ -101,7 +101,9 @@ export class Devices {
   private async reload(name: string): Promise<void> {
     const state = (await db.syncState.get('device')) as SyncStateRow | undefined
     const newest = (await db.syncOutbox.orderBy('at').last()) as SyncOutboxEntry | undefined
-    this.stamps.get(name)?.seed({ maxSeenStamp: state?.maxSeenStamp ?? 0, lastStamp: newest?.at ?? 0 })
+    this.stamps
+      .get(name)
+      ?.seed({ maxSeenStamp: state?.maxSeenStamp ?? 0, lastStamp: newest?.at ?? 0 })
     db.syncTracker.setEnabled(state?.enabled === true)
   }
 

@@ -10,6 +10,7 @@ export interface Draw2D {
   globalAlpha: number
   globalCompositeOperation: GlobalCompositeOperation
   imageSmoothingEnabled: boolean
+  imageSmoothingQuality: ImageSmoothingQuality
   font: string
   textBaseline: CanvasTextBaseline
   fillRect(x: number, y: number, w: number, h: number): void

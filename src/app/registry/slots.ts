@@ -4,6 +4,9 @@ type NoProps = Record<never, never>
 
 export interface SlotProps {
   'sidebar.footer': NoProps
+  /** Compact status beside the "Open sidebar" button while the sidebar is collapsed (desktop) or a drawer (tablet). */
+  'sidebar.rail': NoProps
+  'more.footer': NoProps
   'sidebar.timer': NoProps
   'sidebar.nav.tasks': NoProps
   'sidebar.nav.goals': NoProps
@@ -28,6 +31,8 @@ export type SlotId = keyof SlotProps
 
 export const SLOT_IDS = [
   'sidebar.footer',
+  'sidebar.rail',
+  'more.footer',
   'sidebar.timer',
   'sidebar.nav.tasks',
   'sidebar.nav.goals',

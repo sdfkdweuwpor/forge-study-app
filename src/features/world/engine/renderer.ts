@@ -12,7 +12,9 @@
  *
  * Crisp pixels: everything is drawn at whole device pixels with smoothing off. One art pixel is
  * `zoom * unit` device pixels (`unit` is the device pixel ratio, rounded), so a sprite is always an
- * exact integer multiple of its 1x bitmap.
+ * exact integer multiple of its 1x bitmap. The one exception is the fit zoom of a city that does not
+ * fit at zoom 1 (a phone): its scale is a fraction, so the static layer is still painted at a whole
+ * scale (`ceil`), seamlessly, and resampled once onto the canvas with smoothing on.
  *
  * The static layer covers the whole world when that is small enough (panning is then one blit) and a
  * window around the view when the world is large, so 2,000 buildings at zoom 4 stay within memory. It
@@ -304,7 +306,13 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     offX: number,
     offY: number,
   ): void => {
-    target.drawImage(bmp.layer.surface, offX + (artX + bmp.ox) * k, offY + (artY + bmp.oy) * k, bmp.w * k, bmp.h * k)
+    // Edges are rounded, not sizes, so neighbours that share an edge still share it at a fractional scale.
+    // At a whole scale this is exactly `bmp.w * k` by `bmp.h * k`.
+    const x0 = Math.round(offX + (artX + bmp.ox) * k)
+    const y0 = Math.round(offY + (artY + bmp.oy) * k)
+    const x1 = Math.round(offX + (artX + bmp.ox + bmp.w) * k)
+    const y1 = Math.round(offY + (artY + bmp.oy + bmp.h) * k)
+    target.drawImage(bmp.layer.surface, x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0))
   }
 
   // ── The world onto a target ───────────────────────────────────────────────────────────────────
@@ -371,9 +379,15 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
   }
 
-  const regionOf = (view: Viewport, camera: Camera): RectPx => {
+  /** The part of the world the view shows, in the static layer's pixels (`ratio` screen pixels each). */
+  const regionOf = (view: Viewport, camera: Camera, ratio: number): RectPx => {
     const o = originOf(camera, view, view.unit)
-    return { x0: -o.x, y0: -o.y, x1: -o.x + view.width, y1: -o.y + view.height }
+    return {
+      x0: Math.floor(-o.x / ratio),
+      y0: Math.floor(-o.y / ratio),
+      x1: Math.ceil((-o.x + view.width) / ratio),
+      y1: Math.ceil((-o.y + view.height) / ratio),
+    }
   }
 
   const worldRect = (prep: Prepared, k: number): RectPx => {
@@ -397,11 +411,19 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     y1: Math.min(a.y1, b.y1),
   })
 
-  const ensureStatic = (view: Viewport, frame: Frame, k: number, lit: boolean, bucket: number): StaticCache => {
+  /** `k`: the whole scale the layer is painted at; `ratio`: screen pixels per layer pixel (1 at a whole zoom). */
+  const ensureStatic = (
+    view: Viewport,
+    frame: Frame,
+    k: number,
+    ratio: number,
+    lit: boolean,
+    bucket: number,
+  ): StaticCache => {
     if (!prepared) throw new Error('renderer has no model')
     const prep = prepared
     const world = worldRect(prep, k)
-    const seen = intersect(regionOf(view, frame.camera), world)
+    const seen = intersect(regionOf(view, frame.camera, ratio), world)
     const key = `${prep.signature}|${frame.theme}|${k}|${bucket}|${lit ? 1 : 0}`
     if (cache && cache.key === key && (cache.full || contains(cache.region, seen))) return cache
 
@@ -412,8 +434,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     if (full) {
       region = world
     } else {
-      const mx = Math.round((view.width * 0.5) / SNAP) * SNAP + SNAP
-      const my = Math.round((view.height * 0.5) / SNAP) * SNAP + SNAP
+      const mx = Math.round((view.width * 0.5) / ratio / SNAP) * SNAP + SNAP
+      const my = Math.round((view.height * 0.5) / ratio / SNAP) * SNAP + SNAP
       region = intersect(
         {
           x0: Math.floor((seen.x0 - mx) / SNAP) * SNAP,
@@ -601,11 +623,30 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     return sky.windowsLit && prep.lamps.length > 0
   }
 
+  /** Puts a static layer on the canvas: 1:1 at a whole zoom, otherwise resampled with smoothing (one pass). */
+  const blit = (src: Layer, region: RectPx, o: { x: number; y: number }, ratio: number): void => {
+    if (ratio === 1) {
+      ctx.drawImage(src.surface, o.x + region.x0, o.y + region.y0)
+      return
+    }
+    const x0 = Math.round(o.x + region.x0 * ratio)
+    const y0 = Math.round(o.y + region.y0 * ratio)
+    const x1 = Math.round(o.x + region.x1 * ratio)
+    const y1 = Math.round(o.y + region.y1 * ratio)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(src.surface, x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0))
+    ctx.imageSmoothingEnabled = false
+  }
+
   const render = (view: Viewport, frame: Frame): boolean => {
     if (destroyed || !prepared) return false
     const prep = prepared
     ctx.imageSmoothingEnabled = false
     const k = frame.camera.zoom * view.unit
+    // The static layer is painted at a whole scale; below or between whole scales it is resampled once.
+    const paintK = Math.max(1, Math.ceil(k - 1e-6))
+    const ratio = k / paintK
     const o = originOf(frame.camera, view, view.unit)
     const sky = skyFor(frame)
     const { bucket, lit } = bucketOf(frame)
@@ -613,8 +654,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     drawSky(ctx, view.width, view.height, sky)
     drawStars(ctx, view.width, view.height, view.unit, sky, frame.nowMs, frame.motion)
 
-    const layer = ensureStatic(view, frame, k, lit, bucket)
-    ctx.drawImage(layer.base.surface, o.x + layer.region.x0, o.y + layer.region.y0)
+    const layer = ensureStatic(view, frame, paintK, ratio, lit, bucket)
+    blit(layer.base, layer.region, o, ratio)
 
     drawWalkers(ctx, prep, frame, k, o.x, o.y, lit)
     drawFountain(ctx, prep, frame, k, o.x, o.y)
@@ -625,7 +666,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       ctx.fillStyle = overlayColour(frame.theme, sky.ambient)
       ctx.fillRect(0, 0, view.width, view.height)
     }
-    if (layer.lights) ctx.drawImage(layer.lights.surface, o.x + layer.region.x0, o.y + layer.region.y0)
+    if (layer.lights) blit(layer.lights, layer.region, o, ratio)
     if (lit) {
       drawGlows(ctx, prep, frame, view, k, o.x, o.y)
       drawFirework(ctx, prep, frame, k, o.x, o.y)

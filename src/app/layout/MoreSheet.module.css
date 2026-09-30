@@ -17,8 +17,27 @@
   margin-right: calc(var(--space-2) * -1);
 }
 
+/* The header stays put; the rows (and the footer) scroll when the sheet is taller than the screen (a phone on its side). */
+.body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .list {
   padding: var(--space-1) var(--space-2) var(--space-3);
+}
+
+/* Status, not navigation: set off from the links the way the sidebar's footer is. */
+.footer {
+  margin: 0 var(--space-2) var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+/* With a footer the list needs no bottom padding of its own: the hairline's margin does that. */
+.list:has(+ .footer) {
+  padding-bottom: var(--space-2);
 }
 
 .row {

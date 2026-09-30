@@ -28,6 +28,7 @@ import { useNow } from '@/app/hooks/useNow'
 import { useTheme } from '@/app/providers/ThemeProvider'
 import type { HHmm, ID, ISODate, Task } from '@/db/types'
 import {
+  deadlinesByDay,
   dropTime,
   durationOf,
   hourMarks,
@@ -61,6 +62,8 @@ export interface CalendarViewProps {
   onSelect: (id: ID) => void
   /** Moves a task to a day and time. Resolves false when the write failed. */
   onReschedule: (task: Task, slot: Slot) => Promise<boolean>
+  /** Sets how long a block is, in minutes. Resolves false when the write failed. */
+  onResize: (task: Task, minutes: number) => Promise<boolean>
   onShift: (direction: -1 | 1) => void
   onToday: () => void
 }
@@ -150,6 +153,8 @@ interface DayColumnProps {
   selectedId: ID | null
   reveal: boolean
   onSelect: (id: ID) => void
+  onResizePreview: (id: ID, minutes: number | null) => void
+  onResizeCommit: (id: ID, minutes: number) => void
 }
 
 /** A day's timed column: blocks placed by time, the now line on today, and a drop target for "at this time". */
@@ -163,6 +168,8 @@ function DayColumn({
   selectedId,
   reveal,
   onSelect,
+  onResizePreview,
+  onResizeCommit,
 }: DayColumnProps) {
   const { setNodeRef } = useDroppable({ id: `day:${day}`, data: { kind: 'day', day } })
   const line = day === today && nowMinutes !== null ? nowOffset(nowMinutes, range) : null
@@ -203,6 +210,11 @@ function DayColumn({
           selected={p.task.id === selectedId}
           reveal={reveal}
           onSelect={onSelect}
+          resize={{
+            start: p.start,
+            onPreview: (minutes) => onResizePreview(p.task.id, minutes),
+            onCommit: (minutes) => onResizeCommit(p.task.id, minutes),
+          }}
         />
       ))}
       {line !== null ? (
@@ -216,10 +228,36 @@ function DayColumn({
   )
 }
 
+/** Deadlines on a day, as small calm chips under its date ("Due: Pay phone bill"); amber only on the day itself. */
+function DeadlineMarkers({
+  day,
+  today,
+  tasks,
+}: {
+  day: ISODate
+  today: ISODate
+  tasks: readonly Task[]
+}) {
+  if (tasks.length === 0) return null
+  const shown = tasks.slice(0, 2)
+  const more = tasks.length - shown.length
+  return (
+    <ul className={styles.deadlines} aria-label={`Deadlines on ${formatDayLong(day, today)}`}>
+      {shown.map((t) => (
+        <li key={t.id} className={styles.deadline} data-today={day === today || undefined} title={`Due: ${t.title}${t.dueTime ? `, ${formatTimeOfDay(t.dueTime)}` : ''}`}>
+          Due: {t.title}
+        </li>
+      ))}
+      {more > 0 ? <li className={styles.deadline}>+{more} more due</li> : null}
+    </ul>
+  )
+}
+
 /**
  * The calendar: seven day columns (three on a phone) on a 07:00–23:00 grid, an all-day strip above,
  * today highlighted and a line for the current time. Drag a task to another day or time to
- * reschedule it (a scheduled task is pinned); drop it in the strip to clear its time. From the keyboard,
+ * reschedule it (a scheduled task is pinned), drag a block's bottom edge to change its length, and drop
+ * it in the untimed strip to clear its time. Deadlines are marked in the day header. From the keyboard,
  * select a task and use Alt+←/→ to shift a day and Alt+↑/↓ a quarter hour. On a phone, swipe or use
  * the arrows to move between windows of days.
  */
@@ -231,6 +269,7 @@ export function CalendarView({
   revealSelected,
   onSelect,
   onReschedule,
+  onResize,
   onShift,
   onToday,
 }: CalendarViewProps) {
@@ -242,6 +281,8 @@ export function CalendarView({
   /** The dropped position, shown at once and kept until the write has landed. */
   const [pending, setPending] = useState<{ id: ID; slot: Slot } | null>(null)
   const [expanded, setExpanded] = useState(false)
+  /** A length being dragged (or just dropped, until the write has landed). */
+  const [sizing, setSizing] = useState<{ id: ID; minutes: number } | null>(null)
   const settle = useRef(0)
   const dragging = useRef(false)
   const swipe = useRef<{ x: number; y: number } | null>(null)
@@ -249,15 +290,18 @@ export function CalendarView({
 
   const shown = useMemo(
     () =>
-      pending
-        ? tasks.map((t) =>
-            t.id === pending.id
-              ? { ...t, doDate: pending.slot.doDate, doTime: pending.slot.doTime }
-              : t,
-          )
+      pending || sizing
+        ? tasks.map((t) => {
+            let next = t
+            if (pending && t.id === pending.id)
+              next = { ...next, doDate: pending.slot.doDate, doTime: pending.slot.doTime }
+            if (sizing && t.id === sizing.id) next = { ...next, durationMinutes: sizing.minutes }
+            return next
+          })
         : tasks,
-    [tasks, pending],
+    [tasks, pending, sizing],
   )
+  const deadlines = useMemo(() => deadlinesByDay(tasks, days), [tasks, days])
   const byDay = useMemo(() => tasksByDay(shown, days), [shown, days])
   const range = useMemo(
     () => timeRangeFor(byDay.flatMap((d) => d.timed.map((p) => p.task))),
@@ -295,6 +339,25 @@ export function CalendarView({
 
   function describeTarget(t: Target): string {
     return `${formatDayLong(t.day, today)}${t.time ? `, ${formatTimeOfDay(t.time)}` : ', all day'}`
+  }
+
+  function commitResize(id: ID, minutes: number) {
+    const task = tasksById.get(id)
+    if (!task) {
+      setSizing(null)
+      return
+    }
+    const token = (settle.current += 1)
+    setSizing({ id, minutes })
+    void onResize(task, minutes).then((ok) => {
+      window.setTimeout(() => {
+        if (settle.current === token) setSizing(null)
+      }, ok ? SETTLE_MS : 0)
+    })
+  }
+
+  function previewResize(id: ID, minutes: number | null) {
+    setSizing(minutes === null ? null : { id, minutes })
   }
 
   function onDragStart({ active }: DragStartEvent) {
@@ -449,12 +512,13 @@ export function CalendarView({
                   {format(fromISODate(day), 'd')}
                   {day === today ? <span className="sr-only"> (today)</span> : null}
                 </span>
+                <DeadlineMarkers day={day} today={today} tasks={deadlines.get(day) ?? []} />
               </div>
             ))}
           </div>
 
           <div className={`${styles.row} ${styles.allDay}`}>
-            <span className={styles.gutterLabel}>all-day</span>
+            <span className={styles.gutterLabel}>untimed</span>
             {byDay.map((d) => (
               <AllDayCell
                 key={d.day}
@@ -507,6 +571,8 @@ export function CalendarView({
                   selectedId={selectedId}
                   reveal={revealSelected}
                   onSelect={onSelect}
+                  onResizePreview={previewResize}
+                  onResizeCommit={commitResize}
                 />
               ))}
             </div>

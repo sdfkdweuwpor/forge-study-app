@@ -20,6 +20,7 @@ import { greeting, carriedFromText } from '@/logic/todayStats'
 import { SegmentedControl } from '@/ui/SegmentedControl'
 import { useToast } from '@/ui/Toast'
 import {
+  AutoSlotSuggestions,
   TaskActionsProvider,
   openTask,
   useTaskActions,
@@ -245,6 +246,7 @@ function TodayScreen() {
                 course={data.now?.milestoneId ? courses?.get(data.now.milestoneId) : undefined}
                 completedToday={completedToday.length}
               />
+              <AutoSlotSuggestions />
               {fromGoals.length + yours.length > 0 || data.carriedOver.length > 0 ? (
                 <div className={styles.toolbar}>
                   <SegmentedControl

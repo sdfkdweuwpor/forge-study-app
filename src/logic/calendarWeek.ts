@@ -271,3 +271,55 @@ export function nudgeSlot(
   if (doDate === task.doDate && doTime === time) return null
   return { doDate, doTime }
 }
+
+// ─── Length ─────────────────────────────────────────────────────────────────
+
+/**
+ * The block length after its bottom edge is dragged `deltaPx` (down is longer) at `pxPerMinute`: snapped
+ * to quarter hours, at least `MIN_BLOCK_MINUTES` and never past the end of the day.
+ */
+export function resizedMinutes(
+  startMinutes: number,
+  currentMinutes: number,
+  deltaPx: number,
+  pxPerMinute: number,
+): number {
+  const raw = currentMinutes + (pxPerMinute > 0 ? deltaPx / pxPerMinute : 0)
+  const room = Math.max(MIN_BLOCK_MINUTES, 24 * 60 - startMinutes)
+  return Math.min(room, Math.max(MIN_BLOCK_MINUTES, snapMinutes(raw)))
+}
+
+/**
+ * The length a keyboard nudge gives a timed block (`minutes` < 0 shorter, > 0 longer, a quarter hour at a
+ * time, on the quarter-hour grid), or `null` when nothing changes or the task has no time.
+ */
+export function nudgeLength(
+  task: Pick<Task, 'doDate' | 'doTime' | 'durationMinutes' | 'estimateMinutes' | 'estimatePomodoros'>,
+  minutes: number,
+): number | null {
+  const start = startMinutesOf(task)
+  if (start === null) return null
+  const current = durationOf(task)
+  const step = Math.abs(minutes)
+  const target =
+    minutes > 0 ? Math.floor(current / step) * step + step : Math.ceil(current / step) * step - step
+  const clamped = Math.min(Math.max(MIN_BLOCK_MINUTES, 24 * 60 - start), Math.max(MIN_BLOCK_MINUTES, target))
+  return clamped === current ? null : clamped
+}
+
+// ─── Deadlines ──────────────────────────────────────────────────────────────
+
+/**
+ * Open everyday tasks whose deadline falls on each visible day, for the markers in the day header.
+ * Planner items are left out: their deadlines are assessment dates, which have their own markers.
+ */
+export function deadlinesByDay(tasks: readonly Task[], days: readonly ISODate[]): Map<ISODate, Task[]> {
+  const byDay = new Map<ISODate, Task[]>(days.map((d) => [d, []]))
+  for (const task of tasks) {
+    if (task.kind !== 'task' || task.status === 'done' || task.dueDate === null) continue
+    byDay.get(task.dueDate)?.push(task)
+  }
+  for (const list of byDay.values())
+    list.sort((a, b) => (a.dueTime ?? '24:00').localeCompare(b.dueTime ?? '24:00') || a.order - b.order)
+  return byDay
+}

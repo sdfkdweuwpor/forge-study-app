@@ -61,4 +61,18 @@ export const viewShortcuts: ShortcutDef[] = [
     group: 'Calendar',
     scope: 'calendar',
   },
+  {
+    id: 'calendar.shorter',
+    keys: 'alt+shift+up',
+    description: 'Make the block 15 minutes shorter',
+    group: 'Calendar',
+    scope: 'calendar',
+  },
+  {
+    id: 'calendar.longer',
+    keys: 'alt+shift+down',
+    description: 'Make the block 15 minutes longer',
+    group: 'Calendar',
+    scope: 'calendar',
+  },
 ]

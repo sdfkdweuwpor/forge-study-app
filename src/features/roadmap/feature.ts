@@ -20,7 +20,9 @@ const manifest: FeatureManifest = {
       description: 'Go to Roadmap',
       group: 'Navigation',
       scope: 'global',
-      run: () => navigateToUrl(href('roadmap')),
+      run: () => {
+        navigateToUrl(href('roadmap'))
+      },
     },
     {
       id: 'roadmap.cycleZoom',
@@ -41,7 +43,9 @@ const manifest: FeatureManifest = {
       icon: Route,
       keywords: ['open', 'navigate', 'roadmap', 'timeline', 'gantt', 'months', 'projected finish'],
       shortcutId: 'go.roadmap',
-      run: () => navigateToUrl(href('roadmap')),
+      run: () => {
+        navigateToUrl(href('roadmap'))
+      },
     },
     {
       id: 'command.roadmap.zoom',

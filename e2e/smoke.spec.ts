@@ -24,6 +24,7 @@ const ROUTE_URLS: Record<RouteName, readonly string[]> = {
   goals: ['/goals'],
   goalNew: ['/goals/new'],
   goal: ['/goals/goal-missing'],
+  roadmap: ['/roadmap'],
   course: ['/goals/goal-missing/courses/C182'],
   cardReview: ['/goals/goal-missing/courses/C779/review'],
   world: ['/world'],

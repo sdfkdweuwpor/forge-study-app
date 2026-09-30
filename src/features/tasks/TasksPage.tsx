@@ -24,7 +24,13 @@ import {
   moveByColumn,
   placementOf,
 } from '@/logic/boardColumns'
-import { calendarOrderIds, nudgeSlot, shiftAnchor, visibleDays } from '@/logic/calendarWeek'
+import {
+  calendarOrderIds,
+  nudgeLength,
+  nudgeSlot,
+  shiftAnchor,
+  visibleDays,
+} from '@/logic/calendarWeek'
 import { diffDays, isISODate } from '@/logic/dates'
 import { neighboursAfterStep } from '@/logic/order'
 import {
@@ -57,6 +63,7 @@ import {
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
 import { useToast } from '@/ui/Toast'
+import { AutoSlotSuggestions } from './AutoSlotSuggestions'
 import { FilterBar } from './FilterBar'
 import { SavedViewActions, SaveViewButton } from './SavedViewsActions'
 import { SavedViewsMenu } from './SavedViewsMenu'
@@ -71,7 +78,7 @@ import { useTaskShortcuts } from './useTaskShortcuts'
 import { BoardSkeleton } from './views/BoardStates'
 import { useBoardMove } from './views/BoardMove'
 import { BoardView } from './views/BoardView'
-import { useReschedule } from './views/CalendarReschedule'
+import { useReschedule, useResize } from './views/CalendarReschedule'
 import { refocusEvent } from './views/CalendarEvent'
 import { CalendarSkeleton } from './views/CalendarStates'
 import { CalendarView } from './views/CalendarView'
@@ -110,6 +117,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
   const wide = useMediaQuery(BREAKPOINTS.tablet)
   const boardMove = useBoardMove()
   const reschedule = useReschedule()
+  const resize = useResize()
   usePageTitle(saved?.name)
 
   // A saved view shows its stored settings until the address bar holds edits (`mod=1`).
@@ -405,6 +413,11 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         refocusEvent(selectedTask.id)
         void reschedule(selectedTask, slot)
       },
+      resize: (minutes) => {
+        if (!selectedTask) return
+        const next = nudgeLength(selectedTask, minutes)
+        if (next !== null) void resize(selectedTask, next)
+      },
     },
   })
 
@@ -482,6 +495,8 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         </div>
       </header>
 
+      {!saved && (list === 'inbox' || list === 'upcoming') ? <AutoSlotSuggestions /> : null}
+
       {total === undefined || total > 0 ? (
         <FilterBar
           list={list}
@@ -531,6 +546,7 @@ function TasksBody({ list, saved }: TasksBodyProps) {
             revealSelected={byKeyboard}
             onSelect={select}
             onReschedule={reschedule}
+            onResize={resize}
             onShift={(direction) => setQuery({ date: shiftAnchor(anchor, dayCount, direction) })}
             onToday={() => setQuery({ date: undefined })}
           />

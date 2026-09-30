@@ -1,4 +1,12 @@
-import { CalendarDays, CircleCheckBig, Columns3, List, ListChecks, BookmarkPlus } from 'lucide-react'
+import {
+  BookmarkPlus,
+  CalendarClock,
+  CalendarDays,
+  CircleCheckBig,
+  Columns3,
+  List,
+  ListChecks,
+} from 'lucide-react'
 import { lazy } from 'react'
 import type { CommandDef, FeatureManifest, SearchProvider } from '@/app/registry'
 import { navigate, setQuery } from '@/app/router'
@@ -118,7 +126,17 @@ const manifest: FeatureManifest = {
     taskView: TasksPage,
     task: lazy(() => import('./TaskPage')),
   },
-  shortcuts: [...taskShortcuts, ...viewShortcuts],
+  shortcuts: [
+    ...taskShortcuts,
+    ...viewShortcuts,
+    {
+      id: 'tasks.acceptSlots',
+      keys: 'shift+a',
+      description: 'Accept all suggested times',
+      group: 'Tasks',
+      scope: 'global',
+    },
+  ],
   commands: [
     {
       id: 'command.tasks.completed',
@@ -127,6 +145,20 @@ const manifest: FeatureManifest = {
       icon: CircleCheckBig,
       keywords: ['done', 'finished', 'history'],
       run: (c) => c.navigate('tasks', { list: 'completed' }),
+    },
+    {
+      id: 'command.tasks.acceptSlots',
+      title: 'Accept suggested times',
+      group: 'Create',
+      icon: CalendarClock,
+      keywords: ['auto', 'schedule', 'slot', 'suggest', 'deadline'],
+      shortcutId: 'tasks.acceptSlots',
+      // The suggestions card owns the handler; away from it, open Upcoming where the card sits.
+      run: (c) => {
+        const path = window.location.pathname
+        if (onTasksPage() || path === '/' || path.startsWith('/today')) c.invoke('tasks.acceptSlots')
+        else c.navigate('tasks', { list: 'upcoming' })
+      },
     },
     ...layoutCommands,
   ],

@@ -15,6 +15,8 @@ export interface ViewShortcutOptions {
     shift: (direction: -1 | 1) => void
     today: () => void
     nudge: (change: { days?: number; minutes?: number }) => void
+    /** Alt+Shift+↑/↓: a quarter hour shorter (-15) or longer (15). */
+    resize: (minutes: number) => void
   }
 }
 
@@ -53,4 +55,6 @@ export function useViewShortcuts({
   useShortcutHandler('calendar.dayForward', () => calendar.nudge({ days: 1 }), nudging)
   useShortcutHandler('calendar.timeEarlier', () => calendar.nudge({ minutes: -15 }), nudging)
   useShortcutHandler('calendar.timeLater', () => calendar.nudge({ minutes: 15 }), nudging)
+  useShortcutHandler('calendar.shorter', () => calendar.resize(-15), nudging)
+  useShortcutHandler('calendar.longer', () => calendar.resize(15), nudging)
 }

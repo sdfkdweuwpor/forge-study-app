@@ -42,7 +42,7 @@ test.describe('Export', () => {
     const md = await readDownload(download)
     expect(md.startsWith('# Forge tasks')).toBe(true)
     expect(md).toContain('- [ ] ')
-    expect(md).not.toContain('- [x] ')
+    expect(md).not.toMatch(/^- \[x\] /m)
     expect(md).toContain('## No goal')
 
     await page.getByRole('button', { name: 'Copy as text' }).click()

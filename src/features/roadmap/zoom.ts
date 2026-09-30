@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import { PREF_KEYS, readPref, subscribePrefs, writePref } from '@/lib/localPrefs'
 import { ZOOMS, type Zoom } from '@/logic/roadmap'
 
@@ -22,5 +22,5 @@ export function cycleZoom(): void {
 /** The saved zoom in months (device-local, default 6) and a setter that saves it. */
 export function useZoom(): [Zoom, (zoom: Zoom) => void] {
   const zoom = useSyncExternalStore(subscribePrefs, readZoom, () => DEFAULT_ZOOM)
-  return [zoom, useCallback(setZoom, [])]
+  return [zoom, setZoom]
 }

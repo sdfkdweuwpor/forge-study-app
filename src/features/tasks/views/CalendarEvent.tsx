@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core'
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { ID, ISODate, Task } from '@/db/types'
+import { resizedMinutes } from '@/logic/calendarWeek'
 import { toHHmm } from '@/logic/dates'
 import { tagColor } from '@/logic/tagColor'
 import { formatTimeOfDay } from '@/logic/taskDisplay'
@@ -78,8 +79,11 @@ export function CalendarEventFace({
 
   const done = task.status === 'done'
   const course = task.milestoneId ? projects?.courseById.get(task.milestoneId) : undefined
-  const colorKey = course?.code ?? task.tags[0]
-  const color = colorKey ? tagColor(colorKey, tagColors) : 'gray'
+  const goal = task.goalId ? projects?.goalById.get(task.goalId) : undefined
+  // Quiet colour by goal: a plan session (or anything filed under a goal or course) takes its course's or
+  // goal's colour. Everyday tasks stay neutral, however they are tagged.
+  const colorKey = course?.code ?? goal?.title ?? null
+  const color = colorKey && (task.kind !== 'task' || task.goalId !== null || course) ? tagColor(colorKey, tagColors) : 'gray'
   const showTime = variant === 'block' && span !== undefined
   const minutes = span ? span.end - span.start : 0
   const long = minutes >= TWO_LINES_MIN_MINUTES
@@ -101,6 +105,7 @@ export function CalendarEventFace({
       data-overdue={overdue || undefined}
       data-selected={selected || undefined}
       data-priority={task.priority}
+      data-kind={task.kind}
       data-preview={preview || undefined}
       onPointerDownCapture={preview ? undefined : () => onSelect?.(task.id)}
       onFocusCapture={preview ? undefined : () => onSelect?.(task.id)}
@@ -131,13 +136,83 @@ export function CalendarEventFace({
   )
 }
 
+interface ResizeProps {
+  /** Minutes after midnight the block starts. */
+  start: number
+  /** Live length while the edge is dragged; `null` when the drag ends or is cancelled. */
+  onPreview: (minutes: number | null) => void
+  onCommit: (minutes: number) => void
+}
+
 interface DraggableEventProps extends Omit<EventFaceProps, 'preview'> {
   className?: string | undefined
   style?: CSSProperties
+  /** Blocks only: a grip on the bottom edge that changes the length (quarter hours). */
+  resize?: ResizeProps
+}
+
+/** The bottom-edge grip: drag to change the length. It never starts a move (mouse and touch are stopped here). */
+function ResizeGrip({ resize, task, span }: { resize: ResizeProps; task: Task; span: { start: number; end: number } }) {
+  const drag = useRef<{ y: number; base: number; ppm: number; last: number } | null>(null)
+  const base = span.end - span.start
+
+  function down(e: ReactPointerEvent<HTMLSpanElement>) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    const column = e.currentTarget.closest('[data-timed-day]')
+    const hourPx = column ? Number.parseFloat(getComputedStyle(column).getPropertyValue('--hour-h')) : 64
+    drag.current = {
+      y: e.clientY,
+      base,
+      ppm: (Number.isFinite(hourPx) && hourPx > 0 ? hourPx : 64) / 60,
+      last: base,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function move(e: ReactPointerEvent<HTMLSpanElement>) {
+    const d = drag.current
+    if (!d) return
+    const minutes = resizedMinutes(resize.start, d.base, e.clientY - d.y, d.ppm)
+    if (minutes !== d.last) {
+      d.last = minutes
+      resize.onPreview(minutes)
+    }
+  }
+
+  function up() {
+    const d = drag.current
+    drag.current = null
+    if (!d) return
+    if (d.last !== d.base) resize.onCommit(d.last)
+    else resize.onPreview(null)
+  }
+
+  function cancel() {
+    if (!drag.current) return
+    drag.current = null
+    resize.onPreview(null)
+  }
+
+  return (
+    <span
+      className={styles.grip}
+      aria-hidden="true"
+      data-testid="resize-grip"
+      data-task={task.id}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={cancel}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    />
+  )
 }
 
 /** A calendar face that can be picked up (by mouse, or a long press on touch) and dropped on a day or time. */
-export function DraggableEvent({ className, style, ...face }: DraggableEventProps) {
+export function DraggableEvent({ className, style, resize, ...face }: DraggableEventProps) {
   const { setNodeRef, listeners, isDragging } = useDraggable({
     id: face.task.id,
     data: { kind: 'task' },
@@ -151,6 +226,7 @@ export function DraggableEvent({ className, style, ...face }: DraggableEventProp
       {...listeners}
     >
       <CalendarEventFace {...face} />
+      {resize && face.span ? <ResizeGrip resize={resize} task={face.task} span={face.span} /> : null}
     </li>
   )
 }

@@ -1,8 +1,9 @@
 import { useCallback, useRef } from 'react'
 import { recordError } from '@/app/reportError'
-import { moveTask } from '@/db/repos/tasks'
+import { moveTask, resizeTask } from '@/db/repos/tasks'
 import type { ID, Task } from '@/db/types'
 import type { Slot } from '@/logic/calendarWeek'
+import { durationLabel } from '@/logic/quickAdd'
 import { formatDayLong, formatTimeOfDay } from '@/logic/taskDisplay'
 import { useToast } from '@/ui/Toast'
 import { useTaskEnv } from '../TaskActions'
@@ -63,5 +64,51 @@ export function useReschedule(): (task: Task, slot: Slot) => Promise<boolean> {
       }
     },
     [toast, today],
+  )
+}
+
+const RESIZE_TOAST_ID = 'calendar-resize'
+
+/**
+ * Changes how long a block is (bottom-edge drag or Alt+Shift+↑/↓). One toast says the new length and
+ * offers Undo; repeated nudges of one task fold into the first Undo. Resolves `false` when it failed.
+ */
+export function useResize(): (task: Task, minutes: number) => Promise<boolean> {
+  const toast = useToast()
+  const series = useRef<{ id: ID; at: number; undos: Array<() => Promise<void>> } | null>(null)
+
+  return useCallback(
+    async (task, minutes) => {
+      try {
+        const result = await resizeTask(task.id, minutes)
+        if (!result) {
+          toast.error('Couldn’t resize the task', { description: 'It no longer exists.' })
+          return false
+        }
+        const now = Date.now()
+        const previous = series.current
+        const undos =
+          previous && previous.id === task.id && now - previous.at < SERIES_MS
+            ? [...previous.undos, result.undo]
+            : [result.undo]
+        series.current = { id: task.id, at: now, undos }
+        toast.show({
+          id: RESIZE_TOAST_ID,
+          title: `“${shorten(task.title)}” is now ${durationLabel(result.task.durationMinutes ?? minutes)}`,
+          description:
+            task.source === 'schedule' ? 'Pinned: a rebalance will keep this length.' : 'Length changed.',
+          undo: async () => {
+            for (const undo of [...undos].reverse()) await undo()
+            series.current = null
+          },
+        })
+        return true
+      } catch (error) {
+        recordError(error, 'resizeTask')
+        toast.error('Couldn’t resize the task', { description: 'Nothing was changed. Try again.' })
+        return false
+      }
+    },
+    [toast],
   )
 }

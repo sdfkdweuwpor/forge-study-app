@@ -4,13 +4,16 @@ import type { Task } from '@/db/types'
 import {
   calendarOrderIds,
   countOnDays,
+  deadlinesByDay,
   dropTime,
   durationOf,
   hourMarks,
   minutesOfDay,
   nowOffset,
+  nudgeLength,
   nudgeSlot,
   placeTimed,
+  resizedMinutes,
   shiftAnchor,
   snapMinutes,
   tasksByDay,
@@ -295,5 +298,46 @@ describe('nudgeSlot', () => {
   it('does nothing for a task without a date or a no-op change', () => {
     expect(nudgeSlot({ doDate: null, doTime: null, dueDate: null }, { days: 1 })).toBeNull()
     expect(nudgeSlot({ doDate: '2026-09-29', doTime: '14:00', dueDate: null }, {})).toBeNull()
+  })
+})
+
+describe('resizedMinutes', () => {
+  it('snaps to quarter hours, keeps at least 15 minutes and stops at midnight', () => {
+    // 64 px an hour: 16 px is 15 minutes.
+    const px = 64 / 60
+    expect(resizedMinutes(540, 30, 16, px)).toBe(45)
+    expect(resizedMinutes(540, 30, 20, px)).toBe(45) // 48.75 rounds to the nearest quarter
+    expect(resizedMinutes(540, 30, -100, px)).toBe(15)
+    expect(resizedMinutes(23 * 60, 30, 600, px)).toBe(60)
+    expect(resizedMinutes(540, 30, 10, 0)).toBe(30)
+  })
+})
+
+describe('nudgeLength', () => {
+  const timed = (over: Partial<Task> = {}) => task({ doTime: '18:00', ...over })
+  it('moves a quarter hour at a time on the grid', () => {
+    expect(nudgeLength(timed({ durationMinutes: 30 }), 15)).toBe(45)
+    expect(nudgeLength(timed({ durationMinutes: 30 }), -15)).toBe(15)
+    expect(nudgeLength(timed({ durationMinutes: 50 }), 15)).toBe(60)
+    expect(nudgeLength(timed({ durationMinutes: 50 }), -15)).toBe(45)
+  })
+
+  it('does nothing at the limits or without a time', () => {
+    expect(nudgeLength(timed({ durationMinutes: 15 }), -15)).toBeNull()
+    expect(nudgeLength(timed({ doTime: '23:45', durationMinutes: 15 }), 15)).toBeNull()
+    expect(nudgeLength(task({ durationMinutes: 30 }), 15)).toBeNull()
+  })
+})
+
+describe('deadlinesByDay', () => {
+  it('lists open everyday tasks on their deadline day only', () => {
+    const bill = task({ dueDate: '2026-10-02', dueTime: '17:00' })
+    const rent = task({ dueDate: '2026-10-02' })
+    const done = task({ dueDate: '2026-10-02', status: 'done' })
+    const plan = task({ dueDate: '2026-10-02', kind: 'review' })
+    const far = task({ dueDate: '2026-11-02' })
+    const by = deadlinesByDay([rent, bill, done, plan, far], ['2026-10-01', '2026-10-02'])
+    expect(by.get('2026-10-01')).toEqual([])
+    expect(by.get('2026-10-02')?.map((t) => t.id)).toEqual([bill.id, rent.id])
   })
 })

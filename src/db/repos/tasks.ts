@@ -224,6 +224,26 @@ export async function updateTask(
 }
 
 /**
+ * Sets how long a task's planned slot is (the calendar's bottom-edge drag and its keyboard nudge), in
+ * whole minutes, at least 15. A scheduled task is pinned, so a rebalance keeps the length you chose.
+ * `undo()` restores both. Returns `null` for a missing task.
+ */
+export async function resizeTask(
+  id: ID,
+  minutes: number,
+  opts: RepoOptions = {},
+): Promise<TaskUpdate | null> {
+  const task = await db.tasks.get(id)
+  if (!task) return null
+  const durationMinutes = Math.max(15, Math.round(minutes))
+  return updateTask(
+    id,
+    { durationMinutes, ...(task.source === 'schedule' ? { schedulePinned: true } : {}) },
+    opts,
+  )
+}
+
+/**
  * Sets todo, doing or done. Done goes through `completeTask`, and leaving done through `reopen`, so
  * XP and recurrence stay consistent; todo ⇄ doing only stamps `startedAt`. Reopening straight to doing
  * is one transaction (the XP reversal and the new status land together). Returns `null` for a

@@ -1,5 +1,8 @@
 import type { Task } from '@/db/types'
+import { durationLabel } from '@/logic/quickAdd'
 import { DatePicker } from '@/ui/DatePicker'
+import { SegmentedControl } from '@/ui/SegmentedControl'
+import { Toggle } from '@/ui/Toggle'
 import { useTaskActions, useTaskEnv } from './TaskActions'
 import styles from './DueEditor.module.css'
 
@@ -80,5 +83,60 @@ export function DeadlineEditor({ task, id, size }: DeadlineEditorProps) {
       today={today}
       weekStartsOn={weekStartsOn}
     />
+  )
+}
+
+const DURATION_PRESETS = [15, 30, 45, 60, 90, 120] as const
+
+interface DurationFieldProps {
+  task: Pick<Task, 'id' | 'durationMinutes'>
+}
+
+/** How long the planned slot is: a few common lengths (a custom one from quick add is kept and shown). */
+export function DurationField({ task }: DurationFieldProps) {
+  const actions = useTaskActions()
+  const current = task.durationMinutes
+  const presets: number[] =
+    current !== null && !(DURATION_PRESETS as readonly number[]).includes(current)
+      ? [...DURATION_PRESETS, current].sort((a, b) => a - b)
+      : [...DURATION_PRESETS]
+  return (
+    <SegmentedControl<string>
+      label="Length"
+      size="sm"
+      value={current === null ? 'none' : String(current)}
+      onValueChange={(v) => void actions.setDuration(task.id, v === 'none' ? null : Number(v))}
+      options={[
+        { value: 'none', label: 'Any' },
+        ...presets.map((m) => ({
+          value: String(m),
+          label: m < 60 ? `${m}m` : durationLabel(m).replace(' h', 'h').replace(' min', 'm'),
+        })),
+      ]}
+    />
+  )
+}
+
+interface AutoSlotToggleProps {
+  task: Pick<Task, 'id' | 'autoSlot' | 'dueDate' | 'doDate' | 'status'>
+}
+
+/**
+ * "Auto-schedule before deadline": only for a task with a deadline and no day of its own. It never
+ * places anything by itself: a suggested time shows up in "Suggested times" and needs a yes.
+ */
+export function AutoSlotToggle({ task }: AutoSlotToggleProps) {
+  const actions = useTaskActions()
+  if (task.dueDate === null || task.doDate !== null || task.status === 'done') return null
+  return (
+    <div className={styles.autoSlot}>
+      <Toggle
+        size="sm"
+        label="Auto-schedule before deadline"
+        checked={task.autoSlot}
+        onCheckedChange={(on) => void actions.setAutoSlot(task.id, on)}
+      />
+      <p className={styles.hint}>I’ll suggest a time in your open hours. You confirm it first.</p>
+    </div>
   )
 }

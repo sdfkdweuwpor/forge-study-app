@@ -221,7 +221,7 @@ describe('schema v1 → v2', () => {
     const db = await openUpgraded()
     const settings = await db.settings.get('app')
     expect(settings?.scheduling.taskWindows).toHaveLength(7)
-    expect(settings?.scheduling.taskWindows[0]).toEqual([{ start: '09:00', end: '21:00' }])
+    expect(settings?.scheduling.taskWindows[0]).toEqual([{ start: '10:00', end: '18:00' }])
     expect(settings?.scheduling.defaultStudyStart).toBe('07:30')
     const item = await db.trash.get('trash-1')
     expect((item?.payload.tasks?.[0] as Task).kind).toBe('task')

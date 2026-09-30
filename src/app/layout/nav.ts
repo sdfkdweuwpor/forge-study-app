@@ -8,6 +8,7 @@ import {
   List,
   ListChecks,
   Settings,
+  Route,
   Shield,
   Sun,
   Target,
@@ -19,7 +20,7 @@ import type { RouteName } from '../router/routes'
 
 /** Routes whose params are all optional, so a nav link needs none. */
 export type NavRoute =
-  'today' | 'focus' | 'tasks' | 'goals' | 'world' | 'progress' | 'rewards' | 'blocker' | 'settings'
+  'today' | 'focus' | 'tasks' | 'goals' | 'roadmap' | 'world' | 'progress' | 'rewards' | 'blocker' | 'settings'
 
 export interface NavItem {
   id: string
@@ -50,6 +51,14 @@ export const NAV: Record<string, NavItem> = {
     to: 'goals',
     match: ['goals', 'goalNew', 'goal', 'course', 'cardReview'],
     goto: 'g g',
+  },
+  roadmap: {
+    id: 'roadmap',
+    label: 'Roadmap',
+    icon: Route,
+    to: 'roadmap',
+    match: ['roadmap'],
+    goto: 'g m',
   },
   world: {
     id: 'world',
@@ -99,6 +108,7 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   NAV.focus!,
   NAV.tasks!,
   NAV.goals!,
+  NAV.roadmap!,
   NAV.world!,
   NAV.progress!,
   NAV.rewards!,
@@ -124,6 +134,7 @@ export const TASK_SUBNAV: readonly TaskSubItem[] = [
 export const TAB_NAV: readonly NavItem[] = [NAV.today!, NAV.focus!, NAV.goals!, NAV.progress!]
 export const MORE_NAV: readonly NavItem[] = [
   NAV.tasks!,
+  NAV.roadmap!,
   NAV.world!,
   NAV.rewards!,
   NAV.blocker!,

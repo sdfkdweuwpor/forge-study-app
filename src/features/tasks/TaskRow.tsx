@@ -5,6 +5,7 @@ import {
   Clock,
   FileText,
   ListChecks,
+  Play,
   Repeat,
   Timer,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ import {
   subtaskProgress,
 } from '@/logic/taskDisplay'
 import { Checkbox } from '@/ui/Checkbox'
+import { IconButton } from '@/ui/IconButton'
 import { Tag } from '@/ui/Tag'
 import { InlineTitle } from './InlineTitle'
 import { PriorityFlag } from './PriorityFlag'
@@ -53,6 +55,8 @@ export interface TaskRowProps {
    * click would move the row between pointer-down and pointer-up and swallow the click.
    */
   reveal?: boolean
+  /** Shows a ▶ "Start focus on <title>" button beside the menu (hover on desktop, always on touch). */
+  onStartFocus?: (task: Task) => void
 }
 
 /**
@@ -74,6 +78,7 @@ export const TaskRow = memo(function TaskRow({
   xp,
   dueText,
   reveal = false,
+  onStartFocus,
 }: TaskRowProps) {
   const actions = useTaskActions()
   const { today, tagColors, projects, canEditInPlace } = useTaskEnv()
@@ -242,6 +247,16 @@ export const TaskRow = memo(function TaskRow({
           </div>
 
           <div className={styles.actions}>
+            {onStartFocus && task.status !== 'done' ? (
+              <IconButton
+                label={`Start focus on ${task.title}`}
+                icon={<Play />}
+                size="xs"
+                tooltipSide="left"
+                data-testid="task-start-focus"
+                onClick={() => onStartFocus(task)}
+              />
+            ) : null}
             <TaskMenu
               task={task}
               panel={panel}

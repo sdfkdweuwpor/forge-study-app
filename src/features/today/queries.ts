@@ -10,7 +10,8 @@ import { useMemo } from 'react'
 import { db } from '@/db/db'
 import { useTasks } from '@/db/hooks/useTasks'
 import type { ID, ISODate, Task } from '@/db/types'
-import { addDays } from '@/logic/dates'
+import { addDays, startOfWeekISO } from '@/logic/dates'
+import { timePerGoal, type GoalTime } from '@/logic/timeLogged'
 import { pickNow } from '@/logic/today'
 import {
   buildHeatmap,
@@ -21,6 +22,7 @@ import {
   type Heatmap,
 } from '@/logic/todayStats'
 import { useToday } from '@/app/hooks/useToday'
+import { useSettings } from '@/db/hooks/useSettings'
 
 /** What a task's chip needs to name its course. */
 export interface CourseLabel {
@@ -129,4 +131,54 @@ export function useNowTask(): Task | null | undefined {
   const tasks = useTasks()
   const today = useToday()
   return useMemo(() => (tasks ? pickNow(tasks, { today }) : undefined), [tasks, today])
+}
+
+export interface GoalLabel {
+  title: string
+  icon: string
+}
+
+export interface TimeLogged {
+  today: GoalTime[]
+  week: GoalTime[]
+  /** Titles and icons of the goals in the rows. */
+  goals: ReadonlyMap<ID, GoalLabel>
+}
+
+/**
+ * Focus minutes per goal for today and for the week so far. Each goal reads its own sessions through
+ * the `[goalId+day]` index; sessions without a goal come from the `day` index and count as "Other".
+ */
+export function useTimeLogged(today: ISODate): TimeLogged | undefined {
+  const settings = useSettings()
+  const weekStartsOn = settings?.weekStartsOn
+  return useLiveQuery(async () => {
+    if (weekStartsOn === undefined) return undefined
+    const weekStart = startOfWeekISO(today, weekStartsOn)
+    const goals = (await db.goals.toArray()).sort(
+      (a, b) => a.order - b.order || a.createdAt - b.createdAt,
+    )
+    const [perGoal, loose] = await Promise.all([
+      Promise.all(
+        goals.map((g) =>
+          db.sessions
+            .where('[goalId+day]')
+            .between([g.id, weekStart], [g.id, today], true, true)
+            .toArray(),
+        ),
+      ),
+      db.sessions
+        .where('day')
+        .between(weekStart, today, true, true)
+        .filter((s) => s.goalId === null || !goals.some((g) => g.id === s.goalId))
+        .toArray(),
+    ])
+    const sessions = [...perGoal.flat(), ...loose]
+    const order = goals.map((g) => g.id)
+    return {
+      today: timePerGoal(sessions, order, today, today),
+      week: timePerGoal(sessions, order, weekStart, today),
+      goals: new Map(goals.map((g) => [g.id, { title: g.title, icon: g.icon }])),
+    }
+  }, [today, weekStartsOn])
 }

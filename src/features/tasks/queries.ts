@@ -4,7 +4,9 @@
  */
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db/db'
+import { proposeAutoSlots } from '@/db/repos/autoslot'
 import type { ID } from '@/db/types'
+import type { AutoSlotProposal } from '@/logic/everydaySlots'
 import { normalizeTag } from '@/logic/tagColor'
 import { searchTasksIn, type TaskHit } from '@/logic/taskSearch'
 import type { ProjectRef } from '@/logic/taskQuery'
@@ -118,4 +120,27 @@ export function useTaskXpMap(enabled: boolean): ReadonlyMap<ID, number> | undefi
     for (const e of events) if (e.refId) map.set(e.refId, (map.get(e.refId) ?? 0) + e.amount)
     return map
   }, [enabled])
+}
+
+export type AutoSlotState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ready'; proposal: AutoSlotProposal }
+
+type AutoSlotRead = { ok: true; proposal: AutoSlotProposal } | { ok: false }
+
+/**
+ * Live suggested times for opted-in tasks (recomputed when tasks or settings change, and every minute,
+ * since a slot in the past is no use). Never throws: a failing read is an `error` state with a retry.
+ */
+export function useAutoSlotProposal(minute: number, attempt = 0): AutoSlotState {
+  const read = useLiveQuery<AutoSlotRead>(async () => {
+    try {
+      return { ok: true, proposal: await proposeAutoSlots({ now: minute }) }
+    } catch {
+      return { ok: false }
+    }
+  }, [minute, attempt])
+  if (read === undefined) return { status: 'loading' }
+  return read.ok ? { status: 'ready', proposal: read.proposal } : { status: 'error' }
 }

@@ -3,8 +3,8 @@
  * overlap share a day, what a drop at a given height means, and how the keyboard nudges a task.
  *
  * The grid runs 07:00 to 23:00 and grows to fit any task outside those hours. A task with a time is a
- * block as tall as its estimate (minutes, else pomodoros × 25, else 25) but never shorter than 25
- * minutes; a task with a date and no time sits in the all-day strip.
+ * block as tall as its slot length (`durationMinutes`, else its estimate: minutes, else pomodoros × 25,
+ * else 30) but never shorter than 15 minutes; a task with a date and no time sits in the all-day strip.
  */
 import { format } from 'date-fns'
 import type { HHmm, ISODate, Task } from '@/db/types'
@@ -15,7 +15,9 @@ export const DEFAULT_START_HOUR = 7
 export const DEFAULT_END_HOUR = 23
 /** Drops and keyboard nudges land on quarter hours. */
 export const SNAP_MINUTES = 15
-export const MIN_BLOCK_MINUTES = 25
+export const MIN_BLOCK_MINUTES = 15
+/** A timed block with no length or estimate. */
+export const DEFAULT_BLOCK_MINUTES = 30
 const POMODORO_MINUTES = 25
 /** Where an untimed task goes the first time it is nudged later. */
 export const DEFAULT_TIME: HHmm = '09:00'
@@ -68,7 +70,7 @@ export function durationOf(
         ? task.estimateMinutes
         : task.estimatePomodoros !== null && task.estimatePomodoros > 0
           ? task.estimatePomodoros * POMODORO_MINUTES
-          : 0
+          : DEFAULT_BLOCK_MINUTES
   return Math.max(MIN_BLOCK_MINUTES, minutes)
 }
 

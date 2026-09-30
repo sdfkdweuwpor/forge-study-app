@@ -1045,3 +1045,55 @@ describe('splitByTokens', () => {
     expect(segments).toEqual([{ text: '#abc', token }])
   })
 })
+
+describe('everyday examples and durations', () => {
+  it('"renew passport by Oct 30" is a deadline', () => {
+    const r = parse('renew passport by Oct 30')
+    expect(r).toMatchObject({ title: 'renew passport', deadline: { date: '2026-10-30' } })
+    expect(r.when).toBeUndefined()
+  })
+
+  it('"call mom sat 30m" is a do date with a 30 minute slot', () => {
+    const r = parse('call mom sat 30m')
+    expect(r).toMatchObject({
+      title: 'call mom',
+      when: { date: '2026-10-03' },
+      durationMinutes: 30,
+    })
+    expect(r.tokens.map((t) => [t.kind, t.label])).toEqual([
+      ['date', 'Sat, Oct 3'],
+      ['duration', '30 min'],
+    ])
+  })
+
+  it('"email mentor ~1 #wgu" keeps pomodoros and the tag', () => {
+    const r = parse('email mentor ~1 #wgu')
+    expect(r).toMatchObject({ title: 'email mentor', estimate: 1, tags: ['wgu'] })
+    expect(r.durationMinutes).toBeUndefined()
+  })
+
+  it('reads 1h, 90min, 1.5h and 1h30m', () => {
+    expect(parse('gym 1h').durationMinutes).toBe(60)
+    expect(parse('read 90min').durationMinutes).toBe(90)
+    expect(parse('read 1.5h').durationMinutes).toBe(90)
+    expect(parse('read 1h30m').durationMinutes).toBe(90)
+    expect(parse('gym tomorrow 6am 1h')).toMatchObject({
+      title: 'gym',
+      when: { date: '2026-09-30', time: '06:00' },
+      durationMinutes: 60,
+    })
+  })
+
+  it('leaves other words alone', () => {
+    expect(parse('Watch 3h video').durationMinutes).toBe(180) // a duration is a duration
+    expect(parse('Take 2m').durationMinutes).toBeUndefined() // under 5 minutes
+    expect(parse('Route 66m').title).toBe('Route')
+    expect(parse('Read "30m" rule').durationMinutes).toBeUndefined()
+  })
+
+  it('only the first duration counts', () => {
+    const r = parse('run 30m 1h')
+    expect(r.durationMinutes).toBe(30)
+    expect(r.title).toBe('run 1h')
+  })
+})

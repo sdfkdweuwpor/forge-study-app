@@ -113,3 +113,14 @@
     gap: var(--space-6);
   }
 }
+
+/* The One list / Grouped switch sits above the list, out of the way. */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-6);
+}
+
+.toolbar + section {
+  margin-top: var(--space-2);
+}

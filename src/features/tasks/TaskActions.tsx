@@ -106,6 +106,10 @@ export interface TaskActions {
   setDeadline(id: ID, dueDate: ISODate | null, dueTime?: HHmm | null): Promise<void>
   /** Sets or clears only the deadline's time. */
   setDeadlineTime(id: ID, dueTime: HHmm | null): Promise<void>
+  /** Sets or clears how long the planned slot is, in minutes. */
+  setDuration(id: ID, durationMinutes: number | null): Promise<void>
+  /** Lets the app suggest a time before the deadline (each suggestion still needs a yes). */
+  setAutoSlot(id: ID, autoSlot: boolean): Promise<void>
   /** Plans the task for today (`t`). */
   dueToday(id: ID): Promise<void>
   /** Plans the task for tomorrow (`m`). */
@@ -336,6 +340,17 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
     [guard],
   )
 
+  const setDuration = useCallback(
+    (id: ID, durationMinutes: number | null) =>
+      guard('change the length', () => updateTask(id, { durationMinutes })),
+    [guard],
+  )
+
+  const setAutoSlot = useCallback(
+    (id: ID, autoSlot: boolean) => guard('change auto-schedule', () => updateTask(id, { autoSlot })),
+    [guard],
+  )
+
   const dueToday = useCallback((id: ID) => setDate(id, today), [setDate, today])
   const dueTomorrow = useCallback((id: ID) => setDate(id, addDays(today, 1)), [setDate, today])
 
@@ -397,6 +412,8 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
       setTime,
       setDeadline,
       setDeadlineTime,
+      setDuration,
+      setAutoSlot,
       dueToday,
       dueTomorrow,
       skip,
@@ -417,6 +434,8 @@ export function TaskActionsProvider({ children }: { children: ReactNode }) {
       setDate,
       setDeadline,
       setDeadlineTime,
+      setDuration,
+      setAutoSlot,
       setPriority,
       setTime,
       skip,

@@ -138,6 +138,17 @@ export function groupToday(tasks: readonly Task[], ctx: TodayContext): TodayGrou
 }
 
 /**
+ * Today as one list: plan sessions and everyday tasks together, timed ones first (by start time), then
+ * the untimed ones in the day's own order. Same order as inside each group, applied to both.
+ */
+export function oneListToday(
+  groups: Pick<TodayGroups, 'fromGoals' | 'yours'>,
+  ctx: TodayContext,
+): Task[] {
+  return [...groups.fromGoals, ...groups.yours].sort(compareDayOrder(ctx.today))
+}
+
+/**
  * The one task to do next, or `null` when nothing is actionable. In order:
  *  1. a task already in progress (most recently started first);
  *  2. goal work due today, by start time then the day's order;

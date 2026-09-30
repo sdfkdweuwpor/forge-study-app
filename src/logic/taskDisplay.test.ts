@@ -114,8 +114,10 @@ describe('deadlineLabel (a calm "Due Fri" chip)', () => {
 
   it('stays calm after the day has passed: never red, never "overdue"', () => {
     const past = deadline('2026-09-25', '10:00')
-    expect(past).toMatchObject({ text: 'Due Sep 25', tone: 'calm' })
+    expect(past).toMatchObject({ text: 'Was due Fri', tone: 'calm' })
     expect(past?.text).not.toMatch(/overdue/i)
+    expect(deadline('2026-09-28')?.text).toBe('Was due yesterday')
+    expect(deadline('2026-09-22')?.text).toBe('Was due Sep 22')
   })
 })
 

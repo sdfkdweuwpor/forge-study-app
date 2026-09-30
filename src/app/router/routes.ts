@@ -80,6 +80,13 @@ export const ROUTES = {
     title: 'Course',
     blurb: 'Units, notes and assessments for a course such as C182 Introduction to IT.',
   },
+  roadmap: {
+    path: '/roadmap',
+    owner: 'roadmap',
+    phase: 5,
+    title: 'Roadmap',
+    blurb: 'Every goal over the months, with milestones and a projected finish.',
+  },
   cardReview: {
     path: '/goals/:goalId/courses/:courseId/review',
     owner: 'flashcards',

@@ -190,7 +190,7 @@ export function QuickAddDialog() {
         <QuickAddChips
           id={chipsId}
           chips={chips}
-          hint="Add a date, time, #tag, !priority, ~pomodoros or “every weekday” as you type."
+          hint="Add a date, time, 30m, #tag, !priority, ~pomodoros or “every weekday” as you type."
         />
 
         <div className="sr-only" role="status" aria-live="polite">

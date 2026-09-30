@@ -101,12 +101,15 @@ describe('visibleDays', () => {
 })
 
 describe('durationOf', () => {
-  it('uses minutes, else pomodoros × 25, else the 25-minute minimum', () => {
+  it('uses the slot length, else minutes, else pomodoros × 25, else 30 (never under 15)', () => {
     expect(durationOf({ estimateMinutes: 45, estimatePomodoros: 2 })).toBe(45)
     expect(durationOf({ estimateMinutes: null, estimatePomodoros: 3 })).toBe(75)
-    expect(durationOf({ estimateMinutes: null, estimatePomodoros: null })).toBe(25)
-    expect(durationOf({ estimateMinutes: 10, estimatePomodoros: null })).toBe(25)
-    expect(durationOf({ estimateMinutes: 0, estimatePomodoros: 0 })).toBe(25)
+    expect(durationOf({ estimateMinutes: null, estimatePomodoros: null })).toBe(30)
+    expect(durationOf({ estimateMinutes: 10, estimatePomodoros: null })).toBe(15)
+    expect(durationOf({ estimateMinutes: 0, estimatePomodoros: 0 })).toBe(30)
+    expect(
+      durationOf({ durationMinutes: 90, estimateMinutes: 45, estimatePomodoros: 2 }),
+    ).toBe(90)
   })
 })
 
@@ -153,8 +156,8 @@ describe('placeTimed', () => {
     const a = task({ doTime: '09:00' })
     const b = task({ doTime: '09:20' })
     const placed = placeTimed([a, b])
-    expect(placed[0]?.end).toBe(540 + 25)
-    // b starts before a's 25 minutes are up, so they share the row.
+    expect(placed[0]?.end).toBe(540 + 30)
+    // b starts before a's 30 minutes are up, so they share the row.
     expect(placed.map((p) => p.lanes)).toEqual([2, 2])
   })
 

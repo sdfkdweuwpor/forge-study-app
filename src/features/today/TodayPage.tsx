@@ -15,8 +15,9 @@ import { useSettings } from '@/db/hooks/useSettings'
 import { useTasks } from '@/db/hooks/useTasks'
 import { moveTask } from '@/db/repos/tasks'
 import type { ID, Task } from '@/db/types'
-import { groupToday, pickNow } from '@/logic/today'
+import { groupToday, oneListToday, pickNow } from '@/logic/today'
 import { greeting, carriedFromText } from '@/logic/todayStats'
+import { SegmentedControl } from '@/ui/SegmentedControl'
 import { useToast } from '@/ui/Toast'
 import {
   TaskActionsProvider,
@@ -30,6 +31,7 @@ import { NowCard } from './NowCard'
 import { useCourseLabels, useHasGoals, useTaskXpToday } from './queries'
 import { TodayEmpty, TodayError, TodaySkeleton } from './states'
 import { CarriedOverGroup, CompletedGroup, TaskGroup, type GroupItem } from './TodayGroups'
+import { useTodayLayout } from './todayLayout'
 import { useTodayActionRequests, type TodayAction } from './todayActions'
 import styles from './TodayPage.module.css'
 
@@ -74,6 +76,8 @@ function TodayScreen() {
   const [selectedId, setSelectedId] = useState<ID | null>(null)
   const [byKeyboard, setByKeyboard] = useState(false)
   const [completedOpen, setCompletedOpen] = useState(false)
+  const [carriedOpen, setCarriedOpen] = useState(true)
+  const [layout, setLayout] = useTodayLayout()
 
   const data = useMemo(() => {
     if (!tasks) return undefined
@@ -85,6 +89,7 @@ function TodayScreen() {
     return {
       pool,
       groups,
+      oneList: oneListToday(groups, { today }),
       now: pickNow(pool, { today }),
       brandNew: tasks.length === 0,
       carriedOver: groups.carriedOver.map<GroupItem>(({ task, from }) => ({
@@ -98,12 +103,11 @@ function TodayScreen() {
     if (!data) return []
     const { fromGoals, yours, completedToday } = data.groups
     return [
-      ...fromGoals,
-      ...yours,
-      ...data.groups.carriedOver.map((r) => r.task),
+      ...(layout === 'one' ? data.oneList : [...fromGoals, ...yours]),
+      ...(carriedOpen ? data.groups.carriedOver.map((r) => r.task) : []),
       ...(completedOpen ? completedToday : []),
     ].map((t) => t.id)
-  }, [data, completedOpen])
+  }, [data, completedOpen, carriedOpen, layout])
 
   const selected = selectedId !== null && visibleIds.includes(selectedId) ? selectedId : null
   const selectedTask = useMemo<Task | null>(
@@ -242,20 +246,51 @@ function TodayScreen() {
                 course={data.now?.milestoneId ? courses?.get(data.now.milestoneId) : undefined}
                 completedToday={completedToday.length}
               />
-              {fromGoals.length > 0 ? (
-                <TaskGroup
-                  id="fromGoals"
-                  label="From your goals"
-                  items={items(fromGoals)}
-                  {...listProps}
-                />
+              {fromGoals.length + yours.length > 0 || data.carriedOver.length > 0 ? (
+                <div className={styles.toolbar}>
+                  <SegmentedControl
+                    label="Today’s layout"
+                    size="sm"
+                    value={layout}
+                    onValueChange={setLayout}
+                    options={[
+                      { value: 'one', label: 'One list' },
+                      { value: 'grouped', label: 'Grouped' },
+                    ]}
+                  />
+                </div>
               ) : null}
-              {yours.length > 0 ? (
-                <TaskGroup id="yours" label="Your tasks" items={items(yours)} {...listProps} />
-              ) : null}
+              {layout === 'one' ? (
+                data.oneList.length > 0 ? (
+                  <TaskGroup
+                    id="today"
+                    label="Today"
+                    items={items(data.oneList)}
+                    showTime
+                    today={today}
+                    {...listProps}
+                  />
+                ) : null
+              ) : (
+                <>
+                  {fromGoals.length > 0 ? (
+                    <TaskGroup
+                      id="fromGoals"
+                      label="From your goals"
+                      items={items(fromGoals)}
+                      {...listProps}
+                    />
+                  ) : null}
+                  {yours.length > 0 ? (
+                    <TaskGroup id="yours" label="Your tasks" items={items(yours)} {...listProps} />
+                  ) : null}
+                </>
+              )}
               {data.carriedOver.length > 0 ? (
                 <CarriedOverGroup
                   items={data.carriedOver}
+                  open={carriedOpen}
+                  onOpenChange={setCarriedOpen}
                   onMoveAll={() => void moveAllToToday()}
                   {...listProps}
                 />

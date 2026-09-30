@@ -30,9 +30,17 @@ import { DEFAULT_SESSION_MINUTES, fromLegacyAvailability } from './scheduler/win
 /** `settings.scheduling.defaultStudyStart` when a database has no settings row yet. */
 export const V2_DEFAULT_STUDY_START: HHmm = '09:00'
 
-/** Everyday tasks may be auto-slotted 09:00–21:00 every day unless the user says otherwise. */
+/**
+ * When everyday tasks may be auto-slotted, unless the user says otherwise: weekdays 18:00–21:00, weekends
+ * 10:00–18:00 (index 0 = Sunday). Databases upgraded before this default hold 09:00–21:00 on every day,
+ * which `logic/everydaySlots` reads as "never changed" and treats the same way.
+ */
 export function defaultTaskWindows(): TimeWindow[][] {
-  return Array.from({ length: 7 }, () => [{ start: '09:00', end: '21:00' }])
+  return Array.from({ length: 7 }, (_, weekday) =>
+    weekday === 0 || weekday === 6
+      ? [{ start: '10:00', end: '18:00' }]
+      : [{ start: '18:00', end: '21:00' }],
+  )
 }
 
 type Row = Record<string, unknown>

@@ -12,6 +12,7 @@ export function toTaskInput(result: QuickAddResult, course: QuickAddCourse | und
     ...(result.when?.time ? { doTime: result.when.time } : {}),
     ...(result.deadline ? { dueDate: result.deadline.date } : {}),
     ...(result.deadline?.time ? { dueTime: result.deadline.time } : {}),
+    ...(result.durationMinutes !== undefined ? { durationMinutes: result.durationMinutes } : {}),
     ...(result.estimate !== undefined ? { estimatePomodoros: result.estimate } : {}),
     ...(result.recurrence ? { recurrence: result.recurrence } : {}),
     ...(course ? { milestoneId: course.id, goalId: course.goalId } : {}),

@@ -63,8 +63,7 @@ test.describe('quick add', () => {
     await quickAddField(page).pressSequentially(BRIEF_EXAMPLE)
     // One chip per piece, in the order typed, then the course that #C182 links to.
     await expect(parsedChips(page)).toHaveText([
-      'Tomorrow',
-      '2:00 PM',
+      'Do: Tomorrow 2:00 PM',
       '#C182',
       'High priority',
       '2 pomodoros',
@@ -111,7 +110,7 @@ test.describe('quick add', () => {
     await gotoApp(page, '/', 'empty')
     await page.keyboard.press('q')
     await quickAddField(page).pressSequentially('Pay phone bill due fri 5pm')
-    await expect(parsedChips(page)).toHaveText(['Due Fri, Oct 2', 'Due by 5:00 PM'])
+    await expect(parsedChips(page)).toHaveText(['Due: Fri, Oct 2 5:00 PM'])
     await page.keyboard.press('Enter')
     await expect(toasts(page)).toContainText('Added to Upcoming')
     const [bill] = titled(await storedTasks(page), 'Pay phone bill')

@@ -12,11 +12,10 @@ const COURSES: QuickAddCourse[] = [
 ]
 
 describe('buildChips', () => {
-  it("shows the brief's example as Tomorrow, 2:00 PM, #C182, High priority, 2 pomodoros", () => {
+  it("shows the brief's example as Do: Tomorrow 2:00 PM, #C182, High priority, 2 pomodoros", () => {
     const parsed = parseQuickAdd(BRIEF, { now: NOW })
     expect(buildChips(parsed, undefined, undefined).map((c) => [c.kind, c.label])).toEqual([
-      ['date', 'Tomorrow'],
-      ['time', '2:00 PM'],
+      ['date', 'Do: Tomorrow 2:00 PM'],
       ['tag', '#C182'],
       ['priority', 'High priority'],
       ['estimate', '2 pomodoros'],
@@ -27,7 +26,7 @@ describe('buildChips', () => {
     const parsed = parseQuickAdd(BRIEF, { now: NOW, knownCourseCodes: ['C182'] })
     const chips = buildChips(parsed, courseFor(parsed, COURSES), undefined)
     expect(chips.at(-1)).toMatchObject({ kind: 'course', label: 'Introduction to IT' })
-    expect(chips).toHaveLength(6)
+    expect(chips).toHaveLength(5)
   })
 
   it('has no course chip without a match', () => {
@@ -64,6 +63,32 @@ describe('buildChips', () => {
   })
 })
 
+describe('do, due and length chips', () => {
+  const chips = (input: string) =>
+    buildChips(parseQuickAdd(input, { now: NOW }), undefined, undefined).map((c) => [
+      c.kind,
+      c.label,
+    ])
+
+  it('says "Do:" for a plan and "Due:" for a deadline', () => {
+    expect(chips('gym tomorrow 6am')).toEqual([['date', 'Do: Tomorrow 6:00 AM']])
+    expect(chips('pay bill Fri')).toEqual([['date', 'Do: Fri, Oct 2']])
+    expect(chips('pay bill due Fri')).toEqual([['deadline', 'Due: Fri, Oct 2']])
+    expect(chips('pay bill due Fri 5pm')).toEqual([['deadline', 'Due: Fri, Oct 2 5:00 PM']])
+    expect(chips('pay bill wednesday due fri')).toEqual([
+      ['date', 'Do: Tomorrow'],
+      ['deadline', 'Due: Fri, Oct 2'],
+    ])
+  })
+
+  it('adds a length chip', () => {
+    expect(chips('call mom sat 30m')).toEqual([
+      ['date', 'Do: Sat, Oct 3'],
+      ['duration', '30 min'],
+    ])
+  })
+})
+
 describe('colours', () => {
   it('scales priority from gray to red', () => {
     const color = (input: string) => {
@@ -88,10 +113,10 @@ describe('describeChips', () => {
   it('reads the chips as a sentence for a live region', () => {
     const parsed = parseQuickAdd(BRIEF, { now: NOW })
     expect(describeChips(buildChips(parsed, undefined, undefined))).toBe(
-      'Date Tomorrow, Time 2:00 PM, Tag #C182, Priority High priority, Estimate 2 pomodoros',
+      'Do: Tomorrow 2:00 PM, Tag #C182, Priority High priority, Estimate 2 pomodoros',
     )
     expect(describeChips([])).toBe('')
     const bill = parseQuickAdd('pay bill due fri', { now: NOW })
-    expect(describeChips(buildChips(bill, undefined, undefined))).toBe('Deadline Due Fri, Oct 2')
+    expect(describeChips(buildChips(bill, undefined, undefined))).toBe('Due: Fri, Oct 2')
   })
 })

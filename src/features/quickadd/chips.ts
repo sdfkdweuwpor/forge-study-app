@@ -27,6 +27,7 @@ const KIND_NAMES: Record<ChipKind, string> = {
   date: 'Date',
   time: 'Time',
   deadline: 'Deadline',
+  duration: 'Length',
   tag: 'Tag',
   priority: 'Priority',
   estimate: 'Estimate',
@@ -51,6 +52,7 @@ export function tokenColor(
     case 'priority':
       return PRIORITY_COLORS[result.priority ?? 0]
     case 'estimate':
+    case 'duration':
       return 'purple'
     case 'recurrence':
       return 'green'
@@ -69,9 +71,13 @@ export function courseFor(
   return courses.find((c) => normalizeTag(c.code) === wanted)
 }
 
+/** "Due Fri, Oct 2" → "Fri, Oct 2"; "Due by 5:00 PM" → "5:00 PM". */
+const stripDue = (label: string): string => label.replace(/^Due (by )?/, '')
+
 /**
- * One chip per recognised piece, in the order typed, then a chip for the linked course. Quoted
- * literals are part of the title, so they get no chip.
+ * One chip per recognised piece, in the order typed, then a chip for the linked course. A date and its
+ * time are one chip: "Do: Tomorrow 6:00 AM" (when to do it) or "Due: Fri, Oct 2 5:00 PM" (the hard
+ * deadline). Quoted literals are part of the title, so they get no chip.
  */
 export function buildChips(
   result: QuickAddResult,
@@ -79,14 +85,28 @@ export function buildChips(
   tagColors: Readonly<Record<string, TagColor>> | undefined,
 ): Chip[] {
   const chips: Chip[] = []
+  const doTokens = result.tokens.filter((t) => t.kind === 'date' || t.kind === 'time')
+  const dueTokens = result.tokens.filter((t) => t.kind === 'deadline')
   for (const token of result.tokens) {
     if (token.kind === 'literal') continue
+    let label = token.label
+    let name: string = KIND_NAMES[token.kind]
+    if (token.kind === 'date' || token.kind === 'time') {
+      if (doTokens[0] !== token) continue
+      const day = doTokens.find((t) => t.kind === 'date')?.label ?? 'Today'
+      const time = doTokens.find((t) => t.kind === 'time')?.label
+      label = `Do: ${time ? `${day} ${time}` : day}`
+      name = 'Plan'
+    } else if (token.kind === 'deadline') {
+      if (dueTokens[0] !== token) continue
+      label = `Due: ${dueTokens.map((t) => stripDue(t.label)).join(' ')}`
+    }
     chips.push({
-      key: `${token.kind}:${token.start}`,
-      kind: token.kind,
-      label: token.label,
+      key: `${token.kind === 'time' ? 'date' : token.kind}:${token.start}`,
+      kind: token.kind === 'time' ? 'date' : token.kind,
+      label,
       color: tokenColor(token, result, tagColors),
-      name: KIND_NAMES[token.kind],
+      name,
     })
   }
   if (course) {
@@ -101,7 +121,7 @@ export function buildChips(
   return chips
 }
 
-/** "Due date Tomorrow, Due time 2:00 PM, …" for a live region. Empty when there is nothing parsed. */
+/** "Do: Tomorrow 2:00 PM, Tag #C182, …" for a live region. Empty when there is nothing parsed. */
 export function describeChips(chips: readonly Chip[]): string {
-  return chips.map((c) => `${c.name} ${c.label}`).join(', ')
+  return chips.map((c) => (c.label.includes(': ') ? c.label : `${c.name} ${c.label}`)).join(', ')
 }

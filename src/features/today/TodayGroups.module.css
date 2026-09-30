@@ -87,3 +87,26 @@
     align-items: center;
   }
 }
+
+/* ── One list: a time gutter beside each row ─────────────────────────────── */
+.list[data-timed] .item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-2);
+}
+
+.time {
+  padding: 5px 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  line-height: 21px;
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .list[data-timed] .item {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+}

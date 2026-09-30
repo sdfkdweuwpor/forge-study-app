@@ -8,6 +8,7 @@ const ICONS: Record<ChipKind, ReactNode> = {
   date: <Calendar />,
   time: <Clock />,
   deadline: <CalendarClock />,
+  duration: <Timer />,
   // The label already starts with "#".
   tag: null,
   priority: <Flag />,

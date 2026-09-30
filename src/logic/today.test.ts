@@ -1,7 +1,7 @@
 // Runs with TZ=America/New_York. DST 2026: starts Sun Mar 8 (23 h day), ends Sun Nov 1 (25 h day).
 import { describe, expect, it } from 'vitest'
 import type { Task } from '@/db/types'
-import { groupToday, isGoalWork, pickNow, type TodayContext } from '@/logic/today'
+import { groupToday, isGoalWork, oneListToday, pickNow, type TodayContext } from '@/logic/today'
 
 let seq = 0
 function task(overrides: Partial<Task> = {}): Task {
@@ -456,5 +456,25 @@ describe('pickNow', () => {
     ]
     expect(pickNow(tasks, ctx)?.title).toBe('plan')
     expect(pickNow(tasks.slice(0, 1), ctx)?.title).toBe('late')
+  })
+})
+
+describe('oneListToday', () => {
+  it('merges plan sessions and everyday tasks, timed first by start time, then untimed', () => {
+    const tasks = [
+      task({ title: 'Untimed own', doDate: TODAY, order: 1 }),
+      task({ title: 'Plan 19:00', doDate: TODAY, doTime: '19:00', source: 'schedule' }),
+      task({ title: 'Untimed plan', doDate: TODAY, source: 'schedule', order: 2 }),
+      task({ title: 'Own 08:30', doDate: TODAY, doTime: '08:30' }),
+      task({ title: 'Plan 13:00', doDate: TODAY, doTime: '13:00', source: 'schedule' }),
+    ]
+    const groups = groupToday(tasks, CTX)
+    expect(titles(oneListToday(groups, CTX))).toEqual([
+      'Own 08:30',
+      'Plan 13:00',
+      'Plan 19:00',
+      'Untimed own',
+      'Untimed plan',
+    ])
   })
 })

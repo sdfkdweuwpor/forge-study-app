@@ -3,6 +3,7 @@ import { lazy } from 'react'
 import type { FeatureManifest, ShortcutDef } from '@/app/registry'
 import { MilestoneCountdown, MiniHeatmap } from './Aside'
 import { DailyGoalStat, StreakStat, XpTodayStat } from './HeaderStats'
+import { TimePerGoalCard } from './TimeAside'
 import { StartFocusHotkey } from './StartFocusHotkey'
 import { requestTodayAction } from './todayActions'
 
@@ -44,7 +45,7 @@ const shortcuts: ShortcutDef[] = [
 
 /**
  * Slot defaults: the stat row (`today.header`: daily goal ring, streak flame, XP today) and the aside
- * (`today.aside`: milestone countdown, 14-day heatmap). Later phases add their own contributions
+ * (`today.aside`: milestone countdown, time per goal, 14-day heatmap). Later phases add their own contributions
  * with other ids and orders (10, 20, 30… leave room), or re-point the hooks in `queries.ts`.
  */
 const manifest: FeatureManifest = {
@@ -96,6 +97,7 @@ const manifest: FeatureManifest = {
     { slot: 'today.header', id: 'today.stat.xp', order: 30, component: XpTodayStat },
     { slot: 'today.aside', id: 'today.targets', order: 10, component: MilestoneCountdown },
     { slot: 'today.aside', id: 'today.heatmap', order: 20, component: MiniHeatmap },
+    { slot: 'today.aside', id: 'today.timePerGoal', order: 15, component: TimePerGoalCard },
   ],
 }
 

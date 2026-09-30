@@ -4,3 +4,14 @@
   font-size: var(--fs-12);
   line-height: var(--lh-body);
 }
+
+.autoSlot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.autoSlot .hint {
+  margin: 0;
+}

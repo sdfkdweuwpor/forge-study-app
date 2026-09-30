@@ -18,6 +18,7 @@
  *    `knownCourseCodes`.
  *  - `!low !med !medium !high !urgent` or `!1`…`!4`.
  *  - `~N` pomodoros (1–99), unless a time unit follows (`~5 minutes`).
+ *  - Durations: `30m`, `45min`, `1h`, `1.5h`, `1h30m` (5 min to 12 h) set how long the slot is.
  *  - Dates: today, `tod` (lowercase), tonight, tomorrow, tmr, weekday names (the next one *after*
  *    today), `next week` (first day of next week), `next <weekday>` (that day of next week),
  *    `in N days|weeks`, `sep 30`, `9/30` (also `9/30/2026`), `2026-10-03`. Month-day and M/D dates that
@@ -58,7 +59,15 @@ import { normalizeTag } from './tagColor'
 import { PRIORITY_LABELS } from './taskQuery'
 
 export type QuickAddTokenKind =
-  'date' | 'time' | 'deadline' | 'tag' | 'priority' | 'estimate' | 'recurrence' | 'literal'
+  | 'date'
+  | 'time'
+  | 'deadline'
+  | 'duration'
+  | 'tag'
+  | 'priority'
+  | 'estimate'
+  | 'recurrence'
+  | 'literal'
 
 export interface QuickAddToken {
   kind: QuickAddTokenKind
@@ -93,6 +102,8 @@ export interface QuickAddResult {
   priority?: Priority
   /** Pomodoros. */
   estimate?: number
+  /** How long the slot is, in minutes (`30m`, `1h`, `90min`): the task's `durationMinutes`. */
+  durationMinutes?: number
   recurrence?: RecurrenceRule
   courseCode?: string
   tokens: QuickAddToken[]
@@ -271,6 +282,7 @@ type Payload =
   | { kind: 'tag'; tag: string }
   | { kind: 'priority'; priority: Priority }
   | { kind: 'estimate'; pomodoros: number }
+  | { kind: 'duration'; minutes: number }
   | { kind: 'recurrence'; rule: RecurrenceRule }
   | { kind: 'literal'; text: string }
 
@@ -315,6 +327,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     deadlineTime: false,
     priority: false,
     estimate: false,
+    duration: false,
     recurrence: false,
   }
 
@@ -471,7 +484,10 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
         before.trailing === '' &&
         DATE_CONNECTORS.has(before.lower)
       const timeFollows = w.trailing === '' && clockAt(k + 1, false, true) !== null
-      if (!(connector || timeFollows)) return null
+      // "call mom sat 30m": a length right after it is an unmistakable sign of a plan.
+      const nextWordAfter = w.trailing === '' ? wordAt(k + 1) : undefined
+      const lengthFollows = nextWordAfter !== undefined && parseDuration(nextWordAfter.lower) !== null
+      if (!(connector || timeFollows || lengthFollows)) return null
     }
     return dateMatch(weekdayAfterToday(abbr), 1)
   }
@@ -715,6 +731,15 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     return { payload: { kind: 'estimate', pomodoros }, label, count: 1 }
   }
 
+  const matchDuration = (k: number): Match | null => {
+    if (taken.duration) return null
+    const w = wordAt(k)
+    if (!w) return null
+    const minutes = parseDuration(w.lower)
+    if (minutes === null) return null
+    return { payload: { kind: 'duration', minutes }, label: durationLabel(minutes), count: 1 }
+  }
+
   // ── scan ──
 
   const commit = (match: Match, k: number): void => {
@@ -750,6 +775,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     matchTag(k) ??
     matchPriority(k) ??
     matchEstimate(k) ??
+    matchDuration(k) ??
     matchRecurrence(k) ??
     matchDate(k) ??
     matchTime(k)
@@ -781,6 +807,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   let deadlineTimeToken: HHmm | undefined
   let priority: Priority | undefined
   let estimate: number | undefined
+  let durationMinutes: number | undefined
   let recurrence: RecurrenceRule | undefined
   const tags: string[] = []
   const seenTags = new Set<string>()
@@ -794,6 +821,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
       else timeToken = p.time
     } else if (p.kind === 'priority') priority = p.priority
     else if (p.kind === 'estimate') estimate = p.pomodoros
+    else if (p.kind === 'duration') durationMinutes = p.minutes
     else if (p.kind === 'recurrence') recurrence = p.rule
     else if (p.kind === 'tag' && !seenTags.has(normalizeTag(p.tag))) {
       seenTags.add(normalizeTag(p.tag))
@@ -855,9 +883,35 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   if (deadline) result.deadline = deadline
   if (priority !== undefined) result.priority = priority
   if (estimate !== undefined) result.estimate = estimate
+  if (durationMinutes !== undefined) result.durationMinutes = durationMinutes
   if (recurrence) result.recurrence = recurrence
   if (courseCode !== undefined) result.courseCode = courseCode
   return result
+}
+
+const DURATION_RE = /^(\d{1,3})(?:\.(\d))?(m|min|mins|minutes?|h|hr|hrs|hours?)$/
+const HOURS_MINUTES_RE = /^(\d{1,2})h(\d{1,2})m?$/
+
+/** `30m`, `90min`, `1h`, `1.5h`, `1h30m` → minutes (5 min to 12 h), or `null`. */
+export function parseDuration(word: string): number | null {
+  const combined = HOURS_MINUTES_RE.exec(word)
+  const minutes = combined
+    ? Number(combined[1]) * 60 + Number(combined[2])
+    : (() => {
+        const m = DURATION_RE.exec(word)
+        if (!m) return NaN
+        const value = Number(`${m[1]}${m[2] === undefined ? '' : `.${m[2]}`}`)
+        return Math.round((m[3] as string).startsWith('h') ? value * 60 : value)
+      })()
+  return Number.isFinite(minutes) && minutes >= 5 && minutes <= 720 ? minutes : null
+}
+
+/** "30 min", "1 h", "1 h 30 min". */
+export function durationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m} min`
+  return m === 0 ? `${h} h` : `${h} h ${m} min`
 }
 
 /** `2:00 PM` for minutes after midnight. */

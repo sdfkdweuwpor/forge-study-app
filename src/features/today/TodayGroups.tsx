@@ -1,10 +1,12 @@
 import { CalendarArrowUp, ChevronRight } from 'lucide-react'
 import { useId } from 'react'
 import type { ID, Task } from '@/db/types'
-import { formatXp } from '@/logic/taskDisplay'
+import { formatTimeOfDay, formatXp } from '@/logic/taskDisplay'
+import { planTime } from '@/logic/taskDates'
 import { Button } from '@/ui/Button'
 import { Tooltip } from '@/ui/Tooltip'
 import { TaskRow, useTaskMotion } from '@/features/tasks'
+import { startFocus } from './startFocus'
 import styles from './TodayGroups.module.css'
 
 /** One row of a group: the task, and words to show in place of its date. */
@@ -24,15 +26,30 @@ interface Selection {
 interface RowsProps extends Selection {
   items: readonly GroupItem[]
   xpByTask?: ReadonlyMap<ID, number> | undefined
+  /** The one-list view: a time gutter beside each row (the planned start, blank when untimed). */
+  showTime?: boolean
+  /** The day the list is for; the gutter shows a time only for a task planned on it. */
+  today?: string
 }
 
-function Rows({ items, selectedId, onSelect, reveal, xpByTask }: RowsProps) {
+function Rows({ items, selectedId, onSelect, reveal, xpByTask, showTime = false, today }: RowsProps) {
   const motion = useTaskMotion()
   return (
-    <ul className={styles.list}>
+    <ul className={styles.list} data-timed={showTime || undefined}>
       {items.map(({ task, dueText }) => (
         <li key={task.id} className={styles.item}>
+          {showTime ? (
+            <span className={styles.time} data-testid="row-time">
+              {task.doDate === today && planTime(task) !== null ? (
+                <>
+                  <span className="sr-only">Starts </span>
+                  {formatTimeOfDay(planTime(task) as string)}
+                </>
+              ) : null}
+            </span>
+          ) : null}
           <TaskRow
+            onStartFocus={task.status === 'done' ? undefined : startFocus}
             task={task}
             selected={task.id === selectedId}
             reveal={reveal}
@@ -48,7 +65,7 @@ function Rows({ items, selectedId, onSelect, reveal, xpByTask }: RowsProps) {
 }
 
 interface GroupProps extends RowsProps {
-  id: 'fromGoals' | 'yours' | 'carriedOver'
+  id: 'fromGoals' | 'yours' | 'today'
   label: string
 }
 
@@ -68,34 +85,57 @@ export function TaskGroup({ id, label, items, ...rest }: GroupProps) {
 
 interface CarriedOverProps extends RowsProps {
   onMoveAll: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 /**
- * Work planned for an earlier day that is still open. No guilt: a plain header, each row says the day
- * it came from ("from Tue") rather than how late it is, and one click moves them all to today.
+ * Work planned for an earlier day that is still open. No guilt: a plain, quiet header you can fold away,
+ * each row says the day it came from ("from Tue") rather than how late it is, and one click moves them
+ * all to today.
  */
-export function CarriedOverGroup({ items, onMoveAll, ...rest }: CarriedOverProps) {
+export function CarriedOverGroup({
+  items,
+  onMoveAll,
+  open,
+  onOpenChange,
+  ...rest
+}: CarriedOverProps) {
   const headingId = useId()
+  const listId = useId()
   return (
     <section className={styles.group} data-group="carriedOver" aria-labelledby={headingId}>
       <div className={styles.headerRow}>
         <h2 className={styles.header} id={headingId}>
-          <span>Carried over</span>
-          <span className={styles.count}>{items.length}</span>
-        </h2>
-        <Tooltip content="Move every carried-over task to today" shortcut="shift+t">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconLeft={<CalendarArrowUp />}
-            aria-keyshortcuts="Shift+T"
-            onClick={onMoveAll}
+          <button
+            type="button"
+            className={styles.disclosure}
+            aria-expanded={open}
+            aria-controls={listId}
+            onClick={() => onOpenChange(!open)}
           >
-            Move all to today
-          </Button>
-        </Tooltip>
+            <ChevronRight className={styles.chevron} size={14} aria-hidden="true" />
+            <span>Carried over</span>
+            <span className={styles.count}>{items.length}</span>
+          </button>
+        </h2>
+        {open ? (
+          <Tooltip content="Move every carried-over task to today" shortcut="shift+t">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconLeft={<CalendarArrowUp />}
+              aria-keyshortcuts="Shift+T"
+              onClick={onMoveAll}
+            >
+              Move all to today
+            </Button>
+          </Tooltip>
+        ) : null}
       </div>
-      <Rows items={items} {...rest} />
+      <div id={listId} hidden={!open}>
+        {open ? <Rows items={items} {...rest} /> : null}
+      </div>
     </section>
   )
 }

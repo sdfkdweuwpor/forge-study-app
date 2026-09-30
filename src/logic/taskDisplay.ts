@@ -98,7 +98,7 @@ export type DeadlineTone =
   | 'calm'
 
 export interface DeadlineLabel {
-  /** "Due Fri", "Due today, 5 PM", "Due Sep 30". */
+  /** "Due Fri", "Due today, 5 PM", "Due Sep 30"; once passed, "Was due Tue". */
   text: string
   tone: DeadlineTone
   /** "Due Fri, Oct 2, 5 PM". */
@@ -107,7 +107,7 @@ export interface DeadlineLabel {
 
 /**
  * The small deadline chip ("Due Fri"), or `null` when the task has no deadline or is finished. Amber
- * only on the due day; a deadline that has passed is still just "Due Tue", never red.
+ * only on the due day; a deadline that has passed reads a neutral "Was due Tue", never red.
  */
 export function deadlineLabel(
   task: Pick<Task, 'dueDate' | 'dueTime' | 'status'>,
@@ -116,21 +116,24 @@ export function deadlineLabel(
   const { dueDate, dueTime, status } = task
   if (dueDate === null || status === 'done') return null
   const diff = diffDays(dueDate, today)
+  const weekday = WEEKDAY_NAMES[fromISODate(dueDate).getDay()]?.slice(0, 3)
   const day =
     diff === 0
       ? 'today'
       : diff === 1
         ? 'tomorrow'
-        : diff > 1 && diff <= 6
-          ? (WEEKDAY_NAMES[fromISODate(dueDate).getDay()]?.slice(0, 3) ?? formatDay(dueDate, today))
-          : formatDay(dueDate, today)
+        : diff === -1
+          ? 'yesterday'
+          : (diff > 1 && diff <= 6) || (diff < -1 && diff >= -6)
+            ? (weekday ?? formatDay(dueDate, today))
+            : formatDay(dueDate, today)
   const time = dueTime !== null && diff >= 0 ? `, ${formatTimeOfDay(dueTime)}` : ''
   const full =
     formatDayLong(dueDate, today) + (dueTime !== null ? `, ${formatTimeOfDay(dueTime)}` : '')
   return {
-    text: `Due ${day}${time}`,
+    text: `${diff < 0 ? 'Was due' : 'Due'} ${day}${time}`,
     tone: diff === 0 ? 'dueToday' : 'calm',
-    description: `Due ${full}`,
+    description: `${diff < 0 ? 'Was due' : 'Due'} ${full}`,
   }
 }
 
@@ -143,9 +146,10 @@ export interface EstimateLabel {
 
 /** The estimate chip: pomodoros first, minutes when that is all the task has. */
 export function estimateLabel(
-  task: Pick<Task, 'estimatePomodoros' | 'estimateMinutes'>,
+  task: Pick<Task, 'estimatePomodoros' | 'estimateMinutes'> & Partial<Pick<Task, 'durationMinutes'>>,
 ): EstimateLabel | null {
-  const { estimatePomodoros: pomodoros, estimateMinutes: minutes } = task
+  const { estimatePomodoros: pomodoros } = task
+  const minutes = task.estimateMinutes ?? task.durationMinutes ?? null
   if (pomodoros !== null && pomodoros > 0) {
     const noun = pomodoros === 1 ? 'pomodoro' : 'pomodoros'
     return {

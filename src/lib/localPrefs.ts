@@ -25,6 +25,10 @@ export const PREF_KEYS = {
   goalWizardDraft: 'forge:goals:wizard-draft',
   /** Goal ids whose course list is expanded in the sidebar (JSON array); written by the goals feature. */
   goalsNavOpen: 'forge:goals:nav-open',
+  /** Today's list layout ('one' | 'grouped'); written by the today feature. */
+  todayLayout: 'forge:today:layout',
+  /** Roadmap zoom in months ('3' | '6' | '12'); written by the roadmap feature. */
+  roadmapZoom: 'forge:roadmap:zoom',
 } as const
 
 export type PrefKey = (typeof PREF_KEYS)[keyof typeof PREF_KEYS]

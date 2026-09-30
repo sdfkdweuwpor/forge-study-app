@@ -114,6 +114,9 @@
 }
 
 .actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   align-self: start;
   /* The 24px button must not make the row taller than its 21px text line. */
   margin-block: -2px -1px;

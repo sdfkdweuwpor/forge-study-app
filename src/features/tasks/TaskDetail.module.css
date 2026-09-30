@@ -146,6 +146,18 @@
   .root[data-variant='page'] .check {
     margin-top: 4px;
   }
+
+  /*
+   * Seven Length presets, each with a 44px tap floor on touch, came to 345px: past a 375px phone's
+   * content edge. Tighter segments with no gap between them fit down to a 360px phone.
+   */
+  .propValue [role='radiogroup'] {
+    gap: 0;
+  }
+
+  .propValue [role='radio'] {
+    padding-inline: 6px;
+  }
 }
 
 /*

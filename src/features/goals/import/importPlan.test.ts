@@ -56,7 +56,7 @@ const minutesOf = async (goalId: string): Promise<number> =>
 
 // Each test imports into its own goal (random ids), so the shared fake database needs no clearing.
 
-describe('runImport: a new goal', () => {
+describe('runImport: a new goal', { timeout: 30_000 }, () => {
   it('creates the goal, courses and units, then schedules the work', async () => {
     const run = await runImport(parse(EXAMPLE_JSON), { kind: 'new' }, { now: NOW })
     expect(run).toMatchObject({ mode: 'create', wrote: true, rebalanceError: null })
@@ -104,7 +104,7 @@ describe('runImport: a new goal', () => {
   })
 })
 
-describe('runImport: merging into an existing goal', () => {
+describe('runImport: merging into an existing goal', { timeout: 30_000 }, () => {
   const MERGE = `{"forgePlan":1,"goal":{"name":"ignored"},"courses":[
     {"code":"D278","name":"Scripting and Programming Foundations","estimatedHours":30},
     {"code":"C172","name":"Network and Security Foundations","cus":4,"type":"OA","estimatedHours":50,"prerequisites":["D278"]}

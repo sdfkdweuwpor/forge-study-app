@@ -57,10 +57,6 @@ export async function listResources(milestoneId: ID): Promise<Resource[]> {
   return sortResources(await db.resources.where('milestoneId').equals(milestoneId).toArray())
 }
 
-export async function getResource(id: ID): Promise<Resource | undefined> {
-  return db.resources.get(id)
-}
-
 /** The goal a course belongs to; throws when the course is not there (deleted in another tab, a stale page). */
 async function goalOf(milestoneId: ID): Promise<ID> {
   const course = await db.milestones.get(milestoneId)

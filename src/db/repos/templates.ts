@@ -15,7 +15,6 @@ import {
   cleanRoutineName,
   parseRoutinePayload,
   routineTaskDrafts,
-  type RoutineEntry,
   type RoutinePayload,
 } from '@/logic/routines'
 import { UndoRefusedError } from '@/logic/undo'
@@ -37,15 +36,6 @@ export async function listRoutineRows(): Promise<RoutineRow[]> {
   return rows
     .sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1))
     .map((template) => ({ template, payload: parseRoutinePayload(template.payload) }))
-}
-
-/** The saved routines that can be applied, as the picker lists them. */
-export async function listRoutines(): Promise<RoutineEntry[]> {
-  return (await listRoutineRows()).flatMap(({ template, payload }) =>
-    payload
-      ? [{ id: template.id, name: template.name, icon: template.icon, builtIn: false, payload }]
-      : [],
-  )
 }
 
 export interface RoutineInput {

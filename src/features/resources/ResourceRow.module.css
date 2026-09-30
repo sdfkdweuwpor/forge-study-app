@@ -139,6 +139,16 @@
 }
 
 @media (pointer: coarse) {
+  /* The title is the row's main control: a 44px target centred on its line, without making the row taller. */
+  .open {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    margin-block: calc((1.5 * var(--fs-14) - var(--tap-min)) / 2);
+  }
+
   .row {
     grid-template-columns: 32px 24px 16px minmax(0, 1fr) var(--tap-min);
     min-height: var(--tap-min);

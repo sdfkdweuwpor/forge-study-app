@@ -5,6 +5,10 @@
  * stay light and a Blob is only read when someone opens it.
  *
  * `listFileMeta` is the way to show a file (name, size) without carrying its bytes along.
+ *
+ * There is deliberately no delete here: a file that belongs to a resource leaves with it, through the Trash
+ * (`moveToTrash` takes the file along, and Undo or Restore brings both back). A bare delete could leave a
+ * resource pointing at nothing.
  */
 import { newId } from '@/lib/ids'
 import { db } from '../db'
@@ -66,13 +70,4 @@ export async function listFileMeta(ids: readonly ID[]): Promise<FileMeta[]> {
     .anyOf([...ids])
     .toArray()
   return rows.map(({ id, name, mime, size, createdAt }) => ({ id, name, mime, size, createdAt }))
-}
-
-/** Deletes a file for good. Returns false when there was none. Callers that need Undo trash the resource instead. */
-export async function deleteFile(id: ID): Promise<boolean> {
-  return db.transaction('rw', db.files, async () => {
-    if ((await db.files.get(id)) === undefined) return false
-    await db.files.delete(id)
-    return true
-  })
 }

@@ -9,6 +9,7 @@ import {
   XP_EVENING,
   cleanReflection,
   dismissedKinds,
+  EVENING_GRACE_MINUTES,
   dayWords,
   doneHeadline,
   eveningXpKey,
@@ -20,6 +21,7 @@ import {
   openTodayItems,
   promptTimes,
   recentReflections,
+  ritualDay,
   ritualId,
   ritualPrompt,
   top3Progress,
@@ -85,6 +87,29 @@ describe('keys', () => {
     expect(ritualId('evening', TODAY)).toBe('evening:2026-09-29')
     expect(eveningXpKey(TODAY)).toBe('ritual:evening:2026-09-29')
     expect(XP_EVENING).toBe(10)
+  })
+})
+
+describe('ritualDay', () => {
+  const at = (h: number, m: number, d = 29): number => new Date(2026, 8, d, h, m).getTime()
+
+  it('is the calendar day for the morning plan and the routine dialogs, at any hour', () => {
+    expect(ritualDay('morning', at(0, 30))).toBe('2026-09-29')
+    expect(ritualDay('morning', at(23, 59))).toBe('2026-09-29')
+    expect(ritualDay('other', at(1, 0))).toBe('2026-09-29')
+  })
+
+  it('gives the evening shutdown a grace period: before 03:00 it closes the day before', () => {
+    expect(EVENING_GRACE_MINUTES).toBe(180)
+    expect(ritualDay('evening', at(18, 30))).toBe('2026-09-29')
+    expect(ritualDay('evening', at(23, 59))).toBe('2026-09-29')
+    expect(ritualDay('evening', at(0, 0, 30))).toBe('2026-09-29')
+    expect(ritualDay('evening', at(2, 59, 30))).toBe('2026-09-29')
+    expect(ritualDay('evening', at(3, 0, 30))).toBe('2026-09-30')
+  })
+
+  it('crosses a month end', () => {
+    expect(ritualDay('evening', new Date(2026, 9, 1, 1, 15).getTime())).toBe('2026-09-30')
   })
 })
 

@@ -10,7 +10,7 @@ import { Input } from '@/ui/Input'
 import { Skeleton } from '@/ui/Skeleton'
 import { useToast } from '@/ui/Toast'
 import { useRitualActions } from './actions'
-import { useRoutineRows } from './queries'
+import { useRoutineRows } from './routineQueries'
 import { routineSummary } from './RoutineMenu'
 import { openRitualDialog } from './store'
 import styles from './Settings.module.css'
@@ -31,6 +31,16 @@ export function RoutinesSection() {
   // Enter commits and the field then goes away, which may also blur it: commit once.
   const editing = useRef<string | null>(null)
   const renameField = useRef<HTMLInputElement | null>(null)
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
+  // Buttons by `rename:<id>` / `delete:<id>`, so focus can go back to a row after its field or row is gone.
+  const buttons = useRef(new Map<string, HTMLButtonElement>())
+  const setButton = (key: string) => (el: HTMLButtonElement | null) => {
+    if (el) buttons.current.set(key, el)
+    else buttons.current.delete(key)
+  }
+  // A rename field goes away when it is committed or cancelled with the keyboard: the keyboard goes back to
+  // that row's Rename button once the screen has redrawn (see the effect below).
+  const refocus = useRef<string | null>(null)
 
   // The rename field takes the keyboard as it appears.
   useEffect(() => {
@@ -39,22 +49,34 @@ export function RoutinesSection() {
     renameField.current?.select()
   }, [renaming])
 
+  useEffect(() => {
+    const key = refocus.current
+    if (key === null) return
+    const target = buttons.current.get(key)
+    if (!target) return
+    refocus.current = null
+    target.focus({ preventScroll: true })
+  })
+
   function startRename(row: RoutineRow): void {
     editing.current = row.template.id
     setDraft(row.template.name)
     setRenaming(row.template.id)
   }
 
-  function cancelRename(): void {
+  function cancelRename(row: RoutineRow): void {
     editing.current = null
     setRenaming(null)
+    refocus.current = `rename:${row.template.id}`
   }
 
-  async function commitRename(row: RoutineRow): Promise<void> {
+  /** `keyboard`: Enter was pressed, so the keyboard goes back to the row's Rename button (a blur leaves focus be). */
+  async function commitRename(row: RoutineRow, keyboard = false): Promise<void> {
     if (editing.current !== row.template.id) return
     editing.current = null
     const name = draft.trim()
     setRenaming(null)
+    if (keyboard) refocus.current = `rename:${row.template.id}`
     if (name === '' || name === row.template.name) return
     try {
       const result = await renameRoutine(row.template.id, name)
@@ -66,8 +88,17 @@ export function RoutinesSection() {
   }
 
   async function remove(row: RoutineRow): Promise<void> {
+    // After it goes, the keyboard moves to the next row's Delete, else the previous one's, else the heading.
+    const list = rows ?? []
+    const at = list.findIndex((r) => r.template.id === row.template.id)
+    const neighbour = list[at + 1] ?? list[at - 1]
     try {
       const result = await deleteRoutine(row.template.id)
+      // The neighbour's button is already on screen, so the keyboard moves before the row goes.
+      const target = neighbour
+        ? buttons.current.get(`delete:${neighbour.template.id}`)
+        : headingRef.current
+      target?.focus({ preventScroll: true })
       if (result) toast.show({ title: `Deleted “${row.template.name}”`, undo: result.undo })
     } catch (error) {
       recordError(error, 'deleteRoutine')
@@ -78,11 +109,11 @@ export function RoutinesSection() {
   const onRenameKey = (e: KeyboardEvent<HTMLInputElement>, row: RoutineRow): void => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      void commitRename(row)
+      void commitRename(row, true)
     } else if (e.key === 'Escape') {
       // Only the rename closes; the page's own Escape stays out of it.
       e.stopPropagation()
-      cancelRename()
+      cancelRename(row)
     }
   }
 
@@ -111,7 +142,7 @@ export function RoutinesSection() {
 
   return (
     <section className={styles.section} aria-labelledby={headingId} data-testid="routines-section">
-      <h2 id={headingId} className={styles.heading}>
+      <h2 id={headingId} ref={headingRef} tabIndex={-1} className={styles.heading}>
         Routines
       </h2>
       <p className={styles.intro}>
@@ -192,12 +223,14 @@ export function RoutinesSection() {
                     <IconButton
                       label={`Rename ${template.name}`}
                       icon={<Pencil />}
+                      ref={setButton(`rename:${template.id}`)}
                       onClick={() => startRename(row)}
                     />
                   ) : null}
                   <IconButton
                     label={`Delete ${template.name}`}
                     icon={<Trash2 />}
+                    ref={setButton(`delete:${template.id}`)}
                     onClick={() => void remove(row)}
                   />
                 </div>

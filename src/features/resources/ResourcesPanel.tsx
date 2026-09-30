@@ -191,7 +191,12 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
     }
   }, [reveal, resources, visible, rowElement])
 
-  const announce = useCallback((text: string) => setAnnouncement(text), [])
+  // A live region only speaks when its text changes, so the same sentence twice ("X marked done", Undo,
+  // "X marked done") is cleared first and set again a frame later.
+  const announce = useCallback((text: string) => {
+    setAnnouncement('')
+    requestAnimationFrame(() => setAnnouncement(text))
+  }, [])
 
   const focusAdd = useCallback(() => {
     root.current?.querySelector<HTMLElement>('[data-role="add"]')?.focus()
@@ -586,7 +591,7 @@ function ResourcesBody({ courseId }: { courseId: ID }) {
         </div>
       ) : null}
 
-      <p className="sr-only" role="status" aria-live="polite">
+      <p className="sr-only" role="status" aria-live="polite" data-testid="resources-announcer">
         {announcement}
       </p>
 

@@ -46,7 +46,9 @@ export function Top3Card() {
           onClick={() => openRitualDialog('morning')}
         />
       </div>
-      <ul className={styles.list}>
+      {/* Safari drops list semantics under list-style: none, hence the explicit role. */}
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
+      <ol role="list" className={styles.list} aria-label="Top 3, in the order you picked">
         {present.map((task) => {
           const time = planTime(task)
           return (
@@ -72,7 +74,7 @@ export function Top3Card() {
             </li>
           )
         })}
-      </ul>
+      </ol>
       {done === total ? (
         <p className={styles.quiet} role="status">
           All {total === 1 ? 'done' : `${total} done`}. Well played.

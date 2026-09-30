@@ -31,13 +31,13 @@ function Active({ dialog }: { dialog: OpenDialog }) {
   const onGone = () => clearRitualDialog(dialog.session)
   switch (dialog.kind) {
     case 'morning':
-      return <MorningPlan onGone={onGone} />
+      return <MorningPlan onGone={onGone} openedAt={dialog.openedAt} />
     case 'evening':
-      return <EveningShutdown onGone={onGone} />
+      return <EveningShutdown onGone={onGone} openedAt={dialog.openedAt} />
     case 'routine':
-      return <RoutinePicker onGone={onGone} />
+      return <RoutinePicker onGone={onGone} openedAt={dialog.openedAt} />
     case 'saveRoutine':
-      return <SaveRoutine onGone={onGone} />
+      return <SaveRoutine onGone={onGone} openedAt={dialog.openedAt} />
   }
 }
 

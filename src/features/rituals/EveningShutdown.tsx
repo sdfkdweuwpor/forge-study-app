@@ -1,7 +1,6 @@
 import { Check } from 'lucide-react'
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { format } from 'date-fns'
-import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { completeEvening, moveUndoneToTomorrow, saveReflection } from '@/db/repos/rituals'
 import type { ID, Task } from '@/db/types'
@@ -16,6 +15,7 @@ import {
   movableIds,
   moveLabel,
   openHeadline,
+  ritualDay,
 } from '@/logic/rituals'
 import { durationText } from '@/logic/statsLabels'
 import { isUndoRefused } from '@/logic/undo'
@@ -46,9 +46,10 @@ type Undo = () => Promise<void>
  * a day, with a toast that can undo it. Every move has an Undo, on the row, in the line under the button
  * and on the toast.
  */
-export function EveningShutdown({ onGone }: { onGone: () => void }) {
+export function EveningShutdown({ onGone, openedAt }: { onGone: () => void; openedAt: number }) {
   const { open, close } = useDialogLifecycle(onGone)
-  const today = useToday()
+  // The day is fixed when the dialog opens (with a grace period after midnight, see `ritualDay`).
+  const today = ritualDay('evening', openedAt)
   const tomorrow = addDays(today, 1)
   const toast = useToast()
   const actions = useRitualActions()
@@ -141,6 +142,8 @@ export function EveningShutdown({ onGone }: { onGone: () => void }) {
     } catch (error) {
       if (isUndoRefused(error)) {
         toast.error('Couldn’t undo', { description: error.message })
+        // The line under the button stops offering an Undo that would refuse again.
+        setBanner((current) => (current?.undo === undo ? null : current))
         return
       }
       recordError(error, 'eveningShutdown.undo')

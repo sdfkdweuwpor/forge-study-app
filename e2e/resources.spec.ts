@@ -306,6 +306,12 @@ test.describe('the Resources panel', () => {
       await expect(form).toContainText('Only web links can be added')
       await expect(address).toHaveAttribute('aria-invalid', 'true')
     }
+    await address.fill('dr.okafor@wgu.edu')
+    await address.press('Enter')
+    await expect(form).toContainText('That looks like an email address, not a web link.')
+    await address.fill('https://user:secret@example.com/notes')
+    await address.press('Enter')
+    await expect(form).toContainText('username or password')
     await address.fill('hello')
     await address.press('Enter')
     await expect(form).toContainText('doesn’t look like a web address')
@@ -685,7 +691,8 @@ test.describe('the Resources panel', () => {
       },
     ])
     await page.goto('/tasks/inbox')
-    await page.keyboard.press('ControlOrMeta+k')
+    // The sidebar's search button opens it as soon as the page is up; a key pressed a moment too early is lost.
+    await page.getByRole('button', { name: 'Search and commands' }).click()
   }
 
   test('the palette finds a resource by title and opens its course at the panel', async ({
@@ -775,6 +782,47 @@ test.describe('the Resources panel', () => {
     await expect(page.getByRole('option', { name: /Add a link to this course/ })).toHaveCount(0)
   })
 
+  test('says "marked done" again when the same change is made twice', async ({ page }) => {
+    await gotoApp(page, C779, 'wgu')
+    await putRows(page, 'resources', [
+      {
+        id: 'a1',
+        createdAt: 1,
+        updatedAt: 1,
+        goalId: 'goal-wgu-bscs',
+        milestoneId: 'course-c779',
+        kind: 'link',
+        title: 'MDN grid',
+        url: MDN,
+        fileId: null,
+        status: 'toRead',
+        notes: '',
+        order: 0,
+      },
+    ])
+    await page.goto(C779)
+    await tab(page, 'All').click()
+    const announcer = page.getByTestId('resources-announcer')
+    // Every time the live region's text is set to something, note it.
+    await announcer.evaluate((el) => {
+      const seen: string[] = []
+      ;(window as unknown as { __said: string[] }).__said = seen
+      new MutationObserver(() => {
+        if (el.textContent) seen.push(el.textContent)
+      }).observe(el, { childList: true, characterData: true, subtree: true })
+    })
+    const box = page.getByRole('checkbox', { name: 'Done: MDN grid' })
+    await box.click()
+    await expect(box).toBeChecked()
+    await box.click()
+    await expect(box).not.toBeChecked()
+    await box.click()
+    await expect(box).toBeChecked()
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __said: string[] }).__said))
+      .toEqual(['MDN grid marked done', 'MDN grid marked to read', 'MDN grid marked done'])
+  })
+
   test('works at phone width: no sideways scroll, and every row control is reachable', async ({
     page,
   }) => {
@@ -859,5 +907,59 @@ test.describe('the Resources panel with a damaged row', () => {
     // The rest of the course page is still there.
     await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Units' })).toBeVisible()
+  })
+})
+
+test.describe('the Resources panel on a touch screen', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 812 } })
+
+  test('every control in a row, the title included, is at least 44 px tall', async ({ page }) => {
+    await gotoApp(page, C779, 'wgu')
+    const base = { createdAt: 1, updatedAt: 1, goalId: 'goal-wgu-bscs', milestoneId: 'course-c779' }
+    await putRows(page, 'resources', [
+      {
+        ...base,
+        id: 't1',
+        kind: 'link',
+        title: 'MDN grid',
+        url: MDN,
+        fileId: null,
+        status: 'toRead',
+        notes: '',
+        order: 0,
+      },
+      {
+        ...base,
+        id: 't2',
+        kind: 'note',
+        title: 'Exam tips',
+        url: null,
+        fileId: null,
+        status: 'toRead',
+        notes: 'Read the rubric.',
+        order: 1024,
+      },
+    ])
+    await page.goto(C779)
+    await expect(rows(page)).toHaveCount(2)
+    const heights = await panel(page).evaluate((el) => {
+      const h = (sel: string) =>
+        Array.from(el.querySelectorAll<HTMLElement>(sel)).map((n) =>
+          Math.round(n.getBoundingClientRect().height),
+        )
+      return {
+        titles: h('[data-row-title]'),
+        checks: h('input[type="checkbox"]'),
+        menus: h('button[aria-haspopup="menu"]:not([data-role])'),
+        grips: h('button[aria-label^="Reorder"]'),
+        rowHeights: h('li'),
+      }
+    })
+    for (const list of [heights.titles, heights.checks, heights.menus, heights.grips]) {
+      expect(list).toHaveLength(2)
+      for (const height of list) expect(height).toBeGreaterThanOrEqual(44)
+    }
+    // Rows do not balloon to make room for it: a title, its line under it and the padding.
+    for (const height of heights.rowHeights) expect(height).toBeLessThan(90)
   })
 })

@@ -1,5 +1,4 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { createRoutine } from '@/db/repos/templates'
 import type { ID } from '@/db/types'
@@ -10,6 +9,7 @@ import {
   routinePayloadFromTasks,
   type RoutineEntry,
 } from '@/logic/routines'
+import { ritualDay } from '@/logic/rituals'
 import { durationText } from '@/logic/statsLabels'
 import { Button } from '@/ui/Button'
 import { Checkbox } from '@/ui/Checkbox'
@@ -20,7 +20,8 @@ import { SegmentedControl } from '@/ui/SegmentedControl'
 import { Skeleton } from '@/ui/Skeleton'
 import { useToast } from '@/ui/Toast'
 import { useRitualActions } from './actions'
-import { useRoutineEntries, useTodayLists } from './queries'
+import { useTodayLists } from './queries'
+import { useRoutineEntries } from './routineQueries'
 import { routineSummary } from './RoutineMenu'
 import { useDialogLifecycle } from './useDialog'
 import dialog from './Dialog.module.css'
@@ -40,9 +41,9 @@ function previewLine(entry: RoutineEntry): string {
  * "Add routine…": pick a day (today, tomorrow, or a date) and press Add on a routine. Its tasks are created
  * at once, with a toast that undoes it. Yours come first, then the built-in starters.
  */
-export function RoutinePicker({ onGone }: { onGone: () => void }) {
+export function RoutinePicker({ onGone, openedAt }: { onGone: () => void; openedAt: number }) {
   const { open, close } = useDialogLifecycle(onGone)
-  const today = useToday()
+  const today = ritualDay('other', openedAt)
   const actions = useRitualActions()
   const entries = useRoutineEntries()
   const [when, setWhen] = useState<When>('today')
@@ -139,9 +140,9 @@ export function RoutinePicker({ onGone }: { onGone: () => void }) {
  * "Save as a routine": name it and tick the tasks of today's list to keep (their titles, lengths, times of
  * day and goals; not their dates or notes). It then shows up in the picker and in Settings.
  */
-export function SaveRoutine({ onGone }: { onGone: () => void }) {
+export function SaveRoutine({ onGone, openedAt }: { onGone: () => void; openedAt: number }) {
   const { open, close } = useDialogLifecycle(onGone)
-  const today = useToday()
+  const today = ritualDay('other', openedAt)
   const toast = useToast()
   const lists = useTodayLists(today)
   const [name, setName] = useState('')

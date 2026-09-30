@@ -5,7 +5,6 @@ import {
   completeEvening,
   completeMorning,
   focusMinutesOn,
-  getOrCreateRitual,
   getRitual,
   listOpenToday,
   listReflections,
@@ -50,21 +49,23 @@ const stored = async (id: string): Promise<Task> => {
 }
 
 describe('the ritual row', () => {
-  it('is created once per kind and day, under `kind:day`', async () => {
-    const a = await getOrCreateRitual('morning', TODAY, { now: NOW })
-    const b = await getOrCreateRitual('morning', TODAY, { now: NOW + 1000 })
-    await getOrCreateRitual('evening', TODAY, { now: NOW })
-    expect(a).toEqual(b)
-    expect(a).toMatchObject({
+  it('is one row per kind and day, under `kind:day`', async () => {
+    await completeMorning(TODAY, { now: NOW })
+    await completeMorning(TODAY, { now: NOW + 1000 })
+    await saveReflection(TODAY, 'A note', { now: NOW })
+    expect(await db.rituals.count()).toBe(2)
+    expect(await getRitual('morning', TODAY)).toMatchObject({
       id: `morning:${TODAY}`,
       kind: 'morning',
       day: TODAY,
       top3: [],
       reflection: '',
-      completedAt: null,
+      completedAt: NOW,
     })
-    expect(await db.rituals.count()).toBe(2)
-    expect(await getRitual('evening', TODAY)).toBeDefined()
+    expect(await getRitual('evening', TODAY)).toMatchObject({
+      id: `evening:${TODAY}`,
+      kind: 'evening',
+    })
     expect(await getRitual('evening', TOMORROW)).toBeUndefined()
   })
 })
@@ -300,6 +301,23 @@ describe('moveTasksToDay', () => {
     })
     expect(await stored(plain.id)).toMatchObject({ doDate: TODAY, doTime: null })
     expect(await stored(undated.id)).toMatchObject({ doDate: null, doTime: null })
+  })
+
+  it('undo twice (the banner, then the toast) is a quiet no-op, not a refusal', async () => {
+    const a = await task('Read chapter 4', { doTime: '16:30' })
+    const result = await moveTasksToDay([a.id], TOMORROW, { now: NOW })
+    await result.undo()
+    await expect(result.undo()).resolves.toBeUndefined()
+    expect(await stored(a.id)).toMatchObject({ doDate: TODAY, doTime: '16:30' })
+
+    // Two at once share one run; and a task planned again since a real undo is not touched by a repeat.
+    const b = await task('Read chapter 5')
+    const both = await moveTasksToDay([b.id], TOMORROW, { now: NOW })
+    await Promise.all([both.undo(), both.undo()])
+    expect((await stored(b.id)).doDate).toBe(TODAY)
+    await moveTasksToDay([b.id], '2026-10-02', { now: NOW })
+    await both.undo()
+    expect((await stored(b.id)).doDate).toBe('2026-10-02')
   })
 
   it('skips finished, missing and already-there tasks', async () => {

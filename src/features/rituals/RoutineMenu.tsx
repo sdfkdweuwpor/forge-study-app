@@ -5,7 +5,7 @@ import { routineMinutes, type RoutineEntry } from '@/logic/routines'
 import { durationText } from '@/logic/statsLabels'
 import { Button } from '@/ui/Button'
 import { Dropdown, type MenuEntry } from '@/ui/Dropdown'
-import { useRoutineEntries } from './queries'
+import { useRoutineEntries } from './routineQueries'
 import { useRitualActions } from './actions'
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`

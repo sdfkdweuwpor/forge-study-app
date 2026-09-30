@@ -1,16 +1,15 @@
 import { Minus, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { useToday } from '@/app/hooks/useToday'
 import { recordError } from '@/app/reportError'
 import { Link } from '@/app/router'
 import { useSettings } from '@/db/hooks/useSettings'
 import { plannedMinutesOf } from '@/db/repos/reviews'
 import { completeMorning } from '@/db/repos/rituals'
-import { updateSettings } from '@/db/repos/settings'
+import { getSettings, updateSettings } from '@/db/repos/settings'
 import { createTask } from '@/db/repos/tasks'
 import type { ID, Task } from '@/db/types'
 import { addDays } from '@/logic/dates'
-import { TOP_MAX, dayWords, type TodayItem } from '@/logic/rituals'
+import { TOP_MAX, dayWords, ritualDay, type TodayItem } from '@/logic/rituals'
 import { durationText } from '@/logic/statsLabels'
 import { formatTimeOfDay } from '@/logic/taskDisplay'
 import { planTime } from '@/logic/taskDates'
@@ -60,9 +59,10 @@ function metaText(item: TodayItem, today: string): string {
  * today's focus goal. Done saves the top 3 (shown on Today) and the goal; nothing is saved before that
  * except tasks you add, which are real tasks at once.
  */
-export function MorningPlan({ onGone }: { onGone: () => void }) {
+export function MorningPlan({ onGone, openedAt }: { onGone: () => void; openedAt: number }) {
   const { open, close } = useDialogLifecycle(onGone)
-  const today = useToday()
+  // The day is fixed when the dialog opens, so one left open past midnight still plans the day it began.
+  const today = ritualDay('morning', openedAt)
   const tomorrow = addDays(today, 1)
   const toast = useToast()
   const actions = useRitualActions()
@@ -160,8 +160,16 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
     setSaving(true)
     const before = settings.dailyGoalPomodoros
     try {
-      if (goal !== before) await updateSettings({ dailyGoalPomodoros: goal })
       const change = await completeMorning(today, { top3: selected })
+      if (goal !== before) {
+        try {
+          await updateSettings({ dailyGoalPomodoros: goal })
+        } catch (error) {
+          // Both or neither: put the plan back rather than leave it half saved.
+          await change.undo()
+          throw error
+        }
+      }
       toast.show({
         title: 'Morning plan saved',
         description:
@@ -171,7 +179,10 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
         variant: 'success',
         undo: async () => {
           await change.undo()
-          if (goal !== before) await updateSettings({ dailyGoalPomodoros: before })
+          // Only take the goal back if nobody has changed it since.
+          if (goal !== before && (await getSettings()).dailyGoalPomodoros === goal) {
+            await updateSettings({ dailyGoalPomodoros: before })
+          }
         },
       })
       close()
@@ -243,7 +254,9 @@ export function MorningPlan({ onGone }: { onGone: () => void }) {
                         checked={rank !== -1}
                         disabled={rank === -1 && full}
                         onCheckedChange={() => toggle(task.id)}
-                        aria-label={task.title}
+                        aria-label={
+                          rank === -1 ? task.title : `${task.title}, pick ${rank + 1} of ${TOP_MAX}`
+                        }
                         label={
                           <span className={styles.pickLabel}>
                             <span className={styles.rowTitle} data-done={task.status === 'done'}>

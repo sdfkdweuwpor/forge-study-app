@@ -3,13 +3,10 @@
  * query is loading. This is the one file in the feature that may import the Dexie instance.
  */
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo } from 'react'
 import { db } from '@/db/db'
 import { focusMinutesOn, getRitual, listReflections, loadTodayGroups } from '@/db/repos/rituals'
-import { listRoutineRows, type RoutineRow } from '@/db/repos/templates'
 import type { ID, ISODate, Ritual, Task } from '@/db/types'
 import { openTodayItems, type RitualKind, type TodayItem } from '@/logic/rituals'
-import { STARTER_ROUTINES, type RoutineEntry } from '@/logic/routines'
 
 /** A ritual's row for a day: `null` when nothing has been written for it yet. */
 export function useRitual(kind: RitualKind, day: ISODate): Ritual | null | undefined {
@@ -42,39 +39,7 @@ export function useReflections(limit = 30): Ritual[] | undefined {
   return useLiveQuery(() => listReflections(limit), [limit])
 }
 
-/** Saved routines (including any that cannot be read). */
-export function useRoutineRows(): RoutineRow[] | undefined {
-  return useLiveQuery(() => listRoutineRows(), [])
-}
-
 /** Counted focus minutes of a day. */
 export function useFocusMinutes(day: ISODate): number | undefined {
   return useLiveQuery(() => focusMinutesOn(day), [day])
-}
-
-/** Routines the picker offers: yours first (the ones that can be read), then the built-in starters. */
-export function useRoutineEntries(): RoutineEntry[] | undefined {
-  const rows = useRoutineRows()
-  return useMemo(
-    () =>
-      rows === undefined
-        ? undefined
-        : [
-            ...rows.flatMap(({ template, payload }) =>
-              payload
-                ? [
-                    {
-                      id: template.id,
-                      name: template.name,
-                      icon: template.icon,
-                      builtIn: false,
-                      payload,
-                    },
-                  ]
-                : [],
-            ),
-            ...STARTER_ROUTINES,
-          ],
-    [rows],
-  )
 }

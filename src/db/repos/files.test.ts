@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/db/db'
-import { deleteFile, getFile, listFileMeta, storeFile } from '@/db/repos/files'
+import { getFile, listFileMeta, storeFile } from '@/db/repos/files'
 
 const NOW = new Date(2026, 8, 29, 9, 30).getTime()
 
@@ -49,7 +49,7 @@ describe('storeFile', () => {
   })
 })
 
-describe('getFile, listFileMeta and deleteFile', () => {
+describe('getFile and listFileMeta', () => {
   it('returns undefined for a file that is not there', async () => {
     expect(await getFile('nope')).toBeUndefined()
   })
@@ -66,12 +66,5 @@ describe('getFile, listFileMeta and deleteFile', () => {
     }
     expect(meta.find((m) => m.id === b.id)?.size).toBe(pdf('%PDF-1.7 longer b').size)
     expect(await listFileMeta([])).toEqual([])
-  })
-
-  it('deletes a file for good, and says whether there was one', async () => {
-    const a = await storeFile(pdf(), { name: 'a.pdf' })
-    expect(await deleteFile(a.id)).toBe(true)
-    expect(await getFile(a.id)).toBeUndefined()
-    expect(await deleteFile(a.id)).toBe(false)
   })
 })

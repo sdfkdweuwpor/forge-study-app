@@ -100,6 +100,24 @@ describe('parseWebUrl', () => {
     }
   })
 
+  it('turns down an email address, and any address with a username or password in it', () => {
+    expect(parseWebUrl('name@gmail.com')).toEqual({ ok: false, problem: 'email' })
+    expect(parseWebUrl('  Dr.Okafor@wgu.edu ')).toEqual({ ok: false, problem: 'email' })
+    expect(parseWebUrl('https://user:pw@example.com/a')).toEqual({
+      ok: false,
+      problem: 'credentials',
+    })
+    expect(parseWebUrl('http://user@example.com')).toEqual({ ok: false, problem: 'credentials' })
+    expect(parseWebUrl('name@gmail.com/inbox')).toEqual({ ok: false, problem: 'credentials' })
+    // An @ in the path, query or hash is not userinfo.
+    expect(parseWebUrl('https://medium.com/@someone/post')).toEqual({
+      ok: true,
+      url: 'https://medium.com/@someone/post',
+    })
+    expect(parseWebUrl('example.com/a?to=me@example.com')).toMatchObject({ ok: true })
+    expect(URL_MESSAGES.email).toBe('That looks like an email address, not a web link.')
+  })
+
   it('lets an intranet name through when the scheme was typed', () => {
     expect(parseWebUrl('http://wiki/onboarding')).toEqual({
       ok: true,
@@ -115,6 +133,8 @@ describe('safeHref', () => {
     expect(safeHref('javascript:alert(1)')).toBeNull()
     expect(safeHref('JAVASCRIPT:alert(1)')).toBeNull()
     expect(safeHref('data:text/html;base64,PHNjcmlwdD4=')).toBeNull()
+    expect(safeHref('https://user:pw@example.com/')).toBeNull()
+    expect(safeHref('https://medium.com/@someone')).toBe('https://medium.com/@someone')
     expect(safeHref('not a url')).toBeNull()
     expect(safeHref('')).toBeNull()
     expect(safeHref(null)).toBeNull()

@@ -13,7 +13,7 @@ import { formatBytes } from './retention'
 
 // ─── Links ──────────────────────────────────────────────────────────────────
 
-export type UrlProblem = 'empty' | 'blocked' | 'invalid'
+export type UrlProblem = 'empty' | 'blocked' | 'invalid' | 'email' | 'credentials'
 
 export type UrlResult = { ok: true; url: string } | { ok: false; problem: UrlProblem }
 
@@ -22,12 +22,16 @@ export const URL_MESSAGES: Record<UrlProblem, string> = {
   empty: 'Paste a link to add it.',
   blocked: 'Only web links can be added: they start with http:// or https://.',
   invalid: 'That doesn’t look like a web address. Try something like https://example.com.',
+  email: 'That looks like an email address, not a web link.',
+  credentials: 'Web links with a username or password in them can’t be added.',
 }
 
 /** A scheme at the start: `https:`, `javascript:`, `mailto:`. */
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i
 /** `localhost:3000/docs`: a host and port, which look like a scheme but are not one. */
 const HOST_PORT = /^[^\s/?#:@]+:\d+(?:[/?#]|$)/
+/** `name@example.com`: an email address, with no scheme and no path. */
+const EMAIL = /^[^\s/@:]+@[^\s/@:]+\.[^\s/@:]+$/
 /** Whitespace and control characters anywhere: no URL has them, and `java\tscript:` is a known way round a check. */
 // eslint-disable-next-line no-control-regex
 const SPACE_OR_CONTROL = /[\u0000- \u007f-\u009f]/
@@ -57,6 +61,10 @@ export function parseWebUrl(input: string): UrlResult {
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:')
     return { ok: false, problem: 'blocked' }
+  // `name@gmail.com` parses as https://name@gmail.com/, and `user:pw@host` would keep a password in a saved link.
+  if (url.username !== '' || url.password !== '') {
+    return { ok: false, problem: EMAIL.test(text) ? 'email' : 'credentials' }
+  }
   const host = url.hostname
   if (host === '') return { ok: false, problem: 'invalid' }
   // "hello" is not a link. With a scheme typed, an intranet name like http://wiki/ is the person's call.
@@ -75,7 +83,8 @@ export function safeHref(stored: string | null | undefined): string | null {
   if (!stored) return null
   try {
     const url = new URL(stored)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null
+    const web = url.protocol === 'http:' || url.protocol === 'https:'
+    return web && url.username === '' && url.password === '' ? url.href : null
   } catch {
     return null
   }

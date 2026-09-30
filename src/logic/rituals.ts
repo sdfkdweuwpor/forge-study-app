@@ -9,16 +9,14 @@
  * "What is open today" is not derived again here: it is `groupToday` / `oneListToday` from `./today`
  * (what the Today screen shows), plus the carried-over group `groupToday` already computes.
  */
-import type { HHmm, ID, ISODate, Ritual, Settings, Task } from '@/db/types'
-import { isISODate, parseHHmm } from './dates'
+import type { HHmm, ID, ISODate, Millis, Ritual, Settings, Task } from '@/db/types'
+import { addDays, dayOf, isISODate, minutesOfDay, parseHHmm } from './dates'
 import { planDay } from './taskDates'
 import { relativeDay } from './taskDisplay'
 import { oneListToday, type TodayContext, type TodayGroups } from './today'
 import { XP_RITUAL } from './xp'
 
 export type RitualKind = Ritual['kind']
-
-export const RITUAL_KINDS: readonly RitualKind[] = ['morning', 'evening']
 
 /** The morning plan picks at most this many tasks. */
 export const TOP_MAX = 3
@@ -34,6 +32,23 @@ export const ritualId = (kind: RitualKind, day: ISODate): string => `${kind}:${d
 
 /** The idempotency key of a day's evening XP. */
 export const eveningXpKey = (day: ISODate): string => `ritual:evening:${day}`
+
+// ─── Which day a ritual is for ───────────────────────────────────────────────
+
+/** An evening shutdown opened before this many minutes after midnight still closes the day before. */
+export const EVENING_GRACE_MINUTES = 3 * 60
+
+/**
+ * The day a ritual dialog is for, fixed at the moment it opens (a dialog left open across midnight keeps
+ * the day it started on, so its tasks, XP and reflection never land on a different day). The morning plan
+ * and the routine dialogs are for the calendar day. The evening shutdown has a grace rule: before 03:00 it
+ * still belongs to the day that has just ended, so winding down at 00:40 closes yesterday (and moves
+ * what is open to what is now today).
+ */
+export function ritualDay(kind: RitualKind | 'other', at: Millis): ISODate {
+  const day = dayOf(at)
+  return kind === 'evening' && minutesOfDay(at) < EVENING_GRACE_MINUTES ? addDays(day, -1) : day
+}
 
 // ─── Top 3 and reflection ───────────────────────────────────────────────────
 

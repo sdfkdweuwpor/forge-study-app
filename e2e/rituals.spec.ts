@@ -602,6 +602,7 @@ test.describe('Routines', () => {
     await field.fill('C779 deep work')
     await field.press('Enter')
     await expect(row).toContainText('C779 deep work')
+    await expect(row.getByRole('button', { name: 'Rename C779 deep work' })).toBeFocused()
     await expect(toasts(page)).toContainText('Renamed to “C779 deep work”')
     await toastFor(page, 'Renamed to').getByRole('button', { name: 'Undo' }).click()
     await expect(row).toContainText('C779 study block')
@@ -609,6 +610,8 @@ test.describe('Routines', () => {
     await row.getByRole('button', { name: 'Delete C779 study block' }).click()
     await expect(row).toHaveCount(0)
     await expect(page.getByText('Nothing saved yet.')).toBeVisible()
+    // The list is empty: the keyboard is on the section heading, not lost.
+    await expect(page.getByRole('heading', { level: 2, name: 'Routines' })).toBeFocused()
     await toastFor(page, 'Deleted').getByRole('button', { name: 'Undo' }).click()
     await expect(row).toHaveCount(1)
     expect(await templates(page)).toHaveLength(1)

@@ -2,7 +2,8 @@
  * Daily rituals (BRIEF §5.11, Phase 11g): one `rituals` row per kind and day (`id` = `morning:<day>` or
  * `evening:<day>`) holding the top 3 task ids, the one-line reflection and the moment it was completed.
  *
- * - The morning plan stores the top 3 (`setTop3`, or with `completeMorning`). It pays no XP.
+ * - The morning plan stores the top 3 (the UI saves it with `completeMorning`; `setTop3` is the same write on
+ *   its own, kept for other callers and tests). It pays no XP.
  * - The evening shutdown (`completeEvening`) pays +10 XP once a day under the key `ritual:evening:<day>`,
  *   in the same transaction as the row. Completing again, from another tab, or after an undo, never pays
  *   twice: an award is skipped while the key's net is positive, and undoing appends the negative event
@@ -54,22 +55,6 @@ function blankRitual(kind: RitualKind, day: ISODate, now: Millis): Ritual {
     reflection: '',
     completedAt: null,
   }
-}
-
-/** The ritual of a kind and day, creating an empty one on first use. */
-export async function getOrCreateRitual(
-  kind: RitualKind,
-  day: ISODate,
-  opts: RepoOptions = {},
-): Promise<Ritual> {
-  const now = opts.now ?? Date.now()
-  return db.transaction('rw', db.rituals, async () => {
-    const existing = await db.rituals.get(ritualId(kind, day))
-    if (existing) return existing
-    const row = blankRitual(kind, day, now)
-    await db.rituals.add(row)
-    return row
-  })
 }
 
 export interface RitualChange extends Undoable {
@@ -303,41 +288,57 @@ export async function moveTasksToDay(
     return seen
   })
   if (before.length === 0) return { moved: [], undo: noop }
-  return {
-    moved: before.map((b) => b.id),
-    undo: async () => {
-      const changed = await db.transaction('rw', db.tasks, async () => {
-        const rows = await db.tasks.bulkGet(before.map((b) => b.id))
-        const stale = before.filter((b, i) => {
-          const row = rows[i]
-          return (
-            row === undefined ||
-            row.status === 'done' ||
-            row.doDate !== b.after.doDate ||
-            row.doTime !== b.after.doTime ||
-            row.schedulePinned !== b.after.schedulePinned
-          )
-        })
-        if (stale.length > 0) return stale.length
-        for (const b of before) {
-          await updateTask(b.id, {
-            doDate: b.doDate,
-            doTime: b.doTime,
-            schedulePinned: b.schedulePinned,
-          })
-        }
-        return 0
-      })
-      if (changed > 0) {
-        // The toast says this as it is and offers no Retry: trying again would find the same thing.
-        throw new UndoRefusedError(
-          changed === 1 && before.length === 1
-            ? 'This task has been moved or finished since, so it stays where it is.'
-            : 'Some of these tasks have been moved or finished since, so they all stay where they are.',
-        )
-      }
-    },
+  // The banner, the row and the toast may all hold this Undo: once it has worked, a repeat is a quiet
+  // no-op (the tasks are back where they were, not "changed since"), and two at once share one run.
+  let undone = false
+  let running: Promise<void> | null = null
+  const undoOnce = async (): Promise<void> => {
+    if (undone) return
+    running ??= undoMove().then(
+      () => {
+        undone = true
+        running = null
+      },
+      (error: unknown) => {
+        running = null
+        throw error
+      },
+    )
+    await running
   }
+  const undoMove = async (): Promise<void> => {
+    const changed = await db.transaction('rw', db.tasks, async () => {
+      const rows = await db.tasks.bulkGet(before.map((b) => b.id))
+      const stale = before.filter((b, i) => {
+        const row = rows[i]
+        return (
+          row === undefined ||
+          row.status === 'done' ||
+          row.doDate !== b.after.doDate ||
+          row.doTime !== b.after.doTime ||
+          row.schedulePinned !== b.after.schedulePinned
+        )
+      })
+      if (stale.length > 0) return stale.length
+      for (const b of before) {
+        await updateTask(b.id, {
+          doDate: b.doDate,
+          doTime: b.doTime,
+          schedulePinned: b.schedulePinned,
+        })
+      }
+      return 0
+    })
+    if (changed > 0) {
+      // The toast says this as it is and offers no Retry: trying again would find the same thing.
+      throw new UndoRefusedError(
+        changed === 1 && before.length === 1
+          ? 'This task has been moved or finished since, so it stays where it is.'
+          : 'Some of these tasks have been moved or finished since, so they all stay where they are.',
+      )
+    }
+  }
+  return { moved: before.map((b) => b.id), undo: undoOnce }
 }
 
 /**

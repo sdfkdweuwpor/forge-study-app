@@ -7,7 +7,6 @@ import {
   createNoteResource,
   createPdfResource,
   deleteResource,
-  getResource,
   listResources,
   reorderResources,
   setResourceStatus,
@@ -256,7 +255,7 @@ describe('updateResource', () => {
       { now: NOW + 5 },
     )
     expect(next).toMatchObject({ title: 'Exam tips (C779)', notes: 'one\ntwo', updatedAt: NOW + 5 })
-    expect(await getResource(r.id)).toEqual(next)
+    expect(await db.resources.get(r.id)).toEqual(next)
   })
 
   it('changes a link’s address, and its title follows only when it was made from the old address', async () => {
@@ -277,7 +276,7 @@ describe('updateResource', () => {
   it('refuses a bad address and changes nothing', async () => {
     const r = await createLinkResource(C779, { url: 'https://example.com/a', title: 'A' })
     await expectRejected(updateResource(r.id, { url: 'javascript:alert(1)', title: 'B' }), 'url')
-    expect(await getResource(r.id)).toEqual(r)
+    expect(await db.resources.get(r.id)).toEqual(r)
   })
 
   it('falls back to a made title when the title is cleared', async () => {
@@ -302,7 +301,7 @@ describe('updateResource', () => {
     const r = await createNoteResource(C779, { title: 'Same', notes: 'same' }, { now: NOW })
     const next = await updateResource(r.id, { title: 'Same', notes: 'same' }, { now: NOW + 99 })
     expect(next?.updatedAt).toBe(NOW)
-    expect((await getResource(r.id))?.updatedAt).toBe(NOW)
+    expect((await db.resources.get(r.id))?.updatedAt).toBe(NOW)
   })
 
   it('returns null for a resource that is gone', async () => {
@@ -315,7 +314,7 @@ describe('setResourceStatus', () => {
     const r = await createLinkResource(C779, { url: 'https://example.com' }, { now: NOW })
     const done = await setResourceStatus(r.id, 'done', { now: NOW + 10 })
     expect(done).toMatchObject({ status: 'done', updatedAt: NOW + 10 })
-    expect((await getResource(r.id))?.status).toBe('done')
+    expect((await db.resources.get(r.id))?.status).toBe('done')
     const back = await setResourceStatus(r.id, 'toRead', { now: NOW + 20 })
     expect(back?.status).toBe('toRead')
   })
@@ -358,7 +357,7 @@ describe('reorderResources', () => {
     const [a, b] = await three()
     const other = await createLinkResource(C182, { url: 'https://example.com/o' })
     await reorderResources(C779, [b.id, a.id, other.id])
-    expect((await getResource(other.id))?.order).toBe(0)
+    expect((await db.resources.get(other.id))?.order).toBe(0)
   })
 })
 
@@ -373,7 +372,7 @@ describe('deleteResource', () => {
       { now: NOW },
     )
     await setResourceStatus(r.id, 'done', { now: NOW + 1 })
-    const before = await getResource(r.id)
+    const before = await db.resources.get(r.id)
 
     const deleted = await deleteResource(r.id)
     expect(deleted).not.toBeNull()
@@ -387,7 +386,7 @@ describe('deleteResource', () => {
     expect(entry?.id).toBe(deleted?.trashId)
 
     await deleted?.undo()
-    expect(await getResource(r.id)).toEqual(before)
+    expect(await db.resources.get(r.id)).toEqual(before)
     expect(await db.trash.count()).toBe(0)
   })
 

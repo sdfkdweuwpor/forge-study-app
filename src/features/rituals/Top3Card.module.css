@@ -96,4 +96,11 @@
   .row {
     min-height: var(--tap-min);
   }
+
+  /* The title is the tap target that opens the task: the full row height, not just its text. */
+  .name {
+    display: flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
 }

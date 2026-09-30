@@ -6,7 +6,6 @@ import {
   createRoutine,
   deleteRoutine,
   listRoutineRows,
-  listRoutines,
   renameRoutine,
 } from '@/db/repos/templates'
 import { completeTask, updateTask } from '@/db/repos/tasks'
@@ -42,9 +41,10 @@ describe('saving routines', () => {
       { now: NOW },
     )
     expect(template).toMatchObject({ kind: 'task', name: 'Study day', icon: '📋', createdAt: NOW })
-    const routines = await listRoutines()
-    expect(routines).toHaveLength(1)
-    expect(routines[0]).toMatchObject({ name: 'Study day', builtIn: false, payload: PAYLOAD })
+    const rows = await listRoutineRows()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.template).toMatchObject({ name: 'Study day', kind: 'task' })
+    expect(rows[0]?.payload).toEqual(PAYLOAD)
   })
 
   it('refuses a blank name or a payload that is not a routine', async () => {
@@ -86,7 +86,6 @@ describe('saving routines', () => {
     await db.templates.bulkAdd([broken, goalTemplate])
     const rows = await listRoutineRows()
     expect(rows.map((r) => [r.template.id, r.payload === null])).toEqual([['broken', true]])
-    expect(await listRoutines()).toEqual([])
     // A broken routine can still be deleted, and undo brings it back.
     const removed = await deleteRoutine('broken')
     expect(await db.templates.get('broken')).toBeUndefined()

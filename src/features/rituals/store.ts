@@ -13,6 +13,8 @@ export interface OpenDialog {
   kind: RitualDialog
   /** Changes on every opening, so a dialog remounts with empty state. */
   session: number
+  /** When it was opened: the day a ritual is for is fixed from this (`ritualDay`). */
+  openedAt: number
 }
 
 const listeners = new Set<() => void>()
@@ -32,7 +34,7 @@ const subscribe = (listener: () => void): (() => void) => {
 /** Opens a dialog (replacing any other). */
 export function openRitualDialog(kind: RitualDialog): void {
   session += 1
-  current = { kind, session }
+  current = { kind, session, openedAt: Date.now() }
   notify()
 }
 

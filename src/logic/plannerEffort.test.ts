@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  courseBaseMinutes,
-  effortLabel,
-  parseHoursInput,
-  resolveEffort,
-} from './plannerEffort'
+import { courseBaseMinutes, effortLabel, parseHoursInput, resolveEffort } from './plannerEffort'
 
 describe('courseBaseMinutes', () => {
   it('uses hours, or CUs times the multiplier', () => {

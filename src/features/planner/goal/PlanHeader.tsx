@@ -32,7 +32,10 @@ export function PlanHeader({ goalId }: { goalId: string }) {
       card.scrollIntoView({ block: 'center' })
       card.focus()
     } else {
-      toast.show({ title: 'No plan proposals right now', description: 'Your plan is on track, or you set them aside.' })
+      toast.show({
+        title: 'No plan proposals right now',
+        description: 'Your plan is on track, or you set them aside.',
+      })
     }
   }
 
@@ -43,12 +46,19 @@ export function PlanHeader({ goalId }: { goalId: string }) {
   if (!goal) return null
   return (
     <div className={styles.header}>
-      {proposals && proposals.length > 0 ? <ProposalsBanner goal={goal} proposals={proposals} /> : null}
+      {proposals && proposals.length > 0 ? (
+        <ProposalsBanner goal={goal} proposals={proposals} />
+      ) : null}
       <div className={styles.actions}>
         <Button size="sm" iconLeft={<LifeBuoy />} onClick={openLife} aria-keyshortcuts="Shift+R">
           Life happened <Kbd keys="shift+r" size="sm" />
         </Button>
-        <Button size="sm" iconLeft={<SlidersHorizontal />} onClick={openSettings} aria-keyshortcuts="Shift+E">
+        <Button
+          size="sm"
+          iconLeft={<SlidersHorizontal />}
+          onClick={openSettings}
+          aria-keyshortcuts="Shift+E"
+        >
           Plan settings
         </Button>
       </div>

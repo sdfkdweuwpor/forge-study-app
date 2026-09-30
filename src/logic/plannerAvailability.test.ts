@@ -61,7 +61,9 @@ describe('summaries', () => {
     expect(validateAvailability(empty).days).toBeTruthy()
     const bad = {
       ...defaultAvailability(),
-      blackouts: [{ key: 'b', start: '2026-12-24' as const, end: '2026-12-20' as const, label: '' }],
+      blackouts: [
+        { key: 'b', start: '2026-12-24' as const, end: '2026-12-20' as const, label: '' },
+      ],
     }
     expect(validateAvailability(bad)['blackout:b']).toMatch(/before the start/)
   })
@@ -88,7 +90,9 @@ describe('draft ↔ goal', () => {
   it('round-trips through the goal fields', () => {
     const av = {
       ...defaultAvailability(),
-      blackouts: [{ key: 'b', start: '2026-12-20' as const, end: '2026-12-27' as const, label: 'Holidays' }],
+      blackouts: [
+        { key: 'b', start: '2026-12-20' as const, end: '2026-12-27' as const, label: 'Holidays' },
+      ],
       shift: defaultShift('2026-10-05'),
     }
     const stored = toGoalAvailability(av)
@@ -96,7 +100,19 @@ describe('draft ↔ goal', () => {
       { start: '2026-12-20', end: '2026-12-27', label: 'Holidays' },
     ])
     let n = 0
-    const back = availabilityFromGoal({ availability: stored.availability, planning: { ...stored.planning, bufferPct: 0.12, cuHoursMultiplier: 15, asap: false, paceMinutesPerStudyDay: null } }, () => `k${++n}`)
+    const back = availabilityFromGoal(
+      {
+        availability: stored.availability,
+        planning: {
+          ...stored.planning,
+          bufferPct: 0.12,
+          cuHoursMultiplier: 15,
+          asap: false,
+          paceMinutesPerStudyDay: null,
+        },
+      },
+      () => `k${++n}`,
+    )
     expect(back.shift).toEqual(av.shift)
     expect(back.weekly).toEqual(av.weekly)
     expect(back.blackouts[0]?.label).toBe('Holidays')

@@ -3,7 +3,12 @@ import type { ISODate } from '@/db/types'
 import { formatDay, plural } from '@/logic/goalDisplay'
 import { formatHours } from '@/logic/goalDisplay'
 import { weeklyWindowMinutes } from '@/logic/plannerAvailability'
-import { draftEffort, type DraftErrors, type PlannerAction, type PlannerDraft } from '@/logic/plannerDraft'
+import {
+  draftEffort,
+  type DraftErrors,
+  type PlannerAction,
+  type PlannerDraft,
+} from '@/logic/plannerDraft'
 import { Input } from '@/ui/Input'
 import shared from '../shared.module.css'
 import styles from './ConfirmStep.module.css'
@@ -34,10 +39,7 @@ export function ConfirmStep({ draft, dispatch, errors, today, failed }: ConfirmS
         .join(', '),
     ],
     ['Study time', `${formatHours(study)} h, plus ${Math.round(draft.bufferPct * 100)}% slack`],
-    [
-      'Starts',
-      formatDay(draft.startDate, today),
-    ],
+    ['Starts', formatDay(draft.startDate, today)],
     [
       'Finish',
       draft.targetMode === 'asap' || !draft.targetDate

@@ -83,7 +83,9 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
                 className={shared.hours}
                 onChange={(e) => {
                   const n = Number(e.target.value.replace(',', '.'))
-                  patch({ cus: e.target.value.trim() === '' || !Number.isFinite(n) || n < 0 ? null : n })
+                  patch({
+                    cus: e.target.value.trim() === '' || !Number.isFinite(n) || n < 0 ? null : n,
+                  })
                 }}
               />
             ) : (
@@ -97,7 +99,9 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
           </div>
           {byCus ? (
             <p className={shared.hint}>
-              {course.cus ? `${course.cus} CUs × ${draft.cuMultiplier} h = ${cusHours} h` : 'Enter the CUs.'}
+              {course.cus
+                ? `${course.cus} CUs × ${draft.cuMultiplier} h = ${cusHours} h`
+                : 'Enter the CUs.'}
             </p>
           ) : null}
         </div>
@@ -108,7 +112,9 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
             size="sm"
             label={`How well you know ${label}`}
             value={course.rating}
-            onValueChange={(rating) => dispatch({ type: 'setCourseRating', courseKey: course.key, rating })}
+            onValueChange={(rating) =>
+              dispatch({ type: 'setCourseRating', courseKey: course.key, rating })
+            }
             options={RATING_OPTIONS}
           />
           <p className={shared.hint}>Plans {ratingNote(course.rating)}.</p>
@@ -146,7 +152,12 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
                         : ''
                     }
                     onCommit={(m) =>
-                      dispatch({ type: 'patchUnit', courseKey: course.key, key: u.key, patch: { minutes: m } })
+                      dispatch({
+                        type: 'patchUnit',
+                        courseKey: course.key,
+                        key: u.key,
+                        patch: { minutes: m },
+                      })
                     }
                   />
                   <SegmentedControl
@@ -163,7 +174,9 @@ export function CourseEffortCard({ course, draft, dispatch, error }: CourseEffor
                     }
                     options={UNIT_RATING_OPTIONS}
                   />
-                  <span className={styles.unitMinutes}>{effortLabel(effort.units[i]?.minutes ?? 0)}</span>
+                  <span className={styles.unitMinutes}>
+                    {effortLabel(effort.units[i]?.minutes ?? 0)}
+                  </span>
                 </li>
               ))}
             </ul>

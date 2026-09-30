@@ -117,7 +117,8 @@ export function AvailabilityEditor({ value, onChange, errors, today }: Availabil
                       windows={windows}
                       errors={windowErrors}
                       onChange={(ws) => onChange(setDayWindows(value, weekday, ws))}
-                      addLabel="Add window"
+                      addLabel={`Add a window on ${name}`}
+                      inlineAdd
                     />
                   ) : (
                     <span className={styles.off}>No study</span>
@@ -230,7 +231,9 @@ export function AvailabilityEditor({ value, onChange, errors, today }: Availabil
                   size="sm"
                   label={`Remove days off ${i + 1}`}
                   icon={<Trash2 />}
-                  onClick={() => patch({ blackouts: value.blackouts.filter((x) => x.key !== b.key) })}
+                  onClick={() =>
+                    patch({ blackouts: value.blackouts.filter((x) => x.key !== b.key) })
+                  }
                 />
                 {errors[`blackout:${b.key}`] ? (
                   <p className={shared.error} role="alert">

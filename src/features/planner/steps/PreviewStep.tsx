@@ -124,7 +124,9 @@ export function PreviewStep({ draft, dispatch, today }: PreviewStepProps) {
         title="Couldn’t build a preview"
         description="Nothing was saved. Check the dates and hours, or go back a step and try again."
         action={
-          <Button onClick={() => dispatch({ type: 'go', step: 4 as PlannerStep })}>Back to the review</Button>
+          <Button onClick={() => dispatch({ type: 'go', step: 4 as PlannerStep })}>
+            Back to the review
+          </Button>
         }
       />
     )
@@ -153,15 +155,17 @@ export function PreviewStep({ draft, dispatch, today }: PreviewStepProps) {
     return text === null ? [] : [text]
   })
 
-  const courseLabel = new Map(
-    plan.input.courses.map((c) => [c.id, c.code ?? c.title] as const),
-  )
+  const courseLabel = new Map(plan.input.courses.map((c) => [c.id, c.code ?? c.title] as const))
 
   let headline: string
   let detail: string | null = null
   if (asap) {
-    headline = end === null ? 'Nothing to schedule yet' : `At full speed you’d finish around ${formatDay(end, today)}.`
-    detail = 'No target date, so Forge fills every study window and keeps a little slack at the end.'
+    headline =
+      end === null
+        ? 'Nothing to schedule yet'
+        : `At full speed you’d finish around ${formatDay(end, today)}.`
+    detail =
+      'No target date, so Forge fills every study window and keeps a little slack at the end.'
   } else if (fits && end !== null && target !== null) {
     const ahead = diffDays(target, end)
     headline = `This fits. You’d finish ${formatDay(end, today)}.`
@@ -185,9 +189,15 @@ export function PreviewStep({ draft, dispatch, today }: PreviewStepProps) {
 
       <dl className={styles.stats}>
         <Stat label="Finish" value={end ? formatDay(end, today) : '—'} />
-        <Stat label={asap ? 'Target' : 'Target'} value={asap || !target ? 'None' : formatDay(target, today)} />
+        <Stat
+          label={asap ? 'Target' : 'Target'}
+          value={asap || !target ? 'None' : formatDay(target, today)}
+        />
         <Stat label="Per week" value={`${stats.hoursPerWeek} h`} />
-        <Stat label="Slack" value={`${Math.round(stats.bufferPct * 100)}% · ${formatDuration(stats.bufferMinutes)}`} />
+        <Stat
+          label="Slack"
+          value={`${Math.round(stats.bufferPct * 100)}% · ${formatDuration(stats.bufferMinutes)}`}
+        />
         <Stat label="Study sessions" value={String(stats.sessions)} />
         <Stat label="Reviews" value={String(stats.reviews)} />
         <Stat label="Practice tests" value={String(stats.practiceTests)} />
@@ -268,7 +278,10 @@ export function PreviewStep({ draft, dispatch, today }: PreviewStepProps) {
                 )
               }
             >
-              Move finish to {moveDate.earliestFeasibleDate ? formatDay(moveDate.earliestFeasibleDate, today) : '—'}
+              Move finish to{' '}
+              {moveDate.earliestFeasibleDate
+                ? formatDay(moveDate.earliestFeasibleDate, today)
+                : '—'}
             </Button>
           </div>
 
@@ -320,15 +333,23 @@ function CutOption({
   const { candidates, suggestedCut } = feasibility.options.cutScope
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(suggestedCut))
   const [open, setOpen] = useState(false)
-  const minutesOf = useMemo(() => new Map(candidates.map((c) => [c.unitId, c.minutes])), [candidates])
+  const minutesOf = useMemo(
+    () => new Map(candidates.map((c) => [c.unitId, c.minutes])),
+    [candidates],
+  )
   const cutMinutes = [...picked].reduce((n, id) => n + (minutesOf.get(id) ?? 0), 0)
   const hours = formatDuration(cutMinutes)
-  const optionalOnly = [...picked].every((id) => candidates.find((c) => c.unitId === id)?.reason === 'optional')
+  const optionalOnly = [...picked].every(
+    (id) => candidates.find((c) => c.unitId === id)?.reason === 'optional',
+  )
 
   // Whether the chosen cut, and only it, makes the plan fit (verified with the planner).
   const verified = useMemo(() => {
     if (picked.size === 0) return null
-    const r = planStudy({ ...withoutUnits(plan.input, [...picked]), targetDate: plan.input.targetDate })
+    const r = planStudy({
+      ...withoutUnits(plan.input, [...picked]),
+      targetDate: plan.input.targetDate,
+    })
     return { fits: r.fits, end: r.projectedEnd }
   }, [picked, plan.input])
 
@@ -337,7 +358,9 @@ function CutOption({
       <div className={styles.option}>
         <div>
           <h3 className={styles.optionTitle}>Cut scope</h3>
-          <p className={shared.hint}>There are no units to cut. Mark units optional on the review screen to offer them here.</p>
+          <p className={shared.hint}>
+            There are no units to cut. Mark units optional on the review screen to offer them here.
+          </p>
         </div>
       </div>
     )

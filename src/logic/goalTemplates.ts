@@ -273,7 +273,10 @@ const APLUS_COURSES: readonly TemplateCourse[] = [
   },
 ]
 
-const evenings = (end: `${number}:${number}`, sat: TimeWindow | null): (readonly TimeWindow[])[] => [
+const evenings = (
+  end: `${number}:${number}`,
+  sat: TimeWindow | null,
+): (readonly TimeWindow[])[] => [
   [],
   ...[1, 2, 3, 4, 5].map(() => [win('19:00', end)]),
   sat ? [sat] : [],
@@ -281,7 +284,10 @@ const evenings = (end: `${number}:${number}`, sat: TimeWindow | null): (readonly
 
 // ─── Semester course: CS 101 ────────────────────────────────────────────────
 
-const week = (n: number, title: string): TemplateUnit => ({ title: `Week ${n}: ${title}`, hours: 2.5 })
+const week = (n: number, title: string): TemplateUnit => ({
+  title: `Week ${n}: ${title}`,
+  hours: 2.5,
+})
 
 const SEMESTER_COURSES: readonly TemplateCourse[] = [
   {
@@ -409,7 +415,15 @@ export const TEMPLATES: readonly GoalTemplate[] = [
     kind: 'custom',
     goalTitle: 'Ship my portfolio website',
     courses: PROJECT_COURSES,
-    weekly: [[], [], [win('19:00', '21:00')], [], [win('19:00', '21:00')], [], [win('10:00', '14:00')]],
+    weekly: [
+      [],
+      [],
+      [win('19:00', '21:00')],
+      [],
+      [win('19:00', '21:00')],
+      [],
+      [win('10:00', '14:00')],
+    ],
     sessionMinutes: 50,
     finish: 56,
     term: false,

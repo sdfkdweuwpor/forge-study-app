@@ -62,7 +62,15 @@ function crumbLink({ item, className, children }: BreadcrumbLinkProps): ReactNod
       href={item.href}
       className={className}
       onClick={(e) => {
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+        if (
+          e.defaultPrevented ||
+          e.button !== 0 ||
+          e.metaKey ||
+          e.ctrlKey ||
+          e.shiftKey ||
+          e.altKey
+        )
+          return
         if (item.href) {
           e.preventDefault()
           navigateToUrl(item.href)
@@ -80,7 +88,8 @@ function PlannerScreen() {
   const [state, dispatch] = useReducer(
     plannerReducer,
     today,
-    (t): PlannerState => restorePlanner(readPref(PREF_KEYS.plannerDraft), t) ?? initialPlannerState(t),
+    (t): PlannerState =>
+      restorePlanner(readPref(PREF_KEYS.plannerDraft), t) ?? initialPlannerState(t),
   )
   const { draft, step, reached, attempted } = state
   const [tab, setTab] = useState<InputTab>(() =>
@@ -258,9 +267,7 @@ function PlannerScreen() {
       </header>
 
       <main className={styles.body} id="planner-step">
-        {step === 0 ? (
-          <StartStep {...stepProps} tab={tab} onTab={setTab} onGo={go} />
-        ) : null}
+        {step === 0 ? <StartStep {...stepProps} tab={tab} onTab={setTab} onGo={go} /> : null}
         {step === 1 ? <WhenStep {...stepProps} /> : null}
         {step === 2 ? <AvailabilityStep {...stepProps} /> : null}
         {step === 3 ? <EffortStep draft={draft} dispatch={dispatch} errors={errors} /> : null}

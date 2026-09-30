@@ -11,7 +11,12 @@ export interface EffortSettingsProps {
 }
 
 /** Hours per CU and the slack kept at the end: the two numbers that apply to the whole plan. */
-export function EffortSettings({ multiplier, onMultiplier, bufferPct, onBufferPct }: EffortSettingsProps) {
+export function EffortSettings({
+  multiplier,
+  onMultiplier,
+  bufferPct,
+  onBufferPct,
+}: EffortSettingsProps) {
   const choices = BUFFER_CHOICES.some((c) => c.value === String(bufferPct))
     ? BUFFER_CHOICES
     : [...BUFFER_CHOICES, { value: String(bufferPct), label: `${Math.round(bufferPct * 100)}%` }]

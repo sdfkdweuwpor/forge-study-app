@@ -13,8 +13,12 @@ export interface ProposalsBannerProps {
 }
 
 /** The calm card's first line: what changed, in words about the plan and never about the person. */
-export function bannerTitle(goal: Pick<Goal, 'projection'>, proposals: readonly PlanProposal[]): string {
-  if (proposals.every((p) => p.kind === 'lifeHappened')) return 'A re-plan for this week is waiting.'
+export function bannerTitle(
+  goal: Pick<Goal, 'projection'>,
+  proposals: readonly PlanProposal[],
+): string {
+  if (proposals.every((p) => p.kind === 'lifeHappened'))
+    return 'A re-plan for this week is waiting.'
   const slip = goal.projection?.slipDays ?? null
   return slip !== null && slip > 0
     ? `You’re about ${plural(slip, 'day')} behind. Choose what to do:`
@@ -34,7 +38,11 @@ export function ProposalsBanner({ goal, proposals }: ProposalsBannerProps) {
     try {
       const r = await applyProposal(p.id)
       if (r.status === 'applied') {
-        toast.show({ title: `Done: ${p.title}`, description: 'Your plan was updated.', undo: r.undo })
+        toast.show({
+          title: `Done: ${p.title}`,
+          description: 'Your plan was updated.',
+          undo: r.undo,
+        })
       } else if (r.status === 'stale') {
         toast.show({
           title: 'The plan changed since these were worked out',
@@ -54,7 +62,9 @@ export function ProposalsBanner({ goal, proposals }: ProposalsBannerProps) {
 
   async function notNow() {
     try {
-      const undos = (await Promise.all(proposals.map((p) => dismissProposal(p.id)))).flatMap((u) => (u ? [u] : []))
+      const undos = (await Promise.all(proposals.map((p) => dismissProposal(p.id)))).flatMap((u) =>
+        u ? [u] : [],
+      )
       toast.show({
         title: 'Set aside for now',
         description: 'Forge keeps your plan as it is. Nothing was rewritten.',
@@ -69,7 +79,12 @@ export function ProposalsBanner({ goal, proposals }: ProposalsBannerProps) {
   }
 
   return (
-    <section className={styles.banner} aria-labelledby="plan-proposals-title" id="plan-proposals" tabIndex={-1}>
+    <section
+      className={styles.banner}
+      aria-labelledby="plan-proposals-title"
+      id="plan-proposals"
+      tabIndex={-1}
+    >
       <h2 id="plan-proposals-title" className={styles.bannerTitle}>
         {bannerTitle(goal, proposals)}
       </h2>

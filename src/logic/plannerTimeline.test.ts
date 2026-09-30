@@ -8,7 +8,9 @@ describe('timelineModel', () => {
       { id: 'a', label: 'C182', start: '2026-10-01', end: '2026-11-15' },
       { id: 'b', label: 'D278', start: '2026-11-16', end: '2026-12-31' },
     ],
-    assessments: [{ id: 'x', courseId: 'a', title: 'OA', kind: 'exam' as const, date: '2026-11-16' }],
+    assessments: [
+      { id: 'x', courseId: 'a', title: 'OA', kind: 'exam' as const, date: '2026-11-16' },
+    ],
     target: '2027-01-15',
     projectedEnd: '2026-12-31',
   }
@@ -22,7 +24,9 @@ describe('timelineModel', () => {
     expect(m.bars[0]?.marks[0]?.x).toBeGreaterThan(m.bars[0]?.x1 ?? 1)
     expect(m.finish).toBeLessThan(m.target ?? 0)
     expect(m.target).toBeLessThanOrEqual(1)
-    expect(m.ticks.map((t) => t.label)).toEqual(['Nov', 'Dec', 'Jan', 'Feb'].slice(0, m.ticks.length))
+    expect(m.ticks.map((t) => t.label)).toEqual(
+      ['Nov', 'Dec', 'Jan', 'Feb'].slice(0, m.ticks.length),
+    )
     expect(m.ticks.find((t) => t.label === 'Jan')?.major).toBe(true)
   })
 

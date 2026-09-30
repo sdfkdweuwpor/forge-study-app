@@ -33,7 +33,11 @@ export function courseBaseMinutes(c: CourseBudgetInput): number | null {
   const byHours = positive(c.hours)
   const byCus = positive(c.cus)
   const hours =
-    c.effortBy === 'cus' ? (byCus !== null ? byCus * mult : byHours) : (byHours ?? (byCus !== null ? byCus * mult : null))
+    c.effortBy === 'cus'
+      ? byCus !== null
+        ? byCus * mult
+        : byHours
+      : (byHours ?? (byCus !== null ? byCus * mult : null))
   return hours === null ? null : Math.round(hours * 60)
 }
 
@@ -58,7 +62,9 @@ export interface EffortResult {
 }
 
 const rated = (baseMinutes: number, rating: SelfRating): number =>
-  baseMinutes <= 0 ? 0 : (estimateUnitMinutes({ hours: baseMinutes / 60, selfRating: rating, grain: GRAIN }) ?? 0)
+  baseMinutes <= 0
+    ? 0
+    : (estimateUnitMinutes({ hours: baseMinutes / 60, selfRating: rating, grain: GRAIN }) ?? 0)
 
 /**
  * Minutes per unit for one course. `budgetMinutes` is `courseBaseMinutes(...)`. A course with no units
@@ -73,7 +79,11 @@ export function resolveEffort(
   if (units.length === 0) {
     const base = budget > 0 ? ceilTo(budget, GRAIN) : 0
     const minutes = rated(base, courseRating)
-    return { units: [{ baseMinutes: base, minutes }], totalBaseMinutes: base, totalMinutes: minutes }
+    return {
+      units: [{ baseMinutes: base, minutes }],
+      totalBaseMinutes: base,
+      totalMinutes: minutes,
+    }
   }
   const bases = resolveUnitEstimates(
     { estimateHours: budget / 60 },

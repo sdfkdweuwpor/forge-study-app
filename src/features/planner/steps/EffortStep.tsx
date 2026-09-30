@@ -1,5 +1,10 @@
 import type { Dispatch } from 'react'
-import { fillBlankUnits, type DraftErrors, type PlannerAction, type PlannerDraft } from '@/logic/plannerDraft'
+import {
+  fillBlankUnits,
+  type DraftErrors,
+  type PlannerAction,
+  type PlannerDraft,
+} from '@/logic/plannerDraft'
 import { effortLabel } from '@/logic/plannerEffort'
 import { draftEffort } from '@/logic/plannerDraft'
 import { Button } from '@/ui/Button'
@@ -17,8 +22,7 @@ export interface EffortStepProps {
 export function EffortStep({ draft, dispatch, errors }: EffortStepProps) {
   const total = draftEffort(draft).totalMinutes
   const blanks = draft.courses.some(
-    (c) =>
-      c.units.some((u) => u.minutes === null) && errors[`course:${c.key}`] !== undefined,
+    (c) => c.units.some((u) => u.minutes === null) && errors[`course:${c.key}`] !== undefined,
   )
 
   if (draft.courses.length === 0) {
@@ -51,7 +55,10 @@ export function EffortStep({ draft, dispatch, errors }: EffortStepProps) {
             Some courses have units but no hours. Give each unit a starting point of 3 h and adjust
             below?
           </p>
-          <Button size="sm" onClick={() => dispatch({ type: 'replaceDraft', draft: fillBlankUnits(draft, 3) })}>
+          <Button
+            size="sm"
+            onClick={() => dispatch({ type: 'replaceDraft', draft: fillBlankUnits(draft, 3) })}
+          >
             Set 3 h for each blank unit
           </Button>
         </div>

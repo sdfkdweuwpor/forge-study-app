@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { compareISODate } from './dates'
-import { suggestTemplate, TEMPLATES, templateById, templatePlanDraft, wguTemplate } from './goalTemplates'
+import {
+  suggestTemplate,
+  TEMPLATES,
+  templateById,
+  templatePlanDraft,
+  wguTemplate,
+} from './goalTemplates'
 import { applyTemplate, emptyPlannerDraft, previewPlanner } from './plannerDraft'
 
 const TODAY = '2026-09-29'
@@ -27,7 +33,15 @@ describe('templates', () => {
 
   it('WGU term has the seven C182/C779/D278 courses, 24 CUs, 310 h and an assessment each', () => {
     const plan = templatePlanDraft(templateById('wgu-term'), TODAY)
-    expect(plan.courses.map((c) => c.code)).toEqual(['C182', 'C779', 'D278', 'C172', 'C959', 'D426', 'C867'])
+    expect(plan.courses.map((c) => c.code)).toEqual([
+      'C182',
+      'C779',
+      'D278',
+      'C172',
+      'C959',
+      'D426',
+      'C867',
+    ])
     expect(plan.courses.reduce((n, c) => n + (c.cus ?? 0), 0)).toBe(24)
     expect(plan.courses.reduce((n, c) => n + (c.estimatedHours ?? 0), 0)).toBe(310)
     expect(plan.courses.every((c) => c.assessments.length === 1)).toBe(true)

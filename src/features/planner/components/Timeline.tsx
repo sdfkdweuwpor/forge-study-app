@@ -25,7 +25,8 @@ function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   return [ref, width]
 }
 
-const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s)
+const clip = (s: string, max: number): string =>
+  s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s
 
 export interface TimelineProps extends TimelineInput {
   /** The plan fits: the finish line is calm green, else amber. */
@@ -42,7 +43,11 @@ export function Timeline({ fits, ...input }: TimelineProps) {
   if (!model) return null
 
   const narrow = width < 480
-  const gutter = narrow ? 64 : Math.min(150, Math.round(width * 0.24))
+  const longest = model.bars.reduce((n, b) => Math.max(n, b.label.length), 0)
+  const gutter = Math.max(
+    48,
+    Math.min(narrow ? 72 : 150, Math.round(width * 0.24), Math.round(longest * 6.6) + 18),
+  )
   const plotW = Math.max(60, width - gutter - 8)
   const height = TOP + model.bars.length * ROW + BOTTOM
   const px = (f: number): number => gutter + f * plotW
@@ -61,7 +66,13 @@ export function Timeline({ fits, ...input }: TimelineProps) {
       >
         {model.ticks.map((t) => (
           <g key={`${t.label}-${t.x}`}>
-            <line className={styles.grid} x1={px(t.x)} x2={px(t.x)} y1={TOP - 6} y2={height - BOTTOM + 4} />
+            <line
+              className={styles.grid}
+              x1={px(t.x)}
+              x2={px(t.x)}
+              y1={TOP - 6}
+              y2={height - BOTTOM + 4}
+            />
             <text className={styles.tick} x={px(t.x) + 4} y={TOP - 10}>
               {t.label}
             </text>
@@ -86,7 +97,14 @@ export function Timeline({ fits, ...input }: TimelineProps) {
               {b.marks.map((m) => (
                 <g key={m.id} transform={`translate(${px(m.x)} ${y + ROW / 2})`}>
                   <title>{`${m.title} · ${shortDate(m.date)}`}</title>
-                  <rect className={styles.mark} x={-4} y={-4} width={8} height={8} transform="rotate(45)" />
+                  <rect
+                    className={styles.mark}
+                    x={-4}
+                    y={-4}
+                    width={8}
+                    height={8}
+                    transform="rotate(45)"
+                  />
                 </g>
               ))}
             </g>

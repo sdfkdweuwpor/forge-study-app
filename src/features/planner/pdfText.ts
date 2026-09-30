@@ -7,8 +7,7 @@ export const MAX_PDF_PAGES = 80
 export type PdfFailure = 'tooLarge' | 'tooManyPages' | 'noText' | 'encrypted' | 'unreadable'
 
 export type PdfResult =
-  | { ok: true; text: string; pages: number }
-  | { ok: false; reason: PdfFailure }
+  { ok: true; text: string; pages: number } | { ok: false; reason: PdfFailure }
 
 export const PDF_FAILURE_TEXT: Readonly<Record<PdfFailure, string>> = {
   tooLarge: 'That PDF is larger than 25 MB. Try a smaller export of just the syllabus.',
@@ -70,7 +69,9 @@ export async function extractPdfText(file: File): Promise<PdfResult> {
         )
       }
       const text = pagesToText(pages)
-      return text.trim() === '' ? { ok: false, reason: 'noText' } : { ok: true, text, pages: doc.numPages }
+      return text.trim() === ''
+        ? { ok: false, reason: 'noText' }
+        : { ok: true, text, pages: doc.numPages }
     } finally {
       await task.destroy()
     }

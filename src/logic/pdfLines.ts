@@ -48,5 +48,8 @@ export function itemsToLines(items: readonly PdfTextItem[]): string[] {
 
 /** All pages as text, one line per row, a blank line between pages. */
 export function pagesToText(pages: readonly (readonly PdfTextItem[])[]): string {
-  return pages.map((p) => itemsToLines(p).join('\n')).filter((t) => t !== '').join('\n\n')
+  return pages
+    .map((p) => itemsToLines(p).join('\n'))
+    .filter((t) => t !== '')
+    .join('\n\n')
 }

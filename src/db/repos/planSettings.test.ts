@@ -44,7 +44,10 @@ describe('creating a planned goal', () => {
     expect(await db.units.where('goalId').equals(created.goal.id).count()).toBe(
       draft.courses.reduce((s, c) => s + c.units.length, 0),
     )
-    const assessments = await db.plannedAssessments.where('goalId').equals(created.goal.id).toArray()
+    const assessments = await db.plannedAssessments
+      .where('goalId')
+      .equals(created.goal.id)
+      .toArray()
     expect(assessments.map((a) => a.kind).sort()).toEqual(['exam', 'quiz'])
     expect(created.goal.planning.asap).toBe(false)
     expect(created.goal.baselineEnd).not.toBeNull()
@@ -127,7 +130,14 @@ describe('savePlanSettings', () => {
     const stored = toGoalAvailability(draft.availability)
     const saved = await savePlanSettings(
       goal.id,
-      { targetDate: null, asap: true, availability: stored.availability, planning: stored.planning, bufferPct: 0.12, cuHoursMultiplier: 15 },
+      {
+        targetDate: null,
+        asap: true,
+        availability: stored.availability,
+        planning: stored.planning,
+        bufferPct: 0.12,
+        cuHoursMultiplier: 15,
+      },
       { now: NOW },
     )
     expect(saved?.goal.targetDate).toBeNull()
@@ -150,7 +160,14 @@ describe('savePlanSettings', () => {
     const stored = toGoalAvailability(draft.availability)
     await savePlanSettings(
       created.goal.id,
-      { targetDate: '2027-03-01', asap: false, availability: stored.availability, planning: stored.planning, bufferPct: 0.12, cuHoursMultiplier: 10 },
+      {
+        targetDate: '2027-03-01',
+        asap: false,
+        availability: stored.availability,
+        planning: stored.planning,
+        bufferPct: 0.12,
+        cuHoursMultiplier: 10,
+      },
       { now: NOW },
     )
     const after = await db.units.where('goalId').equals(created.goal.id).toArray()
@@ -160,7 +177,14 @@ describe('savePlanSettings', () => {
   it('returns null for a missing goal', async () => {
     const stored = toGoalAvailability(emptyPlannerDraft(TODAY).availability)
     expect(
-      await savePlanSettings('nope', { targetDate: null, asap: true, availability: stored.availability, planning: stored.planning, bufferPct: 0.1, cuHoursMultiplier: 15 }),
+      await savePlanSettings('nope', {
+        targetDate: null,
+        asap: true,
+        availability: stored.availability,
+        planning: stored.planning,
+        bufferPct: 0.1,
+        cuHoursMultiplier: 15,
+      }),
     ).toBeNull()
   })
 })

@@ -33,6 +33,54 @@ D278 Scripting and Programming Foundations (3 CUs) OA
 Target: December 18, 2026
 `
 
+/** Writes two pending proposals for the sample goal straight into IndexedDB, then reloads so the page reads them. */
+export async function addProposals(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('forge')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const db = open.result
+          const tx = db.transaction('planProposals', 'readwrite')
+          const store = tx.objectStore('planProposals')
+          const base = {
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            goalId: 'goal-wgu-bscs',
+            status: 'pending',
+            computedFor: '2026-09-29',
+            apply: { extraMinutesPerStudyDay: 20 },
+            preview: { moved: [], added: [], removed: [] },
+            baseRevision: 'x',
+            decidedAt: null,
+          }
+          store.put({
+            ...base,
+            id: 'p1',
+            kind: 'addTime',
+            title: 'Add 20 min to each study day',
+            detail: 'Finish by Mar 31 with a little more time each study day.',
+          })
+          store.put({
+            ...base,
+            id: 'p2',
+            kind: 'extendDate',
+            title: 'Move the finish date to Apr 9',
+            detail: 'Keep your pace and give the plan more days.',
+            apply: { targetDate: '2027-04-09' },
+          })
+          tx.oncomplete = () => {
+            db.close()
+            resolve()
+          }
+          tx.onerror = () => reject(tx.error)
+        }
+      }),
+  )
+  await page.reload()
+}
+
 const next = (page: Page) => page.getByRole('button', { name: 'Continue' }).click()
 
 /** Pastes the WGU list and reads it, ready to continue. */
@@ -42,7 +90,10 @@ async function pasteList(page: Page): Promise<void> {
   await page.getByText(/Found: 3 courses/).waitFor()
 }
 
-async function toStep(page: Page, step: 'when' | 'availability' | 'effort' | 'review' | 'preview' | 'confirm'): Promise<void> {
+async function toStep(
+  page: Page,
+  step: 'when' | 'availability' | 'effort' | 'review' | 'preview' | 'confirm',
+): Promise<void> {
   await pasteList(page)
   const order = ['when', 'availability', 'effort', 'review', 'preview', 'confirm'] as const
   for (const s of order) {
@@ -172,6 +223,16 @@ const list: ShotList = {
         await page.getByRole('button', { name: /Tue 29/ }).click()
         await page.getByRole('button', { name: 'Preview' }).click()
         await page.getByRole('button', { name: 'Confirm re-plan' }).waitFor()
+        await settle(page)
+      },
+    },
+    {
+      name: 'goal-proposals',
+      path: `${GOAL}?seed=wgu`,
+      waitFor: 'main h1',
+      prepare: async (page) => {
+        await addProposals(page)
+        await page.getByRole('region', { name: /behind|slipped/ }).waitFor()
         await settle(page)
       },
     },

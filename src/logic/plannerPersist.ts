@@ -65,7 +65,9 @@ const availabilitySchema = z.object({
 const draftSchema = z.object({
   v: z.literal(DRAFT_VERSION),
   source: z.enum(['blank', 'template', 'paste', 'pdf', 'claude', 'typed']),
-  templateId: z.enum(['wgu-term', 'certification', 'semester-course', 'personal-project']).nullable(),
+  templateId: z
+    .enum(['wgu-term', 'certification', 'semester-course', 'personal-project'])
+    .nullable(),
   title: z.string(),
   icon: z.string(),
   kind: z.enum(['degree', 'certification', 'skill', 'custom']),
@@ -116,7 +118,10 @@ export function restorePlanner(text: string | null, today: ISODate): PlannerStat
       ...base,
       ...draft,
       startDate,
-      availability: { ...draft.availability, sessionMinutes: clampSession(draft.availability.sessionMinutes) },
+      availability: {
+        ...draft.availability,
+        sessionMinutes: clampSession(draft.availability.sessionMinutes),
+      },
     },
     step: parsed.data.step as PlannerStep,
     reached: Math.max(parsed.data.step, parsed.data.reached) as PlannerStep,

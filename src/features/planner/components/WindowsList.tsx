@@ -13,6 +13,8 @@ export interface WindowsListProps {
   name: string
   /** An add button under the list (otherwise the caller adds windows). */
   addLabel?: string
+  /** Put the add button in the last window's row (a plus) instead of under the list. */
+  inlineAdd?: boolean
   /** Message per window index (from `validateAvailability`), shown when set. */
   errors?: Readonly<Record<number, string | undefined>>
   /** Shown instead of the list when it is empty. */
@@ -20,7 +22,15 @@ export interface WindowsListProps {
 }
 
 /** A list of `HH:mm` to `HH:mm` study windows: add, edit and remove. */
-export function WindowsList({ windows, onChange, name, addLabel, errors, empty }: WindowsListProps) {
+export function WindowsList({
+  windows,
+  onChange,
+  name,
+  addLabel,
+  inlineAdd,
+  errors,
+  empty,
+}: WindowsListProps) {
   const set = (i: number, patch: Partial<TimeWindow>) =>
     onChange(windows.map((w, k) => (k === i ? { ...w, ...patch } : w)))
   return (
@@ -57,6 +67,14 @@ export function WindowsList({ windows, onChange, name, addLabel, errors, empty }
               icon={<X />}
               onClick={() => onChange(windows.filter((_, k) => k !== i))}
             />
+            {inlineAdd && addLabel && i === windows.length - 1 ? (
+              <IconButton
+                size="sm"
+                label={addLabel}
+                icon={<Plus />}
+                onClick={() => onChange([...windows, nextWindow(windows)])}
+              />
+            ) : null}
             {problem !== null && errors?.[i] !== undefined ? (
               <span className={styles.problem} role="alert">
                 {problem}
@@ -65,7 +83,7 @@ export function WindowsList({ windows, onChange, name, addLabel, errors, empty }
           </div>
         )
       })}
-      {addLabel ? (
+      {addLabel && !inlineAdd ? (
         <Button
           variant="ghost"
           size="sm"

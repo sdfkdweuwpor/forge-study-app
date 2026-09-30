@@ -42,7 +42,13 @@ export interface TimelineBar {
   label: string
   x0: number
   x1: number
-  marks: Array<{ id: string; x: number; kind: 'exam' | 'project' | 'quiz'; title: string; date: ISODate }>
+  marks: Array<{
+    id: string
+    x: number
+    kind: 'exam' | 'project' | 'quiz'
+    title: string
+    date: ISODate
+  }>
 }
 
 export interface TimelineModel {

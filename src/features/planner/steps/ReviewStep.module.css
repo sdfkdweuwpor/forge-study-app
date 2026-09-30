@@ -121,6 +121,13 @@
   transform: rotate(90deg);
 }
 
+.courseDel,
+.unitHours,
+.unitOpt,
+.unitDel {
+  display: inline-flex;
+}
+
 .courseTotal {
   min-width: 64px;
   color: var(--text-muted);
@@ -190,19 +197,31 @@
 
 @media (max-width: 767px) {
   .courseHead {
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  }
+  .handle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .chevron {
+    grid-column: 2;
+    grid-row: 1;
   }
   .code {
     grid-column: 3;
     grid-row: 1;
   }
-  .courseTitle {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
   .courseTotal {
     grid-column: 4;
     grid-row: 1;
+  }
+  .courseDel {
+    grid-column: 5;
+    grid-row: 1;
+  }
+  .courseTitle {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
   .courseBody,
   .collapsedNote {
@@ -210,8 +229,24 @@
   }
   .unit {
     grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'grip title del'
+      '. hours opt';
   }
-  .unit > :nth-child(3) {
-    grid-column: 2;
+  .unit > :nth-child(1) {
+    grid-area: grip;
+  }
+  .unitTitle {
+    grid-area: title;
+  }
+  .unitHours {
+    grid-area: hours;
+  }
+  .unitOpt {
+    grid-area: opt;
+    justify-self: end;
+  }
+  .unitDel {
+    grid-area: del;
   }
 }

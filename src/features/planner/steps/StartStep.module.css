@@ -126,3 +126,7 @@
 .found h2 {
   font-size: var(--fs-14);
 }
+
+.wide {
+  width: 100%;
+}

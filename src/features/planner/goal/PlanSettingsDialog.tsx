@@ -55,7 +55,9 @@ export function PlanSettingsDialog({ goal, open, onClose }: PlanSettingsDialogPr
         toast.error('This goal no longer exists')
       } else if (r.planError !== null) {
         recordError(r.planError, 'planSettings')
-        toast.error('Saved, but the plan could not be rebuilt', { description: 'Try Re-plan again from the goal.' })
+        toast.error('Saved, but the plan could not be rebuilt', {
+          description: 'Try Re-plan again from the goal.',
+        })
         onClose()
       } else {
         toast.success('Plan settings saved', { description: 'The goal was re-planned from today.' })

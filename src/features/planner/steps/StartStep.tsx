@@ -62,7 +62,11 @@ export function contentSummary(draft: PlannerDraft): string {
 
 export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: StartStepProps) {
   const toast = useToast()
-  const [pdf, setPdf] = useState<{ state: 'idle' | 'reading' | 'error'; message?: string; pages?: number }>({
+  const [pdf, setPdf] = useState<{
+    state: 'idle' | 'reading' | 'error'
+    message?: string
+    pages?: number
+  }>({
     state: 'idle',
   })
   const fileInput = useRef<HTMLInputElement | null>(null)
@@ -82,8 +86,16 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
 
   function pickTemplate(id: (typeof TEMPLATES)[number]['id']) {
     const t = templateById(id)
-    const next = applyTemplate(draft, t, { newKey: newId, today, keepTitle: draft.source === 'typed' })
-    replace(next, `Loaded the ${t.name} template`, 'Every part of it is editable on the review screen.')
+    const next = applyTemplate(draft, t, {
+      newKey: newId,
+      today,
+      keepTitle: draft.source === 'typed',
+    })
+    replace(
+      next,
+      `Loaded the ${t.name} template`,
+      'Every part of it is editable on the review screen.',
+    )
   }
 
   function blank() {
@@ -197,18 +209,26 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
                     placeholder={SAMPLE}
                     value={draft.sourceText}
                     minRows={6}
-                    onChange={(e) => dispatch({ type: 'patch', patch: { sourceText: e.target.value } })}
+                    className={styles.wide}
+                    onChange={(e) =>
+                      dispatch({ type: 'patch', patch: { sourceText: e.target.value } })
+                    }
                   />
                   <div className={shared.actions}>
                     <Button
-                      variant={draft.sourceText.trim() !== '' && (dirty || !hasContent) ? 'primary' : 'secondary'}
+                      variant={
+                        draft.sourceText.trim() !== '' && (dirty || !hasContent)
+                          ? 'primary'
+                          : 'secondary'
+                      }
                       disabled={draft.sourceText.trim() === ''}
                       onClick={() => readText(draft.sourceText, 'paste')}
                     >
                       Read it
                     </Button>
                     <span className={shared.hint}>
-                      Course codes, CUs, hours, weeks, exams and dates are picked out. Nothing leaves this device.
+                      Course codes, CUs, hours, weeks, exams and dates are picked out. Nothing
+                      leaves this device.
                     </span>
                   </div>
                 </>
@@ -247,13 +267,17 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
                   {pdf.pages !== undefined && draft.source === 'pdf' ? (
                     <>
                       <p className={shared.hint} role="status">
-                        Read {plural(pdf.pages, 'page')} on this device. Fix anything odd in the text, then read it again.
+                        Read {plural(pdf.pages, 'page')} on this device. Fix anything odd in the
+                        text, then read it again.
                       </p>
                       <Textarea
                         label="Text from the PDF"
                         value={draft.sourceText}
                         minRows={6}
-                        onChange={(e) => dispatch({ type: 'patch', patch: { sourceText: e.target.value } })}
+                        className={styles.wide}
+                        onChange={(e) =>
+                          dispatch({ type: 'patch', patch: { sourceText: e.target.value } })
+                        }
                       />
                       <div className={shared.actions}>
                         <Button
@@ -271,9 +295,9 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
               {value === 'photo' ? (
                 <>
                   <p className={shared.hint}>
-                    Photos can’t be read offline, and Forge never uploads your pictures. Claude can read
-                    one for you: copy the prompt, attach the photo in Claude, and paste its reply back.
-                    You review everything before it becomes a plan.
+                    Photos can’t be read offline, and Forge never uploads your pictures. Claude can
+                    read one for you: copy the prompt, attach the photo in Claude, and paste its
+                    reply back. You review everything before it becomes a plan.
                   </p>
                   <ClaudePath today={today} mode="photo" onPlan={useClaudePlan} />
                 </>
@@ -286,6 +310,7 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
                     placeholder="Learn conversational Spanish by June 2027"
                     value={draft.title}
                     maxLength={120}
+                    className={styles.wide}
                     onChange={(e) => dispatch({ type: 'patch', patch: { title: e.target.value } })}
                   />
                   <Textarea
@@ -293,7 +318,10 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
                     placeholder="Where you are now, what done looks like, what you have to work with."
                     value={draft.description}
                     minRows={3}
-                    onChange={(e) => dispatch({ type: 'patch', patch: { description: e.target.value } })}
+                    className={styles.wide}
+                    onChange={(e) =>
+                      dispatch({ type: 'patch', patch: { description: e.target.value } })
+                    }
                   />
                   <div className={shared.actions}>
                     <Button
@@ -306,7 +334,9 @@ export function StartStep({ draft, dispatch, errors, today, tab, onTab, onGo }: 
                   </div>
                   {draft.needsBreakdown && draft.source === 'typed' ? (
                     <div className={styles.breakdown}>
-                      <h3 className={styles.breakdownTitle}>That’s a big one. Break it into steps?</h3>
+                      <h3 className={styles.breakdownTitle}>
+                        That’s a big one. Break it into steps?
+                      </h3>
                       <p className={shared.hint}>
                         Forge can plan it as it is, but units and dates make a better schedule.
                       </p>

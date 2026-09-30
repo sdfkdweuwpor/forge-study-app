@@ -52,7 +52,8 @@ export function ClaudePath({ today, mode, goalText, onPlan }: ClaudePathProps) {
     if (ok) {
       setCopied(true)
       toast.success('Prompt copied', { description: 'Paste it into a new Claude chat.' })
-    } else toast.error('Couldn’t copy', { description: 'Select the prompt text and copy it by hand.' })
+    } else
+      toast.error('Couldn’t copy', { description: 'Select the prompt text and copy it by hand.' })
   }
 
   return (
@@ -64,11 +65,7 @@ export function ClaudePath({ today, mode, goalText, onPlan }: ClaudePathProps) {
             <h4 className={styles.stepTitle}>Copy the prompt</h4>
           </div>
           <div className={shared.actions}>
-            <Button
-              size="sm"
-              iconLeft={copied ? <Check /> : <Copy />}
-              onClick={() => void copy()}
-            >
+            <Button size="sm" iconLeft={copied ? <Check /> : <Copy />} onClick={() => void copy()}>
               {copied ? 'Copied' : 'Copy prompt'}
             </Button>
             <a

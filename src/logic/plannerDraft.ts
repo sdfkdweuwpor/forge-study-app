@@ -38,12 +38,7 @@ import {
   withExtraMinutes,
   type AvailabilityDraft,
 } from './plannerAvailability'
-import {
-  courseBaseMinutes,
-  resolveEffort,
-  type EffortBy,
-  type EffortResult,
-} from './plannerEffort'
+import { courseBaseMinutes, resolveEffort, type EffortBy, type EffortResult } from './plannerEffort'
 import { DEFAULT_BUFFER_PCT, DEFAULT_CU_HOURS_MULTIPLIER } from './scheduler/effort'
 import { planGoalSlots, type SlotPlan } from './scheduler/goalSlots'
 import type { PlanItem } from './scheduler/plannerTypes'
@@ -224,7 +219,11 @@ export interface FillOptions {
  * A parsed plan (a pasted syllabus, Claude's JSON or a template) as the draft's courses and dates. The
  * availability is left as it is. Everything is only a starting point: the review screen edits it.
  */
-export function applyPlanDraft(base: PlannerDraft, plan: PlanDraft, opts: FillOptions): PlannerDraft {
+export function applyPlanDraft(
+  base: PlannerDraft,
+  plan: PlanDraft,
+  opts: FillOptions,
+): PlannerDraft {
   const keyByCode = new Map<string, string>()
   const courses = plan.courses.map((c): PlannerCourse => {
     const key = opts.newKey()
@@ -306,7 +305,11 @@ export function applyParse(
   opts: FillOptions,
 ): PlannerDraft {
   const filled = applyPlanDraft(base, parsed.draft, opts)
-  return { ...filled, unparsed: parsed.unparsed.map((u) => ({ line: u.line, text: u.text })), needsBreakdown: parsed.needsBreakdown }
+  return {
+    ...filled,
+    unparsed: parsed.unparsed.map((u) => ({ line: u.line, text: u.text })),
+    needsBreakdown: parsed.needsBreakdown,
+  }
 }
 
 /** Reads pasted or PDF text into the draft's courses (replacing them). */
@@ -387,7 +390,10 @@ export function courseEffort(c: PlannerCourse, multiplier: number): CourseEffort
   return { ...r, key: c.key, budgetMinutes }
 }
 
-export function draftEffort(draft: PlannerDraft): { courses: CourseEffort[]; totalMinutes: number } {
+export function draftEffort(draft: PlannerDraft): {
+  courses: CourseEffort[]
+  totalMinutes: number
+} {
   const courses = draft.courses.map((c) => courseEffort(c, draft.cuMultiplier))
   return { courses, totalMinutes: courses.reduce((n, c) => n + c.totalMinutes, 0) }
 }
@@ -398,7 +404,9 @@ function freezeShares(c: PlannerCourse, multiplier: number): PlannerCourse {
   const e = courseEffort(c, multiplier)
   return {
     ...c,
-    units: c.units.map((u, i) => (u.minutes !== null ? u : { ...u, minutes: e.units[i]?.baseMinutes ?? 0 })),
+    units: c.units.map((u, i) =>
+      u.minutes !== null ? u : { ...u, minutes: e.units[i]?.baseMinutes ?? 0 },
+    ),
   }
 }
 
@@ -462,7 +470,11 @@ export type PlannerAction =
   | { type: 'attempt' }
   | { type: 'addCourse'; key: string }
   | { type: 'insertCourse'; index: number; course: PlannerCourse }
-  | { type: 'patchCourse'; key: string; patch: Partial<Omit<PlannerCourse, 'key' | 'units' | 'assessments'>> }
+  | {
+      type: 'patchCourse'
+      key: string
+      patch: Partial<Omit<PlannerCourse, 'key' | 'units' | 'assessments'>>
+    }
   | { type: 'removeCourse'; key: string }
   | { type: 'reorderCourses'; keys: readonly string[] }
   | { type: 'replaceCourse'; course: PlannerCourse }
@@ -472,10 +484,21 @@ export type PlannerAction =
   | { type: 'reorderUnits'; courseKey: string; keys: readonly string[] }
   | { type: 'setCourseRating'; courseKey: string; rating: SelfRating }
   | { type: 'addAssessment'; courseKey: string; key: string; kind?: AssessmentKind }
-  | { type: 'patchAssessment'; courseKey: string; key: string; patch: Partial<Omit<PlannerAssessmentDraft, 'key'>> }
+  | {
+      type: 'patchAssessment'
+      courseKey: string
+      key: string
+      patch: Partial<Omit<PlannerAssessmentDraft, 'key'>>
+    }
   | { type: 'removeAssessment'; courseKey: string; key: string }
   | { type: 'dismissUnparsed'; line: number }
-  | { type: 'unparsedToUnit'; line: number; courseKey: string | null; courseKeyNew: string; unitKey: string }
+  | {
+      type: 'unparsedToUnit'
+      line: number
+      courseKey: string | null
+      courseKeyNew: string
+      unitKey: string
+    }
 
 export function initialPlannerState(today: ISODate): PlannerState {
   return { draft: emptyPlannerDraft(today), step: 0, reached: 0, attempted: false }
@@ -518,7 +541,12 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
       return set({ ...draft, availability: action.availability })
     case 'replaceDraft': {
       const step = action.step ?? state.step
-      return { draft: action.draft, step, reached: Math.max(state.reached, step) as PlannerStep, attempted: false }
+      return {
+        draft: action.draft,
+        step,
+        reached: Math.max(state.reached, step) as PlannerStep,
+        attempted: false,
+      }
     }
     case 'go':
       return {
@@ -540,9 +568,7 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
     case 'patchCourse':
       return setCourses(mapCourse(draft.courses, action.key, (c) => ({ ...c, ...action.patch })))
     case 'removeCourse':
-      return setCourses(
-        pruneStalePrerequisites(draft.courses.filter((c) => c.key !== action.key)),
-      )
+      return setCourses(pruneStalePrerequisites(draft.courses.filter((c) => c.key !== action.key)))
     case 'reorderCourses':
       return setCourses(pruneStalePrerequisites(orderBy(draft.courses, action.keys)))
     case 'replaceCourse':
@@ -627,7 +653,8 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
       const unparsed = draft.unparsed.filter((u) => u.line !== action.line)
       const title = clean(line.text)
       const target =
-        draft.courses.find((c) => c.key === action.courseKey) ?? draft.courses[draft.courses.length - 1]
+        draft.courses.find((c) => c.key === action.courseKey) ??
+        draft.courses[draft.courses.length - 1]
       if (!target) {
         const course: PlannerCourse = {
           ...emptyCourse(action.courseKeyNew),
@@ -651,7 +678,6 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
   }
 }
 
-
 // ─── Validation ─────────────────────────────────────────────────────────────
 
 export type DraftErrors = Record<string, string>
@@ -673,7 +699,10 @@ export function validateWhen(draft: PlannerDraft, today: ISODate): DraftErrors {
   if (draft.targetMode === 'date') {
     if (draft.targetDate === null || !isISODate(draft.targetDate)) {
       errors.targetDate = 'Pick a finish date, or choose as fast as possible.'
-    } else if (isISODate(draft.startDate) && compareISODate(draft.targetDate, draft.startDate) <= 0) {
+    } else if (
+      isISODate(draft.startDate) &&
+      compareISODate(draft.targetDate, draft.startDate) <= 0
+    ) {
       errors.targetDate = 'The finish date has to be after the start.'
     }
   }
@@ -691,16 +720,19 @@ export function validateEffort(draft: PlannerDraft): DraftErrors {
 export function validateReview(draft: PlannerDraft): DraftErrors {
   const errors: DraftErrors = {}
   if (clean(draft.title) === '') errors.title = 'Give the goal a name.'
-  else if (clean(draft.title).length > TITLE_MAX) errors.title = `Keep it under ${TITLE_MAX} characters.`
+  else if (clean(draft.title).length > TITLE_MAX)
+    errors.title = `Keep it under ${TITLE_MAX} characters.`
   if (draft.courses.length === 0) errors.courses = 'Add at least one course.'
   for (const c of draft.courses) {
-    if (clean(c.title) === '' && clean(c.code) === '') errors[`course:${c.key}:title`] = 'Name the course.'
+    if (clean(c.title) === '' && clean(c.code) === '')
+      errors[`course:${c.key}:title`] = 'Name the course.'
     if (c.units.length > UNITS_MAX) errors[`course:${c.key}:units`] = `At most ${UNITS_MAX} units.`
     for (const u of c.units) {
       if (clean(u.title) === '') errors[`unit:${u.key}`] = 'Name the unit, or delete it.'
     }
     for (const a of c.assessments) {
-      if (a.date !== null && !isISODate(a.date)) errors[`assessment:${a.key}`] = 'Pick a valid date.'
+      if (a.date !== null && !isISODate(a.date))
+        errors[`assessment:${a.key}`] = 'Pick a valid date.'
     }
   }
   return errors
@@ -759,7 +791,11 @@ export interface RowsContext {
 /** Fractional hours that survive `hours × 60` in the scheduler's floor (a float error must not lose a grain). */
 const hoursOf = (minutes: number): number => minutes / 60 + 1e-9
 
-function estimateSource(draft: PlannerDraft, c: PlannerCourse, explicit: boolean): UnitEstimateSource {
+function estimateSource(
+  draft: PlannerDraft,
+  c: PlannerCourse,
+  explicit: boolean,
+): UnitEstimateSource {
   if (explicit) {
     if (draft.source === 'paste' || draft.source === 'pdf') return 'parsed'
     if (draft.source === 'claude') return 'import'
@@ -784,7 +820,12 @@ export function plannerRows(draft: PlannerDraft, ctx: RowsContext): PlannerRows 
   const targetDate = asap ? null : draft.targetDate
   const term: WguTerm | null =
     draft.wguTerm && targetDate !== null
-      ? { id: ctx.useKeys ? 'planner-term' : ctx.newId(), label: 'Term 1', start: draft.startDate, end: targetDate }
+      ? {
+          id: ctx.useKeys ? 'planner-term' : ctx.newId(),
+          label: 'Term 1',
+          start: draft.startDate,
+          end: targetDate,
+        }
       : null
 
   const idByKey = new Map<string, ID>()
@@ -1024,9 +1065,10 @@ export function settingsFromGoal(
 export function validateSettings(s: PlanSettingsDraft, today: ISODate): DraftErrors {
   const errors: DraftErrors = { ...validateAvailability(s.availability) }
   if (s.targetMode === 'date') {
-    if (s.targetDate === null || !isISODate(s.targetDate)) errors.targetDate = 'Pick a finish date, or choose as fast as possible.'
-    else if (compareISODate(s.targetDate, today) <= 0) errors.targetDate = 'Pick a date after today.'
+    if (s.targetDate === null || !isISODate(s.targetDate))
+      errors.targetDate = 'Pick a finish date, or choose as fast as possible.'
+    else if (compareISODate(s.targetDate, today) <= 0)
+      errors.targetDate = 'Pick a date after today.'
   }
   return errors
 }
-

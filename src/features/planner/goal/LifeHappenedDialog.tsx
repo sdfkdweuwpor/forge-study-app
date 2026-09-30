@@ -110,7 +110,9 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
         toast.show({ title: 'Re-planned this week', description: p.title, undo: r.undo })
         onClose()
       } else {
-        toast.error('The plan changed while you were looking', { description: 'Nothing was changed. Try again.' })
+        toast.error('The plan changed while you were looking', {
+          description: 'Nothing was changed. Try again.',
+        })
         setPhase({ name: 'choose' })
       }
     } catch (error) {
@@ -140,13 +142,21 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
       footer={
         phase.name === 'preview' ? (
           <>
-            <Button variant="ghost" onClick={() => void discard().then(() => setPhase({ name: 'choose' }))}>
+            <Button
+              variant="ghost"
+              onClick={() => void discard().then(() => setPhase({ name: 'choose' }))}
+            >
               Back
             </Button>
             <Button
               variant="primary"
               loading={applying}
-              disabled={phase.proposal.preview.moved.length + phase.proposal.preview.added.length + phase.proposal.preview.removed.length === 0}
+              disabled={
+                phase.proposal.preview.moved.length +
+                  phase.proposal.preview.added.length +
+                  phase.proposal.preview.removed.length ===
+                0
+              }
               onClick={() => void confirm(phase.proposal)}
             >
               Confirm re-plan
@@ -175,7 +185,11 @@ export function LifeHappenedDialog({ goal, today, open, onClose }: LifeHappenedD
               <h3 id="life-days" className={shared.sectionTitle}>
                 Which days are gone?
               </h3>
-              <div className={styles.dayChips} role="group" aria-label="Days this week you can’t study">
+              <div
+                className={styles.dayChips}
+                role="group"
+                aria-label="Days this week you can’t study"
+              >
                 {days.map((d) => (
                   <Tag key={d} shape="pill" pressed={gone.has(d)} onClick={() => toggleDay(d)}>
                     {dayName(d)} {Number(d.slice(8))}
@@ -238,14 +252,16 @@ function Preview({ proposal, today }: { proposal: PlanProposal; today: ISODate }
             <li key={m.key} className={styles.move}>
               <span className={styles.moveTitle}>{m.title}</span>
               <span className={styles.moveWhen}>
-                {formatDay(m.from.doDate, today)} {timeLabel(m.from.startTime)} → {formatDay(m.to.doDate, today)}{' '}
-                {timeLabel(m.to.startTime)}
+                {formatDay(m.from.doDate, today)} {timeLabel(m.from.startTime)} →{' '}
+                {formatDay(m.to.doDate, today)} {timeLabel(m.to.startTime)}
               </span>
             </li>
           ))}
         </ul>
       ) : null}
-      {moved.length > 12 ? <p className={shared.hint}>and {plural(moved.length - 12, 'more session')}.</p> : null}
+      {moved.length > 12 ? (
+        <p className={shared.hint}>and {plural(moved.length - 12, 'more session')}.</p>
+      ) : null}
       {added.length > 0 || removed.length > 0 ? (
         <p className={shared.hint}>
           {added.length > 0 ? `${plural(added.length, 'session')} added. ` : ''}

@@ -135,7 +135,12 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
           label="Choose icon"
           align="start"
           trigger={(p) => (
-            <button {...p} type="button" className={styles.iconButton} aria-label={`Icon: ${draft.icon}. Change`}>
+            <button
+              {...p}
+              type="button"
+              className={styles.iconButton}
+              aria-label={`Icon: ${draft.icon}. Change`}
+            >
               <span aria-hidden="true">{draft.icon || <Smile />}</span>
             </button>
           )}
@@ -285,7 +290,11 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
                       value={course.code}
                       className={styles.code}
                       onChange={(ev) =>
-                        dispatch({ type: 'patchCourse', key: course.key, patch: { code: ev.target.value } })
+                        dispatch({
+                          type: 'patchCourse',
+                          key: course.key,
+                          patch: { code: ev.target.value },
+                        })
                       }
                     />
                     <Input
@@ -297,18 +306,24 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
                       error={errors[`course:${course.key}:title`]}
                       className={styles.courseTitle}
                       onChange={(ev) =>
-                        dispatch({ type: 'patchCourse', key: course.key, patch: { title: ev.target.value } })
+                        dispatch({
+                          type: 'patchCourse',
+                          key: course.key,
+                          patch: { title: ev.target.value },
+                        })
                       }
                     />
                     <span className={styles.courseTotal} title="Study time planned for this course">
                       {effortLabel(e.totalMinutes)}
                     </span>
-                    <IconButton
-                      size="sm"
-                      label={`Delete ${name}`}
-                      icon={<Trash2 />}
-                      onClick={() => removeCourse(course)}
-                    />
+                    <span className={styles.courseDel}>
+                      <IconButton
+                        size="sm"
+                        label={`Delete ${name}`}
+                        icon={<Trash2 />}
+                        onClick={() => removeCourse(course)}
+                      />
+                    </span>
                   </div>
 
                   {open ? (
@@ -355,41 +370,47 @@ export function ReviewStep({ draft, dispatch, errors, today }: ReviewStepProps) 
                                     }
                                   }}
                                 />
-                                <HoursField
-                                  label={`Hours for ${unit.title || `unit ${i + 1}`}`}
-                                  minutes={unit.minutes}
-                                  placeholder={
-                                    unit.minutes === null && share && share.baseMinutes > 0
-                                      ? String(Math.round((share.baseMinutes / 60) * 10) / 10)
-                                      : '—'
-                                  }
-                                  onCommit={(m) =>
-                                    dispatch({
-                                      type: 'patchUnit',
-                                      courseKey: course.key,
-                                      key: unit.key,
-                                      patch: { minutes: m },
-                                    })
-                                  }
-                                />
-                                <Checkbox
-                                  label="Optional"
-                                  checked={unit.optional}
-                                  onCheckedChange={(optional) =>
-                                    dispatch({
-                                      type: 'patchUnit',
-                                      courseKey: course.key,
-                                      key: unit.key,
-                                      patch: { optional },
-                                    })
-                                  }
-                                />
-                                <IconButton
-                                  size="sm"
-                                  label={`Delete ${unit.title || `unit ${i + 1}`}`}
-                                  icon={<Trash2 />}
-                                  onClick={() => removeUnit(course, unit)}
-                                />
+                                <span className={styles.unitHours}>
+                                  <HoursField
+                                    label={`Hours for ${unit.title || `unit ${i + 1}`}`}
+                                    minutes={unit.minutes}
+                                    placeholder={
+                                      unit.minutes === null && share && share.baseMinutes > 0
+                                        ? String(Math.round((share.baseMinutes / 60) * 10) / 10)
+                                        : '—'
+                                    }
+                                    onCommit={(m) =>
+                                      dispatch({
+                                        type: 'patchUnit',
+                                        courseKey: course.key,
+                                        key: unit.key,
+                                        patch: { minutes: m },
+                                      })
+                                    }
+                                  />
+                                </span>
+                                <span className={styles.unitOpt}>
+                                  <Checkbox
+                                    label="Optional"
+                                    checked={unit.optional}
+                                    onCheckedChange={(optional) =>
+                                      dispatch({
+                                        type: 'patchUnit',
+                                        courseKey: course.key,
+                                        key: unit.key,
+                                        patch: { optional },
+                                      })
+                                    }
+                                  />
+                                </span>
+                                <span className={styles.unitDel}>
+                                  <IconButton
+                                    size="sm"
+                                    label={`Delete ${unit.title || `unit ${i + 1}`}`}
+                                    icon={<Trash2 />}
+                                    onClick={() => removeUnit(course, unit)}
+                                  />
+                                </span>
                               </div>
                             )
                           }}

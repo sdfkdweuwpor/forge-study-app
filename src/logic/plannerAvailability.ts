@@ -5,7 +5,15 @@
  *
  * Windows are `'HH:mm'` wall-clock spans on one day. Index 0 = Sunday, like everywhere else.
  */
-import type { Availability, DateRange, Goal, GoalPlanning, HHmm, ISODate, TimeWindow } from '@/db/types'
+import type {
+  Availability,
+  DateRange,
+  Goal,
+  GoalPlanning,
+  HHmm,
+  ISODate,
+  TimeWindow,
+} from '@/db/types'
 import { compareISODate, isISODate } from './dates'
 import { minutesFromWeekly } from './goalPlanning'
 import {
@@ -21,7 +29,12 @@ import {
   intervalsToWindows,
   type ShiftPresetId,
 } from './scheduler/windows'
-import type { AvailabilityV2, DayWindows, ShiftPattern, WeekWindows } from './scheduler/plannerTypes'
+import type {
+  AvailabilityV2,
+  DayWindows,
+  ShiftPattern,
+  WeekWindows,
+} from './scheduler/plannerTypes'
 
 export interface DraftBlackout {
   key: string
@@ -158,7 +171,9 @@ export function copyDayTo(
 ): AvailabilityDraft {
   const source = av.weekly[from] ?? []
   const targets = to === 'weekdays' ? WEEKDAYS : [0, 1, 2, 3, 4, 5, 6]
-  const weekly = av.weekly.map((ws, d) => (targets.includes(d) ? copyWindows(source) : copyWindows(ws)))
+  const weekly = av.weekly.map((ws, d) =>
+    targets.includes(d) ? copyWindows(source) : copyWindows(ws),
+  )
   return { ...av, weekly }
 }
 
@@ -187,9 +202,11 @@ const nullIfEmpty = (ws: readonly TimeWindow[]): TimeWindow[] | null => {
 export function shiftToPattern(shift: ShiftDraft): NonNullable<Goal['planning']['shiftPattern']> {
   return {
     anchor: shift.anchor,
-    cycle: shiftCycle(SHIFT_PRESETS[shift.preset], nullIfEmpty(shift.onWindows), nullIfEmpty(shift.offWindows)).map(
-      (d) => (d ? copyWindows(d) : null),
-    ),
+    cycle: shiftCycle(
+      SHIFT_PRESETS[shift.preset],
+      nullIfEmpty(shift.onWindows),
+      nullIfEmpty(shift.offWindows),
+    ).map((d) => (d ? copyWindows(d) : null)),
   }
 }
 
@@ -235,7 +252,9 @@ export function validBlackouts(list: readonly DraftBlackout[]): DateRange[] {
     .filter((r) => isISODate(r.start) && isISODate(r.end) && compareISODate(r.start, r.end) <= 0)
     .map<DateRange>((r) => {
       const label = r.label.replace(/\s+/g, ' ').trim()
-      return label === '' ? { start: r.start as ISODate, end: r.end as ISODate } : { start: r.start as ISODate, end: r.end as ISODate, label }
+      return label === ''
+        ? { start: r.start as ISODate, end: r.end as ISODate }
+        : { start: r.start as ISODate, end: r.end as ISODate, label }
     })
     .sort((a, b) => compareISODate(a.start, b.start))
 }
@@ -246,7 +265,9 @@ export function toAvailabilityV2(
 ): AvailabilityV2 {
   const shiftPattern: ShiftPattern | null = av.shift ? shiftToPattern(av.shift) : null
   return {
-    weekly: Array.from({ length: 7 }, (_, d): DayWindows => cleanWindows(av.weekly[d] ?? [])) as unknown as WeekWindows,
+    weekly: Array.from({ length: 7 }, (_, d): DayWindows =>
+      cleanWindows(av.weekly[d] ?? []),
+    ) as unknown as WeekWindows,
     sessionMinutes: clampSession(av.sessionMinutes),
     blackouts: [...validBlackouts(av.blackouts), ...extraBlackouts],
     shiftPattern,
@@ -260,7 +281,10 @@ export function toGoalAvailability(av: AvailabilityDraft): {
 } {
   const weekly = Array.from({ length: 7 }, (_, d) => cleanWindows(av.weekly[d] ?? []))
   return {
-    availability: { minutesByWeekday: minutesFromWeekly(weekly), daysOff: validBlackouts(av.blackouts) },
+    availability: {
+      minutesByWeekday: minutesFromWeekly(weekly),
+      daysOff: validBlackouts(av.blackouts),
+    },
     planning: {
       sessionMinutes: clampSession(av.sessionMinutes),
       weekly,
@@ -314,7 +338,7 @@ export function studyDaysPerWeek(av: AvailabilityDraft): number {
     const cycle = shiftToPattern(av.shift).cycle
     if (cycle.length === 0) return 0
     const days = cycle.filter((d) => d !== null).length
-    return Math.round(((days / cycle.length) * 7) * 10) / 10
+    return Math.round((days / cycle.length) * 7 * 10) / 10
   }
   return av.weekly.filter((ws) => sumWindows(ws) > 0).length
 }
@@ -373,7 +397,15 @@ export function withExtraMinutes(av: AvailabilityDraft, minutes: number): Availa
     // Extend the shift's own windows through a second probe (weekday 0 = work day, 1 = day off).
     const shiftProbe = addMinutesToWindows(
       {
-        weekly: [cleanWindows(shift.onWindows), cleanWindows(shift.offWindows), [], [], [], [], []] as unknown as WeekWindows,
+        weekly: [
+          cleanWindows(shift.onWindows),
+          cleanWindows(shift.offWindows),
+          [],
+          [],
+          [],
+          [],
+          [],
+        ] as unknown as WeekWindows,
         sessionMinutes: av.sessionMinutes,
         blackouts: [],
         shiftPattern: null,
@@ -388,4 +420,3 @@ export function withExtraMinutes(av: AvailabilityDraft, minutes: number): Availa
   }
   return { ...av, weekly, shift }
 }
-

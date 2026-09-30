@@ -54,6 +54,9 @@ export async function loadGoalRows(goalId: ID, today: ISODate): Promise<LoadedGo
     globalDaysOff: settings.scheduling.globalDaysOff,
     busy,
     weekStartsOn: settings.weekStartsOn,
+    // The hour the person focuses best (check-ins, Phase 11b): the first session of a day prefers it.
+    preferredStartMinutes:
+      settings.scheduling.bestHour === null ? null : settings.scheduling.bestHour * 60,
     settings,
   }
 }

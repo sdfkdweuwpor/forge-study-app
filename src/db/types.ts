@@ -556,9 +556,14 @@ export interface Snapshot extends Base {
   day: ISODate
   reason: SnapshotReason
   schemaVersion: number
+  /** Size of the JSON in bytes (what a download weighs), whether or not it is stored compressed. */
   sizeBytes: number
-  /** JSON of a BackupFile (file blobs excluded). */
+  /** JSON of a BackupFile (file blobs excluded). Empty when `gz` holds the same JSON compressed. */
   data: string
+  /** The JSON, gzip-compressed, when the browser could compress it (Phase 11c). Read via `readSnapshotText`. */
+  gz?: Blob
+  /** Rows per table (settings excluded) when it was taken, for the list. Absent before Phase 11c. */
+  counts?: Record<string, number>
 }
 export interface TrashItem extends Base {
   entityTable: TableName

@@ -36,6 +36,7 @@ export const SCOPE_LABELS: Record<ScopeId, string> = {
   progress: 'Progress',
   world: 'My World',
   blocker: 'Blocker',
+  trash: 'Trash',
   modal: 'Dialogs',
   menu: 'Menus',
   palette: 'Command palette',

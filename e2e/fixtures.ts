@@ -4,7 +4,7 @@ import { test as base, expect, type Page } from '@playwright/test'
 export const FIXED_NOW = new Date('2026-09-29T09:30:00-04:00')
 export const TIME_ZONE = 'America/New_York'
 
-type Seed = 'wgu' | 'empty'
+type Seed = 'wgu' | 'wgu-year' | 'empty'
 
 /** A 1x1 transparent PNG: what every favicon lookup gets. */
 const FAVICON_STUB = Buffer.from(

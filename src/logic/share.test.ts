@@ -29,6 +29,20 @@ describe('replaceEqualDeep', () => {
     expect(replaceEqualDeep({ a: undefined }, { b: undefined })).toEqual({ b: undefined })
   })
 
+  it('keeps shared parts when the new value is shorter or has fewer keys', () => {
+    const a = { x: [1] }
+    const b = { y: [2] }
+    const shorter = replaceEqualDeep([a, b], [{ x: [1] }])
+    expect(shorter).toHaveLength(1)
+    expect(shorter[0]).toBe(a)
+    const fewer = replaceEqualDeep({ a, b }, { a: { x: [1] } })
+    expect(Object.keys(fewer)).toEqual(['a'])
+    expect(fewer.a).toBe(a)
+    // Nothing to keep: the new value itself, not a copy.
+    const fresh = [3, 4]
+    expect(replaceEqualDeep([1, 2], fresh)).toBe(fresh)
+  })
+
   it('never shares what is not JSON-like', () => {
     const prev = { at: new Date(0), m: new Map([[1, 2]]) }
     const next = { at: new Date(0), m: new Map([[1, 2]]) }
@@ -49,7 +63,9 @@ describe('replaceEqualDeep', () => {
       if (k === 1) return ['x', 'y', null][rnd(3)]
       if (k === 2) return rnd(2) === 0
       if (k === 3) return Array.from({ length: rnd(3) }, () => gen(depth + 1))
-      return Object.fromEntries(Array.from({ length: rnd(3) }, (_, i) => [`k${i + rnd(2)}`, gen(depth + 1)]))
+      return Object.fromEntries(
+        Array.from({ length: rnd(3) }, (_, i) => [`k${i + rnd(2)}`, gen(depth + 1)]),
+      )
     }
     for (let i = 0; i < 400; i++) {
       const a = gen(0)

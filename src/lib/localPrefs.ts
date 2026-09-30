@@ -29,6 +29,8 @@ export const PREF_KEYS = {
   todayLayout: 'forge:today:layout',
   /** Roadmap zoom in months ('3' | '6' | '12'); written by the roadmap feature. */
   roadmapZoom: 'forge:roadmap:zoom',
+  /** Local day ('YYYY-MM-DD') the Trash was last purged of expired items; written by the safety feature at app start. */
+  trashPurgedDay: 'forge:trash:purged-day',
   /** '1' makes the first-launch gate stand aside. Only read in builds with VITE_ENABLE_SEED (e2e, dev); written by e2e/fixtures.ts. */
   skipOnboarding: 'forge:onboarding:skip',
 } as const

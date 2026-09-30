@@ -876,8 +876,10 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 
 ### Phase 11 — Extras (three waves of three parallel builders; everything plugs in via slots)
 - [ ] **Wave A**
-  - **11a [B] Parking lot** (`features/parking`, `repos/parking.ts`): `p` during focus opens a tiny input; review list in `focus.afterSession`; convert to task.
-  - **11b [B] Check-ins** (`features/checkins`, `repos/checkins.ts`, `logic/insights.ts` + test): focus 1–5 + mood after a session; best hours/days in `progress.sections`; sets `settings.scheduling.bestHour`, which is used as the default `dueTime` for the first goal chunk of the day.
+  - [x] **11a [B] Parking lot** (`features/parking`, `repos/parking.ts`): `p` during focus opens a tiny input; review list in `focus.afterSession`; convert to task.
+    - Done: `p` in the `focus` and `fullscreen` scopes and globally while a focus session runs, palette "Park a thought" / "Review parked thoughts"; end-dialog list (collapsible; Convert to task, Done, Delete, each with Undo); a Today aside card instead of a `/parking` route; buttons in the Focus aside and under the mini timer for touch. `e2e/parking.spec.ts`, `scripts/shots/parking.ts`. Decisions in DECISIONS.md "Parking lot & check-ins".
+  - [x] **11b [B] Check-ins** (`features/checkins`, `repos/checkins.ts`, `logic/insights.ts` + test): focus 1–5 + mood after a session; best hours/days in `progress.sections`; sets `settings.scheduling.bestHour`, which the planner uses as the preferred start of the first study session of a day.
+    - Done: "How was your focus?" in the end dialog (radiogroup, keys 1–5, optional mood), "When you focus best" card on Progress (needs 3 ratings in an hour), `bestHour` recomputed on every save, and `PlannerSettings.preferredStartMinutes` in `placeStudy` (a paced plan only, never at the cost of planned minutes; `preferredStart.test.ts`). `e2e/checkins.spec.ts`.
   - **11c [B] Safety** (`features/safety`, `repos/snapshots.ts`, list/purge additions in `repos/trash.ts`, `logic/retention.ts` + test): Trash page (restore/purge), 30-day purge, daily snapshot keeping 7, restore in `settings.sections`, polished ErrorBoundary with export.
 - [ ] **Wave B**
   - **11d [B] Flashcards** (`features/flashcards`, `repos/flashcards.ts`, `logic/{sm2,cardImport}.ts` + tests): SM-2 (grades Again=1, Hard=3, Good=4, Easy=5; EF floor 1.3); CSV/JSON import; review route; a daily "Review 18 C182 cards, ~10 min" task (source `flashcards`); `course.panels`.
@@ -897,6 +899,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **13A [D]** Every route at 375, 768 and 1440 in light and dark with seeded data; fix list.
 - [ ] **13B [B]** Keyboard-only walkthrough in `e2e/keyboard.spec.ts`; fix focus traps and order.
 - [ ] **13C [B]** Lighthouse with `npx lighthouse` (no dependency) against the preview using `CHROME_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`: Performance ≥ 90, Accessibility ≥ 95. Bundle budget: initial JS ≤ 180 KB gzip.
+- [x] **13P [A] Performance at a year of study** (done early, 2026-09-30): `?seed=wgu-year` (2,000 finished + ~300 open sessions on one goal); budgets in `src/db/repos/budgets.test.ts` (CPU, `src/test/timing.ts`) and `e2e/perf.spec.ts` (Chrome thread time): start interactive < 1.5 s, `rebalanceGoal` < 300 ms, a completion painted < 100 ms. Structural sharing of live queries, progressive task lists, per-row completion motion. See DECISIONS › Performance.
 - [ ] **13D [H]** README final: screenshots copied to the committed `docs/screenshots/`, PWA install on phone, extension install, backup/restore, WGU import prompt. Tick every box in this file.
 
 ---

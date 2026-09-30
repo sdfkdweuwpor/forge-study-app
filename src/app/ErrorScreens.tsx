@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
+import { copyText } from '@/lib/clipboard'
 import { isChunkLoadError } from '@/logic/chunkError'
+import { buildErrorReport } from '@/logic/errorReport'
 import { reloadOnceForChunkError } from './chunkReload'
 import { exportAllData } from './exportData'
 import type { FatalState } from './fatal'
+import { getRecordedErrors } from './reportError'
+import { href } from './router'
 import styles from './ErrorScreens.module.css'
 
 type ExportState =
@@ -18,7 +22,9 @@ function ExportButton() {
     setState({ kind: 'busy' })
     try {
       const r = await exportAllData()
-      setState({ kind: 'done', text: `Saved ${r.filename} (${r.rows} records).` })
+      // A note means something was left out (attached files over the size limit): say so, don't hide it.
+      const left = r.notes.length > 0 ? ` ${r.notes.join(' ')}` : ''
+      setState({ kind: 'done', text: `Saved ${r.filename} (${r.rows} records).${left}` })
     } catch (e) {
       setState({
         kind: 'failed',
@@ -44,7 +50,106 @@ function ExportButton() {
   )
 }
 
+/** The app's version (from package.json at build time), or "dev" where the build constant does not exist. */
+const version = (): string => (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')
+
+type CopyState = 'idle' | 'copied' | 'failed'
+
+/** Copies what a bug report needs (the error, the page, the version and browser; nothing the person wrote). */
+function CopyDetailsButton({ error, where }: { error: Error; where: string }) {
+  const [state, setState] = useState<CopyState>('idle')
+
+  async function run() {
+    let ok = false
+    try {
+      const text = buildErrorReport({
+        error: {
+          name: error.name,
+          message: error.message,
+          ...(error.stack ? { stack: error.stack } : {}),
+        },
+        where,
+        appVersion: version(),
+        userAgent: navigator.userAgent,
+        url: `${window.location.pathname}${window.location.search}`,
+        at: Date.now(),
+        recent: getRecordedErrors(),
+      })
+      ok = await copyText(text)
+    } catch {
+      ok = false
+    }
+    setState(ok ? 'copied' : 'failed')
+  }
+
+  return (
+    <>
+      <button type="button" className={styles.secondary} onClick={() => void run()}>
+        Copy error details
+      </button>
+      <p className={styles.status} role="status">
+        {state === 'copied'
+          ? 'Copied. Paste it wherever you report the problem.'
+          : state === 'failed'
+            ? 'Couldn’t copy. Select the message above and copy it by hand.'
+            : ''}
+      </p>
+    </>
+  )
+}
+
+/**
+ * Where an earlier copy of the data can be restored. A plain link, not the router's, so it works on a
+ * screen that sits outside every provider; it reloads the app on that page, which is what a restore wants.
+ */
+function SnapshotsLink() {
+  return (
+    <p className={styles.help}>
+      Something looks wrong with your data? Forge keeps a daily copy on this device.{' '}
+      <a className={styles.link} href={href('settings', { section: 'snapshots' })}>
+        Open Settings, Snapshots
+      </a>{' '}
+      to restore one.
+    </p>
+  )
+}
+
 const reload = () => window.location.reload()
+
+/**
+ * The last line of defence: if a crash screen itself throws (a bad message, a broken import), this shows
+ * a plain page with the two things that always work, instead of leaving the person with a blank window.
+ */
+class CrashGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false }
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true }
+  }
+
+  override componentDidCatch(_error: unknown, _info: ErrorInfo): void {
+    // Nothing more to do: this screen must not depend on anything that could throw again.
+  }
+
+  override render(): ReactNode {
+    if (!this.state.failed) return this.props.children
+    return (
+      <main className={styles.screen}>
+        <div className={styles.card} role="alert">
+          <h1 className={styles.title}>Something went wrong</h1>
+          <p className={styles.body}>
+            Your data is stored on this device and has not been touched. Reload to try again.
+          </p>
+          <div className={styles.actions}>
+            <button type="button" className={styles.primary} onClick={reload}>
+              Reload
+            </button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+}
 
 interface FullScreenProps {
   title: string
@@ -55,35 +160,54 @@ interface FullScreenProps {
   onRetry?: () => void
   /** Offer a raw JSON export (needs the database to be readable). */
   canExport?: boolean
+  /** The error behind the screen; adds "Copy error details". */
+  error?: Error
+  /** Where it happened, for the copied details. */
+  where?: string
+  /** Point at Settings, Snapshots (only where the app can still start). */
+  snapshots?: boolean
 }
 
 /** Full-screen failure page. Uses no app context, so it survives provider failures. */
-function FullScreenError({ title, body, detail, onRetry, canExport = true }: FullScreenProps) {
+function FullScreenError({
+  title,
+  body,
+  detail,
+  onRetry,
+  canExport = true,
+  error,
+  where = 'the app',
+  snapshots = false,
+}: FullScreenProps) {
   return (
-    <main className={styles.screen}>
-      <div className={styles.card} role="alert">
-        <h1 className={styles.title}>{title}</h1>
-        <p className={styles.body}>{body}</p>
-        {detail ? <p className={styles.detail}>{detail}</p> : null}
-        <div className={styles.actions}>
-          {onRetry ? (
-            <>
-              <button type="button" className={styles.primary} onClick={onRetry}>
-                Try again
-              </button>
-              <button type="button" className={styles.secondary} onClick={reload}>
+    <CrashGuard>
+      <main className={styles.screen}>
+        <div className={styles.card} role="alert">
+          <h1 className={styles.title}>{title}</h1>
+          <p className={styles.body}>{body}</p>
+          {detail ? <p className={styles.detail}>{detail}</p> : null}
+          <div className={styles.actions}>
+            {onRetry ? (
+              <>
+                <button type="button" className={styles.primary} onClick={onRetry}>
+                  Try again
+                </button>
+                <button type="button" className={styles.secondary} onClick={reload}>
+                  Reload
+                </button>
+              </>
+            ) : (
+              <button type="button" className={styles.primary} onClick={reload}>
                 Reload
               </button>
-            </>
-          ) : (
-            <button type="button" className={styles.primary} onClick={reload}>
-              Reload
-            </button>
-          )}
-          {canExport ? <ExportButton /> : null}
+            )}
+            {canExport ? <ExportButton /> : null}
+            {error ? <CopyDetailsButton error={error} where={where} /> : null}
+          </div>
+          {snapshots ? <SnapshotsLink /> : null}
         </div>
-      </div>
-    </main>
+      </main>
+    </CrashGuard>
   )
 }
 
@@ -92,9 +216,12 @@ export function RootErrorScreen({ error, onRetry }: { error: Error; onRetry: () 
   return (
     <FullScreenError
       title="Something went wrong"
-      body="Forge hit an unexpected error. Your data is stored on this device and has not been touched. You can export a copy before you try again."
+      body="Forge hit an unexpected problem. Your data is stored on this device and has not been touched. Export a copy to be safe, then try again."
       detail={error.message}
       onRetry={onRetry}
+      error={error}
+      where="the app"
+      snapshots
     />
   )
 }
@@ -123,6 +250,8 @@ export function FatalScreen({ fatal }: { fatal: FatalState }) {
           title="Forge could not start"
           body="The database on this device could not be opened. Your data has not been touched. Reload to try again, or export a copy first."
           detail={fatal.error.message}
+          error={fatal.error}
+          where="start-up"
         />
       )
   }
@@ -163,7 +292,9 @@ export function RouteErrorView({ error, onRetry }: { error: Error; onRetry: () =
           Try again
         </button>
         <ExportButton />
+        <CopyDetailsButton error={error} where="a page" />
       </div>
+      <SnapshotsLink />
     </section>
   )
 }

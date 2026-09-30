@@ -1,0 +1,32 @@
+/*
+ * A tiny input near the top of the screen, over whatever is there. It is portaled to <body>, or into the
+ * full-screen focus view while that is open, so `position: fixed` measures the window either way.
+ */
+.layer {
+  position: fixed;
+  top: max(var(--space-12), 18vh);
+  left: 50%;
+  z-index: var(--z-popover);
+  width: min(440px, calc(100vw - 2 * var(--space-4)));
+  translate: -50% 0;
+}
+
+.panel {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  animation: settle var(--dur-2) var(--ease) both;
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--shift-1)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

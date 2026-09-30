@@ -84,3 +84,15 @@
   color: var(--text-muted);
   font-size: var(--fs-14);
 }
+
+.help {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.link {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -22,31 +22,46 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => {
  */
 export function replaceEqualDeep<T>(prev: unknown, next: T): T {
   if (Object.is(prev, next)) return next
+  // Nothing is copied while the two agree: a copy starts at the first part that differs, and when
+  // nothing of `prev` could be kept, `next` itself is returned. Most re-runs of a live query change
+  // nothing, so the common path allocates nothing.
   if (Array.isArray(prev) && Array.isArray(next)) {
-    let same = prev.length === next.length
+    let out: unknown[] | null = null
     let reused = false
-    const out = next.map((value: unknown, i) => {
-      const shared = replaceEqualDeep(prev[i], value)
-      if (!Object.is(shared, prev[i])) same = false
-      if (!Object.is(shared, value)) reused = true
-      return shared
-    })
-    return (same ? prev : reused ? out : next) as T
+    for (let i = 0; i < next.length; i++) {
+      const shared: unknown = replaceEqualDeep(prev[i], next[i])
+      if (!Object.is(shared, next[i])) reused = true
+      if (out === null && !(i < prev.length && Object.is(shared, prev[i]))) out = prev.slice(0, i)
+      if (out !== null) out.push(shared)
+    }
+    if (out === null && prev.length === next.length) return prev as T
+    return (reused ? (out ?? prev.slice(0, next.length)) : next) as T
   }
   if (isPlainObject(prev) && isPlainObject(next)) {
     const keys = Object.keys(next)
-    let same = keys.length === Object.keys(prev).length
+    let out: Record<string, unknown> | null = null
     let reused = false
-    const out: Record<string, unknown> = {}
-    for (const key of keys) {
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i] as string
       const had = Object.prototype.hasOwnProperty.call(prev, key)
-      const shared = had ? replaceEqualDeep(prev[key], next[key]) : next[key]
-      if (!had || !Object.is(shared, prev[key])) same = false
+      const shared: unknown = had ? replaceEqualDeep(prev[key], next[key]) : next[key]
       if (!Object.is(shared, next[key])) reused = true
-      out[key] = shared
+      if (out === null && !(had && Object.is(shared, prev[key]))) {
+        out = {}
+        for (let j = 0; j < i; j++) {
+          const k = keys[j] as string
+          out[k] = prev[k]
+        }
+      }
+      if (out !== null) out[key] = shared
     }
-    // Nothing kept from `prev`: the new value as it is (no copy).
-    return (same ? prev : reused ? out : next) as T
+    if (out === null && keys.length === Object.keys(prev).length) return prev as T
+    if (!reused) return next
+    if (out === null) {
+      out = {}
+      for (const key of keys) out[key] = prev[key]
+    }
+    return out as T
   }
   return next
 }
@@ -56,7 +71,10 @@ export function replaceEqualDeep<T>(prev: unknown, next: T): T {
  * every later row look new. Each row is shared with `replaceEqualDeep`; the array is `prev` itself when
  * it holds the same rows in the same order.
  */
-export function shareRows<T extends { id: string }>(prev: readonly T[] | undefined, next: T[]): T[] {
+export function shareRows<T extends { id: string }>(
+  prev: readonly T[] | undefined,
+  next: T[],
+): T[] {
   if (prev === undefined) return next
   const before = new Map<string, T>()
   for (const row of prev) before.set(row.id, row)

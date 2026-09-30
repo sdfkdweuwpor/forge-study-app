@@ -74,6 +74,7 @@ export const DEFAULT_PLANNER_SETTINGS: Readonly<PlannerSettings> = {
   reviewOffsets: { exam: [7, 3, 1], quiz: [1], project: [2] },
   assessmentMinutes: { exam: 120, quiz: 30, project: 60 },
   weekStartsOn: 1,
+  preferredStartMinutes: null,
 }
 
 /** Study days an offset may reach back (reviews further out than this are not spaced any wider). */
@@ -124,6 +125,12 @@ export function resolvePlannerSettings(p: Partial<PlannerSettings> = {}): Planne
       project: ceilTo(num(am?.project, d.assessmentMinutes.project, 0, 720), grain),
     },
     weekStartsOn: p.weekStartsOn === 0 ? 0 : 1,
+    preferredStartMinutes:
+      p.preferredStartMinutes === null ||
+      p.preferredStartMinutes === undefined ||
+      !Number.isFinite(p.preferredStartMinutes)
+        ? null
+        : Math.round(num(p.preferredStartMinutes, 0, 0, DAY_MINUTES - 1)),
   }
 }
 
@@ -716,10 +723,33 @@ function run(p: Prepared, pace: number | null): PlanRun {
       }
       return null
     }
+    /**
+     * The day's first session at the preferred start (`s.preferredStartMinutes`) when a free slot holds it
+     * there and it is not already past. Only a paced plan, and only while starting there still leaves
+     * the day room for the minutes its pace allows: a preferred hour never costs planned time.
+     */
+    const tryPreferred = (): { at: number; size: number } | null => {
+      const want = s.preferredStartMinutes
+      if (want === null || pace === null || st.busy) return null
+      const at = ceilTo(want, s.grain)
+      if (at < st.min) return null
+      for (const [a, b] of book.freeOn(st.day)) {
+        if (b <= at) continue
+        if (a > at) return null
+        const size = pieceSize(left, b - at, sizes)
+        if (size === null || st.tokens < size) return null
+        const room = Math.min(st.tokens, book.freeMinutesFrom(st.day, st.min))
+        return book.freeMinutesFrom(st.day, at) >= room ? { at, size } : null
+      }
+      return null
+    }
     for (; st.day <= p.lastDay; nextDay()) {
       accrue(st.day)
       if (pace !== null && st.tokens < Math.min(left, sizes.min)) continue
-      const hit = tryAt(st.min + (st.busy ? s.breakMinutes : 0)) ?? (st.busy ? tryAt(st.min) : null)
+      const hit =
+        tryPreferred() ??
+        tryAt(st.min + (st.busy ? s.breakMinutes : 0)) ??
+        (st.busy ? tryAt(st.min) : null)
       if (!hit) continue
       take(st.day, hit.at, hit.size)
       placed.push({

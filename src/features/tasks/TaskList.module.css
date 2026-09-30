@@ -70,6 +70,9 @@
 }
 
 .more {
+  /* Never the scroll anchor: rows drawn above it would push the page down to keep it in view, and it
+   * would ask for more again, until the whole list was drawn. */
+  overflow-anchor: none;
   display: flex;
   align-items: center;
   justify-content: space-between;

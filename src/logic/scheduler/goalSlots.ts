@@ -69,6 +69,8 @@ export interface SlotGoalRows {
    */
   busy?: readonly Task[]
   weekStartsOn?: 0 | 1
+  /** The start the first study session of a day prefers (`settings.scheduling.bestHour` x 60), if any. */
+  preferredStartMinutes?: number | null
 }
 
 export interface SlotPlan {
@@ -284,7 +286,13 @@ export function goalPlannerInput(rows: SlotGoalRows, today: ISODate): GoalInput 
     pinned,
     blockedSlots: blocked,
     completedKeys,
-    settings: { bufferPct: goal.planning.bufferPct, weekStartsOn: rows.weekStartsOn ?? 1 },
+    settings: {
+      bufferPct: goal.planning.bufferPct,
+      weekStartsOn: rows.weekStartsOn ?? 1,
+      ...(rows.preferredStartMinutes != null
+        ? { preferredStartMinutes: rows.preferredStartMinutes }
+        : {}),
+    },
   }
   return { input, pinnedIds, planTasks, doneStudy, courseOfUnit, asap }
 }

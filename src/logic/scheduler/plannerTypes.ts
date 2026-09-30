@@ -139,6 +139,13 @@ export interface PlannerSettings {
   /** Length of an assessment with a booked time and no duration of its own. */
   assessmentMinutes: Readonly<Record<AssessmentKind, number>>
   weekStartsOn: 0 | 1
+  /**
+   * Minutes after midnight the first study session of a day starts at when a free slot allows it (the
+   * hour the person focuses best: `settings.scheduling.bestHour` x 60). `null` = no preference, so the
+   * day's earliest free slot is used. Only a paced plan uses it, and never at the cost of the day's
+   * planned minutes.
+   */
+  preferredStartMinutes: number | null
 }
 
 export interface PlannerInput {

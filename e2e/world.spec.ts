@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { FIXED_NOW, expect, gotoApp, test } from './fixtures'
 import { focusSession, putRows } from './idb'
+import { patchSettings } from './progressHistory'
 
 /**
  * Phase 8A: My World end to end. The clock is frozen at Tue 2026-09-29 09:30 EDT (the fixture's), so
@@ -224,6 +225,9 @@ test.describe('My World', () => {
     })
     await putRows(page, 'tasks', tasks)
     await putRows(page, 'sessions', Array.from({ length: 100 }, (_, i) => focusSession(`many-s${i}`, isoOf(-1 - i), null, 60)))
+    // The 100-day streak pays its milestone XP at start-up, and the level-up moment it raises would sit
+    // over the canvas when the tooltip is hovered below (it did, 1 run in 4 to 4 in 4 depending on load).
+    await patchSettings(page, { lastCelebratedLevel: 999 })
     await page.goto('/world')
     await expect.poll(() => page.evaluate(() => window.__forgeWorld?.ids().length ?? 0), { timeout: 30_000 }).toBeGreaterThan(2000)
     await expect.poll(() => page.evaluate(() => window.__forgeWorld?.stats()?.streakLevel ?? 0)).toBe(4)

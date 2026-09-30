@@ -30,6 +30,7 @@ export type ScopeId =
   | 'progress'
   | 'world'
   | 'blocker'
+  | 'trash'
   | 'modal'
   | 'menu'
   | 'palette'

@@ -1,8 +1,8 @@
-import { Download, FileUp, RotateCcw } from 'lucide-react'
+import { ArrowRight, Download, FileUp, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { recordError } from '@/app/reportError'
 import { useNow } from '@/app/hooks/useNow'
-import { setQuery, useQuery, href } from '@/app/router'
+import { Link, setQuery, useQuery, href } from '@/app/router'
 import { useSettings } from '@/db/hooks/useSettings'
 import {
   BACKUP_CONTEXT,
@@ -22,6 +22,7 @@ import { rememberImport } from './importResult'
 import { ResetDialog } from './ResetDialog'
 import { Row } from './Row'
 import { SaveStatusLine } from './SaveStatusLine'
+import settingsStyles from './settings.module.css'
 import { DATA } from './sections'
 import { SectionLoading, SettingsSection } from './SettingsSection'
 import { useBackupExport } from './useBackupExport'
@@ -219,6 +220,18 @@ export function DataSection() {
             checked={remindWeekly}
             onCheckedChange={(on) => void save({ backup: { remindWeekly: on } })}
           />
+        )}
+      </Row>
+
+      <Row
+        label="Trash"
+        help="Deleted tasks, goals and courses stay in the Trash for 30 days, where you can restore them."
+      >
+        {() => (
+          <Link to="trash" className={settingsStyles.link}>
+            Open Trash
+            <ArrowRight aria-hidden="true" />
+          </Link>
         )}
       </Row>
 

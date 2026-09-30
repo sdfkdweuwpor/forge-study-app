@@ -1,0 +1,5 @@
+.park {
+  justify-content: flex-start;
+  margin-inline: var(--space-1);
+  color: var(--text-muted);
+}

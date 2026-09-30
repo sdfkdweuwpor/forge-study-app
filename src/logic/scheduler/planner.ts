@@ -529,6 +529,11 @@ export interface PlanRun {
   blocked: boolean
   pace: number | null
   fits: boolean
+  /**
+   * With a target: minutes that do not fit by it (work after it, the part of the buffer it cuts off,
+   * study on or after a dated assessment of its course), or everything left unplaced. 0 without a target.
+   */
+  shortfall: number
 }
 
 const HARD: ReadonlySet<string> = new Set([
@@ -818,6 +823,7 @@ function run(p: Prepared, pace: number | null): PlanRun {
   // Projection and buffer.
   let projectedEnd: number | null = null
   let bufferedEnd: number | null = null
+  let bufferByTarget = 0
   const placedWork = placed.reduce((n, x) => n + (x.item.kind === 'assessment' ? 0 : x.item.minutes), 0)
   const bufferMinutes = bufferMinutesFor(placedWork + pinnedMinutes, s.bufferPct, s.grain)
   if (!blocked) {
@@ -832,6 +838,7 @@ function run(p: Prepared, pace: number | null): PlanRun {
           accrue(d)
           const free = book.freeMinutesFrom(d, d === st.day ? st.min : 0)
           const use = pace === null ? free : Math.min(free, Math.max(0, st.tokens))
+          if (p.target !== null && d <= p.target) bufferByTarget += Math.min(use, left)
           left -= use
           if (pace !== null) st.tokens -= use
           if (left <= 0) {
@@ -890,10 +897,24 @@ function run(p: Prepared, pace: number | null): PlanRun {
     if (w) windows.push({ courseId: id, start: isoOfDay(w.start), end: isoOfDay(w.end), minutes: w.minutes })
   }
 
+  let shortfall = 0
+  if (blocked) shortfall = unscheduled
+  else if (p.target !== null) {
+    const target = p.target
+    for (const x of placed) if (x.item.kind !== 'assessment' && x.day > target) shortfall += x.item.minutes
+    shortfall += Math.max(0, bufferMinutes - bufferByTarget)
+    for (const d of p.dated) {
+      if (!issues.some((i) => i.code === 'ASSESSMENT_TOO_EARLY' && i.assessmentId === d.a.id)) continue
+      for (const x of placed)
+        if (x.item.kind === 'study' && x.day >= d.day && x.day <= target && (d.a.courseId === null || x.item.courseId === d.a.courseId))
+          shortfall += x.item.minutes
+    }
+  }
+
   const hard = issues.some((i) => HARD.has(i.code))
   const fits =
     !hard && (p.target === null || projectedEnd === null || (bufferedEnd !== null && bufferedEnd <= p.target))
-  return { items, issues, projectedEnd, bufferedEnd, bufferMinutes, totals, windows, blocked, pace, fits }
+  return { items, issues, projectedEnd, bufferedEnd, bufferMinutes, totals, windows, blocked, pace, fits, shortfall }
 }
 
 /**
@@ -993,6 +1014,11 @@ export function planStudy(input: PlannerInput): PlannerResult {
     fits: r.fits,
     issues: r.issues,
   }
+}
+
+/** The token-bucket headroom a paced plan allows over its pace (the longest item the flow can place). */
+export function flowHeadroom(input: PlannerInput): number {
+  return prepare(input).maxFlow
 }
 
 /**

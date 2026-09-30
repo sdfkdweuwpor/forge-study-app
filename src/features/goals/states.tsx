@@ -12,7 +12,7 @@ export function GoalsEmpty() {
   return (
     <EmptyState
       icon={<Target />}
-      title="No goals yet"
+      title="Plan your first goal"
       description="Turn a degree into daily study blocks. Add your courses and the hours you can study, and Forge schedules every day and moves the plan when you fall behind. Starting a WGU degree? Start from the B.S. Computer Science template, with C182, C779, D278 and more already filled in."
       action={
         <>

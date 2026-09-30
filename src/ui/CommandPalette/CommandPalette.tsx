@@ -126,7 +126,9 @@ export function CommandPalettePanel({
         dispatch({ type: 'prev', ids })
         break
       case 'Enter':
-        if (activeItem) {
+        // Ctrl or Cmd + Enter is the app's "quick add from anywhere" (a global shortcut): it must not
+        // also run whichever row happens to be highlighted.
+        if (activeItem && !e.ctrlKey && !e.metaKey) {
           e.preventDefault()
           onSelect(activeItem)
         }

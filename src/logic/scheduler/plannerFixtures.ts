@@ -94,15 +94,29 @@ interface Block {
   start: number
   end: number
   what: string
+  /** Input blocks may overlap each other; only plan items are checked against everything. */
+  input?: boolean
 }
 
 function blocksOf(busy: readonly BusyBlock[], pinned: readonly PinnedPlanItem[]): Block[] {
   const out: Block[] = []
   for (const b of busy)
-    out.push({ date: b.date, start: minutesOf(b.start), end: minutesOf(b.start) + b.durationMinutes, what: `busy ${b.id ?? ''}` })
+    out.push({
+      date: b.date,
+      start: minutesOf(b.start),
+      end: minutesOf(b.start) + b.durationMinutes,
+      what: `busy ${b.id ?? ''}`,
+      input: true,
+    })
   for (const p of pinned)
     if (p.startTime)
-      out.push({ date: p.date, start: minutesOf(p.startTime), end: minutesOf(p.startTime) + p.durationMinutes, what: `pin ${p.key}` })
+      out.push({
+        date: p.date,
+        start: minutesOf(p.startTime),
+        end: minutesOf(p.startTime) + p.durationMinutes,
+        what: `pin ${p.key}`,
+        input: true,
+      })
   return out
 }
 
@@ -138,7 +152,7 @@ export function checkPlan(inp: PlannerInput, res: PlannerResult, courseOrder?: r
     for (let k = 1; k < list.length; k++) {
       const a = list[k - 1] as Block
       const b = list[k] as Block
-      if (b.start < a.end) out.push(`${date}: ${a.what} overlaps ${b.what}`)
+      if (b.start < a.end && !(a.input && b.input)) out.push(`${date}: ${a.what} overlaps ${b.what}`)
     }
   }
   const at = (i: PlanItem): string => `${i.doDate} ${i.startTime ?? '99:99'}`
@@ -199,7 +213,8 @@ export function wguPlannerInput(): PlannerInput {
   const legacy = wguYearPlan()
   return {
     today: legacy.today,
-    targetDate: legacy.targetDate,
+    // Later than v1's target: this plan adds spaced reviews, practice tests and breaks.
+    targetDate: '2028-03-31',
     availability: fromLegacyAvailability(legacy.availability, { studyStart: '18:00' }),
     courses: legacy.courses,
     assessments: legacy.courses.map((c, i) => ({

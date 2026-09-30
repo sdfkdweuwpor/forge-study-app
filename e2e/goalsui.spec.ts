@@ -89,7 +89,7 @@ test.describe('the goals list', () => {
 
   test('an empty list offers the flow, and n opens it', async ({ page }) => {
     await gotoApp(page, '/goals', 'empty')
-    await expect(page.getByRole('heading', { name: 'No goals yet' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Plan your first goal' })).toBeVisible()
     await expect(page.getByText(/WGU degree/)).toBeVisible()
     await page.keyboard.press('n')
     await expect(wizard(page)).toBeVisible()
@@ -365,7 +365,7 @@ test.describe('the goal page', () => {
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitem', { name: 'Move to trash' }).click()
     await expect(page).toHaveURL(/\/goals$/)
-    await expect(page.getByRole('heading', { name: 'No goals yet' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Plan your first goal' })).toBeVisible()
     await undo(page).click()
     await expect(
       page.getByRole('link', { name: 'B.S. Computer Science — WGU' }).first(),

@@ -7,7 +7,7 @@
 import type { ISODate } from '@/db/types'
 import { addDays } from '../dates'
 import { isoOfDay } from './capacity'
-import { freeMinutesUntil, planRun, planStudy, resolvePlannerSettings, type PlanRun } from './planner'
+import { planRun, planStudy, resolvePlannerSettings, type PlanRun } from './planner'
 import type { PlannerCourse, PlannerInput, SelfRating } from './plannerTypes'
 import { orderCourses } from './topo'
 import { addMinutesToWindows } from './windows'
@@ -140,7 +140,10 @@ export function findEarliestDate(input: PlannerInput): ISODate | null {
   return null
 }
 
-/** A verified set of units to cut so the plan fits by `ref` (greedy in candidate order, then pruned). */
+/**
+ * A verified set of units to cut so the plan fits by `ref` (greedy in candidate order, then pruned);
+ * empty when nothing short of cutting everything works.
+ */
 export function findCut(
   input: PlannerInput,
   ref: ISODate,
@@ -153,14 +156,15 @@ export function findCut(
   for (const c of candidates) {
     chosen.push(c.unitId)
     saved += c.minutes
-    // Skip the runs that cannot fit yet: the cut has to save at least the shortfall.
-    if (saved < shortfall) continue
+    // Skip runs that cannot fit yet: the cut (with its share of the buffer) has to cover the shortfall.
+    if (saved * 1.3 < shortfall) continue
     if (fitsBy(withoutUnits(input, chosen), ref)) {
       fit = true
       break
     }
   }
-  if (!fit) return []
+  // Cutting everything "fits" but is not a plan.
+  if (!fit || chosen.length === candidates.length) return []
   // Put back what is not needed, most valuable (latest chosen) first.
   for (let i = chosen.length - 1; i >= 0 && chosen.length > 1; i--) {
     const without = chosen.filter((_, k) => k !== i)
@@ -177,7 +181,7 @@ export function checkFeasibility(input: PlannerInput, reference?: ISODate | null
   const ref = reference ?? input.targetDate
   const target = { ...input, targetDate: ref }
   const base = planStudy(target)
-  const fast = asap({ ...input, targetDate: null })
+  const fast = asap(target)
   const earliest = fast.bufferedEnd === null ? null : isoOfDay(fast.bufferedEnd)
   const candidates = cutCandidates(input.courses)
   const empty: FeasibilityResult['options'] = {
@@ -196,12 +200,8 @@ export function checkFeasibility(input: PlannerInput, reference?: ISODate | null
   }
 
   const g = resolvePlannerSettings(input.settings).grain
-  const need = fast.totals.work + fast.bufferMinutes
-  const have = freeMinutesUntil(input, ref)
-  const late = fast.items
-    .filter((i) => i.doDate > ref && i.kind !== 'assessment' && i.kind !== 'milestone')
-    .reduce((n, i) => n + i.durationMinutes, 0)
-  const shortfallMinutes = Math.max(need - have, late, g)
+  // What does not fit even at full speed; a date problem alone (target in the past) still counts a grain.
+  const shortfallMinutes = Math.max(fast.shortfall, g)
 
   const extra = findExtraMinutes(input, ref)
   const extended = extra === null ? null : planStudy({ ...target, availability: addMinutesToWindows(input.availability, extra) })

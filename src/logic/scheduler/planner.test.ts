@@ -161,9 +161,9 @@ describe('planStudy: slot placement', () => {
     })
     const res = ok(inp)
     expect(rows(res.items)).toEqual([
-      ['2026-10-05', '19:00', 'a-u1:1', 50],
-      ['2026-10-06', '18:30', 'a-u1:2', 50],
-      ['2026-10-07', '19:00', 'a-u1:3', 50], // right after the pin: breaks are only between planned sessions
+      ['2026-10-05', '18:00', 'a-u1:1', 30], // fills the gap before the busy block
+      ['2026-10-05', '19:00', 'a-u1:2', 60],
+      ['2026-10-06', '18:30', 'a-u1:3', 60], // after the calendar event
     ])
     // The pinned item counts toward the end and the course window.
     expect(res.courseWindows[0]).toMatchObject({ start: '2026-10-05', end: '2026-10-07', minutes: 210 })
@@ -338,8 +338,8 @@ describe('planStudy: assessments, reviews and practice tests', () => {
     )
     expect(res.items.filter((i) => i.assessmentId !== null).map((i) => [i.key, i.doDate])).toEqual([
       ['review:q:1', '2026-10-13'],
-      ['assessment:q', '2026-10-14'],
       ['review:p:1', '2026-10-14'],
+      ['assessment:q', '2026-10-14'], // a day marker: after the day's timed items
       ['assessment:p', '2026-10-16'],
     ])
   })

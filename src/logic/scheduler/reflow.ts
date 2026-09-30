@@ -26,7 +26,7 @@ import { parseScheduleKey } from './estimates'
 import { checkFeasibility, formatDuration, withoutUnits } from './feasibility'
 import { weeklyMilestones } from './milestones'
 import { diffPlanItems } from './planDiff'
-import { comparePlanItems, planRun, planStudy, resolvePlannerSettings } from './planner'
+import { comparePlanItems, flowHeadroom, planRun, planStudy, resolvePlannerSettings } from './planner'
 import type {
   CurrentPlanItem,
   LivePlanInput,
@@ -216,8 +216,10 @@ function reflow(live: LivePlanInput, o: ReflowOptions): ReflowResult {
 
   // The flow, in its current order, push-only.
   const issues: PlannerIssue[] = []
-  const maxFlow = Math.max(0, ...flow.map((c) => c.durationMinutes))
+  // The planner's bucket, started full: tokens never fall below what the plan had, so an on-track plan
+  // keeps every slot.
   const pace = live.paceMinutesPerStudyDay ?? null
+  const maxFlow = Math.max(flowHeadroom(live), ...flow.map((c) => c.durationMinutes))
   const bucket = pace === null ? Number.POSITIVE_INFINITY : pace + maxFlow
   const tk = { tokens: bucket, accrued: o.fromDay }
   const accrue = (day: number): void => {

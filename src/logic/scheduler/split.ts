@@ -53,7 +53,7 @@ export function firstSplitPiece(total: number, rules: SplitRules): number {
  * The next study piece of a unit with `remaining` minutes when `free` minutes are open in the current
  * window: the first piece of an even split when it fits; otherwise a shorter piece that fills the window,
  * never shorter than `min` and never leaving a remainder shorter than `min`. `null` when no piece fits
- * (then the unit waits for a longer opening). A unit shorter than `min` is only ever placed whole.
+ * (then the unit waits for a longer opening). What fits in one session is only ever placed whole.
  */
 export function pieceSize(remaining: number, free: number, rules: SplitRules): number | null {
   if (!(remaining > 0)) return null
@@ -61,6 +61,8 @@ export function pieceSize(remaining: number, free: number, rules: SplitRules): n
   const room = floorTo(free, grain)
   const ideal = firstSplitPiece(remaining, rules)
   if (ideal <= room) return ideal
+  // What fits in one session is never broken up to fill a gap.
+  if (ideal >= remaining) return null
   const min = Math.max(grain, ceilTo(rules.min, grain))
   let take = Math.min(room, remaining)
   const rest = remaining - take

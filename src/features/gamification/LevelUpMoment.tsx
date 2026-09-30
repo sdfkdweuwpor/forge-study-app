@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/app/providers/ThemeProvider'
-import { useShortcutHandler } from '@/app/shortcuts'
+import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import { useSettings } from '@/db/hooks/useSettings'
 import { levelUpFrame, makeConfetti } from '@/logic/levelUpMotion'
 import { TAG_COLORS } from '@/ui/Tag'
@@ -46,6 +46,8 @@ export default function LevelUpMoment({ level, onDone }: MomentProps) {
       dismissedAt.current = performance.now() - startedAt.current
     }
   }
+  // A full-screen overlay: page keys go quiet under it, so Esc reaches it before any page's own Esc.
+  useShortcutScope('modal')
   useShortcutHandler('app.escape', dismiss)
 
   // The sound: once, when the moment begins. A quiet failure (audio blocked, unsupported) is fine.

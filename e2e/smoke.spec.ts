@@ -431,7 +431,9 @@ test.describe('desktop shell (1440x900)', () => {
     await gotoApp(page, '/')
     const nav = page.getByRole('navigation', { name: 'Main' })
     await expect(nav.getByRole('link', { name: 'Goals', exact: true })).toBeVisible()
-    await expect(nav.locator('li', { hasText: 'Goals' }).locator('ul')).toHaveCount(0)
+    // The goals feature contributes its tree here; with no goals it renders nothing, and the empty
+    // list (`:empty`) is not shown.
+    await expect(nav.locator('li', { hasText: 'Goals' }).locator('ul')).toBeHidden()
   })
 })
 

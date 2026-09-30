@@ -21,6 +21,8 @@ export const manifests: readonly FeatureManifest[] = [
   ...discovered.map(([, m]) => m),
 ]
 
-export const registryProblems: readonly string[] = validateManifests(manifests)
+// Only the registry test reads this. The annotation lets a production build drop the check (and the validator
+// with it) instead of running it, for nothing, at every start.
+export const registryProblems: readonly string[] = /* @__PURE__ */ validateManifests(manifests)
 
 export const registry: Registry = buildRegistry(manifests)

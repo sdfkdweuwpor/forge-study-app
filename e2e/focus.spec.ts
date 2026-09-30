@@ -426,12 +426,78 @@ test.describe('Focus timer', () => {
     expect(await page.evaluate(() => document.fullscreenElement === null)).toBe(true)
     await expect(toggle(page)).toHaveText('Pause')
 
-    // The button opens it too, and its exit button closes it.
+    // The button opens it too, and its exit button closes it; focus goes back to the button that opened it.
     await page.getByTestId('fullscreen-open').click()
     await expect(fs).toBeVisible()
     await page.getByTestId('fullscreen-exit').click()
     await expect(fs).toBeHidden()
+    await expect(page.getByTestId('fullscreen-open')).toBeFocused()
     await expect(toggle(page)).toHaveText('Pause')
+  })
+
+  test('keyboard focus stays inside full-screen focus, and returns to the page when it closes', async ({
+    page,
+  }) => {
+    await openApp(page)
+    await start(page)
+    const opener = page.getByTestId('fullscreen-open')
+    await opener.focus()
+    await page.keyboard.press('f')
+    const fs = page.getByTestId('fullscreen-focus')
+    await expect(fs).toBeVisible()
+
+    // Tab and Shift+Tab go round its two buttons and never reach the page behind.
+    const insideFs = () =>
+      page.evaluate(() => {
+        const overlay = document.querySelector('[data-testid="fullscreen-focus"]')
+        return overlay !== null && overlay.contains(document.activeElement)
+      })
+    for (const key of ['Tab', 'Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
+      await page.keyboard.press(key)
+      expect(await insideFs()).toBe(true)
+    }
+    // Even focus pushed out from elsewhere is pulled back in.
+    await page.evaluate(() =>
+      document.querySelector<HTMLElement>('[data-testid="timer-stop"]')?.focus(),
+    )
+    expect(await insideFs()).toBe(true)
+
+    await page.keyboard.press('Escape')
+    await expect(fs).toBeHidden()
+    await expect(opener).toBeFocused()
+  })
+
+  test('full screen with nothing running shows what Space starts: the break after a counted round', async ({
+    page,
+  }) => {
+    await openApp(page)
+    await runRoundToEnd(page)
+    await dismissEndDialog(page)
+
+    await page.keyboard.press('f')
+    const fs = page.getByTestId('fullscreen-focus')
+    await expect(fs).toBeVisible()
+    await expect(fs.getByTestId('timer-label')).toHaveText('Short break next')
+    await expect(fs.getByTestId('timer-display')).toHaveText('05:00')
+
+    // Space starts exactly what it announced.
+    await page.keyboard.press('Space')
+    await expect(fs.getByTestId('timer-label')).toHaveText('Short break')
+    await expect(fs.getByTestId('timer-display')).toHaveText(/^0[45]:\d\d$/)
+    const sessions = await storedSessions(page)
+    expect(sessions.filter((row) => row.status === 'running')).toMatchObject([
+      { kind: 'break', plannedMinutes: 5 },
+    ])
+  })
+
+  test('with nothing running and no round behind it, full screen reads Ready with the full length', async ({
+    page,
+  }) => {
+    await openApp(page)
+    await page.keyboard.press('f')
+    const fs = page.getByTestId('fullscreen-focus')
+    await expect(fs.getByTestId('timer-label')).toHaveText('Ready')
+    await expect(fs.getByTestId('timer-display')).toHaveText('25:00')
   })
 
   test('stopwatch mode counts up, and a session of 10 minutes or more counts', async ({ page }) => {
@@ -561,6 +627,128 @@ test.describe('Focus timer', () => {
     await page.locator('#root > *').first().waitFor()
     await expect(sessionRows(page)).toHaveCount(1)
     await expect(endDialog(page)).toBeHidden()
+  })
+
+  test('stopping early (Shift+N) offers Undo: it resumes the session and takes the question back', async ({
+    page,
+  }) => {
+    await openApp(page)
+    await linkTask(page, MENTOR)
+    await start(page)
+    await page.clock.fastForward('10:00')
+    await expectShown(page, FOCUS_SECONDS - 10 * 60)
+
+    await page.keyboard.press('Shift+N')
+    await expect(endDialog(page)).toBeVisible()
+    await expect(toasts(page)).toContainText('Session ended early')
+    await expect(toggle(page)).toHaveCount(0)
+
+    await toasts(page).getByRole('button', { name: 'Undo' }).click()
+    await expect(endDialog(page)).toBeHidden()
+    await expect.poll(() => pendingEnd(page)).toBeNull()
+    await expect(toggle(page)).toHaveText('Pause')
+    await expect(sessionRows(page)).toHaveCount(0)
+    // The same session goes on where it stopped: ten minutes done, about fifteen to go.
+    await expectShown(page, FOCUS_SECONDS - 10 * 60)
+    const sessions = await storedSessions(page)
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0]).toMatchObject({ status: 'running', endedAt: null, interrupted: false })
+
+    // And it can still run to its end.
+    await page.clock.fastForward('15:00')
+    await expect(endDialog(page)).toBeVisible()
+    await expect(endDialog(page).getByTestId('end-summary')).toContainText('+25 XP')
+  })
+
+  test('a finish that counts (90% of the plan) does not offer Undo', async ({ page }) => {
+    await openApp(page)
+    await linkTask(page, MENTOR)
+    await start(page)
+    await page.clock.fastForward('22:30')
+    await page.getByTestId('timer-stop').click()
+    await expect(endDialog(page)).toBeVisible()
+    await expect(endDialog(page).getByTestId('end-summary')).toContainText('+22 XP')
+    await expect(toasts(page)).not.toContainText('Session ended early')
+  })
+
+  test('the end dialog opens with Yes focused', async ({ page }) => {
+    await openApp(page)
+    await runRoundToEnd(page)
+    await expect(endDialog(page).getByRole('button', { name: 'Yes' })).toBeFocused()
+  })
+
+  test('with no task linked there is nothing to finish: the dialog says so and focuses Keep going', async ({
+    page,
+  }) => {
+    await openApp(page)
+    await start(page)
+    await page.clock.fastForward('25:00')
+    const plain = page.getByRole('dialog', { name: 'Session complete' })
+    await expect(plain).toBeVisible()
+    await expect(plain.getByRole('button', { name: 'Yes' })).toHaveCount(0)
+    await expect(plain.getByRole('button', { name: 'Keep going' })).toBeFocused()
+  })
+
+  test('the end dialog shows in every open tab, and answering it in one closes it in the other', async ({
+    page,
+    context,
+  }) => {
+    await openApp(page)
+    const other = await context.newPage()
+    const otherProblems: string[] = []
+    other.on('console', (msg) => {
+      if (msg.type() === 'error') otherProblems.push(`console.error: ${msg.text()}`)
+    })
+    other.on('pageerror', (err) => otherProblems.push(`pageerror: ${err.message}`))
+    await gotoApp(other, '/focus')
+    await expect(timerDisplay(other)).toBeVisible()
+
+    await linkTask(page, MENTOR)
+    await start(page)
+    await expect(toggle(other)).toHaveText('Pause')
+    await page.clock.fastForward('25:00')
+
+    // Only one tab settles the session, but both ask the question.
+    await expect(endDialog(page)).toBeVisible()
+    await expect(endDialog(other)).toBeVisible()
+    expect(
+      await other.evaluate(() => localStorage.getItem('forge:focus:pending-end')),
+    ).not.toBeNull()
+
+    // Answering "Yes" in the second tab completes the task once and closes the question in the first.
+    await endDialog(other).getByRole('button', { name: 'Yes' }).click()
+    await expect(endDialog(other)).toBeHidden()
+    await expect(endDialog(page)).toBeHidden()
+    await expect.poll(() => pendingEnd(page)).toBeNull()
+    const tasks = await readTable<{ id: string; title: string; status: string }>(page, 'tasks')
+    const mentor = tasks.find((task) => task.title === MENTOR)
+    expect(mentor?.status).toBe('done')
+    const paid = (await readTable<StoredXp>(page, 'xpEvents')).filter(
+      (e) => e.key === `task:${mentor?.id}`,
+    )
+    expect(paid.map((e) => e.amount)).toEqual([20])
+    expect(otherProblems, 'the second tab logged errors').toEqual([])
+  })
+
+  test('the custom length: an emptied or zero field puts the stored length back, not 1 minute', async ({
+    page,
+  }) => {
+    await openApp(page)
+    await page.keyboard.press('2')
+    const length = page.getByRole('spinbutton', { name: 'Length in minutes' })
+    await expect(length).toHaveValue('50')
+    await expect(timerDisplay(page)).toHaveText('50:00')
+
+    for (const bad of ['', '0', '-5']) {
+      await length.fill(bad)
+      await length.blur()
+      await expect(length).toHaveValue('50')
+      await expect(timerDisplay(page)).toHaveText('50:00')
+    }
+    await length.fill('45')
+    await length.blur()
+    await expect(length).toHaveValue('45')
+    await expect(timerDisplay(page)).toHaveText('45:00')
   })
 
   test('Keep going starts another round on the same task', async ({ page }) => {

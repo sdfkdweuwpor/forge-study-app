@@ -7,7 +7,7 @@
  * The provider mounts one, keyed by session id, so each session starts with a clean dialog.
  */
 import { Check, CircleAlert, Play } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { recordError } from '@/app/reportError'
 import { Slot } from '@/app/registry'
 import { completeTask } from '@/db/repos/tasks'
@@ -57,6 +57,17 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
   const loading = session === undefined || (session?.taskId != null && task === undefined)
   const gone = session === null
   const taskOpen = task != null && task.status !== 'done'
+
+  // The dialog opens before its session and task have loaded, when the only button is Close. Once the
+  // answers are there, focus (which fell to the page when Close went away) moves to the likely one.
+  const answer = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (!open || loading || noting) return
+    const active = document.activeElement
+    if (active === null || active === document.body || active.getAttribute('role') === 'dialog') {
+      answer.current?.focus({ preventScroll: true })
+    }
+  }, [open, loading, noting])
 
   const complete = async () => {
     if (!task) return
@@ -136,6 +147,7 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
         disabled={busy}
         // The answer that is most likely is the one focus starts on: "Yes", or "Keep going" with no task to finish.
         data-autofocus={taskOpen ? undefined : ''}
+        ref={taskOpen ? undefined : answer}
         onClick={more}
       >
         Keep going
@@ -146,6 +158,7 @@ export default function EndDialog({ sessionId, open, onClose }: EndDialogProps) 
           iconLeft={<Check />}
           loading={busy}
           data-autofocus=""
+          ref={answer}
           onClick={() => void complete()}
         >
           Yes

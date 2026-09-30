@@ -34,6 +34,7 @@ import { PREF_KEYS, readPref, removePref, subscribePrefs, writePref } from '@/li
 import { MS_PER_MINUTE, clockOf, crossedMark, isDue } from '@/logic/timer'
 import { useToast } from '@/ui/Toast'
 import { browserElection, electAmbientOwner } from './ambientElection'
+import { answered, ask, withdraw } from './askQueue'
 import { LATE_MS, handlePhaseEnd } from './phaseEnd'
 import { getSessionById } from './queries'
 import { registerRuntime } from './runtime'
@@ -61,7 +62,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [announcement, setAnnouncement] = useState('')
   const [end, setEnd] = useState<EndState>({ id: null, open: false })
   /** Sessions whose "Done with this task?" is unanswered in this tab; the first one is on screen. */
-  const asked = useRef<ID[]>([])
+  const asked = useRef<readonly ID[]>([])
   /** The session whose end is being settled, so a slow write is not started twice by the next tick. */
   const ending = useRef<ID | null>(null)
   /** Whether settings say sounds are on, for code that has to decide without waiting for a render. */
@@ -77,19 +78,20 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   /** Puts a question in line. The first in line is shown and remembered across a refresh. */
   const openEnd = useCallback((id: ID) => {
-    if (asked.current.includes(id)) return
-    asked.current = [...asked.current, id]
-    if (asked.current.length === 1) {
+    const line = ask(asked.current, id)
+    if (line === asked.current) return
+    asked.current = line
+    if (line.length === 1) {
       writePref(PREF_KEYS.focusPendingEnd, id)
       setEnd({ id, open: true })
     }
   }, [])
   /** The question on screen was answered or dismissed (here, or in another tab): on to the next. */
   const closeEnd = useCallback((id: ID) => {
-    if (asked.current[0] !== id) return
-    const [, ...rest] = asked.current
-    asked.current = rest
-    const next = rest[0]
+    const line = answered(asked.current, id)
+    if (line === asked.current) return
+    asked.current = line
+    const next = line[0]
     if (next === undefined) {
       removePref(PREF_KEYS.focusPendingEnd)
       setEnd((prev) => ({ ...prev, open: false }))
@@ -102,7 +104,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const dropEnd = useCallback(
     (id: ID) => {
       if (asked.current[0] === id) closeEnd(id)
-      else asked.current = asked.current.filter((queued) => queued !== id)
+      else asked.current = withdraw(asked.current, id)
     },
     [closeEnd],
   )

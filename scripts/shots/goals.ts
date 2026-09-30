@@ -16,14 +16,13 @@ async function settle(page: Page): Promise<void> {
 const GOAL = '/goals/goal-wgu-bscs'
 const COURSE = `${GOAL}/courses/course-c779`
 
-/** The wizard on an empty app, on the courses step with the WGU template loaded. */
+// The dialog's own title. (`[role="dialog"]` would also match the phone "More" sheet, which is always in the DOM.)
+const WIZARD = 'h2:text-is("New goal")'
+
+/** The wizard on an empty app: loads the WGU template, which lands on the courses step. */
 async function loadTemplate(page: Page): Promise<void> {
   await page.getByRole('dialog', { name: 'New goal' }).waitFor()
   await page.getByRole('button', { name: 'Load the B.S. Computer Science template' }).click()
-  await page
-    .getByRole('table', { name: 'Courses' })
-    .waitFor()
-    .catch(() => undefined)
   await page.getByLabel('Name of course 1').waitFor()
 }
 
@@ -33,16 +32,11 @@ const list: ShotList = {
   shots: [
     { name: 'list', path: '/goals?seed=wgu', waitFor: 'main h1', prepare: settle },
     { name: 'list-empty', path: '/goals?seed=empty', waitFor: 'main h1', prepare: settle },
-    {
-      name: 'wizard-1-basics',
-      path: '/goals/new?seed=empty',
-      waitFor: '[role="dialog"]',
-      prepare: settle,
-    },
+    { name: 'wizard-1-basics', path: '/goals/new?seed=empty', waitFor: WIZARD, prepare: settle },
     {
       name: 'wizard-2-courses',
       path: '/goals/new?seed=empty',
-      waitFor: '[role="dialog"]',
+      waitFor: WIZARD,
       prepare: async (page) => {
         await loadTemplate(page)
         await settle(page)
@@ -51,7 +45,7 @@ const list: ShotList = {
     {
       name: 'wizard-3-availability',
       path: '/goals/new?seed=empty',
-      waitFor: '[role="dialog"]',
+      waitFor: WIZARD,
       prepare: async (page) => {
         await loadTemplate(page)
         await page.getByRole('button', { name: 'Next' }).click()
@@ -62,7 +56,7 @@ const list: ShotList = {
     {
       name: 'wizard-4-preview',
       path: '/goals/new?seed=empty',
-      waitFor: '[role="dialog"]',
+      waitFor: WIZARD,
       prepare: async (page) => {
         await loadTemplate(page)
         await page.getByRole('button', { name: 'Next' }).click()
@@ -78,7 +72,6 @@ const list: ShotList = {
       waitFor: 'main h1',
       prepare: async (page) => {
         await page.getByRole('table', { name: 'Courses' }).waitFor()
-        await page.getByRole('row').nth(2).hover()
         await page.getByRole('button', { name: /^Actions for C779/ }).click()
         await page.getByRole('menu').waitFor()
         await settle(page)

@@ -21,6 +21,8 @@ export interface ChoiceFieldProps<V extends string> {
   display?: ReactNode
   /** Hide the chevron (table cells that should read as text). */
   quiet?: boolean
+  /** Size to the text and never truncate it (a fact on a page, not a cell in a table). */
+  fit?: boolean
   className?: string
 }
 
@@ -32,6 +34,7 @@ export function ChoiceField<V extends string>({
   label,
   display,
   quiet = false,
+  fit = false,
   className,
 }: ChoiceFieldProps<V>) {
   const current = choices.find((c) => c.value === value)
@@ -53,6 +56,7 @@ export function ChoiceField<V extends string>({
           type="button"
           className={cx(styles.button, className)}
           data-quiet={quiet || undefined}
+          data-fit={fit || undefined}
           aria-label={`${label}: ${current?.label ?? 'none'}. Change`}
         >
           {display ?? (

@@ -176,6 +176,7 @@ function CourseBody({ data }: { data: CourseData }) {
                 label={`Status of ${label}`}
                 value={course.status}
                 choices={STATUS_CHOICES}
+                fit
                 onChange={(status) => void actions.setCourseStatus(course, status)}
               />
             </Fact>
@@ -208,6 +209,7 @@ function CourseBody({ data }: { data: CourseData }) {
                 label="Course type"
                 value={(course.courseType ?? '') as CourseType}
                 choices={TYPE_CHOICES}
+                fit
                 display={
                   <span>
                     {course.courseType === null ? 'Not set' : COURSE_TYPE_LABELS[course.courseType]}

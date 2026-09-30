@@ -2,7 +2,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: 100%;
+  /* The -6px margins pull the hover fill outside the text; the limit grows by the same 12px. */
+  max-width: calc(100% + 12px);
   margin: 0 -6px;
   padding: 2px 6px;
   border: 0;
@@ -42,4 +43,14 @@
 
 .button[data-quiet] .chevron {
   display: none;
+}
+
+.button[data-fit] {
+  flex: none;
+  max-width: none;
+}
+
+.button[data-fit] .text {
+  overflow: visible;
+  text-overflow: clip;
 }

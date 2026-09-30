@@ -201,8 +201,8 @@ function CourseCells({ goalId, course, work, today }: RowProps) {
           role="cell"
           className={styles.cell}
           data-cell="due"
-          data-label="Due"
-          data-tone={course.status === 'done' ? 'done' : undefined}
+          // A finished course reads "Done Sep 20", so it needs no "Due" caption on the phone cards.
+          data-label={course.status === 'done' ? undefined : 'Due'}
         >
           {dueText}
         </div>

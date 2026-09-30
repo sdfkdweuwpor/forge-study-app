@@ -58,8 +58,8 @@ export function pomodorosDone(
 // ─── Streak ─────────────────────────────────────────────────────────────────
 
 /**
- * Consecutive qualifying days ending today, or ending yesterday while today is still open (a streak
- * is not lost until the day is over). Streak freezes are Phase 7's: a frozen day is not counted here.
+ * Consecutive qualifying days ending today, or ending yesterday while today is still open. No freezes:
+ * the app reads the streak from `computeStreak` (`./streaks`), which adds them; this is the plain run.
  */
 export function currentStreak(
   days: readonly Pick<StreakDay, 'day' | 'qualified'>[],
@@ -87,6 +87,8 @@ export interface HeatmapDay {
   /** Tasks finished that day. */
   tasks: number
   level: HeatLevel
+  /** Present (`true`) when a streak freeze covered the day: it is drawn with a ❄️. */
+  frozen?: true
 }
 
 export interface Heatmap {
@@ -119,6 +121,8 @@ export interface HeatmapInput {
   focusMinutes: ReadonlyMap<ISODate, number>
   /** Finished tasks by day. */
   tasksDone: ReadonlyMap<ISODate, number>
+  /** Days a streak freeze covered (❄️). */
+  frozenDays?: ReadonlySet<ISODate>
 }
 
 /**
@@ -130,6 +134,7 @@ export function buildHeatmap({
   length = 14,
   focusMinutes,
   tasksDone,
+  frozenDays,
 }: HeatmapInput): Heatmap {
   const start = addDays(today, -(length - 1))
   const days: HeatmapDay[] = []
@@ -140,6 +145,7 @@ export function buildHeatmap({
       minutes: Math.max(0, Math.round(focusMinutes.get(day) ?? 0)),
       tasks: Math.max(0, tasksDone.get(day) ?? 0),
       level: 0,
+      ...(frozenDays?.has(day) ? { frozen: true as const } : {}),
     })
   }
   const basis = days.some((d) => d.minutes > 0) ? 'focus' : 'tasks'

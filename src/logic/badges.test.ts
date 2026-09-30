@@ -648,22 +648,41 @@ describe('computeStreakForBadges', () => {
     expect(computeStreakForBadges([], '2026-09-29')).toEqual({ days: [] })
   })
 
-  it('runs from the first row to today, with gaps as missed days', () => {
+  it('runs from the first row to today, with two days off in a week as missed days', () => {
     const streak = computeStreakForBadges(
       [
-        { day: '2026-09-25', qualified: true },
+        { day: '2026-09-22', qualified: true },
+        { day: '2026-09-23', qualified: true },
         { day: '2026-09-26', qualified: true },
-        { day: '2026-09-28', qualified: true },
       ],
-      '2026-09-29',
+      '2026-09-27',
     )
+    expect(streak.days.map((d) => `${d.day}:${d.status}`)).toEqual([
+      '2026-09-22:qualified',
+      '2026-09-23:qualified',
+      '2026-09-24:missed',
+      '2026-09-25:missed',
+      '2026-09-26:qualified',
+      '2026-09-27:open',
+    ])
+  })
+
+  it('covers one day off with the weekly freeze, from the streak engine', () => {
+    const rows = [
+      { day: '2026-09-25', qualified: true },
+      { day: '2026-09-26', qualified: true },
+      { day: '2026-09-28', qualified: true },
+    ]
+    const streak = computeStreakForBadges(rows, '2026-09-29')
     expect(streak.days.map((d) => `${d.day}:${d.status}`)).toEqual([
       '2026-09-25:qualified',
       '2026-09-26:qualified',
-      '2026-09-27:missed',
+      '2026-09-27:frozen',
       '2026-09-28:qualified',
       '2026-09-29:open',
     ])
+    // Sunday-first weeks put Saturday and Sunday in different weeks; the answer here is the same.
+    expect(computeStreakForBadges(rows, '2026-09-29', 0)).toEqual(streak)
   })
 
   it('shows today as qualified once it is, and a finished day with a row that did not qualify as missed', () => {

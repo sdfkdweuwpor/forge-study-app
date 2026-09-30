@@ -11,7 +11,7 @@
  * - Clock times are read on the local wall clock (`getHours`), so a DST change moves nothing: 07:30 is
  *   early on a 23-hour day and on a 25-hour day alike.
  * - Streak badges read a `BadgeStreak`, the day-by-day streak state. `computeStreakForBadges` builds it
- *   from `streakDays` rows and is the one seam Phase 7's streak engine replaces (it will add freezes).
+ *   from `streakDays` rows through the streak engine (`./streaks`), freezes included.
  */
 import { format, getHours, getYear } from 'date-fns'
 import type {
@@ -25,7 +25,8 @@ import type {
   Session,
   StreakDay,
 } from '@/db/types'
-import { dayStartMs, diffDays, eachDay, fromISODate, isISODate } from './dates'
+import { dayStartMs, diffDays, fromISODate, isISODate, type WeekStart } from './dates'
+import { computeStreak } from './streaks'
 
 // ─── Definitions ────────────────────────────────────────────────────────────
 
@@ -199,31 +200,31 @@ export interface BadgeUnlock {
   context: string | null
 }
 
-// ─── The streak seam (Phase 7 replaces this) ────────────────────────────────
+// ─── The streak seam (the streak engine of Phase 7A) ────────────────────────
 
 /**
- * Turns `streakDays` rows into the day-by-day state the badges read. Days from the first row through
- * `today`: a row with `qualified` is `qualified`; anything else before today is `missed`; today without a
- * qualifying row is `open` (it is not over yet). There are no freezes yet: Phase 7's streak engine will
- * replace this function and return `frozen` days too; nothing else here changes.
+ * Turns `streakDays` rows into the day-by-day state the badges read, through the streak engine
+ * (`computeStreak`): weekly freezes give `frozen` days, a finished day off that nothing covered is
+ * `missed` (the engine's neutral `rest`), and today without a qualifying day is `open`. Days run from
+ * the first row (or 400 days back) through `today`; days after today are left out.
  */
 export function computeStreakForBadges(
   rows: readonly Pick<StreakDay, 'day' | 'qualified'>[],
   today: ISODate,
+  weekStartsOn: WeekStart = 1,
 ): BadgeStreak {
-  const byDay = new Map<ISODate, boolean>()
-  for (const row of rows) {
-    if (!isISODate(row.day) || row.day > today) continue
-    byDay.set(row.day, (byDay.get(row.day) ?? false) || row.qualified)
+  // Without a usable row there is nothing to walk (the list stays empty rather than showing only today).
+  if (!rows.some((r) => isISODate(r.day) && r.day <= today)) return { days: [] }
+  const days: BadgeStreakDay[] = []
+  for (const entry of computeStreak(rows, today, weekStartsOn).days) {
+    if (entry.status === 'future') continue
+    days.push({
+      day: entry.day,
+      status:
+        entry.status === 'rest' ? 'missed' : entry.status === 'today-open' ? 'open' : entry.status,
+    })
   }
-  if (byDay.size === 0) return { days: [] }
-  const first = [...byDay.keys()].reduce((a, b) => (b < a ? b : a))
-  return {
-    days: eachDay(first, today).map((day) => ({
-      day,
-      status: byDay.get(day) ? 'qualified' : day === today ? 'open' : 'missed',
-    })),
-  }
+  return { days }
 }
 
 // ─── Sessions ───────────────────────────────────────────────────────────────

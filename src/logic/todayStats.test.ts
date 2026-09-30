@@ -132,6 +132,23 @@ describe('buildHeatmap', () => {
     expect(map.days[13]?.day).toBe(TODAY)
   })
 
+  it('marks the days a streak freeze covered, and only those', () => {
+    const map = buildHeatmap({
+      today: TODAY,
+      focusMinutes: new Map([[TODAY, 30]]),
+      tasksDone: new Map(),
+      frozenDays: new Set(['2026-09-27']),
+    })
+    expect(map.days.filter((d) => d.frozen).map((d) => d.day)).toEqual(['2026-09-27'])
+    // No `frozen` key at all on the others, so plain equality still holds for them.
+    expect(map.days.find((d) => d.day === TODAY)).toEqual({
+      day: TODAY,
+      minutes: 30,
+      tasks: 0,
+      level: 2,
+    })
+  })
+
   it('falls back to finished tasks while there is no focus time', () => {
     const map = buildHeatmap({
       today: TODAY,

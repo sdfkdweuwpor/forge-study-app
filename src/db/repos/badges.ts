@@ -12,6 +12,7 @@ import { dayOf } from '@/logic/dates'
 import { computeStreakForBadges, evaluateBadges, isBadgeId } from '@/logic/badges'
 import { db } from '../db'
 import type { Badge, Millis } from '../types'
+import { getSettings } from './settings'
 
 /** Every stored badge, oldest unlock first. Rows with an id this build does not know are left out. */
 export async function getBadges(): Promise<Badge[]> {
@@ -28,22 +29,23 @@ export async function reconcileBadges(now: Millis = Date.now()): Promise<Badge[]
   const today = dayOf(now)
   const history = await db.transaction(
     'r',
-    [db.sessions, db.milestones, db.goals, db.streakDays],
+    [db.sessions, db.milestones, db.goals, db.streakDays, db.settings],
     async () => {
-      const [sessions, courses, goals, streakRows] = await Promise.all([
+      const [sessions, courses, goals, streakRows, settings] = await Promise.all([
         db.sessions.where('status').equals('completed').toArray(),
         db.milestones.toArray(),
         db.goals.toArray(),
         db.streakDays.toArray(),
+        getSettings(),
       ])
-      return { sessions, courses, goals, streakRows }
+      return { sessions, courses, goals, streakRows, weekStartsOn: settings.weekStartsOn }
     },
   )
   const unlocks = evaluateBadges({
     sessions: history.sessions,
     courses: history.courses,
     goals: history.goals,
-    streak: computeStreakForBadges(history.streakRows, today),
+    streak: computeStreakForBadges(history.streakRows, today, history.weekStartsOn),
   })
   if (unlocks.length === 0) return []
 

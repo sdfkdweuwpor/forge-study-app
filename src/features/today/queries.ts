@@ -2,20 +2,21 @@
  * Reads that only the Today screen needs. This is the one file in the feature that may import the
  * Dexie instance. Every hook returns `undefined` only while its first query is loading.
  *
- * Phase 4 fills `sessions` and Phase 7 fills `streakDays`: `useTodayPomodoros`, `useStreak` and
- * `useHeatmap` are the seams. Swap what they read and the Today widgets follow.
+ * `useTodayPomodoros` reads `sessions`; `useStreak` and `useHeatmap` read the streak engine's data
+ * (`streakDays` rows kept by the progress feature, freezes computed by `computeStreak`).
  */
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import { db } from '@/db/db'
+import { useStreak as useStreakState } from '@/db/hooks/useStreak'
 import { useTasks } from '@/db/hooks/useTasks'
+import { loadStreak } from '@/db/repos/progress'
 import type { ID, ISODate, Task } from '@/db/types'
 import { addDays, startOfWeekISO } from '@/logic/dates'
 import { timePerGoal, type GoalTime } from '@/logic/timeLogged'
 import { pickNow } from '@/logic/today'
 import {
   buildHeatmap,
-  currentStreak,
   pomodorosDone,
   upcomingTargets,
   type Countdown,
@@ -77,40 +78,31 @@ export function useTodayPomodoros(today: ISODate, pomodoroMinutes: number): numb
 }
 
 /**
- * The current streak in days. Reads the `streakDays` rows Phase 7 maintains; with none, it is 0.
- * Phase 7 can replace the body with its own `useStreak` (freezes included).
+ * The current streak in days, from the streak engine: qualifying days in the running streak, with the
+ * weekly freeze carrying it over a day off and today still open never ending it. 0 when none is running.
  */
 export function useStreak(today: ISODate): number | undefined {
-  return useLiveQuery(async () => {
-    const rows = await db.streakDays.toArray()
-    return currentStreak(rows, today)
-  }, [today])
+  return useStreakState(today)?.current
 }
 
 /**
- * The last 14 days for the mini heatmap: focused minutes from finished, counted focus sessions and,
- * as the fallback until there are any, the number of tasks finished each day. Phase 7 can swap the
- * source for `streakDays.focusMinutes` and keep the return shape.
+ * The last 14 days for the mini heatmap: focused minutes per day from the `streakDays` rows (counted
+ * focus sessions), and as the fallback until there are any, the tasks finished each day. Days a streak
+ * freeze covered come back with `frozen` and are drawn with a ❄️.
  */
 export function useHeatmap(today: ISODate, length = 14): Heatmap | undefined {
   return useLiveQuery(async () => {
     const from = addDays(today, -(length - 1))
-    const [sessions, done] = await Promise.all([
-      db.sessions.where('day').between(from, today, true, true).toArray(),
-      db.tasks.where('completedDay').between(from, today, true, true).toArray(),
+    const [rows, streak] = await Promise.all([
+      db.streakDays.where('id').between(from, today, true, true).toArray(),
+      loadStreak(today),
     ])
-    const focusMinutes = new Map<ISODate, number>()
-    for (const s of sessions) {
-      if (s.kind !== 'focus' || s.status !== 'completed' || !s.counted) continue
-      focusMinutes.set(s.day, (focusMinutes.get(s.day) ?? 0) + (s.actualMinutes ?? 0))
-    }
-    const tasksDone = new Map<ISODate, number>()
-    for (const t of done) {
-      if (t.status === 'done' && t.completedDay) {
-        tasksDone.set(t.completedDay, (tasksDone.get(t.completedDay) ?? 0) + 1)
-      }
-    }
-    return buildHeatmap({ today, length, focusMinutes, tasksDone })
+    const focusMinutes = new Map<ISODate, number>(rows.map((r) => [r.day, r.focusMinutes]))
+    const tasksDone = new Map<ISODate, number>(rows.map((r) => [r.day, r.tasksDone]))
+    const frozenDays = new Set<ISODate>(
+      streak.days.filter((d) => d.status === 'frozen' && d.day >= from).map((d) => d.day),
+    )
+    return buildHeatmap({ today, length, focusMinutes, tasksDone, frozenDays })
   }, [today, length])
 }
 

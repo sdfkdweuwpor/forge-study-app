@@ -190,10 +190,23 @@ describe('reconcileBadges', () => {
     expect(await reconcileBadges(NOW)).toEqual([])
   })
 
-  it('unlocks comeback after a broken streak of 3 and 3 days again', async () => {
-    await streakRows(addDays(TODAY, -6), [true, true, true, false, true, true, true])
+  it('unlocks comeback after a streak of 3 ended by two days off in a week, and 3 days again', async () => {
+    // Mon-Wed, then Thu and Fri off (one freeze covers a day, not two), then Sat-Mon.
+    await streakRows(addDays(TODAY, -8), [true, true, true, false, false, true, true, true])
     const fresh = await reconcileBadges(NOW)
     expect(fresh.map((b) => b.id)).toEqual(['comeback'])
+  })
+
+  it('does not call a single day off a break: the weekly freeze covers it, and it adds nothing', async () => {
+    // Tue-Thu, Friday off (frozen), then Sat-Tue: seven qualifying days in a streak that never ended.
+    await streakRows(addDays(TODAY, -7), [true, true, true, false, true, true, true, true])
+    const fresh = await reconcileBadges(NOW)
+    expect(fresh.map((b) => b.id)).toEqual(['streak-7']) // and no comeback
+    // Six qualifying days with the freeze between them are not seven.
+    await db.badges.clear()
+    await db.streakDays.clear()
+    await streakRows(addDays(TODAY, -6), [true, true, true, false, true, true, true])
+    expect(await reconcileBadges(NOW)).toEqual([])
   })
 })
 

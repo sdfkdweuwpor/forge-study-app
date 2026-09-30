@@ -31,38 +31,14 @@ function session(id: string, iso: string): Record<string, unknown> {
   }
 }
 
-/** A streak row for `day`, qualified. */
-function streakDay(day: string): Record<string, unknown> {
-  return {
-    id: day,
-    createdAt: 1,
-    updatedAt: 1,
-    day,
-    focusMinutes: 25,
-    focusSessions: 1,
-    pomodoros: 1,
-    tasksDone: 0,
-    dailyGoalTarget: 4,
-    dailyGoalHit: false,
-    qualified: true,
-    xp: 25,
-  }
-}
-
-const STREAK_DAYS = [
-  '2026-09-23',
-  '2026-09-24',
-  '2026-09-25',
-  '2026-09-26',
-  '2026-09-27',
-  '2026-09-28',
-  '2026-09-29',
-]
+/** The days of the 7-day streak (23rd to 29th) that no other session below already covers. */
+const STREAK_FILLER = ['2026-09-23', '2026-09-24', '2026-09-26', '2026-09-28']
 
 /**
  * History that earns six of the eleven: First Focus, Early Bird (Tue 7:30), Night Owl (Sun 23:10), Deep Work
  * (four on Fri), 7-Day Streak (23rd to 29th) and First Course Complete (C182 is done in the WGU sample).
- * The rows go in through IndexedDB and a reload reconciles them at app start.
+ * The rows go in through IndexedDB and a reload reconciles them at app start. The streak comes from the sessions
+ * themselves (the day rows are built from them at app start), so every day of it has a counted session.
  */
 async function earnSix(page: Page): Promise<void> {
   await putRows(page, 'sessions', [
@@ -72,8 +48,8 @@ async function earnSix(page: Page): Promise<void> {
     session('shot-deep-2', '2026-09-25T11:00:00-04:00'),
     session('shot-deep-3', '2026-09-25T13:00:00-04:00'),
     session('shot-deep-4', '2026-09-25T15:00:00-04:00'),
+    ...STREAK_FILLER.map((day) => session(`shot-streak-${day}`, `${day}T10:00:00-04:00`)),
   ])
-  await putRows(page, 'streakDays', STREAK_DAYS.map(streakDay))
   await page.goto('/rewards/badges')
   await page.locator(COUNT).filter({ hasText: '6 of 11 unlocked' }).waitFor()
   await page.evaluate(() => document.fonts.ready)

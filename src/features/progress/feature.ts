@@ -30,8 +30,9 @@ import type { FeatureManifest } from '@/app/registry'
  * registered once, by whoever owns the page (`progress` by 7B, `weeklyReview` by 7C). Every part's
  * `onAppStart` runs; a part that throws does not stop the others.
  *
- * Other features import from `@/features/progress` (`index.ts`) only. Streak data for pages comes
- * from `useStreak()` (`@/db/hooks/useStreak`), never from this folder.
+ * Streak data for pages comes from `useStreak(today)` (`@/db/hooks/useStreak`), never from this folder.
+ * Other features may import from this folder only through an `index.ts` (add one when something
+ * needs sharing; the lint rule allows nothing deeper).
  */
 export type FeatureContribution = Omit<FeatureManifest, 'id'>
 

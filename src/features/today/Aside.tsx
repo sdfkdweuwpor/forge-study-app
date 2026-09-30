@@ -124,9 +124,12 @@ function TargetLead({
 function cellLabel(day: HeatmapDay, basis: Heatmap['basis']): string {
   const date = format(fromISODate(day.day), 'EEE, MMM d')
   const parts: string[] = []
+  if (day.frozen) parts.push('streak freeze')
   if (day.minutes > 0) parts.push(`${day.minutes} min focused`)
   if (day.tasks > 0) parts.push(`${day.tasks} ${day.tasks === 1 ? 'task' : 'tasks'} done`)
   if (parts.length === 0) parts.push(basis === 'focus' ? 'no focus' : 'nothing done')
+  else if (day.frozen && parts.length === 1)
+    parts.push(basis === 'focus' ? 'no focus' : 'nothing done')
   return `${date}: ${parts.join(', ')}`
 }
 
@@ -158,9 +161,16 @@ export function MiniHeatmap() {
                       className={styles.cell}
                       data-level={day.level}
                       data-today={day.day === today || undefined}
+                      data-frozen={day.frozen || undefined}
                       role="img"
                       aria-label={label}
-                    />
+                    >
+                      {day.frozen ? (
+                        <span className={styles.snow} aria-hidden="true">
+                          ❄️
+                        </span>
+                      ) : null}
+                    </span>
                   </Tooltip>
                 </li>
               )
@@ -176,6 +186,11 @@ export function MiniHeatmap() {
               <span>More</span>
             </span>
           </p>
+          {map.days.some((d) => d.frozen) ? (
+            <p className={styles.note}>
+              <span aria-hidden="true">❄️</span> Streak freeze
+            </p>
+          ) : null}
         </>
       )}
     </section>

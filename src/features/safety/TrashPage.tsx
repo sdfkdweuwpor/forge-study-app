@@ -22,7 +22,7 @@ import { TrashRow, restoreButtonId } from './TrashRow'
 import { TrashEmpty, TrashError, TrashNoMatches, TrashSkeleton } from './TrashStates'
 import styles from './TrashPage.module.css'
 
-function Heading({ children }: { children?: React.ReactNode }) {
+function Heading({ children }: { children?: ReactNode }) {
   return (
     <header className={styles.header}>
       <div className={styles.headText}>

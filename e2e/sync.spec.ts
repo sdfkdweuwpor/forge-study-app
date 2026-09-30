@@ -9,7 +9,8 @@ import {
   type TestInfo,
 } from '@playwright/test'
 import { FIXED_NOW, TIME_ZONE, expect, gotoApp, test as base } from './fixtures'
-import { readTable } from './idb'
+import { levelFromLifetimeXp } from '../src/logic/xp'
+import { focusSession, readTable } from './idb'
 import {
   FakeSupabase,
   FAKE_PROJECT_REF,
@@ -657,6 +658,92 @@ test.describe('two devices (1440)', () => {
         .map((r) => r.id)
         .sort(),
     ).toEqual(await ids(laptop))
+  })
+
+  test('work done on the other device is not announced here: no level-up, badge or XP toast', async ({
+    cloud,
+  }) => {
+    const phone = await cloud.device()
+    const { page } = phone
+    await connect(phone, cloud, { path: '/settings/snapshots' })
+    // A new device records the level it starts at (1) without celebrating it.
+    const celebrated = async () =>
+      (await readTable<{ lastCelebratedLevel: number | null }>(page, 'settings'))[0]
+        ?.lastCelebratedLevel
+    await expect.poll(celebrated).toBe(1)
+
+    // Everything that appears from here on: toasts, and the level-up moment.
+    await page.evaluate(() => {
+      const seen: string[] = []
+      ;(window as unknown as { __seen: string[] }).__seen = seen
+      const toastsNow = () =>
+        Array.from(document.querySelectorAll('[aria-label="Notifications"] [data-variant]'))
+      // The toasts of signing in, still on screen, are not news.
+      const before = new Set(toastsNow())
+      const look = () => {
+        if (document.querySelector('[data-testid="level-up"]') && !seen.includes('level-up'))
+          seen.push('level-up')
+        for (const el of toastsNow()) {
+          if (before.has(el)) continue
+          const text = el.textContent ?? ''
+          if (text && !seen.includes(text)) seen.push(text)
+        }
+      }
+      new MutationObserver(look).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      })
+    })
+
+    // The laptop's day, as it reaches the cloud: its first focus session (a badge and a streak day), and
+    // XP worth several levels.
+    const day = '2026-09-29'
+    const session = focusSession('laptop-session', day, null, 50)
+    const xp = 5_000
+    const at = session.endedAt as number
+    const stamp = { updatedAt: at, deviceId: 'laptop-device', deleted: false, schemaVersion: 3 }
+    cloud.server.inject(EMAIL, [
+      { tbl: 'sessions', id: 'laptop-session', ...stamp, data: session },
+      {
+        tbl: 'xpEvents',
+        id: 'laptop-xp',
+        ...stamp,
+        data: {
+          id: 'laptop-xp',
+          createdAt: at,
+          updatedAt: at,
+          at,
+          day,
+          source: 'adjustment',
+          amount: xp,
+          key: 'e2e:laptop',
+          refId: null,
+          note: null,
+        },
+      },
+    ])
+    const level = levelFromLifetimeXp(xp).level
+    expect(level).toBeGreaterThan(2)
+
+    await syncNow(page)
+    // It all arrived and was credited: the level is remembered as seen, the badge is earned, and the
+    // streak counts the day.
+    await expect.poll(celebrated, { timeout: SYNC_WAIT }).toBe(level)
+    await expect
+      .poll(async () => (await readTable<{ id: string }>(page, 'badges')).map((b) => b.id))
+      .toContain('first-focus')
+    await expect
+      .poll(async () => (await readTable<{ day: string }>(page, 'streakDays')).map((d) => d.day))
+      .toContain(day)
+
+    // Something done here is announced as usual, and it is the only thing that ever was.
+    const snapshots = page.getByRole('region', { name: 'Snapshots', exact: true })
+    await snapshots.getByRole('button', { name: 'Take snapshot now' }).click()
+    await expect(toasts(page)).toContainText('Snapshot saved')
+    const seen = await page.evaluate(() => (window as unknown as { __seen: string[] }).__seen)
+    expect(seen).toHaveLength(1)
+    expect(seen[0]).toContain('Snapshot saved')
   })
 
   test('a title changed on the phone reaches the laptop', async ({ cloud }) => {

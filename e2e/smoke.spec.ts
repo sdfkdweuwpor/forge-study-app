@@ -1,6 +1,7 @@
+import { readFile } from 'node:fs/promises'
 import type { Page } from '@playwright/test'
 import type { RouteName } from '../src/app/router/routes'
-import { expect, gotoApp, test } from './fixtures'
+import { FIXED_NOW, expect, gotoApp, test } from './fixtures'
 
 /**
  * Phase 1D smoke suite: every route renders, nothing logs errors (fixtures fail the test on any
@@ -485,17 +486,24 @@ test.describe('go-to sequences (1440)', () => {
     expect(await pathnameOf(page)).toBe('/settings')
   })
 
-  test('a lone g expires after one second', async ({ page }) => {
-    await gotoApp(page, '/focus')
-    await page.keyboard.press('g')
-    // Sequences have a 1 s window (PLAN §5.2); wait it out, then the second key is just a key.
-    await page.waitForTimeout(1300)
-    await page.keyboard.press('s')
-    expect(await pathnameOf(page)).toBe('/focus')
-    // ...and a fresh sequence still works afterwards.
-    await page.keyboard.press('g')
-    await page.keyboard.press('s')
-    await expect.poll(() => pathnameOf(page)).toBe('/settings')
+  test.describe('on the installed clock', () => {
+    test.use({ fixedClock: false })
+
+    test('a lone g expires after one second', async ({ page }) => {
+      // The page's timers run on an installed clock, so the window ends exactly when the test says, however
+      // busy the machine is (a real sleep let a late timer keep the sequence open).
+      await page.clock.install({ time: FIXED_NOW })
+      await gotoApp(page, '/focus')
+      await page.keyboard.press('g')
+      // Sequences have a 1 s window (PLAN §5.2); let it pass, then the second key is just a key.
+      await page.clock.fastForward(1100)
+      await page.keyboard.press('s')
+      expect(await pathnameOf(page)).toBe('/focus')
+      // ...and a fresh sequence still works afterwards.
+      await page.keyboard.press('g')
+      await page.keyboard.press('s')
+      await expect.poll(() => pathnameOf(page)).toBe('/settings')
+    })
   })
 })
 
@@ -968,6 +976,11 @@ test.describe('startup and database failures (1440)', () => {
  * client and the status screen are lazy chunks). Content, not chunk names, so a bundler that renames or
  * merges chunks cannot make this pass for the wrong reason.
  */
+/** The folder `vite preview` serves, as `playwright.config.ts` picks it. */
+const BUILD_DIR =
+  process.env.E2E_OUT ??
+  (Number(process.env.E2E_PORT ?? 4173) !== 4173 ? `dist-e2e-${process.env.E2E_PORT}` : 'dist')
+
 const SYNC_ONLY_CODE = [
   'grant_type=pkce', // the sign-in calls (transport)
   'X-Supabase-Api-Version',
@@ -982,7 +995,8 @@ test.describe('sync is off (1440)', () => {
     page,
     baseURL,
   }) => {
-    test.setTimeout(120_000)
+    // Every route with the sample data: about 25 s alone, and up to 2 minutes while 11 other workers run.
+    test.setTimeout(240_000)
     const origin = new URL(baseURL ?? 'http://localhost:4173').origin
     const requested = new Set<string>()
     // The context sees every request of the page, its workers and its frames.
@@ -994,8 +1008,10 @@ test.describe('sync is off (1440)', () => {
     await gotoApp(page, '/', 'wgu')
     await gotoApp(page, '/') // the seeded data, loaded the way a returning visit loads it
     await page.getByRole('checkbox', { name: 'Done: Email mentor about term plan' }).click()
+    // The write queues behind the start-up work on the sample data, which takes seconds on a loaded machine.
     await expect(page.getByRole('region', { name: 'Notifications', exact: true })).toContainText(
       'Completed “Email mentor about term plan”',
+      { timeout: 15_000 },
     )
     for (const url of ALL_URLS) await gotoApp(page, url)
 
@@ -1027,7 +1043,9 @@ test.describe('sync is off (1440)', () => {
     const scripts = urls.filter((u) => new URL(u).origin === origin && /\.js($|\?)/.test(u))
     expect(scripts.length, 'no scripts were requested?').toBeGreaterThan(10)
     for (const url of scripts) {
-      const body = await (await page.request.get(url)).text()
+      // Read from the folder the preview serves (playwright.config.ts): asking the server again for every
+      // script takes minutes when all the workers of a full run do it at once.
+      const body = await readFile(`${BUILD_DIR}${new URL(url).pathname}`, 'utf8')
       for (const marker of SYNC_ONLY_CODE) {
         expect(body, `${url} holds sync-only code (${marker})`).not.toContain(marker)
       }

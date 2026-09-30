@@ -103,7 +103,7 @@ describe('README "Sync (optional)"', () => {
       expect(SYNC, url).toContain(`\`${url}\``)
     }
     expect(SYNC).toContain('**Site URL**')
-    expect(SYNC).toContain('`https://forge-study-app.netlify.app`')
+    expect(SYNC).toContain('Site URL** to `https://sdfkdweuwpor.github.io/forge-study-app/`')
   })
 
   it('says to turn off new sign-ups once the account exists', () => {

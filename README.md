@@ -60,7 +60,7 @@ Press and hold (Android) or right-click (desktop) the installed icon for the sho
 
 **Updates.** When a new version is ready, an "Update ready" toast with a **Reload** button appears. Forge never reloads by itself, and it holds the toast back while a focus session is running.
 
-**Your data lives on each device separately** until cloud sync (optional, planned for later) is set up: the phone and the laptop do not see each other's tasks. To move data across, export it on one device and import it on the other (see [Backup & restore](#backup--restore)). On iPhone, install the app rather than keeping a Safari tab: Safari can clear a website's stored data after about a week without a visit, and an installed app is exempt.
+**Your data lives on each device separately** unless you set up [Sync (optional)](#sync-optional): without it the phone and the laptop do not see each other's tasks. To move data across without sync, export it on one device and import it on the other (see [Backup & restore](#backup--restore)). On iPhone, install the app rather than keeping a Safari tab: Safari can clear a website's stored data after about a week without a visit, and an installed app is exempt.
 
 ## Sync (optional)
 
@@ -179,9 +179,9 @@ grant usage on sequence public.forge_rows_seq to authenticated;
 grant execute on function public.forge_now() to authenticated;
 ```
 
-4. **Tell Supabase where Forge lives.** Open **Authentication → URL Configuration**. Set **Site URL** to `https://forge-study-app.netlify.app` (or the address you open Forge at), and under **Redirect URLs** add each address you use:
-   - `https://forge-study-app.netlify.app/settings/sync`
-   - `https://sdfkdweuwpor.github.io/forge-study-app/settings/sync` (the GitHub Pages address at the top of this page)
+4. **Tell Supabase where Forge lives.** Open **Authentication → URL Configuration**. Set **Site URL** to `https://sdfkdweuwpor.github.io/forge-study-app/` (or the address you open Forge at), and under **Redirect URLs** add each address you use:
+   - `https://sdfkdweuwpor.github.io/forge-study-app/settings/sync` (the live app at the top of this page)
+   - `https://forge-study-app.netlify.app/settings/sync` (the Netlify fallback, if you use it)
    - `http://localhost:5173/settings/sync` (`npm run dev`)
    - `http://localhost:4173/settings/sync` (`npm run preview`)
 

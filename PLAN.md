@@ -849,7 +849,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Bridge; BlockerSync provider; event pulls.
   - "You tried Instagram 7 times today — that's 7 wins" (`today.aside` + page).
   - Unlock log section in `progress.sections`.
-- [ ] **9D [H] Release + docs.** `.github/workflows/extension-release.yml` (`npm ci && npm run zip:ext`, `gh release create extension-v<manifest version> forge-extension.zip`, or `upload --clobber` if the tag exists). README install steps (chrome://extensions → Developer mode → Load unpacked) and the phone note (iOS Screen Time / Android Digital Wellbeing links).
+- [x] **9D [H] Release + docs.** `.github/workflows/extension-release.yml` (`npm ci && npm run zip:ext`, `gh release create extension-v<manifest version> forge-extension.zip`, or `upload --clobber` if the tag exists). README install steps (chrome://extensions → Developer mode → Load unpacked) and the phone note (iOS Screen Time / Android Digital Wellbeing links).
 - [ ] **9E [B] e2e.** Try `launchPersistentContext` with `--load-extension=extension/dist`: instagram.com redirects to blocked.html offline, and `ping` from `localhost:4173` works. If extensions can't load headless here, record that in DECISIONS and rely on unit tests plus manual steps.
 
 ### Phase 10 — Onboarding, empty states, settings, data, PWA

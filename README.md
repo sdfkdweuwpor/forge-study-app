@@ -54,9 +54,22 @@ Coming in Phase 10. The app will be installable as a progressive web app for off
 
 ## Chrome extension (site blocker)
 
-Coming in Phase 9. A companion extension will block distracting sites (Instagram, TikTok, YouTube, etc.) during focus sessions.
+**Install the extension:**
 
-**Note:** Browser extensions can only block web access, not native apps. On iOS, use [Apple Screen Time](https://support.apple.com/en-us/108806); on Android, use [Google Digital Wellbeing](https://support.google.com/android/answer/9346420).
+1. Download `forge-extension.zip` from the [Releases](https://github.com/jobany860/forge-study-app/releases) page.
+   - Note: The repository is private. You must be logged into GitHub to download. Alternatively, build it locally with `npm run zip:ext`.
+2. Unzip the file to a folder on your computer.
+3. Open Chrome and go to `chrome://extensions`.
+4. Turn on **Developer mode** (toggle in the top right).
+5. Click **Load unpacked** and select the unzipped folder.
+6. The extension ID should be `gpinhblnpebjbiodblihfpjbffacipbd`.
+7. Open Forge and go to the **Blocker** page to confirm it says "Connected".
+
+**Emergency unlock:** If you need immediate access to a blocked site, wait 60 seconds, then type the exact phrase shown on the blocked page to unlock it for 5 minutes. Unlock attempts are logged on the Progress page.
+
+**Note on mobile apps:** Browser extensions can only block web access, not native apps. To restrict app access:
+- **iOS:** Use [Apple Screen Time](https://support.apple.com/en-us/108806)
+- **Android:** Use [Google Digital Wellbeing](https://support.google.com/android/answer/9346420)
 
 ## Backup & restore
 

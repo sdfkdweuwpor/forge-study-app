@@ -1,0 +1,48 @@
+.display,
+.input {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 -6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: start;
+}
+
+.display[data-align='end'],
+.input[data-align='end'] {
+  text-align: end;
+}
+
+.display {
+  background: none;
+  color: inherit;
+  cursor: text;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.display[data-empty] {
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .display:hover {
+    background: var(--bg-hover);
+  }
+}
+
+@media (pointer: coarse) {
+  .display {
+    min-height: var(--tap-min);
+  }
+}
+
+.input {
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--text);
+  outline: none;
+}

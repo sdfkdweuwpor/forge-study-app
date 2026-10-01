@@ -8,7 +8,6 @@ import { syncedSettings } from '@/logic/syncTables'
 import {
   clearOverlay,
   getOverlay,
-  pruneOverlay,
   resetLayers,
   setLayer,
   setMaster,
@@ -16,6 +15,7 @@ import {
   setPlaying,
   setSectionOpen,
   setWithFocus,
+  withOverlay,
   wantsSound,
 } from './mixActions'
 
@@ -57,22 +57,25 @@ describe('setLayer', () => {
     expect((await layers()).rain).toBe(0.4)
   })
 
-  it('keeps the overlay until the stored row shows it', async () => {
+  it('keeps the overlay for a row older than the write, and stops needing it once the row has it', async () => {
+    const old = await getSettings()
     setLayer('rain', 0.4)
     await vi.advanceTimersByTimeAsync(300)
     await vi.waitFor(async () => expect((await layers()).rain).toBe(0.4))
-    const stored = effectiveMixer((await getSettings()).sound)
-    expect(getOverlay().layers.rain).toBe(0.4) // the write landed, the live query may not have yet
-    pruneOverlay({ ...stored, layers: {} }) // a stale read
-    expect(getOverlay().layers.rain).toBe(0.4)
-    pruneOverlay(stored)
-    expect(getOverlay().layers).toEqual({})
+    const o = getOverlay()
+    const show = (s: typeof old) => withOverlay(effectiveMixer(s.sound), o, s.updatedAt).layers.rain
+    await vi.waitFor(() => expect(getOverlay().landed?.layers.rain).toBeDefined())
+    expect(show({ ...old, updatedAt: old.updatedAt - 1 })).toBe(0.4) // a view that has not seen the write
+    expect(show(await getSettings())).toBe(0.4) // the row itself: same value either way
+    const next = await getSettings()
+    next.sound.mixer = { ...effectiveMixer(next.sound), layers: { rain: 0.7 } }
+    expect(show({ ...next, updatedAt: next.updatedAt + 1 })).toBe(0.7) // a newer row wins
   })
 
-  it('an overlay 0 matches a missing stored layer', () => {
+  it('an overlay 0 hides a stored layer until a newer row says otherwise', () => {
     setLayer('rain', 0)
-    pruneOverlay(effectiveMixer({ ambient: 'none', ambientVolume: 0 } as never))
-    expect(getOverlay().layers).toEqual({})
+    const mixer = effectiveMixer({ ambient: 'rain', ambientVolume: 0.3 } as never)
+    expect(withOverlay(mixer, getOverlay(), 1).layers.rain).toBeUndefined()
   })
 
   it('removes the key at volume 0', async () => {
@@ -84,6 +87,33 @@ describe('setLayer', () => {
     await vi.waitFor(async () => expect(await layers()).toEqual({}))
     expect(await layers()).toEqual({})
     expect((await getSettings()).sound.mixer?.layers).toEqual({})
+  })
+})
+
+describe('overlay across lagging views', () => {
+  // Each mounted `useMixer` reads its own live query, so one view can hold the row from before the latest
+  // write while another already has it. The mix a view shows is `withOverlay(its row, overlay)`.
+  const view = (s: Awaited<ReturnType<typeof getSettings>>) =>
+    withOverlay(effectiveMixer(s.sound), getOverlay(), s.updatedAt).layers.rain
+
+  it('never goes back to an older value when a write lands between presses', async () => {
+    setLayer('rain', 0.1)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () => expect((await layers()).rain).toBe(0.1))
+    const lagging = await getSettings() // a view that has the first write only
+    setLayer('rain', 0.15)
+    setLayer('rain', 0.2)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () => expect((await layers()).rain).toBe(0.2))
+    const fresh = await getSettings()
+    expect(view(fresh)).toBe(0.2)
+    expect(view(lagging)).toBe(0.2) // the lagging view must not show 0.1
+    setLayer('rain', 0.25) // a press after the write landed
+    expect(view(lagging)).toBe(0.25)
+    expect(view(fresh)).toBe(0.25)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () => expect((await layers()).rain).toBe(0.25))
+    expect(view(await getSettings())).toBe(0.25)
   })
 })
 
@@ -137,7 +167,6 @@ describe('resetLayers overlay', () => {
     setLayer('rain', 0.4)
     await vi.advanceTimersByTimeAsync(300)
     await vi.waitFor(async () => expect((await layers()).rain).toBe(0.4))
-    pruneOverlay(effectiveMixer((await getSettings()).sound))
     setMaster(0.5)
     await resetLayers()
     expect(getOverlay().layers.rain).toBe(0)

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { useSettings } from '@/db/hooks/useSettings'
 import type { Settings, SoundMixer } from '@/db/types'
 import { effectiveMixer } from '@/logic/soundMix'
 import { useTimer } from '../useTimer'
-import { getOverlay, subscribeOverlay, pruneOverlay, wantsSound, withOverlay } from './mixActions'
+import { getOverlay, subscribeOverlay, wantsSound, withOverlay } from './mixActions'
 import { notifyPermission, subscribeNotifyPermission, type NotifyPermission } from '@/lib/notify'
 
 /** The slice of settings that decides what makes noise or pings. */
@@ -26,11 +26,11 @@ export function useMixer(): SoundMixer | undefined {
   const settings = useSettings()
   const overlay = useSyncExternalStore(subscribeOverlay, getOverlay, getOverlay)
   const stored = useMemo(() => settings && effectiveMixer(settings.sound), [settings])
-  // Overlay entries stay until the stored row shows them, so the mix never reads an old value in between.
-  useEffect(() => {
-    if (stored) pruneOverlay(stored)
-  }, [stored])
-  return useMemo(() => stored && withOverlay(stored, overlay), [stored, overlay])
+  // This view's own row time decides which overlay entries it still needs (see `withOverlay`).
+  return useMemo(
+    () => stored && withOverlay(stored, overlay, settings?.updatedAt),
+    [stored, overlay, settings?.updatedAt],
+  )
 }
 
 export interface SoundDevice {

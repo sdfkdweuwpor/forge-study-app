@@ -9,19 +9,13 @@ const player = (page: Page) => page.getByRole('group', { name: 'Sound player' })
 const header = (page: Page, title: string) => panel(page).locator('summary', { hasText: title })
 const slider = (page: Page, name: string) => panel(page).getByRole('slider', { name, exact: true })
 
-/**
- * Moves a slider to `percent` with the keyboard (steps of 5). A slow database write can land between two
- * key presses and show the slider an older stored value (a known rare flicker, see the Task 6 report), so
- * the whole sequence is retried until the slider settles.
- */
+/** Moves a slider to `percent` with the keyboard (steps of 5). */
 async function setTo(page: Page, name: string, percent: number): Promise<void> {
   const s = slider(page, name)
-  await expect(async () => {
-    await s.focus()
-    await s.press('Home')
-    for (let i = 0; i < percent / 5; i++) await s.press('ArrowRight')
-    await expect(s).toHaveValue(String(percent), { timeout: 1000 })
-  }).toPass({ timeout: 10_000 })
+  await s.focus()
+  await s.press('Home')
+  for (let i = 0; i < percent / 5; i++) await s.press('ArrowRight')
+  await expect(s).toHaveValue(String(percent))
 }
 
 test.describe('sound panel and mini player', () => {

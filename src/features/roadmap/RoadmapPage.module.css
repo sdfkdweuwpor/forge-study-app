@@ -47,41 +47,6 @@
   margin-top: var(--space-8);
 }
 
-/* The month scale sits over the track column, aligned with every lane's track. */
-.monthRow {
-  display: grid;
-  grid-template-columns: var(--label-w) minmax(0, 1fr);
-  gap: var(--space-6);
-  padding-bottom: var(--space-2);
-}
-
-.months {
-  position: relative;
-  grid-column: 2;
-  height: 36px;
-}
-
-.month {
-  position: absolute;
-  top: 0;
-  padding-left: var(--space-2);
-  color: var(--text-muted);
-  font-size: var(--fs-12);
-  font-weight: var(--fw-medium);
-  white-space: nowrap;
-}
-
-.todayLabel {
-  position: absolute;
-  bottom: 0;
-  margin-left: -20px;
-  width: 40px;
-  color: var(--accent-text);
-  font-size: var(--fs-12);
-  font-weight: var(--fw-semibold);
-  text-align: center;
-}
-
 /* ── Legend ──────────────────────────────────────────────────────────────── */
 .legend {
   display: flex;
@@ -160,13 +125,5 @@
 
   .chart {
     margin-top: var(--space-6);
-  }
-
-  .monthRow {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .months {
-    grid-column: 1;
   }
 }

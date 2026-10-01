@@ -212,6 +212,10 @@ export interface GoalProjection {
   requiredMinutesPerStudyDay: number | null
   issues: string[]
   computedAt: Millis
+  /** The end before it last moved (`carryEndMove`), for "Now projected Mar 23 (+9 days)". Absent on older rows. */
+  previousEnd?: ISODate | null
+  /** When the end last moved. */
+  endMovedAt?: Millis | null
 }
 export interface Goal extends Base {
   title: string

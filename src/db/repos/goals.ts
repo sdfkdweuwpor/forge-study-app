@@ -9,6 +9,8 @@ import { deepEqual } from '@/logic/deepEqual'
 import { CUS_MAX, HOURS_MAX, TITLE_MAX, type DraftRows } from '@/logic/goalDraft'
 import { ORDER_STEP } from '@/logic/order'
 import { minutesFromWeekly, planningForAvailability } from '@/logic/goalPlanning'
+import { carryEndMove } from '@/logic/goalDisplay'
+import { XP_COURSE_COMPLETE } from '@/logic/xp'
 import {
   goalWork,
   planGoalSlots,
@@ -24,6 +26,7 @@ import { loadGoalRows, planTables, writePlanDiff } from './planning'
 import { getSettings } from './settings'
 import type { RepoOptions, Undoable } from './tasks'
 import { moveToTrash, restoreFromTrash, trashTables, type TrashResult } from './trash'
+import { awardXp, reverseXp } from './xp'
 
 // ─── CRUD (Phase 5B) ────────────────────────────────────────────────────────
 //
@@ -103,16 +106,20 @@ export async function createGoalWithCourses(
     throw new Error('Every planned assessment must belong to the new goal.')
   }
 
-  const goal = await db.transaction('rw', [db.goals, db.milestones, db.units, db.plannedAssessments], async () => {
-    const last = await db.goals.orderBy('order').last()
-    const saved: Goal = { ...rows.goal, order: last ? last.order + ORDER_STEP : 0 }
-    await db.goals.add(saved)
-    if (milestones.length > 0) await db.milestones.bulkAdd(milestones)
-    if (units.length > 0) await db.units.bulkAdd(units)
-    if (assessments.length > 0) await db.plannedAssessments.bulkAdd(assessments)
-    emit({ type: 'goal.changed', goalId: saved.id })
-    return saved
-  })
+  const goal = await db.transaction(
+    'rw',
+    [db.goals, db.milestones, db.units, db.plannedAssessments],
+    async () => {
+      const last = await db.goals.orderBy('order').last()
+      const saved: Goal = { ...rows.goal, order: last ? last.order + ORDER_STEP : 0 }
+      await db.goals.add(saved)
+      if (milestones.length > 0) await db.milestones.bulkAdd(milestones)
+      if (units.length > 0) await db.units.bulkAdd(units)
+      if (assessments.length > 0) await db.plannedAssessments.bulkAdd(assessments)
+      emit({ type: 'goal.changed', goalId: saved.id })
+      return saved
+    },
+  )
 
   let summary: RebalanceSummary | null = null
   let planError: unknown = null
@@ -360,9 +367,27 @@ export interface StatusChange extends Undoable {
   milestone: Milestone
 }
 
+/** A done course holds its XP award; any other status holds none (an award that stands is never repaid). */
+async function settleCourseXp(id: ID, status: Milestone['status'], at: Millis): Promise<void> {
+  const key = `course:${id}`
+  if (status === 'done') {
+    await awardXp({
+      source: 'course',
+      amount: XP_COURSE_COMPLETE,
+      key,
+      refId: id,
+      at,
+      day: dayOf(at),
+    })
+  } else {
+    await reverseXp(key, { at })
+  }
+}
+
 /**
- * Marks a course not started, in progress or done. Done stamps `completedAt`, emits
- * `milestone.completed` (the XP award is a listener's job), and re-plans with reason `complete`, which
+ * Marks a course not started, in progress or done. Done stamps `completedAt`, pays `XP_COURSE_COMPLETE`
+ * once per course (key `course:<id>`, so a repeat or a second synced device cannot pay twice; leaving
+ * done takes it back), emits `milestone.completed`, and re-plans with reason `complete`, which
  * pulls the later courses forward; anything else re-plans as an edit. `undo()` puts the previous
  * status back. Returns `null` for a missing course.
  */
@@ -381,8 +406,9 @@ export async function setMilestoneStatus(
     completedAt: Millis | null,
     reason: RebalanceReason,
   ): Promise<Milestone> => {
-    const row = await db.transaction('rw', db.milestones, async () => {
+    const row = await db.transaction('rw', db.milestones, db.xpEvents, async () => {
       await db.milestones.update(id, { status: next, completedAt, updatedAt: now })
+      await settleCourseXp(id, next, now)
       if (next === 'done') {
         emit({ type: 'milestone.completed', milestoneId: id, goalId: before.goalId })
       } else if (before.status === 'done') {
@@ -405,12 +431,14 @@ export async function setMilestoneStatus(
     undo: async () => {
       const current = await db.milestones.get(id)
       if (!current) return
-      await db.transaction('rw', db.milestones, async () => {
+      await db.transaction('rw', db.milestones, db.xpEvents, async () => {
+        const at = Date.now()
         await db.milestones.update(id, {
           status: before.status,
           completedAt: before.completedAt,
-          updatedAt: Date.now(),
+          updatedAt: at,
         })
+        await settleCourseXp(id, before.status, at)
         if (status === 'done') {
           emit({ type: 'milestone.uncompleted', milestoneId: id, goalId: before.goalId })
         } else if (before.status === 'done') {
@@ -787,7 +815,7 @@ export async function rebalanceGoal(
     }
 
     const patch: Partial<Goal> = {}
-    const projection: GoalProjection = { ...plan.projection, computedAt: now }
+    const projection = carryEndMove(goal.projection, { ...plan.projection, computedAt: now }, now)
     const end = result.projectedEnd
     if (
       end !== null &&

@@ -1,0 +1,53 @@
+/* The month scale sits over the track column, aligned with every lane's track. */
+.monthRow {
+  display: grid;
+  grid-template-columns: var(--label-w, 220px) minmax(0, 1fr);
+  gap: var(--space-6);
+  padding-bottom: var(--space-2);
+}
+
+.months {
+  position: relative;
+  grid-column: 2;
+  height: 36px;
+}
+
+.month {
+  position: absolute;
+  top: 0;
+  padding-left: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.todayLabel {
+  position: absolute;
+  bottom: 0;
+  margin-left: -20px;
+  width: 40px;
+  color: var(--accent-text);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  text-align: center;
+}
+
+/* Inline (the goal page), and on phones where the lanes stack: no label column to sit beside. */
+.monthRow[data-inline] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.monthRow[data-inline] .months {
+  grid-column: 1;
+}
+
+@media (max-width: 639px) {
+  .monthRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .months {
+    grid-column: 1;
+  }
+}

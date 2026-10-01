@@ -48,6 +48,7 @@ import type {
 import { rebalanceGoal } from './goals'
 import { loadGoalRows, planTables, writePlanDiff, type WrittenDiff } from './planning'
 import type { RepoOptions, Undoable } from './tasks'
+import { carryEndMove } from '@/logic/goalDisplay'
 import { moveToTrash, restoreFromTrash } from './trash'
 
 /** What accepting a proposal does (stored in `PlanProposal.apply`). */
@@ -157,15 +158,19 @@ async function staleProposals(
 function movedProjection(goal: Goal, end: ISODate | null, now: Millis): GoalProjection {
   const ref = goal.targetDate ?? goal.baselineEnd
   const prev = goal.projection
-  return {
-    end,
-    slipDays: end !== null && ref !== null ? diffDays(end, ref) : null,
-    feasible: goal.targetDate === null || end === null || end <= goal.targetDate,
-    catchUpMinutes: prev?.catchUpMinutes ?? null,
-    requiredMinutesPerStudyDay: prev?.requiredMinutesPerStudyDay ?? null,
-    issues: prev?.issues ?? [],
-    computedAt: now,
-  }
+  return carryEndMove(
+    prev,
+    {
+      end,
+      slipDays: end !== null && ref !== null ? diffDays(end, ref) : null,
+      feasible: goal.targetDate === null || end === null || end <= goal.targetDate,
+      catchUpMinutes: prev?.catchUpMinutes ?? null,
+      requiredMinutesPerStudyDay: prev?.requiredMinutesPerStudyDay ?? null,
+      issues: prev?.issues ?? [],
+      computedAt: now,
+    },
+    now,
+  )
 }
 
 /** Writes move-only plan items over the goal's plan tasks (inside the caller's transaction). */
@@ -376,6 +381,51 @@ export async function restoreSnapshot(snap: Snapshot): Promise<void> {
   })
 }
 
+/** Lengthens every study day's last window by `extra` minutes, keeping `availability` minutes in step. */
+function extraTimePatch(goal: Goal, extra: number): Pick<Goal, 'planning' | 'availability'> {
+  const extended = addMinutesToWindows(goalAvailability(goal), extra)
+  const copy = (d: readonly { start: string; end: string }[]) =>
+    d.map((w) => ({ start: w.start, end: w.end }))
+  const weekly = extended.weekly.map(copy)
+  const shift = extended.shiftPattern
+  return {
+    planning: {
+      ...goal.planning,
+      weekly,
+      shiftPattern: shift
+        ? { anchor: shift.anchor, cycle: shift.cycle.map((d) => (d ? copy(d) : null)) }
+        : null,
+    },
+    availability: { ...goal.availability, minutesByWeekday: minutesFromWeekly(weekly) },
+  }
+}
+
+/**
+ * The goal page's one-click catch-up (`projection.catchUpMinutes`): what an accepted add-time proposal
+ * does, without a proposal. Re-plans; `undo()` puts the goal and its plan back. `null` for a missing
+ * goal or no time to add.
+ */
+export async function addStudyTime(
+  goalId: ID,
+  extraMinutesPerStudyDay: number,
+  opts: RepoOptions = {},
+): Promise<Undoable | null> {
+  if (!(extraMinutesPerStudyDay > 0)) return null
+  const now = opts.now ?? Date.now()
+  const snap = await db.transaction('rw', planTables(), async () => {
+    const rows = await loadGoalRows(goalId, dayOf(now))
+    if (!rows) return null
+    const before = snapshotGoalPlan(rows.goal, rows)
+    await db.goals.update(goalId, extraTimePatch(rows.goal, extraMinutesPerStudyDay))
+    await staleProposals(goalId, now)
+    emit({ type: 'goal.changed', goalId })
+    return before
+  })
+  if (!snap) return null
+  await rebalanceGoal(goalId, { now, reason: 'proposal' })
+  return { undo: () => restoreSnapshot(snap) }
+}
+
 /**
  * Applies a pending proposal (the user confirmed it):
  * - roll forward and "life happened" write their items as they are (and, in ASAP mode, accept the new
@@ -437,19 +487,7 @@ export async function applyProposal(id: ID, opts: RepoOptions = {}): Promise<App
       if (apply.targetDate !== undefined) patch.targetDate = apply.targetDate
       if (apply.baselineEnd !== undefined) patch.baselineEnd = apply.baselineEnd
       if (apply.extraMinutesPerStudyDay !== undefined) {
-        const extended = addMinutesToWindows(goalAvailability(goal), apply.extraMinutesPerStudyDay)
-        const copy = (d: readonly { start: string; end: string }[]) =>
-          d.map((w) => ({ start: w.start, end: w.end }))
-        const weekly = extended.weekly.map(copy)
-        const shift = extended.shiftPattern
-        patch.planning = {
-          ...goal.planning,
-          weekly,
-          shiftPattern: shift
-            ? { anchor: shift.anchor, cycle: shift.cycle.map((d) => (d ? copy(d) : null)) }
-            : null,
-        }
-        patch.availability = { ...goal.availability, minutesByWeekday: minutesFromWeekly(weekly) }
+        Object.assign(patch, extraTimePatch(goal, apply.extraMinutesPerStudyDay))
       }
       if (apply.paceMinutesPerStudyDay !== undefined) {
         patch.planning = {

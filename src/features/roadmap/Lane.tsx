@@ -29,6 +29,8 @@ interface LaneProps {
   today: string
   projection: GoalProjection | null
   status: 'active' | 'paused' | 'done' | 'archived'
+  /** On the goal's own page: the track alone, with no title column and no click through to the goal. */
+  inline?: boolean
 }
 
 /** A focusable stop with a tooltip; the accessible name is the tooltip text. */
@@ -46,7 +48,15 @@ function Stop({
   )
 }
 
-export function Lane({ goal, layout, scale, today, projection, status }: LaneProps) {
+export function Lane({
+  goal,
+  layout,
+  scale,
+  today,
+  projection,
+  status,
+  inline = false,
+}: LaneProps) {
   const finish = summarizeFinish({ projection, targetDate: goal.targetDate, status }, today)
   const open = () => navigate('goal', { goalId: goal.id })
   const onLaneClick = (e: MouseEvent) => {
@@ -134,32 +144,39 @@ export function Lane({ goal, layout, scale, today, projection, status }: LanePro
   return (
     <section aria-label={`${goal.title} timeline`} className={styles.laneWrap}>
       {/* The whole lane opens the goal for a mouse; the title link is the keyboard's way in. */}
-      <div role="presentation" className={styles.lane} onClick={onLaneClick}>
-        <div className={styles.label}>
-          <h2 className={styles.title}>
-            <span className={styles.icon} aria-hidden="true">
-              {goal.icon}
-            </span>
-            <Link to="goal" params={{ goalId: goal.id }} className={styles.link}>
-              {goal.title}
-            </Link>
-          </h2>
-          <div className={styles.progress}>
-            <ProgressBar
-              value={goal.percent}
-              size="sm"
-              label={`${goal.title} progress`}
-              className={styles.bar}
-            />
-            <span className={styles.percent}>{goal.percent}% complete</span>
+      <div
+        role="presentation"
+        className={styles.lane}
+        data-inline={inline || undefined}
+        onClick={inline ? undefined : onLaneClick}
+      >
+        {inline ? null : (
+          <div className={styles.label}>
+            <h2 className={styles.title}>
+              <span className={styles.icon} aria-hidden="true">
+                {goal.icon}
+              </span>
+              <Link to="goal" params={{ goalId: goal.id }} className={styles.link}>
+                {goal.title}
+              </Link>
+            </h2>
+            <div className={styles.progress}>
+              <ProgressBar
+                value={goal.percent}
+                size="sm"
+                label={`${goal.title} progress`}
+                className={styles.bar}
+              />
+              <span className={styles.percent}>{goal.percent}% complete</span>
+            </div>
+            <p className={styles.finish} data-testid="lane-finish">
+              {finish.headline}
+            </p>
+            {finish.target && finish.kind !== 'behind' ? (
+              <p className={styles.target}>{finish.target}</p>
+            ) : null}
           </div>
-          <p className={styles.finish} data-testid="lane-finish">
-            {finish.headline}
-          </p>
-          {finish.target && finish.kind !== 'behind' ? (
-            <p className={styles.target}>{finish.target}</p>
-          ) : null}
-        </div>
+        )}
 
         <div className={styles.track} style={{ '--rows': layout.rowCount } as CSSProperties}>
           {scale.months.map((m) => (

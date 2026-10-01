@@ -11,7 +11,7 @@ export function buildStorm(ctx: AudioContext, rng: Rng): Graph {
   const thunder = gain(ctx, 1)
   thunder.connect(out)
   const buffer = brownLoop(ctx)
-  const live: AudioScheduledSourceNode[] = []
+  const live: { source: AudioScheduledSourceNode; end: number }[] = []
 
   const stopThunder = startScheduler(ctx, rng, 0.15, 6, (t) => {
     const e = thunderEvent(rng)
@@ -25,7 +25,9 @@ export function buildStorm(ctx: AudioContext, rng: Rng): Graph {
     env.gain.linearRampToValueAtTime(e.gain * 2, t + 0.15)
     env.gain.exponentialRampToValueAtTime(0.0001, t + e.rumbleSeconds)
     source.stop(t + e.rumbleSeconds + 0.05)
-    live.push(source)
+    // Drop thunders that have already ended so a long-running storm does not grow this list.
+    while (live.length && live[0]!.end < ctx.currentTime) live.shift()
+    live.push({ source, end: t + e.rumbleSeconds + 0.05 })
   })
 
   return {
@@ -33,7 +35,7 @@ export function buildStorm(ctx: AudioContext, rng: Rng): Graph {
     stop: () => {
       stopThunder()
       rain.stop()
-      stopAll(live)
+      stopAll(live.map((l) => l.source))
     },
   }
 }

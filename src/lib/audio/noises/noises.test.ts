@@ -18,14 +18,39 @@ describe('NOISE_BUILDERS', () => {
     expect(Object.keys(NOISE_BUILDERS).sort()).toEqual([...NOISE_LAYERS].sort())
   })
 
-  it.each(NOISE_LAYERS)('%s: output is unconnected and stop() stops every source', (id) => {
-    const { ctx, graph } = build(id)
-    expect((graph.output as unknown as { connections: unknown[] }).connections).toEqual([])
-    for (let i = 0; i < 20; i++) ctx.advance(0.5, vi)
+  it.each(NOISE_LAYERS)(
+    '%s: output is unconnected; stop() stops sources and releases timers',
+    (id) => {
+      const { ctx, graph } = build(id)
+      expect((graph.output as unknown as { connections: unknown[] }).connections).toEqual([])
+      for (let i = 0; i < 20; i++) ctx.advance(0.5, vi)
+      const looping = ctx.sources.filter(
+        (s) => s.starts.length && (s.loop || s.starts[0]?.length === 0),
+      )
+      const before = new Map(looping.map((s) => [s, s.stops.length]))
+      graph.stop()
+      // every source still running at stop() time gets stopped again; ended one-shots may not
+      const unstopped = looping.filter((s) => {
+        const lastStop = s.stops.at(-1)?.[0]
+        const pending = lastStop === undefined || lastStop > ctx.currentTime
+        return pending && s.stops.length === before.get(s)
+      })
+      expect(unstopped).toEqual([])
+      const nodes = ctx.nodes.length
+      ctx.advance(5, vi)
+      expect(ctx.nodes.length).toBe(nodes)
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
+  it('storm does not track ended thunders without bound', () => {
+    const { ctx, graph } = build('storm')
+    for (let i = 0; i < 3000; i++) ctx.advance(0.7, vi) // ~35 minutes
+    const thunders = ctx.sources.filter((s) => s.loop && s.starts.length && s.stops.length)
     graph.stop()
-    const sources = ctx.sources
-    expect(sources.length).toBeGreaterThan(0)
-    for (const s of sources) if (s.starts.length) expect(s.stops.length).toBeGreaterThan(0)
+    const restopped = thunders.filter((s) => s.stops.length > 1)
+    expect(thunders.length).toBeGreaterThan(20)
+    expect(restopped.length).toBeLessThan(4)
   })
 
   it('noise colour picks the buffer', () => {

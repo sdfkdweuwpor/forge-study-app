@@ -143,7 +143,7 @@ function SoundPanelBody() {
           aria-pressed={playing}
           onClick={() => void togglePlay(playing)}
         >
-          Play
+          {playing ? 'Pause' : 'Play'}
         </Button>
       </div>
       <div className={styles.master}>
@@ -216,9 +216,7 @@ function SoundPanelBody() {
         <ul className={styles.layers}>
           {NOISE_LAYERS.map((layer) => (
             <li key={layer} className={styles.layer}>
-              <span className={styles.rowLabel} title={LAYER_LABELS[layer]}>
-                {LAYER_LABELS[layer]}
-              </span>
+              <span className={styles.layerLabel}>{LAYER_LABELS[layer]}</span>
               <Slider
                 className={styles.slider}
                 label={LAYER_LABELS[layer]}

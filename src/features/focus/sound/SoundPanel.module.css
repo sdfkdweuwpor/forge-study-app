@@ -138,3 +138,10 @@
   color: var(--text-muted);
   font-size: var(--fs-12);
 }
+
+/* Layer names wrap ("Heavy rain & thunder") instead of being cut off; the slider stays centred on the row. */
+.layerLabel {
+  min-width: 0;
+  font-size: var(--fs-14);
+  overflow-wrap: anywhere;
+}

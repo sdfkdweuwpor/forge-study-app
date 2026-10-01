@@ -5,6 +5,8 @@ import { contextCount, layerCount, musicCount, recordAudio, removeAudio } from '
 
 /** The Sound panel on the Focus page and the mini player, on a recording Web Audio. */
 const panel = (page: Page) => page.getByRole('region', { name: 'Sound' })
+/** The panel's play toggle: says Pause while sound plays. */
+const playButton = (page: Page) => panel(page).getByRole('button', { name: /^(Play|Pause)$/ })
 const player = (page: Page) => page.getByRole('group', { name: 'Sound player' })
 const header = (page: Page, title: string) => panel(page).locator('summary', { hasText: title })
 const slider = (page: Page, name: string) => panel(page).getByRole('slider', { name, exact: true })
@@ -43,7 +45,7 @@ test.describe('sound panel and mini player', () => {
       await expect(slider(page, name)).toBeVisible()
     await expect(panel(page).locator('[aria-disabled="true"]', { hasText: 'Mixes' })).toBeVisible()
 
-    await panel(page).getByRole('button', { name: 'Play' }).click()
+    await playButton(page).click()
     await setTo(page, 'Rain', 40)
     await setTo(page, 'Campfire', 25)
     await expect(header(page, 'Sounds')).toContainText('Rain 40% · Campfire 25%')
@@ -79,7 +81,7 @@ test.describe('sound panel and mini player', () => {
     await expect(styles.getByRole('radio', { name: /Tokyo night/ })).toContainText('neon')
 
     await setTo(page, 'Rain', 30)
-    await panel(page).getByRole('button', { name: 'Play' }).click()
+    await playButton(page).click()
     await expect.poll(() => layerCount(page)).toBe(1)
     expect(await musicCount(page)).toBe(0)
 
@@ -107,16 +109,23 @@ test.describe('sound panel and mini player', () => {
     await panel(page)
       .getByRole('radio', { name: /Jazz hop/ })
       .click()
-    await expect(panel(page).getByRole('button', { name: 'Play' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    await expect(playButton(page)).toHaveAttribute('aria-pressed', 'true')
     await expect.poll(() => musicCount(page)).toBe(1)
+    const toggle = panel(page).getByRole('button', { name: 'Pause', exact: true })
+    const mini = player(page).getByRole('button', { name: 'Play sound' })
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await expect(mini).toHaveAttribute('aria-pressed', 'true')
+    await toggle.click()
+    await expect(panel(page).getByRole('button', { name: 'Play', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    await expect(mini).toHaveAttribute('aria-pressed', 'false')
   })
 
   test('a second tab of the same browser does not make sound', async ({ page, context }) => {
     await gotoApp(page, '/focus', 'empty')
-    await panel(page).getByRole('button', { name: 'Play' }).click()
+    await playButton(page).click()
     await setTo(page, 'Rain', 40)
     await expect.poll(() => layerCount(page)).toBe(1)
 
@@ -124,10 +133,7 @@ test.describe('sound panel and mini player', () => {
     await recordAudio(second)
     await gotoApp(second, '/focus')
     await expect(header(second, 'Sounds')).toContainText('Rain 40%')
-    await expect(panel(second).getByRole('button', { name: 'Play' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    await expect(playButton(second)).toHaveAttribute('aria-pressed', 'true')
     expect(await layerCount(second)).toBe(0)
     expect(await contextCount(second)).toBe(0)
   })

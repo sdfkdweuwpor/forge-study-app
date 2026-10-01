@@ -13,7 +13,8 @@ export {
   isAmbientPlaying,
   ambientKind,
   type AmbientKind,
-} from './ambient'
+} from './ambientCompat'
+export { applyMix, stopMix, playingLayers, isMixPlaying } from './mixer'
 export {
   unlockAudio,
   armAudioUnlock,

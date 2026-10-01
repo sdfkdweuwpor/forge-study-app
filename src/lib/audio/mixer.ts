@@ -54,7 +54,10 @@ function retire(ctx: AudioContext, e: Entry, fadeMs: number): Promise<void> {
 
 export async function applyMix(
   mix: Mix,
-  opts: { onLayerError?: (layer: NoiseLayer, error: unknown) => void } = {},
+  opts: {
+    onLayerError?: (layer: NoiseLayer, error: unknown) => void
+    onMusicError?: (style: LofiStyle, error: unknown) => void
+  } = {},
 ): Promise<void> {
   const ctx = getContext()
   if (!ctx) return
@@ -90,14 +93,19 @@ export async function applyMix(
     }
   }
 
-  await applyMusic(ctx, mix.music)
+  await applyMusic(ctx, mix.music, opts.onMusicError)
   if (before !== isMixPlaying()) emitAudioChange()
   await resumeContext(ctx)
 }
 
 /** The music chunk loads on the first Play of a style; nothing else may import it. */
-async function applyMusic(ctx: AudioContext, m: Mix['music']): Promise<void> {
+async function applyMusic(
+  ctx: AudioContext,
+  m: Mix['music'],
+  onError?: (style: LofiStyle, error: unknown) => void,
+): Promise<void> {
   wantedStyle = m.style
+  if (failedStyle && failedStyle !== m.style) failedStyle = null
   if (m.style === 'off') {
     failedStyle = null
     stopMusic(600)
@@ -116,8 +124,9 @@ async function applyMusic(ctx: AudioContext, m: Mix['music']): Promise<void> {
     const old = music
     music = { style: m.style, handle: startMusic(ctx, musicBus, m.style) }
     old?.handle.stop(MUSIC_FADE_MS)
-  } catch {
+  } catch (error) {
     failedStyle = m.style
+    onError?.(m.style, error)
   }
 }
 
@@ -133,6 +142,7 @@ export async function stopMix(fadeMs = 600): Promise<void> {
   playing.clear()
   failed.clear()
   wantedStyle = 'off'
+  failedStyle = null
   const hadMusic = music !== null
   stopMusic(fadeMs)
   if (!entries.length && !hadMusic) return

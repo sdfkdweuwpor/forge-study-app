@@ -250,7 +250,9 @@ export function startTexture(ctx: AudioContext, out: GainNode, kind: TextureKind
     sources.push(slowMotion(ctx, swell.gain, 0.07, 0.03))
     const hum = ctx.createOscillator()
     hum.frequency.value = 55
-    hum.connect(gain(ctx, 0.008)).connect(out)
+    const humGain = gain(ctx, 0.008)
+    nodes.push(humGain)
+    hum.connect(humGain).connect(out)
     hum.start()
     sources.push(hum)
   }

@@ -26,7 +26,7 @@ const TICK_MS = 100
 const AHEAD_BARS = 2
 const FADE_IN_MS = 2000
 const MAX_VOICES = 32
-const HEADROOM = 0.5
+const HEADROOM = 0.35
 
 const DRUMS = { kick: playKick, snare: playSnare, hat: playHat, rim: playRim }
 const MELODIC = { keys: playKeys, pad: playPad, bass: playBass, pluck: playPluck, piano: playPiano }
@@ -44,10 +44,14 @@ export function startMusic(ctx: AudioContext, out: AudioNode, style: LofiStyle):
   /** Voices scheduled and not yet over; the cap counts those sounding at a note's time. */
   let live: { sources: Source[]; start: number; until: number }[] = []
 
-  const play = (ev: NoteEvent, time: number) => {
+  const play = (note: NoteEvent, time: number) => {
+    // Composer lengths are in beats; instruments take seconds.
+    const sec = 'drum' in note ? 0.4 : note.dur * spb
     const sources =
-      'drum' in ev ? DRUMS[ev.drum](ctx, bus, time, ev) : MELODIC[ev.inst](ctx, bus, time, ev)
-    live.push({ sources, start: time, until: time + ('dur' in ev ? ev.dur : 0.4) + 1 })
+      'drum' in note
+        ? DRUMS[note.drum](ctx, bus, time, note)
+        : MELODIC[note.inst](ctx, bus, time, { ...note, dur: sec })
+    live.push({ sources, start: time, until: time + sec + 1 })
   }
 
   const tick = () => {

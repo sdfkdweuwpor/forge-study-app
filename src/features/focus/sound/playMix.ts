@@ -10,7 +10,10 @@ export async function playMix(mix: Mix): Promise<void> {
   try {
     const audio = await import('@/lib/audio')
     audio.armAudioUnlock()
-    await audio.applyMix(mix, { onLayerError: (_layer, e) => recordError(e, 'sound.layer') })
+    await audio.applyMix(mix, {
+      onLayerError: (_layer, e) => recordError(e, 'sound.layer'),
+      onMusicError: (_style, e) => recordError(e, 'sound.music'),
+    })
   } catch (e) {
     recordError(e, 'sound.apply')
   }

@@ -6,10 +6,15 @@ const h = vi.hoisted(() => ({
   ctx: null as unknown,
   master: [] as number[],
   built: [] as string[],
+  failMusic: false,
   music: [] as { style: string; stop: ReturnType<typeof vi.fn> }[],
 }))
 vi.mock('./music/player', () => ({
   startMusic: (_c: unknown, _o: unknown, style: string) => {
+    if (h.failMusic) {
+      h.failMusic = false
+      throw new Error('chunk')
+    }
     const handle = { style, stop: vi.fn() }
     h.music.push(handle)
     return handle
@@ -128,5 +133,19 @@ describe('mixer', () => {
     expect(b?.stop).toHaveBeenCalled()
     expect(stops.rain).not.toHaveBeenCalled()
     expect(playingLayers()).toEqual(['rain'])
+  })
+
+  it('reports a music failure once, and retries after stopMix', async () => {
+    const onMusicError = vi.fn()
+    h.failMusic = true
+    await applyMix(mix({}, 1, 'classic'), { onMusicError })
+    await applyMix(mix({}, 1, 'classic'), { onMusicError })
+    expect(onMusicError).toHaveBeenCalledTimes(1)
+    expect(h.music).toHaveLength(0)
+    const p = stopMix(0)
+    vi.advanceTimersByTime(1000)
+    await p
+    await applyMix(mix({}, 1, 'classic'), { onMusicError })
+    expect(h.music).toHaveLength(1)
   })
 })

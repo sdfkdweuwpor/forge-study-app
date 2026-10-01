@@ -1,0 +1,47 @@
+name: Release Chrome Extension
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'extension/**'
+      - 'scripts/build-extension.mjs'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run zip:ext
+
+      - name: Read extension version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./extension/manifest.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="extension-v${{ steps.version.outputs.version }}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" forge-extension.zip --clobber
+          else
+            gh release create "$TAG" forge-extension.zip \
+              --title "Forge Focus extension v${{ steps.version.outputs.version }}" \
+              --notes "Load unpacked: unzip, then chrome://extensions → Developer mode → Load unpacked."
+          fi

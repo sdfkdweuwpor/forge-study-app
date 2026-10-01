@@ -1,0 +1,29 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 36px;
+}
+
+.tag {
+  flex: none;
+  margin-left: auto;
+  border-radius: var(--radius-sm);
+}
+
+.text {
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.grow {
+  flex: 1;
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+}

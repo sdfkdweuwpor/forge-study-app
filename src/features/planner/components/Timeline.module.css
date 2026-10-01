@@ -1,0 +1,73 @@
+.root {
+  width: 100%;
+  min-width: 0;
+}
+
+.root svg {
+  display: block;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.tick,
+.label,
+.lineLabel,
+.finishTextFits,
+.finishTextLate {
+  font-family: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tick {
+  fill: var(--text-muted);
+}
+
+.label {
+  fill: var(--text);
+}
+
+.bar {
+  fill: var(--accent);
+  opacity: 0.85;
+}
+
+.mark {
+  fill: var(--bg);
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+
+.target {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.lineLabel {
+  fill: var(--text-muted);
+}
+
+.finishFits {
+  stroke: var(--success);
+  stroke-width: 2;
+}
+
+.finishLate {
+  stroke: var(--warning);
+  stroke-width: 2;
+}
+
+.finishTextFits {
+  fill: var(--success-text);
+  font-weight: 600;
+}
+
+.finishTextLate {
+  fill: var(--warning-text);
+  font-weight: 600;
+}

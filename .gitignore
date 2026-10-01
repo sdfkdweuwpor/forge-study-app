@@ -1,0 +1,23 @@
+node_modules
+dist
+dev-dist
+/screenshots
+test-results
+playwright-report
+extension/dist
+*.zip
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+.netlify
+
+# agent scratch specs
+e2e/_tmp*.spec.ts
+dist-*/
+playwright.*.tmp.config.ts
+test-results-*/
+playwright.*.config.ts
+!playwright.shoot.config.ts
+dist-e2e-*/

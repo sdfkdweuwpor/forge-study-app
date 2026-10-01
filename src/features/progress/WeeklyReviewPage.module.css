@@ -1,0 +1,358 @@
+/*
+ * The weekly review: one calm column. Hierarchy comes from type and spacing, not boxes: a heading, then
+ * what it is about, then air. Gold (`--xp-text`) is only for XP.
+ */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  container-type: inline-size;
+  width: 100%;
+  max-width: 44rem;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.lede {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+/* ── Week picker ─────────────────────────────────────────────────────────── */
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: calc(var(--space-4) * -1) 0;
+}
+
+.pickerLabel {
+  display: flex;
+  flex-direction: column;
+  min-width: 10rem;
+  text-align: center;
+}
+
+.range {
+  font-size: var(--fs-16);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  line-height: 1.35;
+}
+
+.caption {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The chart's own title is the section heading here: a step up from the 14px default. */
+.chartSection {
+  --chart-title-size: var(--fs-16);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+  line-height: 1.35;
+}
+
+.headingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+}
+
+.headingGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.link {
+  color: var(--accent-text);
+  font-size: var(--fs-14);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* A link on its own line is a control: 44px tall on touch (BRIEF §3.8). */
+@media (pointer: coarse) {
+  .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+}
+
+/* ── Wins ────────────────────────────────────────────────────────────────── */
+.wins {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  font-size: var(--fs-16);
+  line-height: 1.5;
+  list-style: disc;
+}
+
+/* Quiet bullets: the accent is kept for actions and progress. */
+.wins li::marker {
+  color: var(--text-faint);
+}
+
+/* ── Numbers ─────────────────────────────────────────────────────────────── */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.figureLabel {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 1.4;
+}
+
+.figureValue {
+  margin: 0;
+  font-size: var(--fs-24);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  overflow-wrap: anywhere;
+}
+
+.figureHint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+@container (max-width: 639px) {
+  .figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Note ────────────────────────────────────────────────────────────────── */
+.saveState {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.saveState[data-state='failed'] {
+  color: var(--warning-text);
+}
+
+/* ── Next week ───────────────────────────────────────────────────────────── */
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-block: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.dayName {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+}
+
+.dayNum {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dayMinutes {
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  line-height: 1.3;
+}
+
+.day[data-empty] .dayMinutes {
+  color: var(--text-muted);
+  font-weight: var(--fw-regular);
+}
+
+.dayItems {
+  min-height: 1.4em;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.dayBar {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+}
+
+.dayFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+/* A phone reads it as a list: day on the left, time and items on the right. */
+@container (max-width: 559px) {
+  .days {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .day {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    padding-block: var(--space-3);
+  }
+
+  /* The bar sits under the time, not under the day's name, and a day with no planned time (free or
+     flexible) has none: one hairline per row (the divider) instead of two. */
+  .dayBar {
+    grid-column: 2 / -1;
+  }
+
+  .day[data-untimed] .dayBar {
+    display: none;
+  }
+
+  .dayItems {
+    min-height: 0;
+    text-align: right;
+  }
+}
+
+/* ── Done ────────────────────────────────────────────────────────────────── */
+.doneRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.done svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--success-text);
+}
+
+.xp {
+  color: var(--xp-text);
+  font-weight: var(--fw-semibold);
+}
+
+/* The quiet-week state lines up with the page's own margin instead of insetting itself. */
+.quiet.quiet {
+  max-width: 34rem;
+  padding-inline: 0;
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────────── */
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+@media (max-width: 639px) {
+  .title {
+    font-size: var(--fs-32);
+  }
+
+  .page {
+    gap: var(--space-8);
+  }
+}

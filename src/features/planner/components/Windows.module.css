@@ -1,0 +1,39 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.window {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.time {
+  width: 116px;
+}
+
+.to {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.problem {
+  flex-basis: 100%;
+  color: var(--warning-text);
+  font-size: var(--fs-12);
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.add {
+  margin-left: calc(var(--space-2) * -1);
+}

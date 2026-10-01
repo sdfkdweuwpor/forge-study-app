@@ -1,0 +1,118 @@
+/* The planner's pieces on the goal page: the pending-proposals card, the buttons, the dialogs. */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+}
+
+.banner:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.bannerTitle {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+  text-wrap: balance;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.optionText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 200px;
+}
+
+.optionTitle {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.optionDetail {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.bannerFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+.bannerNote {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.dayChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.moves {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.move {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-14);
+}
+
+.moveTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.moveWhen {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

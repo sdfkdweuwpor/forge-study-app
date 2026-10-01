@@ -1,0 +1,53 @@
+/* Inverse bubble, 12px medium text, optional shortcut keycaps. No shadow: contrast carries it. */
+.bubble {
+  --kbd-color: var(--text-inverse-muted);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 260px;
+  min-height: 26px;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-inverse);
+  box-shadow: 0 0 0 1px var(--border);
+  color: var(--text-inverse);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.text {
+  min-width: 0;
+}
+
+.floating {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-tooltip);
+  width: max-content;
+  animation: tip-in var(--dur-1) var(--ease) both;
+  transform-origin: bottom center;
+}
+
+.floating[data-side='bottom'] {
+  transform-origin: top center;
+}
+
+.floating[data-side='left'] {
+  transform-origin: center right;
+}
+
+.floating[data-side='right'] {
+  transform-origin: center left;
+}
+
+/* --scale-in becomes 1 under reduced motion, leaving an opacity fade (data-motion="opacity"). */
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    scale: var(--scale-in);
+  }
+}

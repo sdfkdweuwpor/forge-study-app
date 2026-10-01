@@ -1,0 +1,38 @@
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-height: var(--control-h-md);
+}
+
+.input {
+  min-width: 0;
+  height: 24px;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .input:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.input:focus {
+  background: var(--bg-hover);
+}
+
+@media (pointer: coarse) {
+  .input {
+    height: var(--tap-min);
+  }
+}

@@ -1,0 +1,64 @@
+/* One figure of the stat row: a small visual, a number, and what it measures. No box. */
+.stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The ring or icon sets its own size; the box only centres it. */
+.visual {
+  display: grid;
+  flex: none;
+  place-items: center;
+  min-width: 24px;
+  color: var(--text-muted);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.value {
+  color: var(--text);
+  font-size: var(--fs-16);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.caption {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.stat[data-tone='xp'] .value {
+  color: var(--xp-text);
+}
+
+/* Phones: the three figures share one line, so the visual and the gap shrink a little. */
+@media (max-width: 639px) {
+  .stat {
+    gap: 6px;
+  }
+}
+
+/* The flame is quiet until a streak is running, then it takes the warm colour and a soft fill. */
+.flame {
+  color: var(--text-faint);
+  fill: none;
+}
+
+.flame[data-lit] {
+  color: var(--warning);
+  fill: var(--warning-soft);
+}
+
+.bolt {
+  color: var(--xp);
+}

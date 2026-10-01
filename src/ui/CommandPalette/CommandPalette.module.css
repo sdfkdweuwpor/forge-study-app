@@ -1,0 +1,329 @@
+/* ── Overlay (native <dialog>) ─────────────────────────────────────────────────────────────── */
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+
+.dialog::backdrop {
+  background: transparent; /* the scrim below carries the theme colour (::backdrop may not inherit it) */
+}
+
+body:has(.dialog[open]) {
+  overflow: hidden;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  animation: scrim-in var(--dur-2) var(--ease) both;
+}
+
+.overlayPanel {
+  position: relative;
+  width: min(640px, calc(100% - 2 * var(--space-4)));
+  margin: 20vh auto 0;
+  animation: panel-in var(--dur-2) var(--ease) both;
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--shift-2))) scale(var(--scale-in));
+  }
+}
+
+/* Phones: full screen, no radius, the list takes the remaining height. */
+@media (max-width: 639.98px) {
+  .dialog .overlayPanel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    animation-name: scrim-in;
+  }
+
+  .dialog .overlayPanel .results {
+    flex: 1;
+    max-height: none;
+  }
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding-inline: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.panel:not([data-has-items]) .searchRow {
+  border-bottom-color: transparent;
+}
+
+.searchIcon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-16);
+  outline: none; /* the panel is the focus context; the caret and the highlighted row show focus */
+}
+
+.search::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.cancel {
+  display: none;
+  flex: none;
+}
+
+@media (max-width: 639.98px) {
+  .escHint {
+    display: none;
+  }
+
+  .cancel {
+    display: inline-flex;
+  }
+}
+
+/* ── Results ───────────────────────────────────────────────────────────────────────────────── */
+
+.results {
+  max-height: min(26rem, 56vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+.panel:not([data-has-items]) .results {
+  padding-block: 0;
+}
+
+.group + .group {
+  margin-top: var(--space-1);
+}
+
+.heading {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-align: left;
+  scroll-margin-block: var(--space-1);
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.item[data-active],
+.item[data-force~='hover'] {
+  background: var(--bg-active);
+}
+
+.item:active:not([aria-disabled='true']),
+.item[data-force~='active'] {
+  background: var(--bg-active);
+}
+
+.item[aria-disabled='true'] {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.item[aria-disabled='true'] .itemSubtitle,
+.item[aria-disabled='true'] .itemIcon {
+  color: var(--text-faint);
+}
+
+.itemIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+  line-height: 1;
+}
+
+.item[data-active] .itemIcon {
+  color: var(--text);
+}
+
+.itemText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.itemTitle,
+.itemSubtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemTitle {
+  font-size: var(--fs-14);
+  line-height: 1.35;
+}
+
+.itemSubtitle {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.4;
+}
+
+.hit {
+  color: var(--accent-text);
+  font-weight: var(--fw-semibold);
+}
+
+.itemKeys {
+  flex: none;
+  margin-left: auto;
+}
+
+.escHint {
+  flex: none;
+}
+
+/* ── States ────────────────────────────────────────────────────────────────────────────────── */
+
+.state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-8) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-align: center;
+}
+
+.stateQuery {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+  overflow-wrap: anywhere;
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+}
+
+.skeletonRow > .skeletonIcon,
+.skeletonRow > .skeletonTitle,
+.skeletonRow > .skeletonHint {
+  flex: none;
+  border-radius: var(--radius-sm);
+}
+
+.skeletonRow > .skeletonIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.skeletonRow > .skeletonTitle {
+  height: 12px;
+}
+
+.skeletonRow > .skeletonHint {
+  width: 36px;
+  height: 18px;
+  margin-left: auto;
+}
+
+/* ── Footer hints ──────────────────────────────────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.footerHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+@media (pointer: coarse) {
+  .footer {
+    display: none;
+  }
+
+  .item {
+    min-height: var(--tap-min);
+  }
+}

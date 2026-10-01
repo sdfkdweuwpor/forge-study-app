@@ -1,0 +1,82 @@
+/*
+ * The sidebar footer's level meter: one line of text over a 4px bar, the same density as a nav row.
+ * Type and spacing carry the hierarchy; gold is only the bar.
+ */
+.meter {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+@media (hover: hover) {
+  a.meter:hover {
+    background: var(--bg-hover);
+  }
+}
+
+a.meter:active {
+  background: var(--bg-active);
+}
+
+.level {
+  flex: none;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-heading);
+}
+
+.numbers {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rises from the top edge of the meter, on the right, where the bar's end is. */
+.float {
+  top: 0;
+  right: var(--space-2);
+}
+
+.tip {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+}
+
+.tipMuted {
+  color: var(--text-inverse-muted);
+}
+
+.error {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .error:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}

@@ -1,0 +1,250 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* `/welcome`: the page itself fills the window. */
+.bare {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.shell[data-resizing] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* ── Skip link ───────────────────────────────────────────────────────────── */
+.skip {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: calc(var(--z-overlay) + 1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  transform: translateY(calc(-100% - 48px));
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+/* ── Desktop sidebar ─────────────────────────────────────────────────────── */
+.sidebarWrap {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sidebar);
+  flex: none;
+  width: var(--sidebar-w);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  transition:
+    width var(--dur-3) var(--ease),
+    visibility 0s linear 0s;
+}
+
+.shell[data-resizing] .sidebarWrap {
+  transition: none;
+}
+
+.sidebarWrap[data-collapsed] {
+  width: 0;
+  visibility: hidden;
+  transition:
+    width var(--dur-3) var(--ease),
+    visibility 0s linear var(--dur-3);
+}
+
+.sidebarInner {
+  width: var(--sidebar-w);
+  height: 100%;
+  transition: transform var(--dur-3) var(--ease);
+}
+
+.sidebarWrap[data-collapsed] .sidebarInner {
+  transform: translateX(-100%);
+}
+
+.shell[data-resizing] .sidebarInner {
+  transition: none;
+}
+
+.resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* A 1px hairline that becomes the accent while hovered, focused or dragged. */
+.resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transition:
+    background var(--dur-1) var(--ease),
+    width var(--dur-1) var(--ease);
+}
+
+.resizer:hover::after,
+.resizer[data-active]::after {
+  width: 2px;
+  background: var(--accent);
+}
+
+.resizer:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * The fixed corner while the sidebar is out of sight: the "Open sidebar" button and, beside it, the
+ * sidebar's status widgets (`sidebar.rail`, the level ring). They sit in the top band of the page, above
+ * its content. `--rail-size` is the square every one of them takes: the open button's own size. Touch
+ * targets are at least 44px: the tablet layout, and any coarse pointer. `--corner-w` is how far the
+ * corner reaches from the left edge (with its right margin), for pages that run edge to edge.
+ */
+.shell {
+  --rail-size: var(--control-h-md);
+  --corner-w: calc(var(--space-3) * 2 + var(--rail-size));
+}
+
+.shell[data-mode='tablet'] {
+  --rail-size: var(--tap-min);
+}
+
+@media (pointer: coarse) {
+  .shell {
+    --rail-size: var(--tap-min);
+  }
+}
+
+.shell[data-rail] {
+  --corner-w: calc(var(--space-3) * 2 + var(--rail-size) * 2 + var(--space-1));
+}
+
+.corner {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: var(--z-sidebar);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* IconButton brings its own size, so this rule is one class more specific than its. */
+.content .openButton {
+  width: var(--rail-size);
+  height: var(--rail-size);
+}
+
+.rail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.main {
+  min-height: 100%;
+}
+
+.main:focus {
+  outline: none;
+}
+
+/* The heading that receives focus after a route change (RouteAnnouncer) is not a control: no ring. */
+.main h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Generous top padding, like a Notion page. */
+.pageOuter {
+  padding: 96px 48px 128px;
+}
+
+.page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  animation: pageIn var(--dur-3) var(--ease);
+}
+
+/* A page that needs room (the tasks board and calendar) marks itself, and opens up past the reading width. */
+.page:has([data-page-width='wide']) {
+  max-width: 1440px;
+}
+
+/* /design shows two themed columns side by side, so it opts out of the reading width. */
+.pageOuter[data-route='design'] .page {
+  max-width: 1760px;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * My World: the canvas fills the content area edge to edge, under a slim header of its own. The page is as
+ * tall as the screen (less the tab bar on a phone). `--world-inset` keeps the title clear of the sidebar
+ * button, which floats at the top left whenever the sidebar is hidden.
+ */
+.pageOuter[data-route='world'] {
+  --world-inset: var(--space-4);
+
+  padding: 0;
+}
+
+.pageOuter[data-route='world'] .page {
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+}
+
+.shell[data-mode='tablet'] .pageOuter[data-route='world'],
+.sidebarWrap[data-collapsed] ~ .content .pageOuter[data-route='world'] {
+  --world-inset: var(--corner-w);
+}
+
+.shell[data-mode='tablet'] .pageOuter[data-route='world'],
+.shell[data-mode='mobile'] .pageOuter[data-route='world'] {
+  padding: 0;
+}
+
+.shell[data-mode='mobile'] .pageOuter[data-route='world'] .page {
+  height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom));
+}
+
+.shell[data-mode='tablet'] .pageOuter {
+  padding: 80px 32px 96px;
+}
+
+/* 16px side padding, no horizontal scroll, room for the tab bar and the + button. */
+.shell[data-mode='mobile'] .pageOuter {
+  padding: var(--space-8) var(--space-4) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px);
+}

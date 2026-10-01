@@ -1,0 +1,98 @@
+/*
+ * Progress bar. The fill is a full-width bar translated left, clipped by the rounded track, so
+ * progress animates on the compositor and the leading edge stays round at every value.
+ */
+.track {
+  --_h: 6px;
+  --_fill: var(--accent);
+  --_track: var(--bg-active);
+
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--_h);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--_track);
+  isolation: isolate;
+}
+
+.track[data-size='sm'] {
+  --_h: 4px;
+}
+
+.track[data-size='lg'] {
+  --_h: 8px;
+}
+
+.track[data-tone='success'] {
+  --_fill: var(--success);
+}
+
+.track[data-tone='warning'] {
+  --_fill: var(--warning);
+}
+
+.track[data-tone='danger'] {
+  --_fill: var(--danger);
+}
+
+.track[data-tone='xp'] {
+  --_fill: var(--xp);
+  --_track: var(--xp-soft);
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--_fill);
+  translate: calc((var(--p, 0) - 1) * 100%) 0;
+  transition: translate var(--dur-3) var(--ease);
+}
+
+/* XP: a soft highlight along the top edge, the only ornament gold gets. */
+.track[data-tone='xp'] .fill {
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--xp), var(--text-inverse) 22%),
+      var(--xp) 60%
+    );
+}
+
+/* Indeterminate: a 40% segment sweeps across. Reduced motion: a still bar that breathes. */
+.track[data-indeterminate] .fill {
+  width: 40%;
+  translate: none;
+  animation: sweep 1.3s var(--ease) infinite;
+}
+
+@keyframes sweep {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+:global([data-reduced-motion='on']) .track[data-indeterminate] .fill {
+  left: 0;
+  width: 100%;
+  animation: breathe 1.6s var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='off'])) .track[data-indeterminate] .fill {
+    left: 0;
+    width: 100%;
+    animation: breathe 1.6s var(--ease) infinite;
+  }
+}

@@ -1,0 +1,146 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  align-self: flex-start;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-heading);
+}
+
+/* One row is --editor-line tall in the gutter, the bands and the textarea, so they line up. */
+.editor {
+  --editor-line: 20px;
+  --editor-pad: 10px;
+  --_line: var(--border-strong);
+
+  display: flex;
+  height: 22rem;
+  max-height: 60vh;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--_line);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  line-height: var(--editor-line);
+  transition: box-shadow var(--dur-1) var(--ease);
+}
+
+.editor[data-invalid] {
+  --_line: var(--danger);
+}
+
+.editor:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (hover: hover) {
+  .editor:not([data-invalid]):hover {
+    --_line: color-mix(in srgb, var(--border-strong), var(--text) 16%);
+  }
+}
+
+.gutter {
+  flex: none;
+  width: calc(var(--digits) * 1ch + var(--space-6));
+  overflow: hidden;
+  background: var(--bg-sidebar);
+  box-shadow: inset -1px 0 0 var(--border);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.gutterInner {
+  padding-block: var(--editor-pad);
+  will-change: transform;
+}
+
+.num {
+  position: relative;
+  height: var(--editor-line);
+  padding-inline: var(--space-2);
+  text-align: right;
+}
+
+.num[data-error] {
+  color: var(--danger-text);
+  font-weight: var(--fw-semibold);
+}
+
+/* The dot that marks a problem line, in the left margin of the gutter. */
+.marker {
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  translate: 0 -50%;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.bands {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bandsInner {
+  position: relative;
+  will-change: transform;
+}
+
+.band {
+  position: absolute;
+  inset-inline: 0;
+  top: calc((var(--line-no) - 1) * var(--editor-line) + var(--editor-pad));
+  height: var(--editor-line);
+  background: var(--danger-soft);
+}
+
+.input {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: var(--editor-pad) var(--space-3);
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: var(--editor-line);
+  tab-size: 2;
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* iOS zooms into fields under 16px, so touch screens get a bigger, taller row. */
+@media (pointer: coarse) {
+  .editor {
+    --editor-line: 24px;
+    font-size: var(--fs-16);
+  }
+}

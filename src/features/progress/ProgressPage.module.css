@@ -1,0 +1,89 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.lede {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+/*
+ * Two independent columns, so a short section never leaves a hole beside a tall one. The DOM holds the
+ * left column (focus, time, accuracy) and then the right (tasks, hours, badges), which is the order Tab
+ * walks on a wide page. Narrower than 640px the columns stack in that same order, one after the other:
+ * the layout never reorders the sections, so Tab and screen readers go the way the eye does.
+ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-8);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+@container (max-width: 639px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    /* The columns' own gap is --space-12, and so is the gap between them now that they are stacked. */
+    gap: var(--space-12);
+  }
+}
+
+.skeletonPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
+}
+
+@container (max-width: 639px) {
+  .skeletonPair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+@media (max-width: 639px) {
+  .title {
+    font-size: var(--fs-32);
+  }
+
+  .page {
+    gap: var(--space-8);
+  }
+}

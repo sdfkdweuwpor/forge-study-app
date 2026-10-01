@@ -1,0 +1,84 @@
+/*
+ * The level-up moment. Opacity and the card's scale are written from script on every animation frame
+ * (see LevelUpMoment.tsx), so there is no CSS animation here to drift from the confetti.
+ */
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-celebration);
+  /* Dense enough that the headline never sits on legible page text (rows, chips), light enough that
+     the page is still there behind it: a moment, not a new screen. */
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* The whole moment is one big button, so a click anywhere dismisses it. */
+.surface {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--space-4);
+  cursor: pointer;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  text-align: center;
+  will-change: transform;
+}
+
+/* "You reached", small and quiet, so the level itself is the only loud thing on screen. */
+.eyebrow {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  line-height: var(--lh-heading);
+  text-transform: uppercase;
+}
+
+.level {
+  margin-top: var(--space-2);
+  color: var(--text);
+  font-size: var(--fs-64);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* The one touch of gold: a short bar, like the fill of the level meter. */
+.rule {
+  width: var(--space-12);
+  height: 3px;
+  margin-top: var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--xp);
+}
+
+.line {
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+}
+
+@media (max-width: 639px) {
+  .level {
+    font-size: var(--fs-40);
+    letter-spacing: var(--tracking-title);
+  }
+}

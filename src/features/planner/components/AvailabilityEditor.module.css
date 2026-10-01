@@ -1,0 +1,164 @@
+.summary {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+}
+
+.summary strong {
+  color: var(--text);
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+}
+
+.days {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.days[data-muted] {
+  opacity: 0.55;
+}
+
+.day {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.day:first-child {
+  border-top: 0;
+}
+
+.dayHead {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.dayBody {
+  min-width: 0;
+}
+
+.dayMenu {
+  min-width: 0;
+}
+
+.off {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+@media (max-width: 639px) {
+  .day {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .dayBody {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.slider {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+}
+
+.slider input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.slider output {
+  min-width: 56px;
+  font-size: var(--fs-14);
+  text-align: right;
+}
+
+.ranges {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.to {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.rangeLabel {
+  flex: 1;
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.addRange {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+.shiftHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.shift {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+  width: 100%;
+  min-width: 0;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.cycleDay {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.cycleDay[data-on] {
+  border-color: var(--accent);
+  background: var(--accent);
+}

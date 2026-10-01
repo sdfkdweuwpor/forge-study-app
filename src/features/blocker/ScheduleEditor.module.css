@@ -1,0 +1,107 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.window {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.days {
+  display: flex;
+  gap: var(--space-1);
+}
+
+/* Round day chips: a quiet outline, the accent fill when the day is on. */
+.day {
+  display: grid;
+  place-items: center;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.day[aria-pressed='true'] {
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--accent-contrast);
+}
+
+@media (hover: hover) {
+  .day[aria-pressed='false']:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.day:active {
+  transform: scale(var(--scale-press));
+}
+
+.day:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (pointer: coarse) {
+  .day {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+}
+
+.times {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.time {
+  width: 116px;
+}
+
+.to {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.problem {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--fs-12);
+}
+
+.add {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+@media (max-width: 639px) {
+  .days {
+    flex-wrap: wrap;
+  }
+}

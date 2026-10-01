@@ -1,0 +1,164 @@
+/*
+ * The board: three columns side by side. Columns are quiet (a small header, no fill) and the cards
+ * carry the hairline borders. When the columns do not fit, the board scrolls inside itself; the page
+ * never scrolls sideways. On a phone each column is most of the screen wide and snaps into place, with
+ * the next one peeking in.
+ */
+.board {
+  display: grid;
+  grid-auto-flow: column;
+  /* 216px lets the three columns fit a tablet (768) and a 1024 window with the sidebar open. */
+  grid-auto-columns: minmax(216px, 1fr);
+  /* Every column is as tall as the tallest, so a short one can be dropped on anywhere below its cards. */
+  align-items: stretch;
+  min-height: 320px;
+  gap: var(--space-4);
+  /* Room for focus rings and card borders that would otherwise be clipped by the scroller. */
+  margin: 0 calc(-1 * var(--space-1));
+  padding: var(--space-1) var(--space-1) var(--space-4);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--space-1);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-1) var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 1.5;
+}
+
+.header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-regular);
+}
+
+.cards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 112px;
+  margin: 0;
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  list-style: none;
+  transition: background-color var(--dur-2) var(--ease);
+}
+
+/* The column a card would land in while it is being dragged. */
+.cards[data-target] {
+  background: var(--bg-hover);
+}
+
+.card {
+  position: relative;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+/* The card being dragged stays behind as a faint place-holder; the overlay is the one you hold. */
+.card[data-dragging] {
+  opacity: 0.35;
+}
+
+.grip {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+@media (hover: hover) {
+  .grip:hover {
+    background: var(--bg-active);
+    color: var(--text);
+  }
+}
+
+.overlay {
+  cursor: grabbing;
+}
+
+.empty {
+  padding: var(--space-3) var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.footer {
+  list-style: none;
+  padding: var(--space-1) var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.footer a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .footer a:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ── Phones: bleed to the screen edge, one column and a bit of the next ───── */
+@media (max-width: 639px) {
+  .board {
+    grid-auto-columns: 84%;
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+    scroll-padding-inline: var(--space-4);
+    scroll-snap-type: x mandatory;
+  }
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────────── */
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.skeletonMeta {
+  display: flex;
+  gap: var(--space-2);
+}

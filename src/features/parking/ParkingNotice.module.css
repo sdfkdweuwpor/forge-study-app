@@ -1,0 +1,38 @@
+.layer {
+  position: fixed;
+  top: max(var(--space-12), 18vh);
+  left: 50%;
+  z-index: var(--z-popover);
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  animation: rise var(--dur-2) var(--ease) both;
+}
+
+.notice svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--success-text);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

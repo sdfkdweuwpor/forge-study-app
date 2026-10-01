@@ -1,0 +1,26 @@
+.flag {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.flag[data-priority='0'] {
+  color: var(--text-faint);
+}
+
+.flag[data-priority='2'] {
+  color: var(--accent-text);
+}
+
+.flag[data-priority='3'] {
+  color: var(--warning-text);
+}
+
+.flag[data-priority='4'] {
+  color: var(--danger-text);
+}
+
+.flag[data-priority='3'] svg,
+.flag[data-priority='4'] svg {
+  fill: currentColor;
+}

@@ -1,0 +1,36 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.title,
+.line {
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  animation: pulse 1.4s var(--ease) infinite alternate;
+}
+
+.title {
+  width: 40%;
+  height: 36px;
+  margin-bottom: var(--space-2);
+}
+
+.line {
+  width: 100%;
+  height: 16px;
+}
+
+.line[data-short] {
+  width: 60%;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}

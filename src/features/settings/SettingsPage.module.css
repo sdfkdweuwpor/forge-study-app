@@ -1,0 +1,115 @@
+/*
+ * The page is a container: from 760px of its own width the nav becomes a sticky left column, below that it
+ * is a scrolling row above the stacked sections. (Container width, not viewport: the sidebar takes room too.)
+ */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  container-type: inline-size;
+}
+
+.title {
+  font-size: var(--fs-32);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.nav {
+  min-width: 0;
+}
+
+.navList {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 var(--space-1);
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.navList::-webkit-scrollbar {
+  display: none;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.navLink:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.navLink[aria-current] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.anchor {
+  min-width: 0;
+  scroll-margin-top: var(--space-8);
+}
+
+.fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fallbackHeading {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+@container (min-width: 760px) {
+  .layout {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-12);
+  }
+
+  .nav {
+    position: sticky;
+    top: var(--space-8);
+  }
+
+  .navList {
+    flex-direction: column;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .navLink {
+    min-height: var(--control-h-md);
+  }
+}

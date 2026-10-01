@@ -1,0 +1,58 @@
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-drawer);
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 100vw);
+  border-left: 1px solid var(--border);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  font-size: var(--fs-14);
+  animation: peek-in var(--dur-2) var(--ease);
+}
+
+.panel:focus {
+  outline: none;
+}
+
+/* Slides in from the edge. The slide is built from --shift-*, so reduced motion leaves a fade. */
+@keyframes peek-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--shift-3) * 2));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-2) var(--space-6) var(--space-12);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

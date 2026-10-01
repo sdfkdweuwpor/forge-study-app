@@ -1,0 +1,34 @@
+.spinner {
+  display: inline-block;
+  flex: none;
+  color: inherit;
+}
+
+.svg {
+  width: 100%;
+  height: 100%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Reduced motion: no rotation, a slow opacity pulse instead. */
+:global([data-reduced-motion='on']) .svg {
+  animation: pulse 1.4s var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='off'])) .svg {
+    animation: pulse 1.4s var(--ease) infinite;
+  }
+}

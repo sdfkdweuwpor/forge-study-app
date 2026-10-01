@@ -1,0 +1,79 @@
+/*
+ * The compact level: a ring in the collapsed sidebar's corner, and a row in the phone's More sheet.
+ * Gold is only the ring's arc (XP only, BRIEF §3.2); the rest is type and spacing.
+ */
+
+/* The ring's hit area: the square the shell hands the rail (`--rail-size`, the "Open sidebar" button's own). */
+.badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--rail-size, var(--control-h-md));
+  height: var(--rail-size, var(--control-h-md));
+  padding: 0;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  a.badge:hover {
+    background: var(--bg-hover);
+  }
+}
+
+a.badge:active {
+  background: var(--bg-active);
+}
+
+/* The level number in the ring. Three digits (level 100 is 1,000,000 XP away) shrink to fit. */
+.digits {
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.digits[data-long] {
+  font-size: 0.625rem;
+  letter-spacing: -0.02em;
+}
+
+/* The phone's More sheet row: a nav row whose icon is the ring. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-min);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--fs-16);
+  text-align: left;
+  text-decoration: none;
+}
+
+/* The ring is wider than the 20px icons of the rows above: pulled in so the words line up with theirs. */
+.rowRing {
+  margin-inline: -4px;
+}
+
+a.row:active,
+button.row:active {
+  background: var(--bg-active);
+}
+
+.level {
+  flex: none;
+}
+
+.numbers {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

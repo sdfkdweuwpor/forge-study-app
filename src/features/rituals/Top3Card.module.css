@@ -1,0 +1,106 @@
+/*
+ * The pinned Top 3: a small heading, three lines, no box. The Now card stays the one surface on the page.
+ * It takes a full row of the stat row (`today.header`).
+ */
+.card {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.count {
+  color: var(--text-faint);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.edit {
+  margin-inline-start: auto;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 32px;
+}
+
+.name {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: var(--space-1) 0;
+  color: var(--text);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.name[data-done='true'] {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-faint);
+}
+
+@media (hover: hover) {
+  .name:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--text-faint);
+  }
+}
+
+.time {
+  flex: none;
+  margin-inline-start: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.quiet {
+  margin: 0;
+  color: var(--success-text);
+  font-size: var(--fs-12);
+}
+
+@media (pointer: coarse) {
+  .row {
+    min-height: var(--tap-min);
+  }
+
+  /* The title is the tap target that opens the task: the full row height, not just its text. */
+  .name {
+    display: flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+}

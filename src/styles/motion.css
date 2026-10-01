@@ -1,0 +1,49 @@
+/*
+ * Reduced motion (BRIEF §3.5, §3.9). Two triggers, same result:
+ *   - <html data-reduced-motion="on">, set by ThemeProvider from settings (`system` resolves
+ *     through the media query), or on any sub-tree (the /design toggle);
+ *   - prefers-reduced-motion: reduce, unless the user forced motion back on (data-reduced-motion="off").
+ *
+ * 1. Movement tokens collapse: --shift-* become 0 and --scale-* become 1. A component that builds
+ *    its enter/exit/press transforms from them becomes opacity-only automatically.
+ * 2. Safety net for everything else: transitions and animations finish instantly, so hard-coded
+ *    slides and scales cannot move. Delays are kept: they are timing (tooltip delay, the 600ms
+ *    task slide-out), not motion. Elements whose motion is already token-based opt out with
+ *    data-motion="opacity" and keep their fades (toasts, the "+15 XP" float, the level-up moment).
+ */
+
+[data-reduced-motion='on'] {
+  --shift-1: 0px;
+  --shift-2: 0px;
+  --shift-3: 0px;
+  --scale-in: 1;
+  --scale-press: 1;
+}
+
+[data-reduced-motion='on'] *:not([data-motion='opacity']),
+[data-reduced-motion='on'] *::before,
+[data-reduced-motion='on'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduced-motion='off']) {
+    --shift-1: 0px;
+    --shift-2: 0px;
+    --shift-3: 0px;
+    --scale-in: 1;
+    --scale-press: 1;
+  }
+
+  :root:not([data-reduced-motion='off']) *:not([data-motion='opacity']),
+  :root:not([data-reduced-motion='off']) *::before,
+  :root:not([data-reduced-motion='off']) *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,42 @@
+/* Frames and the key legend for the BlockEditor demo. Stack, caption and value come from Composites.demo. */
+.frame {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+.menuStage {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sidebar);
+}
+
+.menuRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.key {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.key > span:first-child {
+  min-width: 0;
+}

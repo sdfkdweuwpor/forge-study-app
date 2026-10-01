@@ -1,0 +1,139 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  margin: 0;
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.caption {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.amount,
+.count {
+  margin: 0;
+  font-size: var(--fs-24);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.amount {
+  color: var(--xp);
+}
+
+.count {
+  color: var(--text);
+}
+
+.month {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.monthTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+}
+
+.monthSpent {
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A record, not a control: no hover fill, so nothing suggests it can be clicked. */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+}
+
+.icon {
+  width: 28px;
+  font-size: 22px;
+  line-height: 1;
+  text-align: center;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.when {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.price {
+  flex: none;
+  color: var(--xp-text);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+}
+
+/* A refund is a fact, not a failure: the row stays legible, just quieter and crossed out. */
+.item[data-refunded] .title,
+.item[data-refunded] .price {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Phones: the three figures stay one row (three equal columns) instead of wrapping two-and-one. */
+@media (max-width: 639px) {
+  .totals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .amount,
+  .count {
+    font-size: var(--fs-20);
+    letter-spacing: var(--tracking-snug);
+  }
+}

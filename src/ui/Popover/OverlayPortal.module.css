@@ -1,0 +1,4 @@
+/* Carries data-theme / data-accent onto portaled overlays without adding a box. */
+.scope {
+  display: contents;
+}

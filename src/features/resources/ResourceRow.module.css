@@ -1,0 +1,179 @@
+.row {
+  display: grid;
+  grid-template-columns: 20px 20px 16px minmax(0, 1fr) 24px;
+  column-gap: var(--space-2);
+  align-items: start;
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-14);
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--bg-hover);
+  }
+}
+
+/* The three leading controls line up with the first line of text. */
+.handle,
+.check,
+.kind {
+  margin-top: 2px;
+}
+
+.handle {
+  display: flex;
+}
+
+.kind {
+  color: var(--text-muted);
+}
+
+.main {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.open,
+.plain {
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+.open {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition:
+    color var(--dur-1) var(--ease),
+    text-decoration-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .open:hover {
+    color: var(--accent-text);
+    text-decoration-color: currentColor;
+  }
+}
+
+.meta {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta[data-warning] {
+  color: var(--warning-text);
+  white-space: normal;
+}
+
+.body {
+  margin: var(--space-1) 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--fs-14);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.body[hidden] {
+  display: none;
+}
+
+/* Done: quieter, not struck through (finished is calm, not crossed out). */
+.row[data-done] .title,
+.row[data-done] .kind {
+  color: var(--text-muted);
+}
+
+.row[data-done] .meta {
+  color: var(--text-muted);
+}
+
+.more {
+  margin-top: 0;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.row:hover .more,
+.row:focus-within .more,
+.more[aria-expanded='true'] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .more {
+    opacity: 1;
+  }
+}
+
+/* "Found it": the palette opened the page at this row. A soft wash that fades out once. */
+.row[data-flash] {
+  animation: found 1600ms var(--ease) 1;
+}
+
+@keyframes found {
+  0%,
+  40% {
+    background: var(--accent-soft);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@media (pointer: coarse) {
+  /* The title is the row's main control: a 44px target centred on its line, without making the row taller. */
+  .open {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    margin-block: calc((1.5 * var(--fs-14) - var(--tap-min)) / 2);
+  }
+
+  .row {
+    grid-template-columns: 32px 24px 16px minmax(0, 1fr) var(--tap-min);
+    min-height: var(--tap-min);
+    padding-block: 10px;
+  }
+
+  .more {
+    margin-top: -8px;
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+
+  .handle,
+  .check,
+  .kind {
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 639px) {
+  .meta {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}

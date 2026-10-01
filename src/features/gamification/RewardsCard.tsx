@@ -1,0 +1,140 @@
+import { Archive, MoreHorizontal } from 'lucide-react'
+import { useId, type ReactNode } from 'react'
+import type { Reward } from '@/db/types'
+import {
+  MAX_REWARD_PRICE,
+  MAX_REWARD_TITLE_LENGTH,
+  canAfford,
+  formatPrice,
+  formatXpNumber,
+  parseRewardPrice,
+  toGoLabel,
+} from '@/logic/rewards'
+import { Button } from '@/ui/Button'
+import { Dropdown, type MenuEntry } from '@/ui/Dropdown'
+import { IconButton } from '@/ui/IconButton'
+import { ProgressBar } from '@/ui/ProgressBar'
+import type { RewardActions } from './RewardsActions'
+import { RewardsIconPicker } from './RewardsIconPicker'
+import { RewardsInline } from './RewardsInline'
+import styles from './RewardsCard.module.css'
+
+interface Props {
+  reward: Reward
+  /** Spendable XP (lifetime minus spent). */
+  balance: number
+  /** The drag handle from the sortable row. */
+  handle: ReactNode
+  actions: RewardActions
+  /** Opens the confirm dialog. */
+  onRedeem: (reward: Reward) => void
+}
+
+const priceProblem = (text: string): string | null =>
+  parseRewardPrice(text) === null
+    ? `Enter a whole number of XP, 1 to ${formatXpNumber(MAX_REWARD_PRICE)}.`
+    : null
+
+/**
+ * One reward: icon, title and price you edit in place, how far away it is, and Redeem. Not a boxed card:
+ * the row is plain until hovered. An unaffordable reward keeps its Redeem button, disabled, and says how
+ * close it is beside the price: a short gold bar of the balance against the price and "240 XP to go".
+ * Progress toward it, never a red "not enough". On touch the title and the price are 44px targets, so the
+ * row is laid out to spend that height once: on a phone two lines (title and Redeem, price and its
+ * progress and the menu), on a tablet one.
+ */
+export function RewardsCard({ reward, balance, handle, actions, onRedeem }: Props) {
+  const toGoId = useId()
+  const affordable = canAfford(reward.price, balance)
+  const toGo = toGoLabel(reward.price, balance)
+
+  const menu: MenuEntry[] = [
+    {
+      id: 'archive',
+      label: 'Archive',
+      icon: <Archive />,
+      onSelect: () => void actions.archive(reward),
+    },
+  ]
+
+  return (
+    <div className={styles.card} data-affordable={affordable || undefined}>
+      <span className={styles.handle}>{handle}</span>
+      <span className={styles.icon}>
+        <RewardsIconPicker
+          value={reward.icon}
+          rewardTitle={reward.title}
+          onPick={(icon) => void actions.save(reward.id, { icon })}
+        />
+      </span>
+      <div className={styles.main}>
+        <div className={styles.title}>
+          <RewardsInline
+            value={reward.title}
+            label={`Title of ${reward.title}`}
+            maxLength={MAX_REWARD_TITLE_LENGTH}
+            validate={(text) => (text === '' ? 'A reward needs a title.' : null)}
+            onCommit={(title) => void actions.save(reward.id, { title })}
+          />
+        </div>
+        <div className={styles.meta}>
+          <RewardsInline
+            className={styles.price}
+            value={String(reward.price)}
+            label={`Price of ${reward.title}`}
+            display={formatPrice(reward.price)}
+            inputMode="numeric"
+            size={8}
+            suffix="XP"
+            validate={priceProblem}
+            onCommit={(text) => {
+              const price = parseRewardPrice(text)
+              if (price !== null) void actions.save(reward.id, { price })
+            }}
+          />
+          {toGo !== null ? (
+            <span className={styles.toGo}>
+              <ProgressBar
+                tone="xp"
+                size="sm"
+                value={balance}
+                max={reward.price}
+                label={`Progress toward ${reward.title}`}
+                className={styles.toGoBar}
+                aria-hidden="true"
+              />
+              <span id={toGoId}>{toGo}</span>
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className={styles.actions}>
+        <Button
+          className={styles.redeem}
+          variant="secondary"
+          disabled={!affordable}
+          aria-label={`Redeem ${reward.title} for ${formatPrice(reward.price)}`}
+          aria-describedby={toGo !== null ? toGoId : undefined}
+          onClick={() => onRedeem(reward)}
+        >
+          Redeem
+        </Button>
+        <Dropdown
+          label={`Actions for ${reward.title}`}
+          align="end"
+          items={menu}
+          trigger={(p) => (
+            <IconButton
+              {...p}
+              className={styles.more}
+              label={`Actions for ${reward.title}`}
+              icon={<MoreHorizontal />}
+              size="sm"
+              tooltip={false}
+            />
+          )}
+        />
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,80 @@
+/* A title that is a button until you edit it, then a textarea of the same size in the same place. */
+.root {
+  display: inline-grid;
+  /* The button is only as wide as its text, so the empty space beside a title is not "edit". */
+  justify-items: start;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.root[data-editing] {
+  justify-items: stretch;
+}
+
+.display {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  max-width: 100%;
+  text-align: left;
+  cursor: text;
+  transition: color var(--dur-2) var(--ease);
+}
+
+/*
+ * The strike-through is a background line on the inline text, not text-decoration, so it can grow
+ * across the words (and across wrapped lines) when a task is completed.
+ */
+.text {
+  overflow-wrap: anywhere;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 0% 1.5px;
+  transition: background-size var(--dur-3) var(--ease);
+}
+
+.display[data-done] {
+  color: var(--text-muted);
+}
+
+.display[data-done] .text {
+  background-size: 100% 1.5px;
+}
+
+.input,
+.root[data-editing]::after {
+  grid-area: 1 / 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.input {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  resize: none;
+}
+
+/* Same text, invisible: it gives the cell the height of the wrapped text. */
+.root[data-editing]::after {
+  content: attr(data-value) ' ';
+  visibility: hidden;
+  pointer-events: none;
+}

@@ -1,0 +1,73 @@
+/*
+ * The sidebar footer's streak flame: one line at the density of a nav row, under the level meter. Type
+ * and spacing carry it, no box. The flame is warm only while a streak runs; otherwise it is the same
+ * grayscale as a locked badge. Nothing here is red.
+ */
+.flame {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  a.flame:hover {
+    background: var(--bg-hover);
+  }
+}
+
+a.flame:active {
+  background: var(--bg-active);
+}
+
+.glyph {
+  flex: none;
+  align-self: center;
+  font-size: var(--fs-16);
+  line-height: 1;
+}
+
+.flame:not([data-lit]) .glyph {
+  filter: grayscale(1) var(--locked-glyph-filter);
+}
+
+.count {
+  flex: none;
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-heading);
+}
+
+.flame:not([data-lit]) .count {
+  color: var(--text-muted);
+}
+
+.caption {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .error:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}

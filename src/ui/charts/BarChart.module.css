@@ -1,0 +1,52 @@
+.grid,
+.baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.baseline {
+  stroke: var(--border-strong);
+}
+
+.tick {
+  fill: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The column under the active bar: a quiet wash, so a zero day can be selected too. */
+.band {
+  fill: var(--bg-hover);
+}
+
+/* Plain bars are a 3:1 graphic on the page (tokens.css --chart-bar); the highlighted one (today, the
+   busiest hour, the active bar) is --accent-text: darker in light, lighter in dark. */
+.bar {
+  fill: var(--chart-bar);
+  transition: fill var(--dur-1) var(--ease);
+}
+
+.bar[data-highlight] {
+  fill: var(--chart-bar-strong);
+}
+
+/* A day with no time is a hairline on the baseline, not a gap. */
+.zero {
+  fill: var(--border-strong);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-reduced-motion='on']) .bar {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: rise var(--dur-3) var(--ease) both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: scaleY(0.6);
+  }
+}

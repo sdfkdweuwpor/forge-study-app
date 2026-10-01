@@ -1,0 +1,206 @@
+/*
+ * Button. State rules only swap the --_bg / --_fg / --_ring variables, so each variant defines its
+ * palette once and :hover, :active and [data-force] stay in sync.
+ */
+.button {
+  --_h: var(--control-h-md);
+  --_px: var(--space-3);
+  --_gap: 6px;
+  --_icon: 16px;
+
+  --btn-bg: transparent;
+  --btn-bg-hover: var(--bg-hover);
+  --btn-bg-active: var(--bg-active);
+  --btn-fg: var(--text);
+  --btn-fg-hover: var(--btn-fg);
+  --btn-ring: transparent;
+
+  --_bg: var(--btn-bg);
+  --_fg: var(--btn-fg);
+
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--_gap);
+  height: var(--_h);
+  min-width: var(--_h);
+  padding: 0 var(--_px);
+  border-radius: var(--radius-md);
+  background: var(--_bg);
+  box-shadow: inset 0 0 0 1px var(--btn-ring);
+  color: var(--_fg);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
+    scale var(--dur-1) var(--ease),
+    opacity var(--dur-1) var(--ease);
+}
+
+.button[data-size='sm'] {
+  --_h: var(--control-h-sm);
+  --_px: 10px;
+  --_gap: 5px;
+  --_icon: 14px;
+}
+
+.button[data-full] {
+  display: flex;
+  width: 100%;
+}
+
+/* Icons sit a touch closer to the edge than text, as optical padding. */
+.button:has(> .icon:first-child) {
+  padding-left: calc(var(--_px) - 2px);
+}
+
+.button:has(> .icon:last-child:not(:first-child)) {
+  padding-right: calc(var(--_px) - 2px);
+}
+
+.button[data-icon-only] {
+  padding: 0;
+}
+
+/* Variants */
+.button[data-variant='primary'] {
+  --btn-bg: var(--accent);
+  --btn-bg-hover: var(--accent-hover);
+  --btn-bg-active: var(--accent-hover);
+  --btn-fg: var(--accent-contrast);
+}
+
+.button[data-variant='secondary'] {
+  --btn-ring: var(--border-strong);
+}
+
+.button[data-variant='ghost'] {
+  --btn-fg: var(--text-muted);
+  --btn-fg-hover: var(--text);
+}
+
+/*
+ * Danger is outlined, not filled: white on --danger is under 4.5:1, and deeper red tints push
+ * --danger-text under it too. Text stays --danger-text on the surface or on --danger-soft.
+ */
+.button[data-variant='danger'] {
+  --btn-ring: color-mix(in srgb, var(--danger) 45%, transparent);
+  --btn-bg-hover: var(--danger-soft);
+  --btn-bg-active: var(--danger-soft);
+  --btn-fg: var(--danger-text);
+}
+
+.button[data-variant='danger']:where(:not(:disabled, [aria-disabled='true'])):active,
+.button[data-variant='danger'][data-force~='active'] {
+  --btn-ring: var(--danger);
+}
+
+/* States. Hover only on real hover devices, so a tap on a phone does not leave it stuck. */
+@media (hover: hover) {
+  .button:where(:not(:disabled, [aria-disabled='true'])):hover {
+    --_bg: var(--btn-bg-hover);
+    --_fg: var(--btn-fg-hover);
+  }
+}
+
+.button[data-force~='hover'] {
+  --_bg: var(--btn-bg-hover);
+  --_fg: var(--btn-fg-hover);
+}
+
+.button:where(:not(:disabled, [aria-disabled='true'])):active,
+.button[data-force~='active'] {
+  --_bg: var(--btn-bg-active);
+  --_fg: var(--btn-fg-hover);
+  scale: var(--scale-press);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.button[data-loading] {
+  cursor: progress;
+}
+
+.button[data-loading] > :not(.spinner) {
+  visibility: hidden;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+.icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--_icon);
+  height: var(--_icon);
+}
+
+.icon > svg {
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * A shortcut in the icon slot is visually hidden on touch screens (Kbd.module.css). Take the empty slot
+ * out of the flow too, without removing it, so the button's name stays the same.
+ */
+@media (hover: none) {
+  .icon:has(> kbd:only-child) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+/* Muted icons in ghost/secondary buttons brighten with the label on hover. */
+.button:where([data-variant='secondary'], [data-variant='ghost']) .icon {
+  color: var(--text-muted);
+  transition: color var(--dur-1) var(--ease);
+}
+
+.button[data-force~='hover'] .icon,
+.button[data-force~='active'] .icon,
+.button:where(:not(:disabled)):active .icon {
+  color: inherit;
+}
+
+@media (hover: hover) {
+  .button:where(:not(:disabled)):hover .icon {
+    color: inherit;
+  }
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Touch: a 44px hit area around the visible button (BRIEF §3.8). */
+@media (pointer: coarse) {
+  .button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, var(--tap-min));
+    height: max(100%, var(--tap-min));
+    translate: -50% -50%;
+  }
+}

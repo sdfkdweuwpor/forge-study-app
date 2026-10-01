@@ -1,0 +1,109 @@
+.trigger {
+  max-width: min(100%, 360px);
+  color: var(--text);
+}
+
+.triggerText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.triggerText[data-empty] {
+  color: var(--text-muted);
+}
+
+/* The popover panel takes its width and padding from these variables (ui/Popover). */
+.popover {
+  --panel-min-w: 280px;
+  --panel-max-w: 392px;
+  --panel-pad: var(--space-2);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(376px, calc(100vw - 4 * var(--space-2)));
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  max-height: 264px;
+  overflow-y: auto;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-h-md);
+  padding: 6px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.option[data-active] {
+  background: var(--bg-hover);
+}
+
+.option[aria-selected='true'] .optionTitle {
+  color: var(--accent-text);
+}
+
+.optionTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionTitle b {
+  font-weight: var(--fw-bold);
+}
+
+.optionMeta {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.optionMeta[data-tone='carried'] {
+  color: var(--text-muted);
+}
+
+.optionMeta[data-tone='today'] {
+  color: var(--accent-text);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-2);
+  color: var(--text-muted);
+}
+
+.clear {
+  align-self: flex-start;
+}
+
+@media (pointer: coarse) {
+  .option {
+    min-height: var(--tap-min);
+  }
+}

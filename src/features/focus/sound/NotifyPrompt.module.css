@@ -1,0 +1,53 @@
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  padding-top: 2px;
+  color: var(--accent-text);
+}
+
+.icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.body {
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.text {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.error {
+  margin-top: var(--space-2);
+  color: var(--danger-text);
+  font-size: var(--fs-12);
+}
+
+.thanks {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}

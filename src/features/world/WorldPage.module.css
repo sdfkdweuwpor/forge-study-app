@@ -1,0 +1,237 @@
+/*
+ * My World: a slim header over a canvas that fills the rest of the content area. The Shell gives this
+ * route the full height and no padding (Shell.module.css), and `--world-inset` clears the sidebar button.
+ */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--world-inset, var(--space-4));
+}
+
+.titleBlock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-3);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-24);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.stats {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.divider {
+  align-self: stretch;
+  width: 1px;
+  margin: var(--space-1) var(--space-1);
+  background: var(--border);
+}
+
+/* ── Stage ─────────────────────────────────────────────────────────────────────── */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  background: var(--bg-sidebar);
+}
+
+/*
+ * The engine sets only the canvas's width and height attributes; everything else is here. `touch-action`
+ * hands touch gestures (pan, pinch) to the engine, and the focus ring sits inside the canvas so the
+ * stage's overflow does not clip it.
+ */
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+.canvas:focus-visible {
+  outline-offset: -3px;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+
+.loading > * {
+  display: block;
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--bg);
+}
+
+/* The new-user card sits low in the sky and leaves the plot of grass in the middle clear. */
+.empty {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-6);
+  left: var(--space-4);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.empty > * {
+  max-width: 360px;
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+
+/* On a phone the quick-add button floats at the bottom right: keep the card clear of it. */
+@media (max-width: 639px) {
+  .empty {
+    right: 88px;
+  }
+}
+
+.emptyLink {
+  color: var(--accent-text);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .emptyLink:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────────── */
+.tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--z-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: 280px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;
+}
+
+.tip p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tipTitle {
+  color: var(--text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.tipDetail {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.tipDate {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Legend ────────────────────────────────────────────────────────────────────── */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(340px, calc(100vw - 32px));
+}
+
+.legendTitle {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+}
+
+.legendTitle:first-child {
+  margin-top: 0;
+}
+
+.legendList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.legendRow {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: var(--space-3);
+  font-size: var(--fs-14);
+}
+
+.legendRow dt {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.legendRow dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.legendNote {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}

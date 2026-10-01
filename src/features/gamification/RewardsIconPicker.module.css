@@ -1,0 +1,73 @@
+.trigger {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .trigger:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.trigger[aria-expanded='true'] {
+  background: var(--bg-active);
+}
+
+@media (pointer: coarse) {
+  .trigger {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-1);
+  width: 236px;
+  max-width: calc(100vw - 2 * var(--space-2) - 2 * var(--space-3));
+}
+
+.cell {
+  display: grid;
+  place-items: center;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .cell:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.cell[aria-pressed='true'] {
+  background: var(--accent-soft);
+}
+
+@media (pointer: coarse) {
+  .grid {
+    width: 284px;
+  }
+
+  .cell {
+    height: var(--tap-min);
+  }
+}

@@ -1,0 +1,113 @@
+/*
+ * Switch. Off: a --text-faint track (≥ 3:1, so the control is visible on every surface). On:
+ * --accent. The thumb is --accent-contrast, which clears 4.5:1 on the accent and 3:1 on the off
+ * track. Pressing stretches the thumb, like iOS.
+ */
+.toggle {
+  --_w: 32px;
+  --_h: 18px;
+  --_pad: 2px;
+  --_thumb: calc(var(--_h) - var(--_pad) * 2);
+  --_stretch: 0px;
+  --_track: var(--text-faint);
+
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--_w);
+  height: var(--_h);
+  border-radius: var(--radius-full);
+  background: var(--_track);
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.toggle[data-size='sm'] {
+  --_w: 26px;
+  --_h: 14px;
+}
+
+.toggle[aria-checked='true'] {
+  --_track: var(--accent);
+}
+
+.thumb {
+  position: absolute;
+  top: var(--_pad);
+  left: var(--_pad);
+  width: calc(var(--_thumb) + var(--_stretch));
+  height: var(--_thumb);
+  border-radius: var(--radius-full);
+  background: var(--accent-contrast);
+  transition:
+    translate var(--dur-2) var(--ease),
+    width var(--dur-1) var(--ease);
+}
+
+.toggle[aria-checked='true'] .thumb {
+  translate: calc(var(--_w) - var(--_thumb) - var(--_pad) * 2 - var(--_stretch)) 0;
+}
+
+@media (hover: hover) {
+  .toggle:where(:not(:disabled)):hover {
+    --_track: var(--text-muted);
+  }
+
+  .toggle:where(:not(:disabled))[aria-checked='true']:hover {
+    --_track: var(--accent-hover);
+  }
+}
+
+.toggle[data-force~='hover'] {
+  --_track: var(--text-muted);
+}
+
+.toggle[data-force~='hover'][aria-checked='true'] {
+  --_track: var(--accent-hover);
+}
+
+.toggle:where(:not(:disabled)):active,
+.toggle[data-force~='active'] {
+  --_stretch: calc(var(--_thumb) * 0.25);
+}
+
+.toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Touch: a 44px target around the small track. */
+@media (pointer: coarse) {
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, var(--tap-min));
+    height: var(--tap-min);
+    translate: -50% -50%;
+  }
+}
+
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  cursor: pointer;
+}
+
+.row[data-disabled] {
+  cursor: default;
+}
+
+.row[data-disabled] .label {
+  opacity: 0.55;
+}
+
+.label {
+  min-width: 0;
+}

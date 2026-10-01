@@ -1,0 +1,51 @@
+name: Pages
+
+# Deploys the app to GitHub Pages (https://sdfkdweuwpor.github.io/forge-study-app/) on every push to main.
+# One-time setup: repo Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+# The Pages build is the same code as the Netlify one; only the base path differs (--base below).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push waits for the running one instead of cancelling it half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      # No VITE_ENABLE_SEED: a deployed build never has `?seed=`.
+      - run: npx vite build --base /forge-study-app/
+      # 404.html = the app (deep links), a <meta> Content-Security-Policy, .nojekyll. See the script.
+      - run: node scripts/pages-postbuild.mjs
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+          # v4 and later leave dotfiles out unless asked; keep .nojekyll.
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

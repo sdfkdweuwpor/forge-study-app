@@ -1,0 +1,172 @@
+.root {
+  --label-w: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: var(--fs-40);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: var(--lh-heading);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hint {
+  display: inline-flex;
+}
+
+/* The Z keycap means nothing on a touch screen (a tablet too) and costs room on a phone. */
+@media (hover: none), (max-width: 639px) {
+  .hint {
+    display: none;
+  }
+}
+
+.chart {
+  margin-top: var(--space-8);
+}
+
+/* The month scale sits over the track column, aligned with every lane's track. */
+.monthRow {
+  display: grid;
+  grid-template-columns: var(--label-w) minmax(0, 1fr);
+  gap: var(--space-6);
+  padding-bottom: var(--space-2);
+}
+
+.months {
+  position: relative;
+  grid-column: 2;
+  height: 36px;
+}
+
+.month {
+  position: absolute;
+  top: 0;
+  padding-left: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.todayLabel {
+  position: absolute;
+  bottom: 0;
+  margin-left: -20px;
+  width: 40px;
+  color: var(--accent-text);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  text-align: center;
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  list-style: none;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.keyBar,
+.keyHatch {
+  width: 22px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+.keyHatch {
+  border: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 32%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  box-sizing: border-box;
+}
+
+.keyExam,
+.keyProject {
+  width: 9px;
+  height: 9px;
+  background: var(--text);
+}
+
+.keyExam {
+  transform: rotate(45deg);
+}
+
+.keyProject {
+  border-radius: 2px;
+}
+
+.keyTick {
+  width: 1px;
+  height: 8px;
+  background: var(--text-faint);
+}
+
+.keyToday {
+  width: 2px;
+  height: 12px;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+/* ── Phones ──────────────────────────────────────────────────────────────── */
+@media (max-width: 639px) {
+  .title {
+    font-size: var(--fs-32);
+  }
+
+  .zoom {
+    width: 100%;
+  }
+
+  .chart {
+    margin-top: var(--space-6);
+  }
+
+  .monthRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .months {
+    grid-column: 1;
+  }
+}

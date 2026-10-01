@@ -1,0 +1,169 @@
+/* blocked.html. Type and spacing carry the hierarchy; there are no cards or boxes. */
+.page {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) 0 var(--space-12);
+}
+
+.view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+}
+
+h1 {
+  font-size: var(--fs-32);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-title);
+  overflow-wrap: anywhere;
+}
+
+h2 {
+  font-size: var(--fs-24);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-title);
+}
+
+h1:focus-visible,
+h2:focus-visible {
+  outline-offset: var(--space-1);
+}
+
+.session {
+  margin-top: var(--space-8);
+}
+
+.clock {
+  font-size: var(--fs-40);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-title);
+}
+
+.session-note,
+.task,
+.lede {
+  color: var(--text-muted);
+}
+
+.session-note {
+  margin-top: var(--space-1);
+}
+
+.task {
+  margin-top: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.task-title {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.motivation {
+  margin-top: var(--space-8);
+  max-width: 34ch;
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+  text-wrap: balance;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-8);
+}
+
+.notice {
+  margin-top: var(--space-4);
+}
+
+/* "Take a breath" */
+.lede {
+  margin-top: var(--space-3);
+  max-width: 36ch;
+  font-size: var(--fs-16);
+  text-wrap: balance;
+}
+
+.count {
+  margin-top: var(--space-6);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-display);
+  letter-spacing: var(--tracking-display);
+}
+
+/* Emergency access */
+.phrase {
+  margin-top: var(--space-6);
+  color: var(--text);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  overflow-wrap: anywhere;
+}
+
+.phrase-form {
+  width: 100%;
+  margin-top: var(--space-6);
+  text-align: left;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+}
+
+.field {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-16);
+  transition: box-shadow var(--dur-1) var(--ease);
+}
+
+.field:hover {
+  box-shadow: inset 0 0 0 1px var(--text-muted);
+}
+
+.field:disabled {
+  color: var(--text-muted);
+  cursor: progress;
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: var(--fs-24);
+  }
+
+  .count {
+    font-size: 4rem;
+  }
+}

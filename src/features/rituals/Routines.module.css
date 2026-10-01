@@ -1,0 +1,25 @@
+/* Routine picker, the save dialog and the Settings section. */
+.when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.icon {
+  flex: none;
+  width: 28px;
+  font-size: var(--fs-20);
+  line-height: 1;
+  text-align: center;
+}
+
+.badge {
+  margin-inline-start: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}

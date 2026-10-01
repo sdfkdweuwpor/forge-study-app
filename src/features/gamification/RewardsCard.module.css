@@ -1,0 +1,186 @@
+.card {
+  display: grid;
+  grid-template-columns: 20px 40px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
+  border-radius: var(--radius-lg);
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .card:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.handle {
+  display: grid;
+  place-items: center;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-left: var(--space-1);
+}
+
+.title {
+  min-width: 0;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-14);
+}
+
+/* The price is gold, XP only (BRIEF §3.2); the -text tier keeps it AA at this size. */
+.price {
+  color: var(--xp-text);
+  font-weight: var(--fw-medium);
+}
+
+.toGo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.toGoBar {
+  width: 48px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.more {
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.card:hover .more,
+.card:focus-within .more,
+.more[aria-expanded='true'] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .more {
+    opacity: 1;
+  }
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+}
+
+/*
+ * Phones: the same single row, with the handle and icon columns sized to their (touch-sized) controls so
+ * nothing reserves empty space, and Redeem kept beside the reward instead of on a line of its own.
+ */
+@media (max-width: 639px) {
+  .card {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    padding-right: 0;
+  }
+
+  .main {
+    padding-left: 0;
+  }
+
+  .actions {
+    gap: var(--space-1);
+  }
+}
+
+/*
+ * Touch. The title and the price are buttons with a 44px target each (RewardsInline), so stacking them
+ * in a padded row made every reward 114px tall (132 with "930 XP to go" on a third line). The targets
+ * stay 44px; the row stops paying for them twice:
+ *
+ * - no extra vertical padding (the targets are the height), a hairline of gap between rewards;
+ * - a phone lays the row out as two 44px lines: the title with Redeem and the menu, then the price with how
+ *   close it is, under the title (96px a reward, with or without "930 XP to go");
+ * - a tablet has room for the title and the price on one line (52px a reward).
+ */
+@media (pointer: coarse) {
+  .card {
+    padding-block: var(--space-1);
+  }
+
+  .main {
+    gap: 0;
+  }
+
+  .meta {
+    align-items: center;
+  }
+}
+
+@media (pointer: coarse) and (min-width: 640px) {
+  .main {
+    flex-flow: row wrap;
+    align-items: center;
+    column-gap: var(--space-3);
+  }
+}
+
+@media (pointer: coarse) and (max-width: 639px) {
+  .card {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'handle icon title redeem more'
+      'handle icon meta meta meta';
+    row-gap: 0;
+  }
+
+  /* The two wrappers give their children to the grid, so each lands on its own line. */
+  .main,
+  .actions {
+    display: contents;
+  }
+
+  .handle {
+    grid-area: handle;
+  }
+
+  .icon {
+    grid-area: icon;
+  }
+
+  .title {
+    grid-area: title;
+  }
+
+  .meta {
+    grid-area: meta;
+  }
+
+  .redeem {
+    grid-area: redeem;
+  }
+
+  /* Redeem and the menu sit close, as they do in the desktop row's action group. */
+  .more {
+    grid-area: more;
+    margin-left: calc(var(--space-1) * -1);
+  }
+}

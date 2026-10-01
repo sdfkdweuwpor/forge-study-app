@@ -1,0 +1,101 @@
+/*
+ * Range input drawn with tokens. Track: --border-strong, filled part --accent. The thumb is the
+ * accent, ringed in the page colour so it reads on both. Coarse pointers get a 44px hit area.
+ */
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.range {
+  --_fill: 50%;
+  --_track: 4px;
+  --_thumb: 16px;
+
+  flex: 1 1 auto;
+  width: 160px;
+  min-width: 96px;
+  height: var(--control-h-md);
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: var(--_track);
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    to right,
+    var(--accent) 0,
+    var(--accent) var(--_fill),
+    var(--border-strong) var(--_fill)
+  );
+}
+
+.range::-moz-range-track {
+  height: var(--_track);
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    to right,
+    var(--accent) 0,
+    var(--accent) var(--_fill),
+    var(--border-strong) var(--_fill)
+  );
+}
+
+.range::-webkit-slider-thumb {
+  width: var(--_thumb);
+  height: var(--_thumb);
+  margin-top: calc((var(--_track) - var(--_thumb)) / 2);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+  transition: transform var(--dur-1) var(--ease);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--_thumb);
+  height: var(--_thumb);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.range:where(:not(:disabled)):active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.range:where(:not(:disabled)):active::-moz-range-thumb {
+  transform: scale(1.15);
+}
+
+.range:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.value {
+  flex: none;
+  min-width: 3ch;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (pointer: coarse) {
+  .range {
+    height: var(--tap-min);
+  }
+}

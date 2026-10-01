@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Forge Focus</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="accents.css" />
+    <link rel="stylesheet" href="ext.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup" id="popup" aria-busy="true">
+      <header class="brand">
+        <svg width="20" height="20" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <rect width="64" height="64" rx="14" fill="var(--logo-ring)" />
+          <rect x="3.2" y="3.2" width="57.6" height="57.6" rx="10.8" fill="var(--logo-tile)" />
+          <path fill="var(--logo-mark)" d="M32 10 50 28 44 34 32 22 20 34 14 28Z" />
+          <path fill="var(--logo-mark)" d="M12 42h16l-4 8H12zM36 42h16v8H40z" />
+        </svg>
+        <span>Forge Focus</span>
+      </header>
+
+      <div class="loading" id="state-loading" role="status">
+        <span class="bone bone-lg"></span>
+        <span class="bone"></span>
+        <span class="bone"></span>
+        <span class="sr-only">Loading</span>
+      </div>
+
+      <p class="notice" id="state-error" role="alert" data-tone="error" hidden>
+        Could not read the extension's status. Close this popup and open it again.
+      </p>
+
+      <div class="ready" id="state-ready" hidden>
+        <section class="wins" aria-labelledby="wins">
+          <p class="wins-count tabular" id="wins">0 wins today</p>
+          <p class="wins-note">Distracting visits blocked.</p>
+        </section>
+
+        <dl class="rows">
+          <div class="row">
+            <dt>Focus</dt>
+            <dd id="focus">Not running</dd>
+          </div>
+          <div class="row" id="row-clock" hidden>
+            <dt id="clock-label">Time left</dt>
+            <dd>
+              <span class="tabular" id="clock" role="timer" aria-labelledby="clock-label"
+                >--:--</span
+              >
+            </dd>
+          </div>
+          <div class="row" id="row-task" hidden>
+            <dt>Task</dt>
+            <dd id="task"></dd>
+          </div>
+          <div class="row">
+            <dt>Mode</dt>
+            <dd id="mode">Always on</dd>
+          </div>
+          <div class="row">
+            <dt>Blocking</dt>
+            <dd id="blocking">Blocking now</dd>
+          </div>
+        </dl>
+      </div>
+
+      <button class="btn btn-primary open" id="btn-open-app" type="button">Open Forge</button>
+    </main>
+    <script type="module" src="js/popup/popup.js"></script>
+  </body>
+</html>

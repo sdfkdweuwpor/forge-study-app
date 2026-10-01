@@ -1,0 +1,83 @@
+/* Nothing on it but the dial, the task and, while the pointer moves, two quiet controls. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-6);
+  background: var(--bg);
+  animation: fadeIn var(--dur-3) var(--ease);
+}
+
+.overlay:focus {
+  outline: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.controls {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--dur-3) var(--ease);
+}
+
+/* Visible while the pointer moves, and always for someone tabbing to them. */
+.overlay[data-awake] .controls,
+.controls:focus-within {
+  opacity: 1;
+}
+
+.task {
+  max-width: min(720px, 100%);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-20);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-snug);
+  line-height: var(--lh-heading);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  position: absolute;
+  bottom: var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  opacity: 0;
+  transition: opacity var(--dur-3) var(--ease);
+}
+
+.overlay[data-awake] .hint {
+  opacity: 1;
+}
+
+.dot {
+  margin-inline: var(--space-2);
+}
+
+@media (hover: none) {
+  .hint {
+    display: none;
+  }
+}

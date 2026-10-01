@@ -1,0 +1,268 @@
+/*
+ * The course list as a database table. Cells sit in one CSS grid per row so columns line up with the
+ * header. The table is a size container: below 720px of its own width each row stacks into a card
+ * (the page can be narrow on a tablet too, not only on a phone).
+ */
+.root {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.table {
+  --_cols: 20px 120px 60px minmax(0, 1fr) 40px 84px 104px 100px 28px;
+  min-width: 0;
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: var(--_cols);
+  column-gap: var(--space-2);
+  align-items: center;
+  padding-inline: var(--space-2);
+}
+
+.head {
+  padding-block: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+}
+
+.head [data-h='cus'],
+.head [data-h='hours'] {
+  text-align: end;
+}
+
+.row {
+  min-height: 36px;
+  padding-block: 2px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-14);
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--bg-hover);
+  }
+}
+
+/* Wide: the two wrappers dissolve, so their cells are columns of the row. */
+.lead,
+.meta {
+  display: contents;
+}
+
+.cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell[data-cell='cus'],
+.cell[data-cell='hours'] {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell[data-cell='due'] {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell[data-cell='name'] {
+  font-weight: var(--fw-medium);
+}
+
+.name {
+  color: var(--text);
+  border-radius: var(--radius-sm);
+}
+
+@media (hover: hover) {
+  .name:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 3px;
+  }
+}
+
+.cell[data-done] .name {
+  color: var(--text-muted);
+  font-weight: var(--fw-regular);
+}
+
+.markTodo {
+  color: var(--text-faint);
+}
+
+.markActive {
+  color: var(--accent);
+}
+
+.markDone {
+  color: var(--success);
+}
+
+.typeText[data-empty] {
+  color: var(--text-muted);
+}
+
+/* The `…` menu, like the handle, shows on hover and focus; always on touch. */
+.more {
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.row:hover .more,
+.row:focus-within .more,
+.more[aria-expanded='true'],
+.more:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .more {
+    opacity: 1;
+  }
+}
+
+/* ── Add a course ─────────────────────────────────────────────────────────── */
+.addKey {
+  margin-left: var(--space-2);
+}
+
+.addButton {
+  align-self: flex-start;
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+}
+
+.addForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2);
+}
+
+.addFields {
+  display: flex;
+  flex: 1 1 320px;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.addCode {
+  flex: 0 0 84px;
+}
+
+.addName {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.addHours {
+  flex: 0 0 84px;
+}
+
+.addActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.addError {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--fs-12);
+}
+
+/* ── Stacked cards ────────────────────────────────────────────────────────── */
+@container (max-width: 719px) {
+  .head {
+    /* Still read by screen readers as the column headers, just not drawn. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'grip lead menu'
+      '.    meta meta';
+    align-items: start;
+    padding-block: var(--space-2);
+    row-gap: var(--space-1);
+  }
+
+  .row > [data-cell='handle'] {
+    grid-area: grip;
+  }
+
+  .lead {
+    grid-area: lead;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 var(--space-3);
+    min-width: 0;
+  }
+
+  .lead .cell[data-cell='status'],
+  .lead .cell[data-cell='code'] {
+    flex: none;
+    overflow: visible;
+  }
+
+  .lead .cell[data-cell='name'] {
+    flex: 1 0 100%;
+    order: 3;
+    white-space: normal;
+    font-size: var(--fs-16);
+    line-height: 1.35;
+  }
+
+  .row > [data-cell='menu'] {
+    grid-area: menu;
+  }
+
+  .meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    color: var(--text-muted);
+  }
+
+  .meta .cell {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    text-align: start;
+    overflow: visible;
+  }
+
+  .meta .cell[data-label]::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: var(--fs-12);
+  }
+
+  .meta .cell[data-cell='due'] {
+    color: var(--text-muted);
+  }
+}

@@ -1,0 +1,92 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-40);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+}
+
+.body {
+  min-width: 0;
+}
+
+.headerActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* The sidebar lists these on wider screens; a phone has no sidebar, so the header carries a menu. */
+.viewsMenu {
+  display: none;
+}
+
+.icon {
+  margin-right: var(--space-2);
+  font-size: 0.8em;
+}
+
+@media (max-width: 639px) {
+  .viewsMenu {
+    display: inline-flex;
+  }
+
+  /* The long form of the list's description is for wide screens. */
+  .description {
+    display: none;
+  }
+
+  .title {
+    font-size: var(--fs-32);
+  }
+
+  /*
+   * The title and summary, then the actions on their own row, like Goals. Sharing one row made a long
+   * list name ("Upcoming", "Completed") run under the buttons, or break "All tasks" in two.
+   */
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  /* The first action is the ghost Views button: pull it out by its padding so its text lines up. */
+  .headerActions {
+    margin-top: 0;
+    margin-left: calc(-1 * var(--space-2));
+  }
+}
+
+/* The Settle region adds no box of its own: its children stay the body's children for layout. */
+.settle {
+  display: contents;
+}

@@ -1,0 +1,245 @@
+/*
+ * Checkbox. The native input sits invisibly on top of the drawn box, so clicks, keyboard and
+ * forms behave natively. Public knobs: --cb-color, --cb-line, --cb-check, --cb-fill-dur,
+ * --cb-draw-dur.
+ */
+.root {
+  --cb-color: var(--accent);
+  --cb-check: var(--accent-contrast);
+  --cb-line: var(--text-faint); /* ≥ 3:1 on every surface: the rim identifies the control */
+  --cb-fill-dur: var(--dur-2);
+  --cb-draw-dur: 180ms;
+
+  --_size: 16px;
+  --_radius: var(--radius-sm);
+  --_rim: 1.5px;
+  --_line: var(--cb-line);
+  --_fill: transparent;
+  --_tick: var(--cb-check);
+
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  vertical-align: middle;
+  color: var(--text);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.root[data-variant='round'] {
+  --_size: 18px;
+  --_radius: 50%;
+}
+
+/* A visible focus ring belongs on the box, not on the wrapper (global.css targets data-force). */
+.root[data-force~='focus'] {
+  outline: none;
+}
+
+.control {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  width: var(--_size);
+  height: var(--_size);
+  margin-block: max(0px, calc((1lh - var(--_size)) / 2));
+  transition: scale var(--dur-1) var(--ease);
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.box {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--_radius);
+  background: var(--_fill);
+  box-shadow: inset 0 0 0 var(--_rim) var(--_line);
+  color: var(--_tick);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.check,
+.dash {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.check {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.dash {
+  opacity: 0;
+}
+
+/* Checked and mixed: filled with --cb-color. */
+.root[data-state='checked'],
+.root[data-state='indeterminate'] {
+  --_line: var(--cb-color);
+  --_fill: var(--cb-color);
+}
+
+.root[data-state='checked'] .check {
+  stroke-dashoffset: 0;
+}
+
+.root[data-state='indeterminate'] .dash {
+  opacity: 1;
+}
+
+/* Hover: a stronger rim; round (task) boxes preview a faint tick, inviting the click. */
+@media (hover: hover) {
+  .root:where(:not([data-disabled])):hover {
+    --_line: var(--text-muted);
+    --_fill: var(--bg-hover);
+  }
+
+  .root:where(:not([data-disabled]))[data-variant='round'][data-state='unchecked']:hover .check {
+    stroke-dashoffset: 0;
+    color: var(--text-faint);
+  }
+
+  .root:where(:not([data-disabled]))[data-state='checked']:hover,
+  .root:where(:not([data-disabled]))[data-state='indeterminate']:hover {
+    --_line: color-mix(in srgb, var(--cb-color), var(--bg-inverse) 14%);
+    --_fill: color-mix(in srgb, var(--cb-color), var(--bg-inverse) 14%);
+  }
+}
+
+.root[data-force~='hover'] {
+  --_line: var(--text-muted);
+  --_fill: var(--bg-hover);
+}
+
+.root[data-force~='hover'][data-variant='round'][data-state='unchecked'] .check {
+  stroke-dashoffset: 0;
+  color: var(--text-faint);
+}
+
+.root[data-force~='hover'][data-state='checked'],
+.root[data-force~='hover'][data-state='indeterminate'] {
+  --_line: color-mix(in srgb, var(--cb-color), var(--bg-inverse) 14%);
+  --_fill: color-mix(in srgb, var(--cb-color), var(--bg-inverse) 14%);
+}
+
+/* Press: the box dips (the global press scale, tripled for a 16px target). */
+.root:where(:not([data-disabled])) .control:active,
+.root[data-force~='active'] .control {
+  scale: calc(1 - (1 - var(--scale-press)) * 3);
+}
+
+.root[data-force~='active'][data-state='unchecked'] {
+  --_line: var(--text-muted);
+  --_fill: var(--bg-active);
+}
+
+.input:focus-visible + .box,
+.root[data-force~='focus'] .box {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.root[data-disabled] {
+  opacity: 0.45;
+}
+
+.input:disabled {
+  cursor: default;
+}
+
+.label {
+  min-width: 0;
+  cursor: pointer;
+}
+
+.root[data-disabled] .label {
+  cursor: default;
+}
+
+/* Becoming checked: the rim thickens inward until the box is full, the box pops, the tick draws. */
+.root[data-animate] .box {
+  animation: cb-fill var(--cb-fill-dur) var(--ease) backwards;
+}
+
+.root[data-animate] .control {
+  animation: cb-pop var(--dur-3) var(--ease) calc(var(--cb-fill-dur) * 0.5);
+}
+
+.root[data-animate] .check {
+  animation: cb-draw var(--cb-draw-dur) var(--ease) calc(var(--cb-fill-dur) * 0.6) backwards;
+}
+
+@keyframes cb-fill {
+  from {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 var(--_rim) var(--cb-color);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 calc(var(--_size) / 2) var(--cb-color);
+  }
+}
+
+@keyframes cb-pop {
+  45% {
+    scale: 1.12;
+  }
+}
+
+@keyframes cb-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes cb-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: the fill is instant (motion.css) and the tick fades in instead of drawing. */
+:global([data-reduced-motion='on']) .root[data-animate] .check {
+  animation: cb-fade var(--dur-2) var(--ease) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='off'])) .root[data-animate] .check {
+    animation: cb-fade var(--dur-2) var(--ease) backwards;
+  }
+}
+
+/* Touch: the invisible input grows to a 44px target around the box. */
+@media (pointer: coarse) {
+  .input {
+    inset: calc((var(--_size) - var(--tap-min)) / 2);
+    width: auto;
+    height: auto;
+  }
+}

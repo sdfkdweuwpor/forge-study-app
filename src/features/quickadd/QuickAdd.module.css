@@ -1,0 +1,258 @@
+/* Quick add: a compact panel near the top on desktop, a bottom sheet on phones. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14vh var(--space-4) 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: var(--scrim);
+  animation: scrim-in var(--dur-2) var(--ease) both;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  min-width: 0;
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+  animation: panel-in var(--dur-2) var(--ease) both;
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--shift-2))) scale(var(--scale-in));
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--shift-3) * 3));
+  }
+}
+
+/* ── Input ─────────────────────────────────────────────────────────────────────────────────── */
+
+.inputRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) 0 var(--space-4);
+}
+
+.plus {
+  flex: none;
+  margin-top: 13px; /* centres on the first line of the field */
+  color: var(--text-muted);
+}
+
+.add {
+  flex: none;
+  margin-top: 8px;
+}
+
+.field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/* The copy and the field must lay text out identically: same box, font, wrapping and padding. */
+.backdrop,
+.textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: 0;
+  font: inherit;
+  font-size: var(--fs-16);
+  line-height: 24px;
+  letter-spacing: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  tab-size: 4;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+.mark {
+  border-radius: var(--radius-sm);
+  background: var(--mark);
+  /* A halo instead of padding: padding would shift the text out of line with the field. */
+  box-shadow: 0 0 0 2px var(--mark);
+  color: transparent;
+}
+
+.mark[data-color='gray'] {
+  --mark: var(--tag-gray-bg);
+}
+
+.mark[data-color='brown'] {
+  --mark: var(--tag-brown-bg);
+}
+
+.mark[data-color='orange'] {
+  --mark: var(--tag-orange-bg);
+}
+
+.mark[data-color='yellow'] {
+  --mark: var(--tag-yellow-bg);
+}
+
+.mark[data-color='green'] {
+  --mark: var(--tag-green-bg);
+}
+
+.mark[data-color='blue'] {
+  --mark: var(--tag-blue-bg);
+}
+
+.mark[data-color='purple'] {
+  --mark: var(--tag-purple-bg);
+}
+
+.mark[data-color='pink'] {
+  --mark: var(--tag-pink-bg);
+}
+
+.mark[data-color='red'] {
+  --mark: var(--tag-red-bg);
+}
+
+.textarea {
+  position: relative;
+  display: block;
+  min-height: 44px;
+  max-height: calc(24px * 4 + 20px);
+  overflow-y: auto;
+  resize: none;
+  /* A scrollbar would narrow the field but not its copy, and the two would wrap differently. */
+  scrollbar-width: none;
+  background: transparent;
+  color: var(--text);
+  outline: none; /* the panel is the focus context; the caret shows focus */
+}
+
+.textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* ── Chips ─────────────────────────────────────────────────────────────────────────────────── */
+
+.chipsRow {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: var(--space-1) var(--space-4) var(--space-2) calc(var(--space-4) + 18px + var(--space-3));
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chipItem {
+  display: inline-flex;
+  max-width: 100%;
+  animation: chip-in var(--dur-1) var(--ease) both;
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--shift-1));
+  }
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.5;
+}
+
+.problem {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2) calc(var(--space-4) + 18px + var(--space-3));
+  color: var(--danger-text);
+  font-size: var(--fs-12);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.footerHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+@media (pointer: coarse) {
+  .footer {
+    display: none;
+  }
+}
+
+/* ── Phones: bottom sheet above the keyboard ───────────────────────────────────────────────── */
+
+@media (max-width: 639.98px) {
+  .scrim {
+    justify-content: flex-end;
+    padding: 0;
+  }
+
+  .panel {
+    width: 100%;
+    margin-bottom: var(--kb-inset, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    animation-name: sheet-in;
+  }
+
+  /* 16px keeps iOS from zooming into the field. */
+  .backdrop,
+  .textarea {
+    font-size: var(--fs-16);
+  }
+}

@@ -1,0 +1,41 @@
+/* "+25 XP" in gold. Same look as the float on a finished task row. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  color: var(--xp-text);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pill[data-variant='float'] {
+  position: absolute;
+  z-index: var(--z-raised);
+  animation: xpFloat 900ms var(--ease) forwards;
+}
+
+/* Rises and fades. The rise is built from --shift-*, so reduced motion leaves a fade. */
+@keyframes xpFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--shift-2));
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(var(--shift-3) * -1.75));
+  }
+}

@@ -1,0 +1,56 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* The -6px margins pull the hover fill outside the text; the limit grows by the same 12px. */
+  max-width: calc(100% + 12px);
+  margin: 0 -6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .button:hover,
+  .button[aria-expanded='true'] {
+    background: var(--bg-hover);
+  }
+}
+
+@media (pointer: coarse) {
+  .button {
+    min-height: var(--tap-min);
+  }
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.button[data-quiet] .chevron {
+  display: none;
+}
+
+.button[data-fit] {
+  flex: none;
+  max-width: none;
+}
+
+.button[data-fit] .text {
+  overflow: visible;
+  text-overflow: clip;
+}

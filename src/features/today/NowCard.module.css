@@ -1,0 +1,266 @@
+/*
+ * The Now card: the one task to do next. It is the only surface on the page: a soft tinted panel
+ * with no border and no shadow, so the title and the Start focus button carry the weight.
+ */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sidebar);
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--accent-text);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.doing {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* ── Title ───────────────────────────────────────────────────────────────── */
+.title {
+  margin: 0;
+  max-width: 100%;
+  font-size: var(--fs-24);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+  text-wrap: balance;
+}
+
+.titleButton {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-decoration: line-through transparent;
+  text-decoration-thickness: 2px;
+  transition: text-decoration-color var(--dur-3) var(--ease);
+  overflow-wrap: anywhere;
+}
+
+@media (hover: hover) {
+  .titleButton:hover {
+    text-decoration-line: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 4px;
+  }
+}
+
+.title[data-done] .titleButton {
+  color: var(--text-muted);
+  text-decoration-line: line-through;
+  text-decoration-color: currentColor;
+}
+
+/* ── Meta ────────────────────────────────────────────────────────────────── */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 20px;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+}
+
+.meta:empty {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip[data-tone='carried'] {
+  color: var(--text-muted);
+}
+
+/* A deadline is calm; amber only on the day it is due. */
+.chip[data-deadline='dueToday'] {
+  color: var(--warning-text);
+  font-weight: var(--fw-medium);
+}
+
+.chip[data-tone='today'] {
+  color: var(--text);
+}
+
+.chip[data-flag='warning'] {
+  color: var(--warning-text);
+}
+
+.chip[data-flag='danger'] {
+  color: var(--danger-text);
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* The one big button on the page: 44px tall, larger label. */
+.actions .start {
+  height: 44px;
+  padding-inline: var(--space-6);
+  border-radius: var(--radius-lg);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+.extras {
+  align-self: stretch;
+  margin-top: var(--space-2);
+}
+
+/* ── Clear (nothing left) ────────────────────────────────────────────────── */
+.clear {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.clearIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.clearIcon > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.clearText {
+  min-width: 0;
+}
+
+.clearTitle {
+  margin: 0;
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+  line-height: var(--lh-heading);
+}
+
+.clearBody {
+  margin: var(--space-1) 0 0;
+  max-width: 36em;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────────── */
+.skelTitle {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.skelButton {
+  margin-top: var(--space-2);
+  border-radius: var(--radius-lg);
+}
+
+/* ── "+15 XP" ────────────────────────────────────────────────────────────── */
+.xp {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-4);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  color: var(--xp-text);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  line-height: 1.3;
+  pointer-events: none;
+  animation: xp-float 900ms var(--ease) forwards;
+}
+
+@keyframes xp-float {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--shift-2));
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(var(--shift-3) * -1.75));
+  }
+}
+
+@media (max-width: 639px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .actions .start {
+    flex: 1 1 100%;
+  }
+
+  .hint {
+    display: none;
+  }
+}
+
+@media (hover: none) {
+  .hint {
+    display: none;
+  }
+}

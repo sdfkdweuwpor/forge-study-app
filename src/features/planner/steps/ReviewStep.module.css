@@ -1,0 +1,252 @@
+.titleRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.titleInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.iconButton {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .iconButton:hover {
+    background: var(--bg-active);
+  }
+}
+
+@media (pointer: coarse) {
+  .iconButton {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+}
+
+/* Unread lines: a quiet tinted note, not an alarm. */
+.unparsed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-hover);
+}
+
+.unparsed ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unparsedRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.unparsedText {
+  min-width: 0;
+  font-size: var(--fs-14);
+  overflow-wrap: anywhere;
+}
+
+.lineNo {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.courseRow {
+  border-top: 1px solid var(--border);
+}
+
+.course {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-4);
+  min-width: 0;
+}
+
+.courseHead {
+  display: grid;
+  grid-template-columns: auto auto 88px minmax(0, 1fr) auto auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.handle {
+  display: inline-flex;
+}
+
+.chevron {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chevron svg {
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.chevron svg[data-open] {
+  transform: rotate(90deg);
+}
+
+.courseDel,
+.unitHours,
+.unitOpt,
+.unitDel {
+  display: inline-flex;
+}
+
+.courseTotal {
+  min-width: 64px;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.courseBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding-left: calc(20px + 24px + var(--space-4));
+  min-width: 0;
+}
+
+.courseBody > * {
+  max-width: 100%;
+}
+
+.courseBody > ul:first-child,
+.courseBody > div:first-child {
+  width: 100%;
+}
+
+.unit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 96px auto auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 2px 0;
+}
+
+.assessments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assessment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.assessmentTitle {
+  flex: 1;
+  min-width: 160px;
+}
+
+.add {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+.collapsedNote {
+  margin: 0;
+  padding-left: calc(20px + 24px + var(--space-4));
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+@media (max-width: 767px) {
+  .courseHead {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  }
+  .handle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .chevron {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .code {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .courseTotal {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .courseDel {
+    grid-column: 5;
+    grid-row: 1;
+  }
+  .courseTitle {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .courseBody,
+  .collapsedNote {
+    padding-left: 0;
+  }
+  .unit {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'grip title del'
+      '. hours opt';
+  }
+  .unit > :nth-child(1) {
+    grid-area: grip;
+  }
+  .unitTitle {
+    grid-area: title;
+  }
+  .unitHours {
+    grid-area: hours;
+  }
+  .unitOpt {
+    grid-area: opt;
+    justify-self: end;
+  }
+  .unitDel {
+    grid-area: del;
+  }
+}

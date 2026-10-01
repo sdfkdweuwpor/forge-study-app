@@ -1,0 +1,8 @@
+export {
+  APP_ORIGIN,
+  APP_PATH,
+  APP_URL,
+  DEFAULT_EXTENSION_ID,
+  EXTENSION_ZIP_URL,
+  FALLBACK_ORIGIN,
+} from '@ext/config'

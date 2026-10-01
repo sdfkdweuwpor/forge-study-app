@@ -1,0 +1,5 @@
+export { BlockEditor } from './BlockEditor'
+export type { BlockEditorProps } from './BlockEditor'
+export { SlashMenuPanel, slashOptionId } from './SlashMenu'
+export type { SlashMenuPanelProps } from './SlashMenu'
+export type { Block, BlockType } from '@/logic/blocks'

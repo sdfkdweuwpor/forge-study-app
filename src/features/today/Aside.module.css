@@ -1,0 +1,252 @@
+/* The right-hand column of Today. No boxes: a small heading, then the content on the page. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 1.5;
+}
+
+.quiet {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  text-wrap: pretty;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .link:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 3px;
+  }
+}
+
+/* ── Countdown ───────────────────────────────────────────────────────────── */
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.leadLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.leadDays {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-32);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--lh-heading);
+}
+
+.leadDays[data-overdue] {
+  color: var(--warning-text);
+}
+
+.leadMeta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moreRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.moreName {
+  color: var(--text);
+}
+
+.moreDays {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.moreDays[data-overdue] {
+  color: var(--warning-text);
+  font-weight: var(--fw-medium);
+}
+
+/* Touch: the course links are 44px tall, and each row centres its days on the link. */
+@media (pointer: coarse) {
+  .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+
+  .more {
+    gap: 0;
+  }
+
+  .moreRow {
+    align-items: center;
+  }
+
+  /* A course code is only four characters wide: the whole row up to the days is the target. */
+  .moreRow > .link {
+    flex: 1;
+  }
+}
+
+/* ── Heatmap ─────────────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cellItem {
+  display: block;
+  list-style: none;
+}
+
+.cell,
+.swatch {
+  --_fill: var(--chart-heat-0);
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--_fill);
+}
+
+.cell {
+  aspect-ratio: 1;
+}
+
+/* A day the weekly streak freeze covered: the quiet level-0 cell with a snowflake in neutral ink (never
+   the heat colour, so it cannot read as a level, and never a warning colour). */
+.cell[data-frozen] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.snow {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.noteSnow {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--space-1);
+  vertical-align: -2px;
+}
+
+.note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.4;
+}
+
+.cell[data-today] {
+  outline: 1.5px solid var(--text-muted);
+  outline-offset: 1px;
+}
+
+/* The same five steps as the Progress heatmap (tokens.css --chart-heat-*). */
+.cell[data-level='1'],
+.swatch[data-level='1'] {
+  --_fill: var(--chart-heat-1);
+}
+
+.cell[data-level='2'],
+.swatch[data-level='2'] {
+  --_fill: var(--chart-heat-2);
+}
+
+.cell[data-level='3'],
+.swatch[data-level='3'] {
+  --_fill: var(--chart-heat-3);
+}
+
+.cell[data-level='4'],
+.swatch[data-level='4'] {
+  --_fill: var(--chart-heat-4);
+}
+
+.cellSkeleton {
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  line-height: 1.4;
+}
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.legend > span:first-child {
+  margin-right: var(--space-1);
+}
+
+.legend > span:last-child {
+  margin-left: var(--space-1);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+}

@@ -1,0 +1,200 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2);
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+  --row-h: 30px;
+  --sub-row-h: 28px;
+  --control-h: 32px;
+  --icon-btn: 28px;
+}
+
+/* Touch targets are at least 44px: the drawer, and any coarse pointer (an iPad in landscape gets this sidebar). */
+.sidebar[data-touch] {
+  --row-h: var(--tap-min);
+  --sub-row-h: var(--tap-min);
+  --control-h: var(--tap-min);
+  --icon-btn: var(--tap-min);
+}
+
+@media (pointer: coarse) {
+  .sidebar {
+    --row-h: var(--tap-min);
+    --sub-row-h: var(--tap-min);
+    --control-h: var(--tap-min);
+    --icon-btn: var(--tap-min);
+  }
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: max(36px, var(--icon-btn));
+  padding: 0 var(--space-1) 0 var(--space-2);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--icon-btn);
+  border-radius: var(--radius-md);
+  color: var(--text);
+}
+
+.brandName {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
+}
+
+/* Quiet by default, alive on interaction: the collapse button appears with the sidebar hovered or focused. */
+.collapse {
+  opacity: 0;
+}
+
+.sidebar:hover .collapse,
+.sidebar:focus-within .collapse {
+  opacity: 1;
+}
+
+/* No hover on touch screens: the button would never appear. */
+@media (hover: none) {
+  .collapse {
+    opacity: 1;
+  }
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  margin: var(--space-2) 0 var(--space-3);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  transition: background var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .search:hover {
+    background: var(--bg-active);
+  }
+}
+
+.searchLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  .row:hover .icon {
+    color: var(--text);
+  }
+}
+
+.row:active {
+  background: var(--bg-active);
+}
+
+.row[data-active] {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.row[data-active] .icon {
+  color: var(--text);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 1px 0 var(--space-1);
+  padding-left: var(--space-4);
+}
+
+.sub:empty {
+  display: none;
+}
+
+.row[data-sub] {
+  min-height: var(--sub-row-h);
+  font-size: 13px;
+}
+
+.divider {
+  height: 1px;
+  margin: var(--space-2) var(--space-2);
+  border: 0;
+  background: var(--border);
+}
+
+.bottom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.bottom:empty {
+  display: none;
+}

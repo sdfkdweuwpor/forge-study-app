@@ -1,0 +1,31 @@
+.preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--xp-soft);
+}
+
+.icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  font-weight: var(--fw-medium);
+  overflow-wrap: anywhere;
+}
+
+.price {
+  color: var(--xp-text);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+}

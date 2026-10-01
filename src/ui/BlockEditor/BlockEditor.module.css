@@ -1,0 +1,291 @@
+/*
+ * BlockEditor. Hierarchy comes from type and spacing: headings are bigger and tighter, lists
+ * are indented by their marker, and only the callout gets a surface. Blocks share one column;
+ * the hover handles sit in the gutter to its left (--be-gutter), so text lines up with the page.
+ */
+.root {
+  --be-gutter: 56px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-inline-start: var(--be-gutter);
+  color: var(--text);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+}
+
+/* Nothing to drag or add: no gutter. Also the loading, error and empty states. */
+.root[data-readonly],
+.root[data-plain] {
+  --be-gutter: 0px;
+}
+
+.row {
+  /* Per-type typography; --_line is the height of one line, for aligning markers and handles. */
+  --_fs: var(--fs-16);
+  --_lh: var(--lh-body);
+  --_weight: var(--fw-regular);
+  --_tracking: normal;
+  --_line: calc(var(--_fs) * var(--_lh));
+
+  position: relative;
+  border-radius: var(--radius-md);
+}
+
+.row[data-type='h1'] {
+  --_fs: var(--fs-32);
+  --_lh: var(--lh-heading);
+  --_weight: var(--fw-semibold);
+  --_tracking: var(--tracking-title);
+}
+
+.row[data-type='h2'] {
+  --_fs: var(--fs-24);
+  --_lh: var(--lh-heading);
+  --_weight: var(--fw-semibold);
+  --_tracking: var(--tracking-title);
+}
+
+.row[data-type='h3'] {
+  --_fs: var(--fs-20);
+  --_lh: var(--lh-heading);
+  --_weight: var(--fw-semibold);
+  --_tracking: var(--tracking-snug);
+}
+
+/* Air above a heading that follows something; none at the top of the page. */
+.row + .row[data-type='h1'] {
+  margin-top: var(--space-6);
+}
+
+.row + .row[data-type='h2'] {
+  margin-top: var(--space-4);
+}
+
+.row + .row[data-type='h3'] {
+  margin-top: var(--space-3);
+}
+
+.row[data-dragging] {
+  z-index: var(--z-raised);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-pop);
+}
+
+.body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-block: 3px;
+}
+
+/* ── Text ────────────────────────────────────────────────────────────────────────────────── */
+
+.text {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--_line);
+  font-size: var(--_fs);
+  font-weight: var(--_weight);
+  letter-spacing: var(--_tracking);
+  line-height: var(--_lh);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  caret-color: var(--text);
+  cursor: text;
+}
+
+/* The caret marks where you are; a ring around every line of a document would be noise. */
+.text:focus,
+.text:focus-visible {
+  outline: none;
+}
+
+.text[contenteditable='false'] {
+  cursor: default;
+}
+
+/* Hint in an empty block: while it has the caret, or always when it is the only block. */
+.text[data-empty]:focus::before,
+.text[data-empty][data-only]::before {
+  content: attr(data-hint);
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  color: var(--text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.text strong {
+  font-weight: var(--fw-semibold);
+}
+
+.text em {
+  font-style: italic;
+}
+
+.text code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.text a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent-text) 40%, transparent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: text-decoration-color var(--dur-1) var(--ease);
+}
+
+.text a:hover {
+  text-decoration-color: currentColor;
+}
+
+.row[data-checked] .text {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-faint);
+}
+
+/* ── Markers ─────────────────────────────────────────────────────────────────────────────── */
+
+.marker {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: var(--_line);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+/* ── Callout ─────────────────────────────────────────────────────────────────────────────── */
+
+.row[data-type='callout'] {
+  margin-block: var(--space-1);
+}
+
+.row[data-type='callout'] > .body {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--tag-yellow-bg);
+}
+
+.row[data-type='callout'] > .gutter {
+  inset-block-start: var(--space-3);
+}
+
+.emoji {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: var(--_line);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-20);
+  line-height: 1;
+}
+
+button.emoji {
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+@media (hover: hover) {
+  button.emoji:hover {
+    background: var(--bg-active);
+  }
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────────────────────────── */
+
+.divider {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  cursor: default;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.divider:focus {
+  background: var(--bg-hover);
+}
+
+.rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+/* ── Hover handles ───────────────────────────────────────────────────────────────────────── */
+
+.gutter {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 100%;
+  display: flex;
+  align-items: center;
+  height: calc(var(--_line) + 6px);
+  padding-inline-end: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.row:hover > .gutter,
+.row:focus-within > .gutter,
+.row[data-dragging] > .gutter {
+  opacity: 1;
+}
+
+.handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.handle:active {
+  cursor: grabbing;
+}
+
+/* ── Below the last block ────────────────────────────────────────────────────────────────── */
+
+.tail {
+  flex: 1;
+  min-height: var(--space-12);
+  cursor: text;
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* No room for handles on phones: the slash menu and the keyboard do the same jobs. */
+@media (max-width: 639px) {
+  .root {
+    --be-gutter: 0px;
+  }
+
+  .gutter {
+    display: none;
+  }
+}

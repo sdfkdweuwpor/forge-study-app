@@ -1,0 +1,37 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-body);
+  white-space: nowrap;
+}
+
+.pill[data-variant='sidebar'] {
+  align-self: flex-start;
+  margin-left: var(--space-2);
+}
+
+/* Without a sidebar on screen the pill floats at the top edge, above the page, and never takes a tap. */
+.pill[data-variant='floating'] {
+  display: none;
+}
+
+@media (max-width: 1023.98px) {
+  .pill[data-variant='floating'] {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + var(--space-2));
+    left: 50%;
+    z-index: var(--z-tabbar);
+    display: inline-flex;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-pop);
+    pointer-events: none;
+    translate: -50% 0;
+  }
+}

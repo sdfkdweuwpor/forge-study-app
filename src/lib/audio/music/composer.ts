@@ -90,7 +90,8 @@ export function createComposer(
       bar++
       const out: NoteEvent[] = []
       const chord = [0, 2, 4, 6].map((o) => deg(root + o))
-      const lowRoot = deg(root) - 12 * int(1, 2)
+      const fold = (m: number) => 36 + ((((m - 36) % 12) + 12) % 12) // bass window MIDI 36-47
+      const lowRoot = fold(deg(root))
       if (has('pad')) {
         for (const midi of chord.slice(0, 3))
           out.push({ at: 0, dur: 4, midi, vel: 0.25 + rng() * 0.15, inst: 'pad' })
@@ -109,7 +110,7 @@ export function createComposer(
           out.push({
             at: 2,
             dur: 1.5,
-            midi: rng() < 0.7 ? lowRoot : lowRoot + (deg(root + 4) - deg(root)),
+            midi: rng() < 0.7 ? lowRoot : fold(deg(root + 4)),
             vel: 0.4 + rng() * 0.2,
             inst: 'bass',
           })

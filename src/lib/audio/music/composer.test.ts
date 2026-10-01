@@ -33,7 +33,22 @@ describe('composer', () => {
       })
       it('same seed identical, different seeds differ', () => {
         expect(bars(style, 3, 64)).toEqual(bars(style, 3, 64))
-        expect(bars(style, 3, 64)).not.toEqual(bars(style, 4, 64))
+        expect(bars(style, 3, 64).bars).not.toEqual(bars(style, 4, 64).bars)
+      })
+      it('bass stays in MIDI 36-52', () => {
+        for (let seed = 1; seed <= 20; seed++)
+          for (const ev of bars(style, seed, 16).bars.flat())
+            if ('inst' in ev && ev.inst === 'bass') {
+              expect(ev.midi).toBeGreaterThanOrEqual(36)
+              expect(ev.midi).toBeLessThanOrEqual(52)
+            }
+      })
+      it('drum styles produce drums in the first 8 bars', () => {
+        const n = bars(style, 1, 8)
+          .bars.flat()
+          .filter((e) => 'drum' in e).length
+        if (def.drums === 'none') expect(n).toBe(0)
+        else expect(n).toBeGreaterThan(0)
       })
       it('no 8-bar phrase repeats over 30 minutes', () => {
         const probe = createComposer(style, 7)

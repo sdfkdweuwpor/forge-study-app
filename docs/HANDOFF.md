@@ -20,17 +20,15 @@ memory once; keep runs at 4).
 **Next:** open the PR into `main` when the user asks. Merging deploys GitHub Pages and publishes the extension
 Release.
 
-## Sound (in progress, 2026-10-01)
-
-Spec `docs/superpowers/specs/2026-09-30-sound-design.md`, plan `docs/superpowers/plans/2026-09-30-sound.md` (10 tasks).
-Phase 1 is done and reviewed: the noise mixer (9 generated layers, one gain each), the Sound panel on the Focus
-page (collapsible Lofi / Sounds / Mixes sections), the mini player (sidebar; on phones a pill while sound plays),
-playback from one tab on any page, and the old single ambient control removed. Phase 2 is done too: 10 generated
-lofi styles (seeded composer, synth instruments, a look-ahead player on a lazy chunk) behind the Lofi section's
-style grid. Phase 3 (saved mixes, start with focus, task 10) is next. Initial JS is 179.2 KB of 180.
-
 ## Done and reviewed
 
+- **Sound (2026-10-01), all three phases** (spec `docs/superpowers/specs/2026-09-30-sound-design.md`, plan
+  `docs/superpowers/plans/2026-09-30-sound.md`): the noise mixer (9 generated layers), 10 generated lofi styles on a
+  lazy chunk, saved mixes, "start sound with focus", the Sound panel (Lofi / Sounds / Mixes), the mini player
+  (sidebar; a pill on phones while sound plays), playback from one tab on any page. Final review fixes: slider writes
+  never re-apply values the row already holds, Pause works during a with-focus session (`sound.device.pausedSession`),
+  Play on a silent mix plays brown noise at 40%, pending slider writes flush on `pagehide`. Initial JS 178.4 KB gzip;
+  749/749 e2e and 14/14 extension e2e at `--workers=4`.
 - **Phases 0–11** (CI green on the Phase 11 commit `67c8de6`), plus the user's planner, everyday tasks, views,
   templates and export additions.
 - **13P performance at a year of data** and **Phase 13 round 1**: the visual audit at 375/768/1440 in light and dark,

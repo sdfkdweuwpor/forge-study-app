@@ -10,7 +10,8 @@ import { TimerProvider } from './TimerProvider'
 
 /**
  * The focus timer (Phase 4). `TimerProvider` runs the clock for the whole app; the page, the mini
- * timers and the full-screen view all read it. The sound feature's pieces (4B) plug in here: the sound panel in the aside, the mini player, the notification ask after a session, the settings section.
+ * timers and the full-screen view all read it. The sound feature's pieces plug in here: the Sound panel in the aside,
+ * the mini player, the notification ask after a session, the settings section.
  */
 // Pieces that only show on the Focus page, in the end dialog or in Settings load when they are first drawn.
 const SoundPanel = lazy(() => import('./sound/SoundPanel').then((m) => ({ default: m.SoundPanel })))

@@ -9,7 +9,8 @@ import { Pause, Play, Volume2 } from 'lucide-react'
 import { Link } from '@/app/router'
 import { isSilent, STYLE_LABELS } from '@/logic/soundMix'
 import { IconButton, Popover } from '@/ui'
-import { audioAvailable, useMixer, useSoundDevice } from './hooks'
+import { useBottomBarPill, BOTTOM_BAR_ATTR } from '@/app/hooks/useBottomBarPill'
+import { audioAvailable, useMixer, useSoundDevice, useWantsSound } from './hooks'
 import { setMaster } from './mixActions'
 import { togglePlay } from './playToggle'
 import { Slider } from './Slider'
@@ -60,6 +61,7 @@ function Player({ variant, onNavigate }: Props) {
       aria-label="Sound player"
       className={styles.player}
       data-variant={variant}
+      {...(variant === 'pill' ? { [BOTTOM_BAR_ATTR]: '' } : {})}
       inert={behindDrawer}
     >
       <IconButton
@@ -89,7 +91,13 @@ export function MiniPlayer({ onNavigate }: { onNavigate?: () => void }) {
   return <Player variant="sidebar" onNavigate={onNavigate} />
 }
 
-/** Slot `global.overlays`; shown only below 640px by its CSS. */
+/** Slot `global.overlays`; shown only below 640px by its CSS, and only while sound plays. */
 export function MobilePlayer() {
+  // Only while sound is playing: idle, people start it from the Focus page or the palette.
+  return useWantsSound() ? <PillPlayer /> : null
+}
+
+function PillPlayer() {
+  useBottomBarPill()
   return <Player variant="pill" />
 }

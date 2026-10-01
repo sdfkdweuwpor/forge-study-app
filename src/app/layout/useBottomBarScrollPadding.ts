@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from 'react'
+import { BOTTOM_BAR_ATTR, BOTTOM_BARS_CHANGED as CHANGED } from '../hooks/useBottomBarPill'
 
 /** The space a fixed element takes from the bottom of the window: how far up its top edge reaches. */
 function reach(el: HTMLElement): number {
@@ -23,21 +24,26 @@ export function useBottomBarScrollPadding(
   gap = 8,
 ): void {
   useEffect(() => {
-    const els = bars.flatMap((bar) => (bar.current ? [bar.current] : []))
-    if (els.length === 0) return undefined
+    const own = bars.flatMap((bar) => (bar.current ? [bar.current] : []))
+    if (own.length === 0) return undefined
     const page = document.documentElement
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => update())
     const update = () => {
-      const px = Math.max(0, ...els.map(reach))
+      const pills = [...document.querySelectorAll<HTMLElement>(`[${BOTTOM_BAR_ATTR}]`)]
+      for (const el of pills) observer?.observe(el)
+      const px = Math.max(0, ...[...own, ...pills].map(reach))
       if (px > 0) page.style.scrollPaddingBottom = `${Math.ceil(px) + gap}px`
       else page.style.removeProperty('scroll-padding-bottom')
     }
     update()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
-    for (const el of els) observer?.observe(el)
+    for (const el of own) observer?.observe(el)
     window.addEventListener('resize', update)
+    window.addEventListener(CHANGED, update)
     return () => {
       observer?.disconnect()
       window.removeEventListener('resize', update)
+      window.removeEventListener(CHANGED, update)
       page.style.removeProperty('scroll-padding-bottom')
     }
   }, [bars, gap])

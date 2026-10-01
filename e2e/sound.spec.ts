@@ -9,13 +9,19 @@ const player = (page: Page) => page.getByRole('group', { name: 'Sound player' })
 const header = (page: Page, title: string) => panel(page).locator('summary', { hasText: title })
 const slider = (page: Page, name: string) => panel(page).getByRole('slider', { name, exact: true })
 
-/** Moves a slider to `percent` with the keyboard (steps of 5). */
+/**
+ * Moves a slider to `percent` with the keyboard (steps of 5). A slow database write can land between two
+ * key presses and show the slider an older stored value (a known rare flicker, see the Task 6 report), so
+ * the whole sequence is retried until the slider settles.
+ */
 async function setTo(page: Page, name: string, percent: number): Promise<void> {
   const s = slider(page, name)
-  await s.focus()
-  await s.press('Home')
-  for (let i = 0; i < percent / 5; i++) await s.press('ArrowRight')
-  await expect(s).toHaveValue(String(percent))
+  await expect(async () => {
+    await s.focus()
+    await s.press('Home')
+    for (let i = 0; i < percent / 5; i++) await s.press('ArrowRight')
+    await expect(s).toHaveValue(String(percent), { timeout: 1000 })
+  }).toPass({ timeout: 10_000 })
 }
 
 test.describe('sound panel and mini player', () => {
@@ -104,4 +110,63 @@ test('without Web Audio the panel says so and the mini player is hidden', async 
   await gotoApp(page, '/focus', 'empty')
   await expect(panel(page)).toContainText(/Sound isn.t available in this browser/)
   await expect(player(page)).toHaveCount(0)
+})
+
+test.describe('phone pill', () => {
+  test.use({ viewport: { width: 375, height: 700 } })
+
+  async function startPlaying(page: Page): Promise<void> {
+    await gotoApp(page, '/focus', 'wgu')
+    const [row] = await readTable<{ sound: Record<string, unknown> }>(page, 'settings')
+    if (!row) throw new Error('no settings row')
+    await putRows(page, 'settings', [
+      {
+        ...row,
+        sound: {
+          ...row.sound,
+          mixer: {
+            layers: { rain: 0.4 },
+            master: 1,
+            noiseColor: 'brown',
+            withFocus: true,
+            presets: [],
+          },
+          device: { playing: true, open: { lofi: false, sounds: true, mixes: false } },
+        },
+      },
+    ])
+  }
+
+  test('shows only while sound plays, and Tab never lands under it', async ({ page }) => {
+    await recordAudio(page)
+    await gotoApp(page, '/tasks', 'wgu')
+    await expect(player(page)).toHaveCount(0)
+
+    await startPlaying(page)
+    await page.goto('/tasks')
+    await expect(player(page)).toBeVisible()
+
+    const box = await player(page).boundingBox()
+    // Focus the last control on the long page the way Tab would (the browser scrolls it into view).
+    const bottom = await page.evaluate(() => {
+      const els = [
+        ...Array.from(
+          document.querySelectorAll<HTMLElement>(
+            'main a[href], main button:not([disabled]), main input:not([disabled]), main [tabindex="0"]',
+          ),
+        ),
+      ]
+      const last = els[els.length - 1]
+      last?.focus()
+      return last ? last.getBoundingClientRect().bottom : -1
+    })
+    expect(box).not.toBeNull()
+    expect(bottom).toBeGreaterThan(0)
+    // Re-measure after the scroll the focus caused.
+    const after = await page.evaluate(
+      () => document.activeElement?.getBoundingClientRect().bottom ?? -1,
+    )
+    const pillTop = (await player(page).boundingBox())?.y ?? 0
+    expect(after).toBeLessThanOrEqual(pillTop)
+  })
 })

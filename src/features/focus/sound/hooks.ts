@@ -2,7 +2,8 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { useSettings } from '@/db/hooks/useSettings'
 import type { Settings, SoundMixer } from '@/db/types'
 import { effectiveMixer } from '@/logic/soundMix'
-import { getOverlay, subscribeOverlay, pruneOverlay, withOverlay } from './mixActions'
+import { useTimer } from '../useTimer'
+import { getOverlay, subscribeOverlay, pruneOverlay, wantsSound, withOverlay } from './mixActions'
 import { notifyPermission, subscribeNotifyPermission, type NotifyPermission } from '@/lib/notify'
 
 /** The slice of settings that decides what makes noise or pings. */
@@ -64,4 +65,13 @@ export function useNotifyPermission(): NotifyPermission {
 export function audioAvailable(): boolean {
   const w = window as { AudioContext?: unknown; webkitAudioContext?: unknown }
   return w.AudioContext !== undefined || w.webkitAudioContext !== undefined
+}
+
+/** Whether this device should be making sound right now (the sounds switch, the mix, Play or a focus session). SoundHost and the phone pill read the same answer. */
+export function useWantsSound(): boolean {
+  const enabled = useSettings()?.sound.enabled ?? false
+  const mix = useMixer()
+  const playing = useSoundDevice()?.playing ?? false
+  const { session } = useTimer()
+  return wantsSound(enabled, mix, playing, session)
 }

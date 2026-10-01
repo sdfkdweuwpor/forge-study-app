@@ -6,19 +6,13 @@
  * `armAudioUnlock` starts it on the next click or key press.
  */
 import { useEffect, useState } from 'react'
-import { useSettings } from '@/db/hooks/useSettings'
 import { browserElection, electAmbientOwner } from '../ambientElection'
-import { useTimer } from '../useTimer'
-import { useMixer, useSoundDevice } from './hooks'
-import { wantsSound } from './mixActions'
+import { useMixer, useWantsSound } from './hooks'
 import { playMix, stopPlaying } from './playMix'
 
 export function SoundHost(): null {
-  const enabled = useSettings()?.sound.enabled ?? false
   const mix = useMixer()
-  const playing = useSoundDevice()?.playing ?? false
-  const { session } = useTimer()
-  const wants = wantsSound(enabled, mix, playing, session)
+  const wants = useWantsSound()
 
   const [owner, setOwner] = useState(false)
   useEffect(() => {

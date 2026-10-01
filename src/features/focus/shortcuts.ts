@@ -8,8 +8,8 @@ const fsGroup = 'Full-screen focus'
  * The timer's keys (PLAN §5.2). `f` works anywhere; the rest belong to a scope, so they only exist
  * while it is on the stack: `focus` while the Focus page is open, `fullscreen` (a blocking overlay
  * scope, so page keys stay quiet) while the full-screen view is. The behaviour is bound by
- * `FocusShortcuts`. Esc leaves full screen through the global `app.escape`. The ambient key (`a`) is
- * 4B's, in `sound/commands.ts`.
+ * `FocusShortcuts`. Esc leaves full screen through the global `app.escape`. The sound key (`a`) is in
+ * `sound/commands.ts`.
  */
 export const focusShortcuts: ShortcutDef[] = [
   { id: 'focus.fullscreen', keys: 'f', description: 'Full-screen focus mode', group, scope: 'global' },

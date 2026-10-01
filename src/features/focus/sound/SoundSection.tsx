@@ -157,7 +157,7 @@ function SoundSectionBody() {
       </Row>
 
       <Row
-        label="Ambient sound and lofi"
+        label="Background sounds"
         help="Rain, wind, café chatter and more, mixed to taste. Made on your device, nothing to download."
       >
         {() => (

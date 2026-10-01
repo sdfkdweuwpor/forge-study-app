@@ -1,6 +1,6 @@
 /**
- * What the sound controls do. Shared by the settings section, the Focus page control, the command
- * palette and the keyboard shortcut, so they all behave the same way.
+ * What the sound controls do. Shared by the settings section, the command palette and the notification
+ * prompt, so they all behave the same way.
  */
 import { getSettings, updateSettings } from '@/db/repos/settings'
 import { requestNotifyPermission, type NotifyPermission } from '@/lib/notify'

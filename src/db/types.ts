@@ -680,8 +680,15 @@ export interface Settings extends Base {
     ambientVolume: number
     /** Absent on old rows: derived from `ambient` / `ambientVolume`. */
     mixer?: SoundMixer
-    /** This device only (never synced). */
-    device?: { playing: boolean; open: { lofi: boolean; sounds: boolean; mixes: boolean } }
+    /**
+     * This device only (never synced). `pausedSession`: the focus session Pause was pressed in while
+     * "start with focus" kept sound on; that session stays quiet (a new one starts sound again).
+     */
+    device?: {
+      playing: boolean
+      open: { lofi: boolean; sounds: boolean; mixes: boolean }
+      pausedSession?: ID | null
+    }
   }
   notifications: { enabled: boolean; promptedAt: Millis | null }
   blocker: {

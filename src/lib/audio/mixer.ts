@@ -4,7 +4,7 @@
  */
 import type { LofiStyle, Mix, NoiseColor, NoiseLayer } from '@/db/types'
 import { clamp01, fadeStopDelayMs, fadeTimeConstant, volumeToGain } from './envelope'
-import { emitAudioChange, getContext, masterOutput, resumeContext, setBusVolume } from './engine'
+import { getContext, masterOutput, resumeContext, setBusVolume } from './engine'
 import { gain, type Graph } from './graph'
 import { createRng } from './noise'
 import { NOISE_BUILDERS } from './noises'
@@ -61,7 +61,6 @@ export async function applyMix(
 ): Promise<void> {
   const ctx = getContext()
   if (!ctx) return
-  const before = isMixPlaying()
   setBusVolume(clamp01(mix.master))
 
   for (const layer of [...playing.keys()]) {
@@ -94,7 +93,6 @@ export async function applyMix(
   }
 
   await applyMusic(ctx, mix.music, opts.onMusicError)
-  if (before !== isMixPlaying()) emitAudioChange()
   await resumeContext(ctx)
 }
 
@@ -147,7 +145,6 @@ export async function stopMix(fadeMs = 600): Promise<void> {
   const hadMusic = music !== null
   stopMusic(fadeMs)
   if (!entries.length && !hadMusic) return
-  emitAudioChange()
   const ctx = getContext()
   if (!ctx) {
     for (const e of entries) e.graph.stop()

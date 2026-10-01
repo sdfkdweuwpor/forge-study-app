@@ -74,14 +74,6 @@
   white-space: nowrap;
 }
 
-.details[data-disabled] {
-  opacity: 0.6;
-}
-
-.details[data-disabled] .summary {
-  cursor: default;
-}
-
 /* With a summary the header spans the row so the summary has room. */
 .details[data-wide] > .summary {
   display: flex;

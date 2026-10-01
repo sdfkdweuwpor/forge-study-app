@@ -45,9 +45,9 @@ test.describe('sound panel and mini player', () => {
       await expect(slider(page, name)).toBeVisible()
     await expect(header(page, 'Mixes')).toContainText('None saved')
 
-    await playButton(page).click()
     await setTo(page, 'Rain', 40)
     await setTo(page, 'Campfire', 25)
+    await playButton(page).click()
     await expect(header(page, 'Sounds')).toContainText('Rain 40% · Campfire 25%')
     await expect.poll(() => layerCount(page)).toBe(2)
 
@@ -109,17 +109,13 @@ test.describe('sound panel and mini player', () => {
     await panel(page)
       .getByRole('radio', { name: /Jazz hop/ })
       .click()
-    await expect(playButton(page)).toHaveAttribute('aria-pressed', 'true')
+    await expect(playButton(page)).toHaveAccessibleName('Pause')
     await expect.poll(() => musicCount(page)).toBe(1)
-    const toggle = panel(page).getByRole('button', { name: 'Pause', exact: true })
     const mini = player(page).getByRole('button', { name: 'Play sound' })
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
     await expect(mini).toHaveAttribute('aria-pressed', 'true')
-    await toggle.click()
-    await expect(panel(page).getByRole('button', { name: 'Play', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
+    await playButton(page).click()
+    await expect(playButton(page)).toHaveAccessibleName('Play')
+    await expect(playButton(page)).not.toHaveAttribute('aria-pressed')
     await expect(mini).toHaveAttribute('aria-pressed', 'false')
   })
 
@@ -170,7 +166,7 @@ test.describe('sound panel and mini player', () => {
   }) => {
     await gotoApp(page, '/focus', 'empty')
     await setTo(page, 'Rain', 40)
-    await expect(playButton(page)).toHaveAttribute('aria-pressed', 'false')
+    await expect(playButton(page)).toHaveAccessibleName('Play')
     const toggle = panel(page).getByRole('switch', { name: 'Start sound with focus' })
     await expect(toggle).toBeChecked()
     await expect.poll(() => layerCount(page)).toBe(0)
@@ -189,17 +185,47 @@ test.describe('sound panel and mini player', () => {
     expect(await layerCount(page)).toBe(0)
   })
 
-  test('a second tab of the same browser does not make sound', async ({ page, context }) => {
+  test('Pause silences a with-focus session; panel and mini player say so; Play brings it back', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/focus', 'empty')
+    await setTo(page, 'Rain', 40)
+    await page.getByTestId('timer-start').click()
+    await expect.poll(() => layerCount(page)).toBe(1)
+    const mini = player(page).getByRole('button', { name: 'Play sound' })
+    await expect(playButton(page)).toHaveAccessibleName('Pause')
+    await expect(mini).toHaveAttribute('aria-pressed', 'true')
+
+    await playButton(page).click()
+    await expect.poll(() => layerCount(page)).toBe(0)
+    await expect(playButton(page)).toHaveAccessibleName('Play')
+    await expect(mini).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByTestId('timer-toggle')).toHaveText('Pause') // the session still runs
+
+    await mini.click()
+    await expect.poll(() => layerCount(page)).toBe(1)
+    await expect(playButton(page)).toHaveAccessibleName('Pause')
+  })
+
+  test('Play with nothing in the mix plays brown noise at 40%', async ({ page }) => {
     await gotoApp(page, '/focus', 'empty')
     await playButton(page).click()
+    await expect(header(page, 'Sounds')).toContainText('Noise 40%')
+    await expect.poll(() => layerCount(page)).toBe(1)
+    await expect(playButton(page)).toHaveAccessibleName('Pause')
+  })
+
+  test('a second tab of the same browser does not make sound', async ({ page, context }) => {
+    await gotoApp(page, '/focus', 'empty')
     await setTo(page, 'Rain', 40)
+    await playButton(page).click()
     await expect.poll(() => layerCount(page)).toBe(1)
 
     const second = await context.newPage()
     await recordAudio(second)
     await gotoApp(second, '/focus')
     await expect(header(second, 'Sounds')).toContainText('Rain 40%')
-    await expect(playButton(second)).toHaveAttribute('aria-pressed', 'true')
+    await expect(playButton(second)).toHaveAccessibleName('Pause')
     expect(await layerCount(second)).toBe(0)
     expect(await contextCount(second)).toBe(0)
   })

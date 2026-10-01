@@ -6,13 +6,6 @@
  */
 export { playChime, DEFAULT_CHIME_VOLUME } from './chime'
 export { playLevelUp, DEFAULT_LEVEL_UP_VOLUME } from './levelUp'
-export { applyMix, stopMix, playingLayers, isMixPlaying } from './mixer'
-export {
-  unlockAudio,
-  armAudioUnlock,
-  audioSupported,
-  contextStatus,
-  subscribeAudio,
-  type ContextStatus,
-} from './engine'
+export { applyMix, stopMix } from './mixer'
+export { unlockAudio, armAudioUnlock } from './engine'
 export { volumeToGain, clamp01 } from './envelope'

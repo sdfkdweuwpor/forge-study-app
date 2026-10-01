@@ -10,7 +10,7 @@ import { Link } from '@/app/router'
 import { isSilent, STYLE_LABELS } from '@/logic/soundMix'
 import { IconButton, Popover } from '@/ui'
 import { useBottomBarPill, BOTTOM_BAR_ATTR } from '@/app/hooks/useBottomBarPill'
-import { audioAvailable, useMixer, useSoundDevice, useWantsSound } from './hooks'
+import { audioAvailable, useMixer, useWantsSound } from './hooks'
 import { setMaster } from './mixActions'
 import { togglePlay } from './playToggle'
 import { Slider } from './Slider'
@@ -26,9 +26,10 @@ interface Props {
  * True while a drawer or sheet (the phone's More sheet) is open. The pill lives in `global.overlays`,
  * outside the shell's inert regions, so it must make itself unreachable behind the sheet's focus trap.
  */
-function useBehindDrawer(): boolean {
+function useBehindDrawer(enabled: boolean): boolean {
   const [behind, setBehind] = useState(false)
   useEffect(() => {
+    if (!enabled) return undefined
     const check = () => setBehind(document.querySelector('[data-open][data-side]') !== null)
     check()
     const observer = new MutationObserver(check)
@@ -38,16 +39,15 @@ function useBehindDrawer(): boolean {
       attributeFilter: ['data-open'],
     })
     return () => observer.disconnect()
-  }, [])
-  return behind
+  }, [enabled])
+  return behind && enabled
 }
 
 function Player({ variant, onNavigate }: Props) {
-  const behindDrawer = useBehindDrawer() && variant === 'pill'
+  const behindDrawer = useBehindDrawer(variant === 'pill')
   const mix = useMixer()
-  const device = useSoundDevice()
-  if (!audioAvailable() || !mix || !device) return null
-  const { playing } = device
+  const playing = useWantsSound()
+  if (!audioAvailable() || !mix) return null
   const label =
     mix.music.style !== 'off'
       ? STYLE_LABELS[mix.music.style]

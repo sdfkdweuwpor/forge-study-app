@@ -19,28 +19,9 @@ let masterBus: GainNode | null = null
 let masterVolume = 0.4
 let unlockArmed = false
 
-const listeners = new Set<() => void>()
-
-/** Calls `listener` whenever the audio state changes (context state, ambient kind). For `useSyncExternalStore`. */
-export function subscribeAudio(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export function emitAudioChange(): void {
-  for (const listener of [...listeners]) listener()
-}
-
 function contextCtor(): ContextCtor | null {
   const g = globalThis as { AudioContext?: ContextCtor; webkitAudioContext?: ContextCtor }
   return g.AudioContext ?? g.webkitAudioContext ?? null
-}
-
-/** Whether this browser can make sound at all. */
-export function audioSupported(): boolean {
-  return contextCtor() !== null
 }
 
 /** The shared context, created on first use, or `null` where Web Audio is unavailable. */
@@ -66,7 +47,6 @@ export function getContext(): AudioContext | null {
   masterBus = c.createGain()
   masterBus.gain.value = volumeToGain(masterVolume)
   masterBus.connect(limiter)
-  c.addEventListener('statechange', emitAudioChange)
   if (c.state !== 'running') armAudioUnlock()
   return c
 }
@@ -132,15 +112,6 @@ export function armAudioUnlock(): void {
     unlockArmed = false
   }
   for (const e of events) document.addEventListener(e, handler, { capture: true, passive: true })
-}
-
-export type ContextStatus = 'unsupported' | 'idle' | 'suspended' | 'running'
-
-/** `idle` means no context has been created yet (no sound has been asked for). */
-export function contextStatus(): ContextStatus {
-  if (!audioSupported()) return 'unsupported'
-  if (!ctx || ctx.state === 'closed') return 'idle'
-  return ctx.state === 'running' ? 'running' : 'suspended'
 }
 
 /** Sets the master volume (0..1), smoothed so dragging a slider makes no zipper noise. */

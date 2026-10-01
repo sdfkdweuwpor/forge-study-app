@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { db } from '@/db/db'
 import { resetDomainEvents, settleDomainEvents } from '@/db/events'
-import { getSettings } from '@/db/repos/settings'
+import { getActiveSession, startSession } from '@/db/repos/sessions'
+import { getSettings, updateSettings } from '@/db/repos/settings'
 import { effectiveMixer } from '@/logic/soundMix'
 import { syncedSettings } from '@/logic/syncTables'
 import {
@@ -16,13 +17,15 @@ import {
   setMaster,
   setMusicVolume,
   setNoiseColor,
-  setPlaying,
   setSectionOpen,
   setStyle,
   setWithFocus,
+  flushPending,
+  toggleSound,
   withOverlay,
   wantsSound,
 } from './mixActions'
+import { playLayer } from './playToggle'
 
 let writes = 0
 const count = () => {
@@ -54,7 +57,7 @@ describe('setLayer', () => {
       setLayer('rain', i / 100)
       await vi.advanceTimersByTimeAsync(3)
     }
-    expect(getOverlay().layers.rain).toBeCloseTo(0.3) // audio sees it at once
+    expect(getOverlay().pending.rain).toBeCloseTo(0.3) // audio sees it at once
     expect(writes).toBe(0)
     setLayer('rain', 0.4)
     await vi.advanceTimersByTimeAsync(300)
@@ -69,7 +72,7 @@ describe('setLayer', () => {
     await vi.waitFor(async () => expect((await layers()).rain).toBe(0.4))
     const o = getOverlay()
     const show = (s: typeof old) => withOverlay(effectiveMixer(s.sound), o, s.updatedAt).layers.rain
-    await vi.waitFor(() => expect(getOverlay().landed?.layers.rain).toBeDefined())
+    await vi.waitFor(() => expect(getOverlay().landed.rain).toBeDefined())
     expect(show({ ...old, updatedAt: old.updatedAt - 1 })).toBe(0.4) // a view that has not seen the write
     expect(show(await getSettings())).toBe(0.4) // the row itself: same value either way
     const next = await getSettings()
@@ -183,10 +186,12 @@ describe('resetLayers', () => {
 })
 
 describe('device state', () => {
-  it('setPlaying writes sound.device.playing and leaves the synced settings alone', async () => {
+  it('Play writes sound.device.playing and leaves the synced settings alone', async () => {
+    setLayer('rain', 0.4)
+    await flushPending()
     await setWithFocus(true)
     const before = syncedSettings(await getSettings())
-    await setPlaying(true)
+    await toggleSound(false)
     const row = await getSettings()
     expect(row.sound.device?.playing).toBe(true)
     expect({ ...syncedSettings(row), updatedAt: 0 }).toEqual({ ...before, updatedAt: 0 })
@@ -221,7 +226,7 @@ describe('resetLayers overlay', () => {
     await vi.waitFor(async () => expect((await layers()).rain).toBe(0.4))
     setMaster(0.5)
     await resetLayers()
-    expect(getOverlay().layers.rain).toBe(0)
+    expect(getOverlay().landed.rain?.value).toBe(0)
     const m = effectiveMixer((await getSettings()).sound)
     expect(m.layers).toEqual({})
     expect(m.master).toBe(0.5)
@@ -242,6 +247,12 @@ describe('wantsSound', () => {
     expect(wantsSound(true, { ...rain, layers: {} }, true, focus)).toBe(false)
     expect(wantsSound(true, undefined, true, focus)).toBe(false)
   })
+  it('Pause pressed in a with-focus session keeps that session quiet, not the next one', () => {
+    const s1 = { id: 's1', kind: 'focus', status: 'running' }
+    expect(wantsSound(true, rain, false, s1, 's1')).toBe(false)
+    expect(wantsSound(true, rain, true, s1, 's1')).toBe(true) // Play wins
+    expect(wantsSound(true, rain, false, { ...s1, id: 's2' }, 's1')).toBe(true)
+  })
   it('never plays when the sounds switch is off', () => {
     expect(wantsSound(false, rain, true, null)).toBe(false)
     expect(wantsSound(false, rain, false, focus)).toBe(false)
@@ -259,7 +270,7 @@ describe('saved mixes', () => {
     setLayer('rain', 0.9) // a drag still pending
     setLayer('wind', 0.5)
     await applyMix(preset!.id)
-    expect(getOverlay().layers).toEqual({})
+    expect(getOverlay().pending).toEqual({})
     await vi.advanceTimersByTimeAsync(500) // no stale write lands afterwards
     const m = effectiveMixer((await getSettings()).sound)
     expect(m.layers).toEqual({ rain: 0.4 })
@@ -273,5 +284,84 @@ describe('saved mixes', () => {
     expect(await read()).toEqual(['a', 'c'])
     await undo()
     expect(await read()).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('writes never carry values the row already has', () => {
+  it('Reset, Undo, then a Master move keeps the restored layers', async () => {
+    setLayer('rain', 0.4)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () => expect(await layers()).toEqual({ rain: 0.4 }))
+    const { undo } = await resetLayers()
+    await undo()
+    expect(await layers()).toEqual({ rain: 0.4 })
+    setMaster(0.5)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () =>
+      expect(effectiveMixer((await getSettings()).sound).master).toBe(0.5),
+    )
+    expect(await layers()).toEqual({ rain: 0.4 })
+  })
+
+  it('a layer changed elsewhere after a slider write survives a later Master move', async () => {
+    setLayer('rain', 0.1)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () => expect((await layers()).rain).toBe(0.1))
+    await playLayer('rain', 0.4) // the palette's "Sound: Rain", or another tab
+    expect((await layers()).rain).toBe(0.4)
+    setMaster(0.5)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () =>
+      expect(effectiveMixer((await getSettings()).sound).master).toBe(0.5),
+    )
+    expect((await layers()).rain).toBe(0.4)
+  })
+})
+
+describe('toggleSound', () => {
+  const sounding = async () => {
+    const { sound } = await getSettings()
+    const d = sound.device
+    const session = await getActiveSession()
+    return wantsSound(
+      sound.enabled,
+      effectiveMixer(sound),
+      d?.playing ?? false,
+      session,
+      d?.pausedSession,
+    )
+  }
+
+  it('Pause silences a with-focus session, and Play brings it back', async () => {
+    setLayer('rain', 0.4)
+    await flushPending()
+    await setWithFocus(true)
+    await updateSettings({ sound: { enabled: true } })
+    await startSession({ mode: 'custom', kind: 'focus', plannedMin: 25 })
+    expect(await sounding()).toBe(true)
+    await toggleSound()
+    expect(await sounding()).toBe(false)
+    expect((await getSettings()).sound.device?.playing).toBe(false)
+    await toggleSound()
+    expect(await sounding()).toBe(true)
+    expect((await getSettings()).sound.device?.pausedSession).toBeNull()
+  })
+
+  it('Play with nothing in the mix starts brown noise at 40%, so it is heard', async () => {
+    expect(effectiveMixer((await getSettings()).sound).layers).toEqual({})
+    await toggleSound()
+    const { sound } = await getSettings()
+    expect(effectiveMixer(sound)).toMatchObject({ layers: { noise: 0.4 }, noiseColor: 'brown' })
+    expect(await sounding()).toBe(true)
+  })
+})
+
+describe('flushPending', () => {
+  it('writes a pending slider value at once (the page is being closed)', async () => {
+    setLayer('rain', 0.3)
+    expect(writes).toBe(0)
+    await flushPending()
+    expect((await layers()).rain).toBe(0.3)
+    expect(getOverlay().pending).toEqual({})
   })
 })

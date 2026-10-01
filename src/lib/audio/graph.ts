@@ -1,4 +1,4 @@
-/** Shared Web Audio graph helpers for the generated noise layers (and the old ambient beds). */
+/** Shared Web Audio graph helpers for the generated noise layers. */
 import { generateLoop, type Rng } from './noise'
 import { nextEventTime } from './schedule'
 

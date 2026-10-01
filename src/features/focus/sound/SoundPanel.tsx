@@ -41,7 +41,7 @@ import {
   useToast,
   type SegmentOption,
 } from '@/ui'
-import { audioAvailable, useMixer, useSoundDevice } from './hooks'
+import { audioAvailable, useMixer, useSoundDevice, useWantsSound } from './hooks'
 import { LoadBoundary } from './LoadBoundary'
 import {
   applyMix,
@@ -119,6 +119,7 @@ function SoundPanelBody() {
   const headingId = useId()
   const mix = useMixer()
   const device = useSoundDevice()
+  const playing = useWantsSound()
   const toast = useToast()
   /** The name dialog: saving the current mix, or renaming a saved one. */
   const [naming, setNaming] = useState<{ id?: string; name: string } | null>(null)
@@ -146,7 +147,7 @@ function SoundPanelBody() {
     )
   }
 
-  const { playing, open } = device
+  const { open } = device
 
   async function reset() {
     try {
@@ -187,7 +188,6 @@ function SoundPanelBody() {
           size="sm"
           variant={playing ? 'secondary' : 'primary'}
           iconLeft={playing ? <Pause /> : <Play />}
-          aria-pressed={playing}
           onClick={() => void togglePlay(playing)}
         >
           {playing ? 'Pause' : 'Play'}

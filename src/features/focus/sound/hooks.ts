@@ -36,6 +36,7 @@ export function useMixer(): SoundMixer | undefined {
 export interface SoundDevice {
   playing: boolean
   open: { lofi: boolean; sounds: boolean; mixes: boolean }
+  pausedSession: string | null
 }
 
 /** This device's play switch and which panel sections are open. `undefined` while loading. */
@@ -51,6 +52,7 @@ export function useSoundDevice(): SoundDevice | undefined {
           sounds: device?.open?.sounds ?? true,
           mixes: device?.open?.mixes ?? false,
         },
+        pausedSession: device?.pausedSession ?? null,
       },
     [settings, device],
   )
@@ -67,11 +69,14 @@ export function audioAvailable(): boolean {
   return w.AudioContext !== undefined || w.webkitAudioContext !== undefined
 }
 
-/** Whether this device should be making sound right now (the sounds switch, the mix, Play or a focus session). SoundHost and the phone pill read the same answer. */
+/**
+ * Whether this device should be making sound right now (the sounds switch, the mix, Play or a focus
+ * session). SoundHost plays it; every Play/Pause control shows it.
+ */
 export function useWantsSound(): boolean {
   const enabled = useSettings()?.sound.enabled ?? false
   const mix = useMixer()
-  const playing = useSoundDevice()?.playing ?? false
+  const device = useSoundDevice()
   const { session } = useTimer()
-  return wantsSound(enabled, mix, playing, session)
+  return wantsSound(enabled, mix, device?.playing ?? false, session, device?.pausedSession)
 }

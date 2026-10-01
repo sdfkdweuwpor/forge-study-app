@@ -26,7 +26,6 @@ vi.mock('./engine', () => ({
   masterOutput: () => ({ kind: 'master' }),
   setBusVolume: (v: number) => h.master.push(v),
   resumeContext: () => Promise.resolve(true),
-  emitAudioChange: () => {},
 }))
 const stops: Record<string, ReturnType<typeof vi.fn>> = {}
 vi.mock('./noises', () => {

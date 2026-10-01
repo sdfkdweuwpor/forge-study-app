@@ -6,6 +6,14 @@ const h = vi.hoisted(() => ({
   ctx: null as unknown,
   master: [] as number[],
   built: [] as string[],
+  music: [] as { style: string; stop: ReturnType<typeof vi.fn> }[],
+}))
+vi.mock('./music/player', () => ({
+  startMusic: (_c: unknown, _o: unknown, style: string) => {
+    const handle = { style, stop: vi.fn() }
+    h.music.push(handle)
+    return handle
+  },
 }))
 
 vi.mock('./engine', () => ({
@@ -34,8 +42,12 @@ vi.mock('./noises', () => {
 
 import { applyMix, isMixPlaying, playingLayers, stopMix } from './mixer'
 
-const mix = (layers: Partial<Record<NoiseLayer, number>>, master = 1): Mix => ({
-  music: { style: 'off', volume: 0 },
+const mix = (
+  layers: Partial<Record<NoiseLayer, number>>,
+  master = 1,
+  style: Mix['music']['style'] = 'off',
+): Mix => ({
+  music: { style, volume: 0.5 },
   layers,
   noiseColor: 'brown',
   master,
@@ -48,6 +60,7 @@ beforeEach(() => {
   h.ctx = ctx
   h.master.length = 0
   h.built.length = 0
+  h.music.length = 0
 })
 afterEach(async () => {
   const p = stopMix(0)
@@ -100,5 +113,20 @@ describe('mixer', () => {
     expect(playingLayers()).toEqual(['rain'])
     expect(onLayerError).toHaveBeenCalledTimes(1)
     expect(onLayerError.mock.calls[0]?.[0]).toBe('wind')
+  })
+
+  it('crossfades a style change over 2 s and stops only music on off', async () => {
+    await applyMix(mix({ rain: 0.4 }, 1, 'classic'))
+    await applyMix(mix({ rain: 0.4 }, 1, 'tokyo'))
+    const [a, b] = h.music
+    expect(h.music.map((m) => m.style)).toEqual(['classic', 'tokyo'])
+    expect(a?.stop).toHaveBeenCalledWith(2000)
+    expect(b?.stop).not.toHaveBeenCalled()
+    await applyMix(mix({ rain: 0.4 }, 1, 'tokyo'))
+    expect(h.music).toHaveLength(2)
+    await applyMix(mix({ rain: 0.4 }))
+    expect(b?.stop).toHaveBeenCalled()
+    expect(stops.rain).not.toHaveBeenCalled()
+    expect(playingLayers()).toEqual(['rain'])
   })
 })

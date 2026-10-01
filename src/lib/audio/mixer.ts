@@ -2,7 +2,7 @@
  * The mixer: one gain per noise layer, all on the master bus. `applyMix` diffs a `Mix` against what
  * plays, so it is cheap to call on every slider tick. Music is added in a later task.
  */
-import type { Mix, NoiseColor, NoiseLayer } from '@/db/types'
+import type { LofiStyle, Mix, NoiseColor, NoiseLayer } from '@/db/types'
 import { clamp01, fadeStopDelayMs, fadeTimeConstant, volumeToGain } from './envelope'
 import { emitAudioChange, getContext, masterOutput, resumeContext, setBusVolume } from './engine'
 import { gain, type Graph } from './graph'
@@ -18,6 +18,19 @@ interface Entry {
   node: GainNode
   color: NoiseColor
 }
+
+const MUSIC_FADE_MS = 2000
+
+interface MusicState {
+  style: LofiStyle
+  handle: { stop(fadeMs: number): void }
+}
+/** The music volume bus; every style's handle plays into it. */
+let musicBus: GainNode | null = null
+let music: MusicState | null = null
+/** What the last `applyMix` asked for, so a slow chunk load that lost the race starts nothing. */
+let wantedStyle: LofiStyle | 'off' = 'off'
+let failedStyle: LofiStyle | null = null
 
 const playing = new Map<NoiseLayer, Entry>()
 /** Layers whose builder threw; skipped (and not re-reported) until they leave the mix. */
@@ -45,7 +58,7 @@ export async function applyMix(
 ): Promise<void> {
   const ctx = getContext()
   if (!ctx) return
-  const before = playing.size
+  const before = isMixPlaying()
   setBusVolume(clamp01(mix.master))
 
   for (const layer of [...playing.keys()]) {
@@ -77,8 +90,41 @@ export async function applyMix(
     }
   }
 
-  if ((before === 0) !== (playing.size === 0)) emitAudioChange()
+  await applyMusic(ctx, mix.music)
+  if (before !== isMixPlaying()) emitAudioChange()
   await resumeContext(ctx)
+}
+
+/** The music chunk loads on the first Play of a style; nothing else may import it. */
+async function applyMusic(ctx: AudioContext, m: Mix['music']): Promise<void> {
+  wantedStyle = m.style
+  if (m.style === 'off') {
+    failedStyle = null
+    stopMusic(600)
+    return
+  }
+  if (musicBus)
+    musicBus.gain.setTargetAtTime(volumeToGain(clamp01(m.volume)), ctx.currentTime, RAMP_TC)
+  if (music?.style === m.style || failedStyle === m.style) return
+  try {
+    const { startMusic } = await import('./music/player')
+    if (wantedStyle !== m.style || music?.style === m.style) return
+    if (!musicBus) {
+      musicBus = gain(ctx, volumeToGain(clamp01(m.volume)))
+      musicBus.connect(masterOutput(ctx))
+    }
+    const old = music
+    music = { style: m.style, handle: startMusic(ctx, musicBus, m.style) }
+    old?.handle.stop(MUSIC_FADE_MS)
+  } catch {
+    failedStyle = m.style
+  }
+}
+
+function stopMusic(fadeMs: number): void {
+  const m = music
+  music = null
+  m?.handle.stop(fadeMs)
 }
 
 /** Fades everything out over `fadeMs` and frees it. Resolves when it has stopped. */
@@ -86,7 +132,10 @@ export async function stopMix(fadeMs = 600): Promise<void> {
   const entries = [...playing.values()]
   playing.clear()
   failed.clear()
-  if (!entries.length) return
+  wantedStyle = 'off'
+  const hadMusic = music !== null
+  stopMusic(fadeMs)
+  if (!entries.length && !hadMusic) return
   emitAudioChange()
   const ctx = getContext()
   if (!ctx) {
@@ -102,5 +151,5 @@ export function playingLayers(): NoiseLayer[] {
 
 /** True from the first layer starting until `stopMix`, even while the browser awaits a gesture. */
 export function isMixPlaying(): boolean {
-  return playing.size > 0
+  return playing.size > 0 || music !== null
 }

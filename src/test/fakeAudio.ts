@@ -48,6 +48,7 @@ export class FakeSource extends FakeNode {
   buffer: unknown = null
   loop = false
   type = 'sine'
+  onended: (() => void) | null = null
   frequency = new FakeParam(440)
   start(...a: number[]) {
     this.starts.push(a)

@@ -6,7 +6,8 @@
  */
 import { recordError } from '@/app/reportError'
 import { getSettings, replaceMixer, updateSettings } from '@/db/repos/settings'
-import type { NoiseColor, NoiseLayer, Settings, SoundMixer } from '@/db/types'
+import type { LofiStyle, NoiseColor, NoiseLayer, Settings, SoundMixer } from '@/db/types'
+import { unlockAudio } from '@/lib/audio/engine'
 import { clamp01 } from '@/lib/audio/envelope'
 import { effectiveMixer, isSilent } from '@/logic/soundMix'
 
@@ -19,7 +20,8 @@ export const WRITE_EVERY_MS = 250
 export interface MixOverlay {
   layers: Partial<Record<NoiseLayer, number>>
   master?: number
-  landed?: { layers: Partial<Record<NoiseLayer, number>>; master?: number }
+  music?: number
+  landed?: { layers: Partial<Record<NoiseLayer, number>>; master?: number; music?: number }
 }
 
 const EMPTY: MixOverlay = { layers: {} }
@@ -60,7 +62,11 @@ export function withOverlay(mixer: SoundMixer, o: MixOverlay, rowAt?: number): S
     o.master !== undefined && !caughtUp(o.landed?.master, mixer.master === o.master)
       ? o.master
       : mixer.master
-  return { ...mixer, layers, master }
+  const volume =
+    o.music !== undefined && !caughtUp(o.landed?.music, mixer.music.volume === o.music)
+      ? o.music
+      : mixer.music.volume
+  return { ...mixer, layers, master, music: { ...mixer.music, volume } }
 }
 
 const change = (fn: (m: SoundMixer) => SoundMixer): Promise<Settings> => replaceMixer(fn)
@@ -78,7 +84,9 @@ function markLanded(sent: MixOverlay, at: number): void {
     if (overlay.layers[l] === sent.layers[l]) layers[l] = at
   const master =
     sent.master !== undefined && overlay.master === sent.master ? at : overlay.landed?.master
-  setOverlay({ ...overlay, landed: { layers, master } })
+  const music =
+    sent.music !== undefined && overlay.music === sent.music ? at : overlay.landed?.music
+  setOverlay({ ...overlay, landed: { layers, master, music } })
 }
 
 /** Forgets overlay entries that equal `sent` (the write for them failed). */
@@ -91,15 +99,18 @@ function dropSent(sent: MixOverlay): void {
       delete landed[l]
     }
   const master = overlay.master === sent.master ? undefined : overlay.master
+  const music = overlay.music === sent.music ? undefined : overlay.music
   setOverlay(
-    Object.keys(layers).length === 0 && master === undefined
+    Object.keys(layers).length === 0 && master === undefined && music === undefined
       ? EMPTY
       : {
           layers,
           master,
+          music,
           landed: {
             layers: landed,
             master: master === undefined ? undefined : overlay.landed?.master,
+            music: music === undefined ? undefined : overlay.landed?.music,
           },
         },
   )
@@ -133,6 +144,18 @@ export function setLayer(layer: NoiseLayer, volume: number): void {
 export function setMaster(volume: number): void {
   const landed = overlay.landed && { ...overlay.landed, master: undefined }
   schedule({ ...overlay, master: clamp01(volume), landed })
+}
+
+export function setMusicVolume(volume: number): void {
+  const landed = overlay.landed && { ...overlay.landed, music: undefined }
+  schedule({ ...overlay, music: clamp01(volume), landed })
+}
+
+/** Picks the lofi style (or 'off'). Choosing one while sound is off also starts playing, so it is heard. */
+export async function setStyle(style: LofiStyle | 'off'): Promise<void> {
+  if (style !== 'off') void unlockAudio()
+  await change((m) => ({ ...m, music: { ...m.music, style } }))
+  if (style !== 'off') await updateSettings({ sound: { enabled: true, device: { playing: true } } })
 }
 
 export const setNoiseColor = (color: NoiseColor): Promise<void> =>

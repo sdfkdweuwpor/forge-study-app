@@ -1,11 +1,41 @@
-import { useId } from 'react'
-import { Pause, Play, RotateCcw } from 'lucide-react'
+import { useId, type KeyboardEvent } from 'react'
+import {
+  AudioWaveform,
+  CloudRain,
+  Coffee,
+  Cpu,
+  Moon,
+  Music,
+  Pause,
+  Piano,
+  Play,
+  RotateCcw,
+  Sailboat,
+  Sunrise,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
+import type { LofiStyle } from '@/db/types'
 import type { NoiseColor } from '@/db/types'
-import { describeLayers, LAYER_LABELS, NOISE_LAYERS } from '@/logic/soundMix'
+import {
+  describeLayers,
+  LAYER_LABELS,
+  LOFI_STYLES,
+  NOISE_LAYERS,
+  STYLE_LABELS,
+} from '@/logic/soundMix'
 import { Button, Disclosure, SegmentedControl, Skeleton, useToast, type SegmentOption } from '@/ui'
 import { audioAvailable, useMixer, useSoundDevice } from './hooks'
 import { LoadBoundary } from './LoadBoundary'
-import { resetLayers, setLayer, setMaster, setNoiseColor, setSectionOpen } from './mixActions'
+import {
+  resetLayers,
+  setLayer,
+  setMaster,
+  setMusicVolume,
+  setNoiseColor,
+  setSectionOpen,
+  setStyle,
+} from './mixActions'
 import { togglePlay } from './playToggle'
 import { Slider } from './Slider'
 import styles from './SoundPanel.module.css'
@@ -16,9 +46,42 @@ const COLOR_OPTIONS: readonly SegmentOption<NoiseColor>[] = [
   { value: 'brown', label: 'Brown' },
 ]
 
+const STYLE_LOOK: Record<LofiStyle, { icon: LucideIcon; mood: string }> = {
+  classic: { icon: Music, mood: 'mellow' },
+  rainy: { icon: CloudRain, mood: 'cozy' },
+  coffee: { icon: Coffee, mood: 'warm' },
+  tokyo: { icon: Zap, mood: 'neon' },
+  synthwave: { icon: Sailboat, mood: 'retro' },
+  electronic: { icon: Cpu, mood: 'bright' },
+  jazzhop: { icon: AudioWaveform, mood: 'smooth' },
+  piano: { icon: Piano, mood: 'soft' },
+  chillhop: { icon: Sunrise, mood: 'fresh' },
+  space: { icon: Moon, mood: 'drifting' },
+}
+
+/** Arrow keys (and Home/End) move the choice one card at a time, wrapping, like a native radio group. */
+function moveStyle(e: KeyboardEvent<HTMLButtonElement>, index: number): void {
+  const last = LOFI_STYLES.length - 1
+  const to =
+    e.key === 'ArrowRight' || e.key === 'ArrowDown'
+      ? (index + 1) % (last + 1)
+      : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+        ? (index + last) % (last + 1)
+        : e.key === 'Home'
+          ? 0
+          : e.key === 'End'
+            ? last
+            : -1
+  const style = LOFI_STYLES[to]
+  if (!style) return
+  e.preventDefault()
+  void setStyle(style)
+  e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[to]?.focus()
+}
+
 /**
  * The Focus page's Sound card (slot `focus.aside`): Play and the master volume, then collapsible
- * sections. Lofi and Mixes arrive in later tasks and show "Coming soon" until then. Which sections are
+ * sections. Mixes arrives in a later task and shows "Coming soon" until then. Which sections are
  * open is remembered on this device.
  */
 export function SoundPanel() {
@@ -93,7 +156,56 @@ function SoundPanelBody() {
         />
       </div>
 
-      <Disclosure title="Lofi" summary="Coming soon" disabled />
+      <Disclosure
+        title="Lofi"
+        summary={
+          mix.music.style === 'off'
+            ? 'Off'
+            : `${STYLE_LABELS[mix.music.style]} · ${Math.round(mix.music.volume * 100)}%`
+        }
+        open={open.lofi}
+        onToggle={(o) => o !== open.lofi && void setSectionOpen('lofi', o)}
+      >
+        <div className={styles.lofiTop}>
+          <Button
+            size="sm"
+            variant={mix.music.style === 'off' ? 'secondary' : 'ghost'}
+            aria-pressed={mix.music.style === 'off'}
+            onClick={() => void setStyle('off')}
+          >
+            Off
+          </Button>
+          <Slider
+            className={styles.slider}
+            label="Music volume"
+            value={mix.music.volume}
+            onValueChange={setMusicVolume}
+          />
+        </div>
+        <div role="radiogroup" aria-label="Lofi style" className={styles.styles}>
+          {LOFI_STYLES.map((style, i) => {
+            const { icon: Icon, mood } = STYLE_LOOK[style]
+            const checked = mix.music.style === style
+            const tabStop = checked || (mix.music.style === 'off' && i === 0)
+            return (
+              <button
+                key={style}
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                tabIndex={tabStop ? 0 : -1}
+                className={styles.card}
+                onClick={() => void setStyle(style)}
+                onKeyDown={(e) => moveStyle(e, i)}
+              >
+                <Icon size={16} aria-hidden="true" />
+                <span className={styles.cardLabel}>{STYLE_LABELS[style]}</span>
+                <span className={styles.mood}>{mood}</span>
+              </button>
+            )
+          })}
+        </div>
+      </Disclosure>
 
       <Disclosure
         title="Sounds"

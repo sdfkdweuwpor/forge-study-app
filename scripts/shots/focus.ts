@@ -227,13 +227,26 @@ const list: ShotList = {
       },
     },
     {
-      // The Sound card: Rain and Campfire mixed, Sounds open, Lofi and Mixes waiting for their tasks.
+      // The Sound card: Rain and Campfire mixed, Sounds open, Mixes waiting for its task.
       name: 'sound-panel',
       path: '/focus?seed=wgu',
       waitFor: TIMER,
       prepare: async (page) => {
         await setLayer(page, 'Rain', 8)
         await setLayer(page, 'Campfire', 5)
+        await loaded(page)
+      },
+    },
+    {
+      // The Lofi section open: Tokyo night chosen, ten styles in a grid, Sounds below.
+      name: 'sound-lofi-open',
+      path: '/focus?seed=wgu',
+      waitFor: TIMER,
+      prepare: async (page) => {
+        const panel = page.getByRole('region', { name: 'Sound' })
+        await panel.locator('summary', { hasText: 'Lofi' }).click()
+        await panel.getByRole('radio', { name: /Tokyo night/ }).click()
+        await panel.getByRole('radio', { name: /Tokyo night/ }).waitFor()
         await loaded(page)
       },
     },

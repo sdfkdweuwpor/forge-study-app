@@ -10,11 +10,16 @@ export async function recordAudio(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const layers = new Set<AudioNode>()
     const masters = new WeakSet<AudioNode>()
+    const musicBuses = new WeakSet<AudioNode>()
+    const players = new Set<AudioNode>()
     const state = { contexts: 0 }
     Object.defineProperty(window, '__audio', {
       value: {
         get layers() {
           return layers.size
+        },
+        get music() {
+          return players.size
         },
         get contexts() {
           return state.contexts
@@ -35,12 +40,17 @@ export async function recordAudio(page: Page): Promise<void> {
     }
     const connect = AudioNode.prototype.connect as (this: AudioNode, ...a: unknown[]) => unknown
     AudioNode.prototype.connect = function (this: AudioNode, dest: unknown, ...rest: unknown[]) {
-      if (masters.has(dest as AudioNode)) layers.add(this)
+      if (masters.has(dest as AudioNode)) {
+        if (this instanceof GainNode && this.gain.value > 0) musicBuses.add(this)
+        else layers.add(this)
+      }
+      if (musicBuses.has(dest as AudioNode)) players.add(this)
       return connect.call(this, dest, ...rest)
     } as typeof AudioNode.prototype.connect
     const disconnect = AudioNode.prototype.disconnect as (this: AudioNode, ...a: unknown[]) => void
     AudioNode.prototype.disconnect = function (this: AudioNode, ...args: unknown[]) {
       if (args.length === 0 || masters.has(args[0] as AudioNode)) layers.delete(this)
+      if (args.length === 0 || musicBuses.has(args[0] as AudioNode)) players.delete(this)
       disconnect.apply(this, args)
     } as typeof AudioNode.prototype.disconnect
   })
@@ -59,3 +69,7 @@ export const layerCount = (page: Page): Promise<number> =>
 
 export const contextCount = (page: Page): Promise<number> =>
   page.evaluate(() => (window as unknown as { __audio: { contexts: number } }).__audio.contexts)
+
+/** How many music players are feeding the music bus right now (0 or 1). */
+export const musicCount = (page: Page): Promise<number> =>
+  page.evaluate(() => (window as unknown as { __audio: { music: number } }).__audio.music)

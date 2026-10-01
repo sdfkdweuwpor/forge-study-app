@@ -11,9 +11,11 @@ import {
   resetLayers,
   setLayer,
   setMaster,
+  setMusicVolume,
   setNoiseColor,
   setPlaying,
   setSectionOpen,
+  setStyle,
   setWithFocus,
   withOverlay,
   wantsSound,
@@ -114,6 +116,36 @@ describe('overlay across lagging views', () => {
     await vi.advanceTimersByTimeAsync(300)
     await vi.waitFor(async () => expect((await layers()).rain).toBe(0.25))
     expect(view(await getSettings())).toBe(0.25)
+  })
+})
+
+describe('music', () => {
+  const music = async () => effectiveMixer((await getSettings()).sound).music
+
+  it('setStyle writes at once, keeps the volume, and starts playing for a style', async () => {
+    await setStyle('tokyo')
+    expect(await music()).toEqual({ style: 'tokyo', volume: 0.6 })
+    const { sound } = await getSettings()
+    expect(sound.enabled).toBe(true)
+    expect(sound.device?.playing).toBe(true)
+  })
+
+  it('setStyle off stops nothing else and does not start playing', async () => {
+    await setStyle('off')
+    expect((await music()).style).toBe('off')
+    expect((await getSettings()).sound.device?.playing).not.toBe(true)
+  })
+
+  it('setMusicVolume coalesces into one write, clamped, and shows in the overlay at once', async () => {
+    for (let i = 1; i <= 10; i++) setMusicVolume(i / 10)
+    setMusicVolume(2)
+    expect(
+      withOverlay(effectiveMixer((await getSettings()).sound), getOverlay()).music.volume,
+    ).toBe(1)
+    expect(writes).toBe(0)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(writes).toBe(1))
+    expect((await music()).volume).toBe(1)
   })
 })
 

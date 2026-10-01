@@ -20,6 +20,14 @@ memory once; keep runs at 4).
 **Next:** open the PR into `main` when the user asks. Merging deploys GitHub Pages and publishes the extension
 Release.
 
+## Sound (in progress, 2026-10-01)
+
+Spec `docs/superpowers/specs/2026-09-30-sound-design.md`, plan `docs/superpowers/plans/2026-09-30-sound.md` (10 tasks).
+Phase 1 is done and reviewed: the noise mixer (9 generated layers, one gain each), the Sound panel on the Focus
+page (collapsible Lofi / Sounds / Mixes sections), the mini player (sidebar; on phones a pill while sound plays),
+playback from one tab on any page, and the old single ambient control removed. Phases 2 (generated lofi, tasks
+7–9) and 3 (saved mixes, start with focus, task 10) are next. Initial JS is 179.2 KB of 180.
+
 ## Done and reviewed
 
 - **Phases 0–11** (CI green on the Phase 11 commit `67c8de6`), plus the user's planner, everyday tasks, views,

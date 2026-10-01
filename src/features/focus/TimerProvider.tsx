@@ -11,20 +11,10 @@
  *   tab shows it (only one tab wins the settle, the others hear about it through that key), answering
  *   in one closes it in the others;
  * - a polite `aria-live` region: phase changes and a few countdown marks, never every second;
- * - the ambient sound around running focus sessions, played by one elected tab (`ambientElection`).
  *
  * Nothing here keeps time: every tick recomputes from the session's timestamps.
  */
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { recordError } from '@/app/reportError'
 import { useActiveSession } from '@/db/hooks/useActiveSession'
 import { useSettings } from '@/db/hooks/useSettings'
@@ -33,7 +23,6 @@ import type { ID } from '@/db/types'
 import { PREF_KEYS, readPref, removePref, subscribePrefs, writePref } from '@/lib/localPrefs'
 import { MS_PER_MINUTE, clockOf, crossedMark, isDue } from '@/logic/timer'
 import { useToast } from '@/ui/Toast'
-import { browserElection, electAmbientOwner } from './ambientElection'
 import { answered, ask, withdraw } from './askQueue'
 import { LATE_MS, handlePhaseEnd } from './phaseEnd'
 import { getSessionById } from './queries'
@@ -221,46 +210,13 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     }
   }, [askPending, closeEnd])
 
-  // Ambient sound: on while a focus session runs (when settings ask for it), off when it pauses or ends.
   const soundEnabled = settings?.sound.enabled ?? false
-  const ambient = settings?.sound.ambient ?? 'none'
-  const ambientVolume = settings?.sound.ambientVolume ?? 0
-  const wantAmbient =
-    soundEnabled &&
-    ambient !== 'none' &&
-    ambientVolume > 0 &&
-    session?.kind === 'focus' &&
-    session.status === 'running'
-  // Every open tab sees the session, so one tab is elected to play the bed.
-  const [ambientOwner, setAmbientOwner] = useState(false)
-  useEffect(() => {
-    if (!wantAmbient) return undefined
-    return electAmbientOwner(browserElection(), setAmbientOwner)
-  }, [wantAmbient])
-  const playAmbient = wantAmbient && ambientOwner
-  const bedVolume = useEffectEvent(() => ambientVolume)
   // The audio code is loaded when it is first needed, not with the app. Arming the unlock makes the next
   // key press or click create the audio context, so it is done only while a phase is running for someone
   // who has sounds on (the chime at its end needs it) and never otherwise.
   useEffect(() => {
     if (running && soundEnabled) void import('@/lib/audio').then((audio) => audio.armAudioUnlock())
   }, [running, soundEnabled])
-  useEffect(() => {
-    if (!playAmbient) return undefined
-    let cancelled = false
-    void import('@/lib/audio').then((audio) => {
-      if (!cancelled) void audio.startAmbient(ambient, bedVolume())
-    })
-    return () => {
-      cancelled = true
-      void import('@/lib/audio').then((audio) => audio.stopAmbient())
-    }
-  }, [playAmbient, ambient])
-  useEffect(() => {
-    if (playAmbient)
-      void import('@/lib/audio').then((audio) => audio.setAmbientVolume(ambientVolume))
-  }, [playAmbient, ambientVolume])
-
   const askedId = end.id
   return (
     <TimerContext.Provider value={store}>

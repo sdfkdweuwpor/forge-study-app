@@ -6,7 +6,7 @@ import { deepEqual } from '@/logic/deepEqual'
 import { db } from '../db'
 import { SETTINGS_ID, defaultSettings, defaultSettingsData } from '../defaults'
 import { emit, type SettingsSection } from '../events'
-import type { Settings, SettingsData } from '../types'
+import type { Settings, SettingsData, SoundMixer } from '../types'
 
 export type { SettingsSection } from '../events'
 
@@ -116,6 +116,25 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
     next.updatedAt = now
     await db.settings.put(next)
     if (sections.length > 0) emit({ type: 'settings.changed', sections })
+    return next
+  })
+}
+
+/**
+ * Stores the sound mixer as given. `updateSettings` deep-merges, so it cannot drop a layer key; this
+ * replaces the whole object. Writes nothing (and emits nothing) when it is unchanged.
+ */
+export async function replaceMixer(mixer: SoundMixer): Promise<Settings> {
+  return db.transaction('rw', db.settings, async () => {
+    const row = await db.settings.get(SETTINGS_ID)
+    const now = Date.now()
+    const base = row ? withDefaults(row) : defaultSettings(now)
+    const next = structuredClone(base)
+    next.sound.mixer = structuredClone(mixer)
+    if (row && deepEqual(next, base)) return base
+    next.updatedAt = now
+    await db.settings.put(next)
+    emit({ type: 'settings.changed', sections: ['sound'] })
     return next
   })
 }

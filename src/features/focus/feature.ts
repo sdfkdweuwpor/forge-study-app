@@ -5,6 +5,7 @@ import { FocusShortcuts } from './FocusShortcuts'
 import { FullscreenOverlay } from './FullscreenOverlay'
 import { MobileTimer, SidebarTimer } from './MiniTimer'
 import { focusShortcuts } from './shortcuts'
+import { SoundHost } from './sound/SoundHost'
 import { soundCommands, soundShortcuts } from './sound/commands'
 import { TimerProvider } from './TimerProvider'
 
@@ -35,6 +36,7 @@ const manifest: FeatureManifest = {
     { slot: 'global.overlays', id: 'focus.shortcuts', order: 10, component: FocusShortcuts },
     { slot: 'global.overlays', id: 'focus.fullscreen', order: 20, component: FullscreenOverlay },
     { slot: 'global.overlays', id: 'focus.mobileTimer', order: 30, component: MobileTimer },
+    { slot: 'global.overlays', id: 'focus.soundHost', order: 40, component: SoundHost },
     { slot: 'focus.aside', id: 'focus.ambient', order: 10, component: AmbientControl },
     { slot: 'focus.afterSession', id: 'focus.notifyPrompt', order: 10, component: NotifyPrompt },
     { slot: 'settings.sections', id: 'focus.sound', order: 30, component: SoundSection },

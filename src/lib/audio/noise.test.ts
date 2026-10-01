@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { brownNoise, createRng, generateLoop, makeLoopable, normalize, whiteNoise } from './noise'
+import {
+  brownNoise,
+  createRng,
+  generateLoop,
+  makeLoopable,
+  normalize,
+  pinkNoise,
+  whiteNoise,
+} from './noise'
 
 const mean = (a: Float32Array) => a.reduce((s, v) => s + v, 0) / a.length
 const rms = (a: Float32Array) => Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length)
@@ -158,5 +166,26 @@ describe('generateLoop', () => {
       expect(peak(loop)).toBeCloseTo(0.5, 4)
       expect(Math.abs(mean(loop))).toBeLessThan(1e-4)
     }
+  })
+})
+
+describe('pinkNoise', () => {
+  it('has less high-frequency energy than white and stays within +-1 once normalised', () => {
+    const meanAbsDiff = (a: Float32Array) => {
+      let s = 0
+      for (let i = 1; i < a.length; i++) s += Math.abs((a[i] ?? 0) - (a[i - 1] ?? 0))
+      return s / (a.length - 1)
+    }
+    const white = normalize(whiteNoise(20000, createRng(7)), 0.9)
+    const pink = normalize(pinkNoise(20000, createRng(7)), 0.9)
+    expect(meanAbsDiff(pink)).toBeLessThan(meanAbsDiff(white))
+    expect(peak(pink)).toBeLessThanOrEqual(1)
+  })
+
+  it('is deterministic and generateLoop accepts it', () => {
+    expect(pinkNoise(100, createRng(3))).toEqual(pinkNoise(100, createRng(3)))
+    const loop = generateLoop({ type: 'pink', sampleRate: 8000, seconds: 1, seed: 5 })
+    expect(loop.length).toBe(8000)
+    expect(peak(loop)).toBeLessThanOrEqual(1)
   })
 })

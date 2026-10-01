@@ -44,9 +44,37 @@ export function withOverlay(mixer: SoundMixer, o: MixOverlay): SoundMixer {
   return { ...mixer, layers, master: o.master ?? mixer.master }
 }
 
-async function change(fn: (m: SoundMixer) => SoundMixer): Promise<void> {
-  const { sound } = await getSettings()
-  await replaceMixer(fn(effectiveMixer(sound)))
+const change = (fn: (m: SoundMixer) => SoundMixer): Promise<void> =>
+  replaceMixer(fn).then(() => undefined)
+
+/** The stored mixer as last seen by `pruneOverlay`, to settle writes that change nothing. */
+let lastStored: SoundMixer | undefined
+
+/**
+ * Drops overlay entries the stored mixer now shows (a missing layer equals 0). Call it when the stored
+ * row changes: the overlay holds until then, so the mix never falls back to an old value in between.
+ */
+export function pruneOverlay(stored: SoundMixer): void {
+  lastStored = stored
+  const layers = { ...overlay.layers }
+  for (const l of Object.keys(layers) as NoiseLayer[])
+    if ((stored.layers[l] ?? 0) === layers[l]) delete layers[l]
+  const master = overlay.master === stored.master ? undefined : overlay.master
+  if (
+    master === overlay.master &&
+    Object.keys(layers).length === Object.keys(overlay.layers).length
+  )
+    return
+  setOverlay(Object.keys(layers).length === 0 && master === undefined ? EMPTY : { layers, master })
+}
+
+/** Forgets overlay entries that equal `sent` (the write for them failed, or is known to be stored). */
+function dropSent(sent: MixOverlay): void {
+  const layers = { ...overlay.layers }
+  for (const l of Object.keys(sent.layers) as NoiseLayer[])
+    if (layers[l] === sent.layers[l]) delete layers[l]
+  const master = overlay.master === sent.master ? undefined : overlay.master
+  setOverlay(Object.keys(layers).length === 0 && master === undefined ? EMPTY : { layers, master })
 }
 
 async function flush(): Promise<void> {
@@ -54,15 +82,11 @@ async function flush(): Promise<void> {
   const sent = overlay
   try {
     await change((m) => withOverlay(m, sent))
+    if (lastStored) pruneOverlay(lastStored) // a write that changed nothing never updates the row
   } catch (e) {
     recordError(e, 'sound.mixer.write')
+    dropSent(sent)
   }
-  // Keep whatever moved while the write ran.
-  const layers = { ...overlay.layers }
-  for (const l of Object.keys(sent.layers) as NoiseLayer[])
-    if (layers[l] === sent.layers[l]) delete layers[l]
-  const master = overlay.master === sent.master ? undefined : overlay.master
-  setOverlay(Object.keys(layers).length === 0 && master === undefined ? EMPTY : { layers, master })
 }
 
 function schedule(next: MixOverlay): void {
@@ -98,19 +122,39 @@ export async function setSectionOpen(
 export async function resetLayers(): Promise<{ undo: () => Promise<void> }> {
   clearTimeout(timer)
   timer = undefined
+  const sent = overlay
   const { sound } = await getSettings()
-  const before = withOverlay(effectiveMixer(sound), overlay).layers
-  setOverlay(EMPTY)
-  await change((m) => ({ ...m, layers: {} }))
+  const before = withOverlay(effectiveMixer(sound), sent).layers
+  // The overlay shows the layers off at once and holds until the row says so.
+  const off = { ...sent.layers }
+  for (const l of Object.keys(before) as NoiseLayer[]) off[l] = 0
+  const next = { ...sent, layers: off }
+  setOverlay(next)
+  try {
+    await change((m) => ({ ...m, layers: {}, master: sent.master ?? m.master }))
+    if (lastStored) pruneOverlay(lastStored)
+  } catch (e) {
+    dropSent(next)
+    throw e
+  }
   return { undo: () => change((m) => ({ ...m, layers: { ...before } })) }
 }
 
-/** Whether this device should be making sound: the play switch, or "start with focus" during a running focus session. */
+/** Whether this device should be making sound: the sounds switch is on and the play switch, or "start with focus" during a running focus session. */
 export function wantsSound(
+  enabled: boolean,
   mix: SoundMixer | undefined,
   playing: boolean,
   session: { kind: string; status: string } | null,
 ): boolean {
-  if (!mix || isSilent(mix)) return false
+  if (!enabled || !mix || isSilent(mix)) return false
   return playing || (mix.withFocus && session?.kind === 'focus' && session.status === 'running')
+}
+
+/** Test helper: forgets all unsaved slider values. */
+export function clearOverlay(): void {
+  lastStored = undefined
+  clearTimeout(timer)
+  timer = undefined
+  setOverlay(EMPTY)
 }

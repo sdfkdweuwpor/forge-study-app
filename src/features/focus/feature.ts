@@ -5,7 +5,6 @@ import { FocusShortcuts } from './FocusShortcuts'
 import { FullscreenOverlay } from './FullscreenOverlay'
 import { MobileTimer, SidebarTimer } from './MiniTimer'
 import { focusShortcuts } from './shortcuts'
-import { SoundHost } from './sound/SoundHost'
 import { soundCommands, soundShortcuts } from './sound/commands'
 import { TimerProvider } from './TimerProvider'
 
@@ -21,6 +20,7 @@ const AmbientControl = lazy(() =>
 const NotifyPrompt = lazy(() =>
   import('./sound/NotifyPrompt').then((m) => ({ default: m.NotifyPrompt })),
 )
+const SoundHost = lazy(() => import('./sound/SoundHost').then((m) => ({ default: m.SoundHost })))
 const SoundSection = lazy(() =>
   import('./sound/SoundSection').then((m) => ({ default: m.SoundSection })),
 )

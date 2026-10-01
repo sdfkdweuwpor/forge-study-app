@@ -1,9 +1,8 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { useSettings } from '@/db/hooks/useSettings'
 import type { Settings, SoundMixer } from '@/db/types'
-import { ambientKind, subscribeAudio, type AmbientKind } from '@/lib/audio'
 import { effectiveMixer } from '@/logic/soundMix'
-import { getOverlay, subscribeOverlay, withOverlay } from './mixActions'
+import { getOverlay, subscribeOverlay, pruneOverlay, withOverlay } from './mixActions'
 import { notifyPermission, subscribeNotifyPermission, type NotifyPermission } from '@/lib/notify'
 
 /** The slice of settings that decides what makes noise or pings. */
@@ -26,6 +25,10 @@ export function useMixer(): SoundMixer | undefined {
   const settings = useSettings()
   const overlay = useSyncExternalStore(subscribeOverlay, getOverlay, getOverlay)
   const stored = useMemo(() => settings && effectiveMixer(settings.sound), [settings])
+  // Overlay entries stay until the stored row shows them, so the mix never reads an old value in between.
+  useEffect(() => {
+    if (stored) pruneOverlay(stored)
+  }, [stored])
   return useMemo(() => stored && withOverlay(stored, overlay), [stored, overlay])
 }
 
@@ -34,29 +37,22 @@ export interface SoundDevice {
   open: { lofi: boolean; sounds: boolean; mixes: boolean }
 }
 
-/** This device's play switch and which panel sections are open. */
+/** This device's play switch and which panel sections are open. `undefined` while loading. */
 export function useSoundDevice(): SoundDevice | undefined {
-  const device = useSettings()?.sound.device
-  const loaded = useSettings() !== undefined
+  const settings = useSettings()
+  const device = settings?.sound.device
   return useMemo(
     () =>
-      loaded
-        ? {
-            playing: device?.playing ?? false,
-            open: {
-              lofi: device?.open?.lofi ?? false,
-              sounds: device?.open?.sounds ?? false,
-              mixes: device?.open?.mixes ?? false,
-            },
-          }
-        : undefined,
-    [loaded, device],
+      settings && {
+        playing: device?.playing ?? false,
+        open: {
+          lofi: device?.open?.lofi ?? false,
+          sounds: device?.open?.sounds ?? false,
+          mixes: device?.open?.mixes ?? false,
+        },
+      },
+    [settings, device],
   )
-}
-
-/** The ambient bed that is playing right now, or `null`. Updates as it starts and stops. */
-export function useAmbientKind(): AmbientKind | null {
-  return useSyncExternalStore(subscribeAudio, ambientKind, () => null)
 }
 
 /** The browser's notification permission, kept current (it can change in site settings at any time). */

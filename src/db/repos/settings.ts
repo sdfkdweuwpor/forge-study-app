@@ -3,6 +3,7 @@
  * boot) creates the row and backfills keys added by later releases.
  */
 import { deepEqual } from '@/logic/deepEqual'
+import { effectiveMixer } from '@/logic/soundMix'
 import { db } from '../db'
 import { SETTINGS_ID, defaultSettings, defaultSettingsData } from '../defaults'
 import { emit, type SettingsSection } from '../events'
@@ -121,16 +122,18 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
 }
 
 /**
- * Stores the sound mixer as given. `updateSettings` deep-merges, so it cannot drop a layer key; this
- * replaces the whole object. Writes nothing (and emits nothing) when it is unchanged.
+ * Changes the sound mixer. `update` gets the mixer in use (stored, or derived from the older ambient
+ * fields) and runs inside the write transaction, so overlapping changes cannot lose each other.
+ * `updateSettings` deep-merges and cannot drop a layer key; this replaces the whole object. Writes
+ * nothing (and emits nothing) when the result is unchanged.
  */
-export async function replaceMixer(mixer: SoundMixer): Promise<Settings> {
+export async function replaceMixer(update: (current: SoundMixer) => SoundMixer): Promise<Settings> {
   return db.transaction('rw', db.settings, async () => {
     const row = await db.settings.get(SETTINGS_ID)
     const now = Date.now()
     const base = row ? withDefaults(row) : defaultSettings(now)
     const next = structuredClone(base)
-    next.sound.mixer = structuredClone(mixer)
+    next.sound.mixer = structuredClone(update(effectiveMixer(base.sound)))
     if (row && deepEqual(next, base)) return base
     next.updatedAt = now
     await db.settings.put(next)

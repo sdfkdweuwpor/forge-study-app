@@ -353,9 +353,13 @@ test.describe('Focus timer', () => {
     await expect(toggle(page)).toHaveText('Pause')
     await expect(timerLabel(page)).toHaveText('Focus')
     await expectShown(page, held)
+    // From here only the test moves time: under load, real seconds would otherwise leak into the dial.
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000)
+    const resumed = await shown(page)
     await page.clock.fastForward('19:00')
-    await expectShown(page, held - 19 * 60)
+    await expectShown(page, resumed - 19 * 60)
     await expect(endDialog(page)).toBeHidden()
+    await page.clock.resume()
 
     await page.clock.fastForward('02:00')
     await expect(endDialog(page)).toBeVisible()

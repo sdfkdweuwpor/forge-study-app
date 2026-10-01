@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { Mix, Settings } from '@/db/types'
-import { cleanMixer, describeLayers, effectiveMixer, isSilent } from './soundMix'
+import {
+  applyPreset,
+  cleanMixer,
+  deletePreset,
+  describeLayers,
+  effectiveMixer,
+  isSilent,
+  MAX_PRESETS,
+  renamePreset,
+  savePreset,
+} from './soundMix'
 
 type Sound = Settings['sound']
 const base: Sound = { enabled: true, volume: 0.5, chime: true, ambient: 'none', ambientVolume: 0.5 }
@@ -74,5 +84,66 @@ describe('describeLayers / isSilent', () => {
     expect(isSilent(mix({}))).toBe(true)
     expect(isSilent(mix({}, 'piano'))).toBe(false)
     expect(isSilent(mix({ rain: 0.4 }))).toBe(false)
+  })
+})
+
+describe('presets', () => {
+  let n = 0
+  const id = () => `p${++n}`
+  const empty = cleanMixer({})
+  const tokyo = cleanMixer({ music: { style: 'tokyo', volume: 0.5 }, layers: { rain: 0.4 } })
+
+  it('saves the current mix and dedupes names', () => {
+    const a = savePreset(tokyo, '  Focus ', id)
+    const b = savePreset(a, 'focus', id)
+    expect(b.presets.map((p) => p.name)).toEqual(['Focus', 'focus 2'])
+    expect(b.presets[0]?.mix).toEqual({
+      music: { style: 'tokyo', volume: 0.5 },
+      layers: { rain: 0.4 },
+      noiseColor: 'brown',
+      master: 1,
+    })
+  })
+  it('refuses past 12 and empty names', () => {
+    let m = empty
+    for (let i = 0; i < MAX_PRESETS; i++) m = savePreset(m, `m${i}`, id)
+    expect(m.presets).toHaveLength(12)
+    expect(savePreset(m, 'one more', id)).toBe(m)
+    expect(savePreset(empty, '   ', id)).toBe(empty)
+  })
+  it('apply copies the mix but keeps presets and withFocus', () => {
+    const saved = savePreset(tokyo, 'Rainy Tokyo', id)
+    const other = {
+      ...saved,
+      music: { style: 'off' as const, volume: 0.1 },
+      layers: {},
+      withFocus: false,
+    }
+    const out = applyPreset(other, saved.presets[0]!.id)
+    expect(out.music.style).toBe('tokyo')
+    expect(out.layers).toEqual({ rain: 0.4 })
+    expect(out.withFocus).toBe(false)
+    expect(out.presets).toBe(other.presets)
+    expect(applyPreset(other, 'nope')).toBe(other)
+  })
+  it('renames (unique, non-empty) and deletes', () => {
+    const m = savePreset(savePreset(tokyo, 'A', id), 'B', id)
+    const [a, b] = m.presets
+    expect(renamePreset(m, b!.id, 'A').presets[1]?.name).toBe('A 2')
+    expect(renamePreset(m, a!.id, 'A').presets[0]?.name).toBe('A')
+    expect(renamePreset(m, a!.id, ' ')).toBe(m)
+    expect(deletePreset(m, a!.id).presets.map((p) => p.name)).toEqual(['B'])
+  })
+  it('cleanMixer drops duplicate ids and blank names', () => {
+    const mix = { music: { style: 'off', volume: 1 }, layers: {}, noiseColor: 'brown', master: 1 }
+    const out = cleanMixer({
+      presets: [
+        { id: 'x', name: 'One', mix },
+        { id: 'x', name: 'Dup', mix },
+        { id: 'y', name: '   ', mix },
+        { id: 'z', name: 'Two', mix },
+      ],
+    })
+    expect(out.presets.map((p) => p.name)).toEqual(['One', 'Two'])
   })
 })

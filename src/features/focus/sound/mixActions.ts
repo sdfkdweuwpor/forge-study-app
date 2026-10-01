@@ -9,7 +9,16 @@ import { getSettings, replaceMixer, updateSettings } from '@/db/repos/settings'
 import type { LofiStyle, NoiseColor, NoiseLayer, Settings, SoundMixer } from '@/db/types'
 import { unlockAudio } from '@/lib/audio/engine'
 import { clamp01 } from '@/lib/audio/envelope'
-import { effectiveMixer, isSilent } from '@/logic/soundMix'
+import { newId } from '@/lib/ids'
+import {
+  applyPreset,
+  deletePreset,
+  effectiveMixer,
+  isSilent,
+  MAX_PRESETS,
+  renamePreset,
+  savePreset,
+} from '@/logic/soundMix'
 
 export const WRITE_EVERY_MS = 250
 
@@ -163,6 +172,53 @@ export const setNoiseColor = (color: NoiseColor): Promise<void> =>
 
 export const setWithFocus = (on: boolean): Promise<void> =>
   change((m) => ({ ...m, withFocus: on })).then(() => undefined)
+
+/** Saves the mix as it sounds now (unsaved slider moves included) under `name`. */
+export async function saveCurrentMix(name: string): Promise<'saved' | 'full' | 'empty'> {
+  if (!name.trim()) return 'empty'
+  const sent = overlay
+  let full = false
+  await change((m) => {
+    full = m.presets.length >= MAX_PRESETS
+    return full ? m : savePreset(withOverlay(m, sent), name, newId)
+  })
+  return full ? 'full' : 'saved'
+}
+
+/** Plays a saved mix: one write replaces the whole mix, and slider moves it supersedes are forgotten. */
+export async function applyMix(id: string): Promise<void> {
+  clearTimeout(timer)
+  timer = undefined
+  setOverlay(EMPTY)
+  const row = await change((m) => applyPreset(m, id))
+  if (!isSilent(effectiveMixer(row.sound))) {
+    void unlockAudio()
+    await updateSettings({ sound: { enabled: true, device: { playing: true } } })
+  }
+}
+
+export const renameMix = (id: string, name: string): Promise<void> =>
+  change((m) => renamePreset(m, id, name)).then(() => undefined)
+
+/** Removes a saved mix. `undo` puts it back where it was. */
+export async function deleteMix(id: string): Promise<{ undo: () => Promise<void> }> {
+  let removed: { at: number; preset: SoundMixer['presets'][number] } | undefined
+  await change((m) => {
+    const at = m.presets.findIndex((p) => p.id === id)
+    if (at >= 0) removed = { at, preset: m.presets[at]! }
+    return deletePreset(m, id)
+  })
+  return {
+    undo: () =>
+      change((m) => {
+        if (!removed || m.presets.length >= MAX_PRESETS || m.presets.some((p) => p.id === id))
+          return m
+        const presets = [...m.presets]
+        presets.splice(removed.at, 0, removed.preset)
+        return { ...m, presets }
+      }).then(() => undefined),
+  }
+}
 
 export async function setPlaying(on: boolean): Promise<void> {
   await updateSettings({ sound: { device: { playing: on } } })

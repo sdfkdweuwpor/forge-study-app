@@ -6,7 +6,10 @@ import { getSettings } from '@/db/repos/settings'
 import { effectiveMixer } from '@/logic/soundMix'
 import { syncedSettings } from '@/logic/syncTables'
 import {
+  applyMix,
   clearOverlay,
+  deleteMix,
+  saveCurrentMix,
   getOverlay,
   resetLayers,
   setLayer,
@@ -242,5 +245,33 @@ describe('wantsSound', () => {
   it('never plays when the sounds switch is off', () => {
     expect(wantsSound(false, rain, true, null)).toBe(false)
     expect(wantsSound(false, rain, false, focus)).toBe(false)
+  })
+})
+
+describe('saved mixes', () => {
+  it('saves what is on screen, slider moves included, and applying replaces a pending overlay', async () => {
+    await setStyle('tokyo')
+    setLayer('rain', 0.4)
+    expect(await saveCurrentMix('Rainy Tokyo')).toBe('saved')
+    const [preset] = effectiveMixer((await getSettings()).sound).presets
+    expect(preset?.mix.layers).toEqual({ rain: 0.4 })
+
+    setLayer('rain', 0.9) // a drag still pending
+    setLayer('wind', 0.5)
+    await applyMix(preset!.id)
+    expect(getOverlay().layers).toEqual({})
+    await vi.advanceTimersByTimeAsync(500) // no stale write lands afterwards
+    const m = effectiveMixer((await getSettings()).sound)
+    expect(m.layers).toEqual({ rain: 0.4 })
+    expect(m.music.style).toBe('tokyo')
+  })
+  it('delete returns an undo that puts it back in place', async () => {
+    for (const n of ['a', 'b', 'c']) await saveCurrentMix(n)
+    const read = async () => effectiveMixer((await getSettings()).sound).presets.map((p) => p.name)
+    const id = effectiveMixer((await getSettings()).sound).presets[1]!.id
+    const { undo } = await deleteMix(id)
+    expect(await read()).toEqual(['a', 'c'])
+    await undo()
+    expect(await read()).toEqual(['a', 'b', 'c'])
   })
 })

@@ -11,6 +11,8 @@ export interface StyleDef {
   drums: 'boombap' | 'house' | 'gated' | 'brush' | 'none'
   instruments: Instrument[]
   texture: ('vinyl' | 'tape' | 'rain' | 'city')[]
+  /** Loudness trim against the other styles (default 1). */
+  level?: number
 }
 
 export const STYLES: Record<LofiStyle, StyleDef> = {
@@ -148,5 +150,6 @@ export const STYLES: Record<LofiStyle, StyleDef> = {
     drums: 'none',
     instruments: ['pad', 'pluck'],
     texture: ['tape'],
+    level: 4, // sparse pads render about 13 dB quieter than the other styles
   },
 }

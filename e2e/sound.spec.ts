@@ -43,7 +43,7 @@ test.describe('sound panel and mini player', () => {
       'Noise',
     ])
       await expect(slider(page, name)).toBeVisible()
-    await expect(panel(page).locator('[aria-disabled="true"]', { hasText: 'Mixes' })).toBeVisible()
+    await expect(header(page, 'Mixes')).toContainText('None saved')
 
     await playButton(page).click()
     await setTo(page, 'Rain', 40)
@@ -121,6 +121,72 @@ test.describe('sound panel and mini player', () => {
       'false',
     )
     await expect(mini).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('saves a mix, restores it from its chip, deletes with Undo', async ({ page }) => {
+    await gotoApp(page, '/focus', 'empty')
+    await header(page, 'Lofi').click()
+    await panel(page)
+      .getByRole('radio', { name: /Tokyo night/ })
+      .click()
+    await setTo(page, 'Rain', 40)
+    await header(page, 'Mixes').click()
+    await panel(page).getByRole('button', { name: 'Save current mix…' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Save current mix' })
+    await dialog.getByRole('textbox', { name: 'Name' }).fill('Rainy Tokyo')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    const chip = panel(page).getByRole('button', { name: 'Rainy Tokyo', exact: true })
+    await expect(chip).toBeVisible()
+    await expect(header(page, 'Mixes')).toContainText('1 saved')
+
+    await panel(page)
+      .getByRole('radio', { name: /Jazz hop/ })
+      .click()
+    await setTo(page, 'Rain', 0)
+    await setTo(page, 'Wind', 70)
+    await setTo(page, 'Master volume', 50)
+    await chip.click()
+    await expect(header(page, 'Lofi')).toContainText('Tokyo night · 60%')
+    await expect(header(page, 'Sounds')).toContainText('Rain 40%')
+    await expect(slider(page, 'Wind')).toHaveValue('0')
+    await expect(slider(page, 'Master volume')).toHaveValue('100')
+
+    await panel(page).getByRole('button', { name: 'Rainy Tokyo options' }).click()
+    await page.getByRole('menuitem', { name: 'Rename…' }).click()
+    const rename = page.getByRole('dialog', { name: 'Rename mix' })
+    await rename.getByRole('textbox', { name: 'Name' }).fill('Tokyo rain')
+    await rename.getByRole('button', { name: 'Save' }).click()
+    await expect(panel(page).getByRole('button', { name: 'Tokyo rain', exact: true })).toBeVisible()
+
+    await panel(page).getByRole('button', { name: 'Tokyo rain options' }).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await expect(header(page, 'Mixes')).toContainText('None saved')
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await expect(panel(page).getByRole('button', { name: 'Tokyo rain', exact: true })).toBeVisible()
+  })
+
+  test('start with focus: a running focus session plays the mix, pausing it stops it', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/focus', 'empty')
+    await setTo(page, 'Rain', 40)
+    await expect(playButton(page)).toHaveAttribute('aria-pressed', 'false')
+    const toggle = panel(page).getByRole('switch', { name: 'Start sound with focus' })
+    await expect(toggle).toBeChecked()
+    await expect.poll(() => layerCount(page)).toBe(0)
+
+    await page.getByTestId('timer-start').click()
+    await expect(page.getByTestId('timer-toggle')).toHaveText('Pause')
+    await expect.poll(() => layerCount(page)).toBe(1)
+    await page.getByTestId('timer-toggle').click()
+    await expect(page.getByTestId('timer-toggle')).toHaveText('Resume')
+    await expect.poll(() => layerCount(page)).toBe(0)
+
+    await toggle.click() // off: a running session no longer starts sound
+    await expect(toggle).not.toBeChecked()
+    await page.getByTestId('timer-toggle').click()
+    await expect(page.getByTestId('timer-toggle')).toHaveText('Pause')
+    expect(await layerCount(page)).toBe(0)
   })
 
   test('a second tab of the same browser does not make sound', async ({ page, context }) => {

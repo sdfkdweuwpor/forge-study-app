@@ -25,15 +25,18 @@ export function useTasks(): Task[] | undefined {
  * Dexie serves `anyOf` with a cursor, one IndexedDB round trip per row, which with a few hundred open
  * tasks held up every other read at app start by a third of a second; `equals` is one `getAll`.
  */
+/** Every `todo` and `doing` task, read once (`useOpenTasks` is the live version). */
+export async function readOpenTasks(): Promise<Task[]> {
+  const [todo, doing] = await Promise.all([
+    db.tasks.where('status').equals('todo').toArray(),
+    db.tasks.where('status').equals('doing').toArray(),
+  ])
+  return [...todo, ...doing]
+}
+
 export function useOpenTasks(): Task[] | undefined {
   const [share] = useState(rowSharer<Task>)
-  return useLiveQuery(async () => {
-    const [todo, doing] = await Promise.all([
-      db.tasks.where('status').equals('todo').toArray(),
-      db.tasks.where('status').equals('doing').toArray(),
-    ])
-    return share([...todo, ...doing])
-  }, [share])
+  return useLiveQuery(async () => share(await readOpenTasks()), [share])
 }
 
 /** Finished tasks, latest first. Pass `limit` to keep only the most recent ones. */

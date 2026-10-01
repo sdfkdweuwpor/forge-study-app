@@ -1,1 +1,1 @@
-export { Settle, useSettleHold } from './Settle'
+export { Settle, focusWhenShown, useSettleHold } from './Settle'

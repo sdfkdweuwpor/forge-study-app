@@ -71,4 +71,7 @@ export async function gotoApp(page: Page, path = '/', seed?: Seed): Promise<void
   if (seed) url.searchParams.set('seed', seed)
   await page.goto(`${url.pathname}${url.search}${url.hash}`)
   await page.locator('#root > *').first().waitFor()
+  // A page that settles (`Settle`) keeps its content hidden, unclickable and unfocusable for up to a
+  // second: act once it shows, as a person would.
+  await expect(page.locator('[data-settling]')).toHaveCount(0)
 }

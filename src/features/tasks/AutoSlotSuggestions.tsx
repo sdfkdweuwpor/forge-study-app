@@ -15,7 +15,7 @@ import {
 } from '@/logic/everydaySlots'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
-import { useSettleHold } from '@/ui/Settle'
+import { focusWhenShown, useSettleHold } from '@/ui/Settle'
 import { useToast } from '@/ui/Toast'
 import { useAutoSlotProposal } from './queries'
 import {
@@ -116,9 +116,9 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
   const card = useRef<HTMLElement | null>(null)
   const ready = state.status !== 'loading'
   const reveal = useCallback(() => {
-    if (card.current) {
-      card.current.scrollIntoView({ block: 'center' })
-      card.current.focus()
+    const el = card.current
+    if (el) {
+      focusWhenShown(el, () => el.scrollIntoView({ block: 'center' }))
     } else {
       toast.show({
         title: 'No suggested times right now',

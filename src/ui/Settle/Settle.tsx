@@ -27,6 +27,7 @@ const MAX_WAIT_MS = 1000
  *
  * Holds are taken in a layout effect, so nothing is painted before them. Outside a `Settle` the hook
  * does nothing. Keep the page heading outside the region: it paints first and takes the route focus.
+ * A hidden control refuses focus, so code that moves focus into the region uses `focusWhenShown`.
  */
 export function Settle({
   children,
@@ -73,6 +74,7 @@ export function Settle({
         className={className}
         style={settled ? undefined : { visibility: 'hidden' }}
         aria-busy={settled ? undefined : true}
+        data-settling={settled ? undefined : ''}
       >
         {children}
       </div>
@@ -87,4 +89,27 @@ export function useSettleHold(loading: boolean): void {
     if (!loading || !hold) return
     return hold()
   }, [loading, hold])
+}
+
+/**
+ * Focuses `el` (then runs `after`, e.g. a scroll), at once or, while a `Settle` around it is still hidden
+ * (a hidden control refuses focus), as soon as that region shows. Returns a cancel for a pending focus.
+ */
+export function focusWhenShown(el: HTMLElement, after?: () => void): () => void {
+  const region = el.closest('[data-settling]')
+  const run = () => {
+    el.focus({ preventScroll: true })
+    after?.()
+  }
+  if (!region) {
+    run()
+    return () => undefined
+  }
+  const observer = new MutationObserver(() => {
+    if (region.hasAttribute('data-settling')) return
+    observer.disconnect()
+    run()
+  })
+  observer.observe(region, { attributes: true, attributeFilter: ['data-settling'] })
+  return () => observer.disconnect()
 }

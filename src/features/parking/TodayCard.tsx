@@ -4,10 +4,11 @@ import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useMediaQuery } from '@/app/hooks/useMediaQuery'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
+import { focusWhenShown } from '@/ui/Settle'
 import { Skeleton } from '@/ui/Skeleton'
 import { ParkedList } from './ParkedList'
 import { useOpenParked } from './queries'
-import { onParkedReview, REVIEW_WINDOW_MS, takeParkedReview } from './store'
+import { onParkedReview, takeParkedReview } from './store'
 import styles from './TodayCard.module.css'
 
 /**
@@ -61,29 +62,21 @@ function ParkedTodayBody() {
   const panelId = useId()
   const toggle = useRef<HTMLButtonElement | null>(null)
 
-  // "Review parked thoughts": open the card, scroll it into view and put keyboard focus on its heading.
-  // The page can hold the card hidden while it settles (`Settle`), and a hidden control refuses focus:
-  // keep trying each frame until it takes it, for as long as the request is good for.
+  // "Review parked thoughts": open the card, scroll it into view and put keyboard focus on its heading
+  // (once the page shows it: it can hold the card hidden while it settles).
   useEffect(() => {
-    let frame = 0
+    let cancel = (): void => undefined
     const answer = (): void => {
       if (!takeParkedReview()) return
       setOpen(true)
-      const until = performance.now() + REVIEW_WINDOW_MS
-      const attempt = (): void => {
-        const button = toggle.current
-        if (!button) return
-        button.focus({ preventScroll: true })
-        if (document.activeElement === button) button.scrollIntoView({ block: 'center' })
-        else if (performance.now() < until) frame = requestAnimationFrame(attempt)
-      }
-      attempt()
+      const button = toggle.current
+      if (button) cancel = focusWhenShown(button, () => button.scrollIntoView({ block: 'center' }))
     }
     answer()
     const off = onParkedReview(answer)
     return () => {
       off()
-      cancelAnimationFrame(frame)
+      cancel()
     }
   }, [])
 

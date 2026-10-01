@@ -117,7 +117,15 @@ export function MorningPlan({ onGone, openedAt }: { onGone: () => void; openedAt
   useEffect(() => {
     if (!ready || focusedList.current || pickable.length === 0) return
     focusedList.current = true
-    if (line === '')
+    // Only from where the dialog put focus (the field, or nowhere yet): someone who has already
+    // tabbed to another control, such as "Add a routine", keeps it.
+    const held = document.activeElement
+    const parked =
+      !held ||
+      held === document.body ||
+      held.getAttribute('role') === 'dialog' ||
+      held.getAttribute('aria-label') === 'Add a task for today'
+    if (line === '' && parked)
       list.current
         ?.querySelector<HTMLInputElement>('input[type="checkbox"]')
         ?.focus({ preventScroll: true })

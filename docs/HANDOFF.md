@@ -3,6 +3,23 @@
 The cloud session stopped all its helpers here and pushed everything to `claude/sharp-thompson-tklurt`. Read this,
 then `PLAN.md` (the plan and checklist) and `DECISIONS.md` (why things are the way they are), and continue.
 
+## Status at the end of 2026-09-30
+
+Everything below "Done and reviewed" and "In progress" is now finished, apart from the open items here. The final
+check passed on this branch: typecheck, lint, 4,249 unit tests, the build (initial JS 178.4 KB gzip), 738/738 e2e
+and 14/14 extension e2e, run at `--workers=4` (12 workers plus parallel helpers ran this 13 GB machine out of
+memory once; keep runs at 4).
+
+**Open, on purpose** (PLAN.md has the details):
+- **5D extras:** +250 XP on course complete, the one-click catch-up on the goal page, the goal page's own timeline,
+  and "Now projected … (+N days)".
+- **10D:** an empty, loading and error state audit of every screen.
+- **12C (optional):** PDFs through Supabase Storage.
+- **Mobile Lighthouse** 85–89 on `/`, `/settings`, `/tasks` is accepted (DECISIONS "Performance (Phase 13C)").
+
+**Next:** open the PR into `main` when the user asks. Merging deploys GitHub Pages and publishes the extension
+Release.
+
 ## Done and reviewed
 
 - **Phases 0–11** (CI green on the Phase 11 commit `67c8de6`), plus the user's planner, everyday tasks, views,

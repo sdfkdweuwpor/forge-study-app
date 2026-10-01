@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { putRows } from '../../e2e/idb'
 import { withHistory } from '../../e2e/progressHistory'
 import type { ShotList } from '../shot-types'
@@ -138,7 +138,11 @@ const list: ShotList = {
         await page.goto('/focus')
         await page.getByRole('button', { name: 'Pause' }).waitFor()
         await loaded(page)
-        await page.keyboard.press('p')
+        // The key is bound once the page has linked the running session, a moment after Pause shows.
+        await expect(async () => {
+          await page.keyboard.press('p')
+          await expect(page.getByTestId('parking-popover')).toBeVisible({ timeout: 500 })
+        }).toPass()
         await page
           .getByRole('textbox', { name: /Thought or urge/ })
           .fill('Look up the C182 OA schedule')

@@ -375,8 +375,9 @@ describe('setMilestoneStatus', () => {
     expect(first?.doDate).toBe(TODAY)
     // Finished early: the projected finish moves earlier, not just somewhere else.
     const endAfter = (await db.goals.get('goal-1'))?.projection?.end
-    expect(endBefore).toBeDefined()
-    expect(endAfter !== undefined && endBefore !== undefined && endAfter < endBefore).toBe(true)
+    expect(typeof endBefore).toBe('string')
+    expect(typeof endAfter).toBe('string')
+    expect(String(endAfter) < String(endBefore)).toBe(true)
     expect(types()).toContain('milestone.completed')
 
     events = []

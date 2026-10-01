@@ -223,6 +223,7 @@ const list: ShotList = {
     {
       // Away from the Focus page the running timer stays in the sidebar (and above the tab bar on a phone).
       name: 'today-running',
+      widths: [1440, 375],
       path: '/?seed=wgu',
       prepare: async (page) => {
         await seedSessions(page, [

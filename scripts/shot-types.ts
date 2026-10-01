@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-/** One screenshot target. Captured for light/dark × 1440×900 and 375×812. */
+/** One screenshot target. Captured for light/dark × 1440×900, 768×1024 and 375×812. */
 export interface Shot {
   /** File-name fragment, e.g. `today` or `tasks-board`. */
   name: string
@@ -19,6 +19,8 @@ export interface Shot {
    * ("Failed to load resource…"), so a shot that stages one (a faked 429) must name it, as an e2e spec does.
    */
   ignoreConsoleErrors?: string[]
+  /** Only these viewport widths, for a shot of something one layout does not show (the tablet drawer). */
+  widths?: number[]
 }
 
 /** Default export of every `scripts/shots/<feature>.ts`. */

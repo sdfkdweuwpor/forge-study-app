@@ -28,13 +28,20 @@ const files = readdirSync(shotsDir)
 const lists: ShotList[] = []
 for (const file of files) {
   const mod = (await import(pathToFileURL(join(shotsDir, file)).href)) as { default: ShotList }
-  if (only.length === 0 || only.includes(mod.default.feature)) lists.push(mod.default)
+  // SHOOT names features (`today`) or single shots (`today/wgu`).
+  const { feature } = mod.default
+  if (only.length === 0 || only.includes(feature)) lists.push(mod.default)
+  else {
+    const names = only.filter((o) => o.startsWith(`${feature}/`)).map((o) => o.slice(feature.length + 1))
+    const shots = mod.default.shots.filter((s) => names.includes(s.name))
+    if (shots.length > 0) lists.push({ ...mod.default, shots })
+  }
 }
 
 for (const { feature, shots } of lists) {
   for (const shot of shots) {
     for (const colorScheme of themes) {
-      for (const viewport of viewports) {
+      for (const viewport of viewports.filter((v) => !shot.widths || shot.widths.includes(v.width))) {
         test.describe(`${feature}/${shot.name}`, () => {
           test.use({
             colorScheme,

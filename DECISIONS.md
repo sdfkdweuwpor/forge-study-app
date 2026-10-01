@@ -733,3 +733,19 @@ Design only; PLAN §4.7 has the details, the SQL and the 12B work breakdown.
 - **2026-09-30 — Only a 4xx with a PostgreSQL row code is a row refusal** (class 21 cardinality, 22 data, 23 constraint, 54 limit). A bare 400/404/409/422 from a proxy or a schema-cache reload used to be bisected down to "bad rows", up to 10 of which were then dropped for good once the server took other rows. Without such a code the cycle now fails and everything stays queued.
 - **2026-09-30 — A sign-in link the server refused forgets its PKCE verifier** (`codeVerifier: ''`, email and time kept so the code field stays on screen); offline, 5xx, 408 and 429 keep it for a retry. Opening a link again then says it expired, without a request. Not cleared outright: the code from the same email must stay typeable, which the Waiting step needs `pendingLogin` for. No time-based expiry: Supabase's link lifetime is configurable up to a day.
 - **2026-09-30 — No JWT-shaped literals in tests.** The anon JWTs in the Supabase client and request tests are joined from their three parts at run time, like the fake `sb_secret_…` keys.
+
+## Performance (Phase 13C, 2026-09-30)
+
+- **2026-09-30 — Mobile Lighthouse below 90 on three routes is accepted.** Measured with `scripts/perf/lighthouse.mjs` on a seeded production build, Lighthouse 12 mobile preset (simulated slow 4G, 4× CPU), two runs per route:
+
+  | Route | Mobile perf | Desktop perf | LCP (mobile) | CLS | TBT |
+  |---|---|---|---|---|---|
+  | `/` (Today) | 85–86 | 97 | 3.8 s | 0 | 60–72 ms |
+  | `/tasks` | 89–90 | 99 | 3.3 s | 0 | 106–139 ms |
+  | `/goals` | 93 | 99 | 3.0 s | 0 | 58–64 ms |
+  | `/progress` | 90 | 99 | 3.3 s | 0.044 | 23–26 ms |
+  | `/settings` | 87 | 97 | 3.6 s | 0 | 68–77 ms |
+
+  Accessibility is 100 on every route, mobile and desktop. Initial JS is 178.3 KB gzip (budget 180). Before `Settle` the mobile scores were 47–74 (CLS about 0.2).
+  - **Why accept.** What is left is load time, not jank: each route's chunk and its ~10 shared chunks load as a second wave after the entry, and simulated slow 4G charges every round trip. Closing it needs route-aware preloading or a different chunk split (about 2–3 hours, with risk to lazy loading), for 1–5 points on three routes. A returning user loads from the service worker's precache, where none of this applies.
+  - **Revisit** if real-device numbers (not simulated) show a slow first load, or if initial JS grows past the budget.

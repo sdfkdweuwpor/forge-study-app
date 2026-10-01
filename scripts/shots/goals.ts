@@ -42,12 +42,12 @@ const list: ShotList = {
       prepare: settle,
     },
     {
-      name: 'schedule-settings',
+      name: 'plan-settings',
       path: `${GOAL}?seed=wgu`,
       waitFor: 'main h1',
       prepare: async (page) => {
-        await page.getByRole('button', { name: 'Schedule' }).click()
-        await page.getByRole('dialog', { name: 'Schedule settings' }).waitFor()
+        await page.getByRole('button', { name: 'Plan settings' }).click()
+        await page.getByRole('dialog', { name: 'Plan settings' }).waitFor()
         await settle(page)
       },
     },

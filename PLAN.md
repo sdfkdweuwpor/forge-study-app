@@ -1304,14 +1304,18 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [ ] **12C (optional, later)** PDFs through Supabase Storage (§4.7.9 follow-up).
 
 ### Phase 13 — Polish
-- [ ] **13A [D]** Every route at 375, 768 and 1440 in light and dark with seeded data; fix list.
-- [ ] **13B [B]** Keyboard-only walkthrough in `e2e/keyboard.spec.ts`; fix focus traps and order.
-- [ ] **13C [B]** Lighthouse with `npx lighthouse` (no dependency) against the preview using `CHROME_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`: Performance ≥ 90, Accessibility ≥ 95. Bundle budget: initial JS ≤ 180 KB gzip.
+- [x] **13A [D]** Every route at 375, 768 and 1440 in light and dark with seeded data; fix list.
+  - Done: round 1 visual audit at 375/768/1440, light and dark, fixed and reviewed (`82d9b05`); final screenshots in `docs/screenshots/`.
+- [x] **13B [B]** Keyboard-only walkthrough in `e2e/keyboard.spec.ts`; fix focus traps and order.
+  - Done: `e2e/keyboard.spec.ts` walks every route by keyboard; round 2 (phone tab bar scroll padding, Rewards tabs keep focus, Progress tab order, `mod+z` Undo, StreakFlame closes the drawer, the P hint only with a keyboard) reviewed 2026-09-30 and green in the full run.
+- [x] **13C [B]** Lighthouse with `npx lighthouse` (no dependency) against the preview using `CHROME_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`: Performance ≥ 90, Accessibility ≥ 95. Bundle budget: initial JS ≤ 180 KB gzip.
+  - Accepted 2026-09-30 (DECISIONS "Performance (Phase 13C)"): mobile 85–93, desktop 97–99, Accessibility 100 everywhere, initial JS 178.3 KB gzip.
   - Measured 2026-09-30 (`scripts/perf/lighthouse.mjs`, seeded build): **mobile** Performance `/` 85–86, `/tasks` 89–90, `/goals` 93, `/progress` 90, `/settings` 87 (was 47–74), CLS 0 except `/progress` 0.044, TBT 23–139 ms; **desktop** 97–99; **Accessibility 100 everywhere**. Initial JS 178.3 KB gzip (≤ 180). `Settle` removed the layout shift. The remaining mobile gap is load time: each route's chunk and its ~10 shared chunks load as a second wave after the entry, which simulated slow 4G charges per round trip. Closing it needs route-aware preloading or a different chunk split (follow-up, not done).
   - Status (2026-09-30): initial JS **177.5 KB gzip** (was 353.7; budget met, 2.5 KB of headroom). Desktop Lighthouse Performance 88 to 96 and Accessibility 100 on `/`, `/tasks`, `/goals`, `/progress`, `/settings`. **Mobile Performance 47 to 74 (HTTP/1.1 preview) or 56 to 91 (HTTP/2): not 90**, see DECISIONS › Performance › 13C for why and what is left (Today and Tasks layout shift, `src/db` imports worth about 6 KB). Box left open for that reason.
 - [x] **13P [A] Performance at a year of study** (done early, 2026-09-30): `?seed=wgu-year` (2,000 finished + ~300 open sessions on one goal); budgets in `src/db/repos/budgets.test.ts` (CPU, `src/test/timing.ts`) and `e2e/perf.spec.ts` (Chrome thread time): start interactive < 1.5 s, `rebalanceGoal` < 300 ms, a completion painted < 100 ms. Structural sharing of live queries, progressive task lists, per-row completion motion. See DECISIONS › Performance.
 - [x] **13E [B] Carry-overs from 6B, 6D and 8B** (gamification, world, layout; done 2026-09-30): the level where the sidebar is not (ring beside the open button, row in the More sheet, same `useXp()`), Shop rows tightened on `(pointer: coarse)` with 44 px targets kept, and My World Fit that shows the whole city at 375 and 768. Specs: `e2e/gamification-level.spec.ts`, `e2e/rewards.spec.ts`, `e2e/world.spec.ts`, `src/logic/world/camera.test.ts`. Decisions in DECISIONS.md "Phase 13 carry-overs" and "Fit".
-- [ ] **13D [H]** README final: screenshots copied to the committed `docs/screenshots/`, PWA install on phone, extension install, backup/restore, WGU import prompt. Tick every box in this file.
+- [x] **13D [H]** README final: screenshots copied to the committed `docs/screenshots/`, PWA install on phone, extension install, backup/restore, WGU import prompt. Tick every box in this file.
+  - Done 2026-09-30: nine curated screenshots in `docs/screenshots/` (README "Screenshots"); the PWA, extension, backup and restore, WGU import prompt and sync sections are written; the live Pages URL is at the top. Open boxes left on purpose: 5D extras, 10D, 12C (optional).
 
 ---
 

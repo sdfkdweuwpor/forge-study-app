@@ -101,6 +101,7 @@ const shots: ShotList = {
     {
       // Desktop and tablet: the meter in the sidebar footer with its tooltip. A phone has no sidebar.
       name: 'level-meter',
+      widths: [1440, 375],
       path: '/?seed=wgu',
       prepare: async (page) => {
         await loaded(page)

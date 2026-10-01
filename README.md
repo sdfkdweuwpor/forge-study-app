@@ -6,7 +6,7 @@ Forge helps you stay focused, plan your day, and break big goals (like a WGU bac
 
 ## Status
 
-Under active development; see [PLAN.md](PLAN.md) for the phase checklist.
+Phases 0–13 are built; see [PLAN.md](PLAN.md) for the checklist and [DECISIONS.md](DECISIONS.md) for why things are the way they are. Still open: a few planner extras (5D) and a state-by-state audit (10D).
 
 ## Development
 
@@ -292,4 +292,17 @@ WGU courses work best with their codes and competency units (for example `C182`,
 
 ## Screenshots
 
-Coming in Phase 13. Walkthrough and visual guide.
+Taken with `npm run shoot` on the sample data (`?seed=wgu`); every screen is also in dark mode and works from 320 px up.
+
+| | |
+|---|---|
+| ![Today: the Now task, suggested times and the day's schedule](docs/screenshots/today.png) | ![Focus timer running, dark mode](docs/screenshots/focus.png) |
+| **Today**: one Now task, suggested times, the day's plan | **Focus**: the timer, the linked task, parking for stray thoughts |
+| ![A goal with its projection and courses](docs/screenshots/goal.png) | ![Roadmap of the degree, dark mode](docs/screenshots/roadmap.png) |
+| **Goal**: progress, the projected finish, the courses | **Roadmap**: every goal on one timeline |
+| ![Tasks board](docs/screenshots/tasks-board.png) | ![Progress charts](docs/screenshots/progress.png) |
+| **Tasks**: list, board, calendar and saved views | **Progress**: streaks, heatmap, time per goal |
+| ![My World, an isometric town built from finished work](docs/screenshots/world.png) | ![Settings, Sync on](docs/screenshots/sync.png) |
+| **My World**: finished work becomes a town | **Sync (optional)**: your own Supabase project |
+
+<img src="docs/screenshots/today-phone-dark.png" alt="Today on a phone, dark mode" width="280">

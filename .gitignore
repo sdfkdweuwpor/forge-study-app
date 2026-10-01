@@ -1,7 +1,7 @@
 node_modules
 dist
 dev-dist
-screenshots
+/screenshots
 test-results
 playwright-report
 extension/dist

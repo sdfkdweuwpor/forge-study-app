@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // `npm run shoot` — screenshots only; see scripts/shoot.spec.ts.
-// SHOOT=<feature,…> limits features; SHOOT_PHASE=<name> sets the screenshots/<phase>/ folder.
+// SHOOT=<feature or feature/shot,…> limits what is shot; SHOOT_PHASE=<name> sets the screenshots/<phase>/ folder.
 // E2E_PORT / E2E_OUT give a run its own preview server and build folder, like playwright.config.ts
 // (e.g. `E2E_PORT=4521 SHOOT=world npx playwright test --config playwright.shoot.config.ts`).
 const port = Number(process.env.E2E_PORT ?? 4173)
@@ -19,6 +19,8 @@ export default defineConfig({
     baseURL: `http://localhost:${port}`,
     timezoneId: 'America/New_York',
     locale: 'en-US',
+    // As in e2e: the PWA worker would fetch site icons past `page.route`, and a real 404 fails the shot.
+    serviceWorkers: 'block',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

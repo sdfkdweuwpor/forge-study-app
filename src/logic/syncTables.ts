@@ -89,6 +89,7 @@ export const SETTINGS_DEVICE_PATHS = [
   'blocker.lastSyncedAt',
   'blocker.eventsCursor',
   'backup.lastRemindedAt',
+  'sound.device',
 ] as const
 
 type Obj = Record<string, unknown>

@@ -85,3 +85,8 @@
     margin-left: calc(-1 * var(--space-2));
   }
 }
+
+/* The Settle region adds no box of its own: its children stay the body's children for layout. */
+.settle {
+  display: contents;
+}

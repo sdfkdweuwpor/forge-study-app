@@ -23,7 +23,6 @@ import {
   mergeRemoteSettings,
   migrateRows,
   needsRefresh,
-  needsSafetySnapshot,
   newer,
   nextPushEntries,
   noteIdenticalRow,
@@ -39,7 +38,6 @@ import {
   RATE_LIMIT_FLOOR_MS,
   RETRY_AFTER_CAP_MS,
   rowKey,
-  SAFETY_SNAPSHOT_DELETIONS,
   sameRow,
   seedDuplicates,
   splitBatch,
@@ -1192,25 +1190,6 @@ describe('advancePull', () => {
   })
 })
 
-describe('needsSafetySnapshot', () => {
-  const page = (deleted: number, live: number) => [
-    ...Array.from({ length: deleted }, () => ({ deleted: true })),
-    ...Array.from({ length: live }, () => ({ deleted: false })),
-  ]
-  it('is true from 25 tombstones in a page', () => {
-    expect(SAFETY_SNAPSHOT_DELETIONS).toBe(25)
-    expect(needsSafetySnapshot(page(24, 400))).toBe(false)
-    expect(needsSafetySnapshot(page(25, 0))).toBe(true)
-    expect(needsSafetySnapshot(page(25, 475))).toBe(true)
-    expect(needsSafetySnapshot(page(300, 0))).toBe(true)
-  })
-  it('is false for live rows however many, and when one was taken this cycle', () => {
-    expect(needsSafetySnapshot(page(0, 500))).toBe(false)
-    expect(needsSafetySnapshot([])).toBe(false)
-    expect(needsSafetySnapshot(page(40, 0), true)).toBe(false)
-  })
-})
-
 describe('migrateRows', () => {
   const NOW = 1_800_000_000_000
   it('brings a v1 task up to v2 the way an upgrade does', () => {
@@ -1375,7 +1354,7 @@ describe('seedDuplicates', () => {
         reward('r-custom', 'New keyboard'),
       ],
     }
-    expect(seedDuplicates(local, remote, STARTERS)).toEqual([{ tbl: 'rewards', id: 'r-local' }])
+    expect(seedDuplicates(local, remote, STARTERS, 11)).toEqual([{ tbl: 'rewards', id: 'r-local' }])
   })
 
   it('does not drop a reward under the very id the account has, nor a custom title', () => {
@@ -1391,7 +1370,7 @@ describe('seedDuplicates', () => {
       ...empty,
       rewards: [reward('starter-reward:1', 'Coffee out'), reward('r1', 'New keyboard')],
     }
-    expect(seedDuplicates(local, remote, STARTERS)).toEqual([])
+    expect(seedDuplicates(local, remote, STARTERS, 11)).toEqual([])
   })
 
   it('drops an untouched onboarding task the account already has, only', () => {
@@ -1415,10 +1394,11 @@ describe('seedDuplicates', () => {
         onboarding('t7', 'Add your first course', { source: 'user' }),
       ],
     }
-    expect(seedDuplicates(local, remote, STARTERS)).toEqual([{ tbl: 'tasks', id: 't1' }])
+    expect(seedDuplicates(local, remote, STARTERS, 11)).toEqual([{ tbl: 'tasks', id: 't1' }])
   })
 
   it('drops a blocklist entry the account has under another id, by kind, domain and pattern', () => {
+    const seeded = { createdAt: 100, updatedAt: 100 }
     const remote = remoteIndex([
       {
         tbl: 'blocklist',
@@ -1439,15 +1419,67 @@ describe('seedDuplicates', () => {
     const local = {
       ...empty,
       blocklist: [
-        { id: 'x-1', kind: 'block', domain: 'Instagram.com', pattern: null }, // same entry, another id
-        { id: 'b-1', kind: 'block', domain: 'instagram.com', pattern: null }, // the very same row
-        { id: 'x-2', kind: 'allow', domain: 'youtube.com', pattern: 'youtube.com/watch?v=abc' },
-        { id: 'x-3', kind: 'allow', domain: 'youtube.com', pattern: 'youtube.com/watch?v=xyz' },
-        { id: 'x-4', kind: 'block', domain: 'youtube.com', pattern: 'youtube.com/watch?v=abc' },
-        { id: 'x-5', kind: 'block', domain: 'reddit.com', pattern: null },
+        { id: 'x-1', kind: 'block', domain: 'Instagram.com', pattern: null, ...seeded }, // same entry, another id
+        { id: 'b-1', kind: 'block', domain: 'instagram.com', pattern: null, ...seeded }, // the very same row
+        {
+          id: 'x-2',
+          kind: 'allow',
+          domain: 'youtube.com',
+          pattern: 'youtube.com/watch?v=abc',
+          ...seeded,
+        },
+        {
+          id: 'x-3',
+          kind: 'allow',
+          domain: 'youtube.com',
+          pattern: 'youtube.com/watch?v=xyz',
+          ...seeded,
+        },
+        {
+          id: 'x-4',
+          kind: 'block',
+          domain: 'youtube.com',
+          pattern: 'youtube.com/watch?v=abc',
+          ...seeded,
+        },
+        { id: 'x-5', kind: 'block', domain: 'reddit.com', pattern: null, ...seeded },
       ],
     }
-    expect(seedDuplicates(local, remote, STARTERS).map((d) => d.id)).toEqual(['x-1', 'x-2'])
+    expect(seedDuplicates(local, remote, STARTERS, 11).map((d) => d.id)).toEqual(['x-1', 'x-2'])
+  })
+
+  it('keeps a blocklist entry the person changed here, even when the account has the same one', () => {
+    const remote = remoteIndex([
+      {
+        tbl: 'blocklist',
+        id: 'b-1',
+        data: { id: 'b-1', kind: 'block', domain: 'x.com', pattern: null },
+      },
+    ])
+    const local = {
+      ...empty,
+      blocklist: [
+        // Switched off a day after it was added: the person's own edit.
+        {
+          id: 'x-1',
+          kind: 'block',
+          domain: 'x.com',
+          pattern: null,
+          createdAt: 100,
+          updatedAt: 86_400_100,
+        },
+        // Seeded with its `createdAt` spread by a few ms, never touched: a seed duplicate.
+        {
+          id: 'x-2',
+          kind: 'block',
+          domain: 'x.com',
+          pattern: null,
+          createdAt: 107,
+          updatedAt: 100,
+        },
+      ],
+    }
+    expect(seedDuplicates(local, remote, STARTERS, 11).map((d) => d.id)).toEqual(['x-2'])
   })
 
   it('ignores tombstones and other tables when indexing, and finds nothing without an account', () => {
@@ -1457,8 +1489,8 @@ describe('seedDuplicates', () => {
     ])
     expect(index.rewardTitles.size).toBe(0)
     const local = { ...empty, rewards: [reward('r-local', 'Coffee out')] }
-    expect(seedDuplicates(local, index, STARTERS)).toEqual([])
-    expect(seedDuplicates(local, emptySeedIndex(), STARTERS)).toEqual([])
+    expect(seedDuplicates(local, index, STARTERS, 11)).toEqual([])
+    expect(seedDuplicates(local, emptySeedIndex(), STARTERS, 11)).toEqual([])
     indexRemoteSeedRow(index, { tbl: 'rewards', id: 'r1', deleted: false, data: null })
     expect(blockSignature('block', ' Reddit.com ', null)).toBe('block|reddit.com|')
   })

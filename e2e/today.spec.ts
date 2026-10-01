@@ -214,6 +214,9 @@ test.describe('Today', () => {
     await gotoApp(page, '/', 'wgu')
     await expect(nowTitle(page)).toHaveText(NOW_TITLE)
     const skip = nowCard(page).getByRole('button', { name: 'Skip' })
+    // The loop reads `count()` once per turn, so the card must be on screen first (the page shows its
+    // parts together, and a role locator does not see them before that).
+    await expect(skip).toBeVisible()
     for (let i = 0; i < 12 && (await skip.count()) > 0; i++) {
       const was = await nowTitle(page).innerText()
       await skip.click()

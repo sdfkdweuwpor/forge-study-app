@@ -5,7 +5,8 @@
  *  - the Trash keeps a deleted item for 30 *calendar* days. The expiry is the same local clock time 30
  *    days later and "Deletes in N days" counts calendar days, so a DST change (a 23 h or 25 h day) can
  *    never make an item live 29 or 31 days, or make the label skip a number;
- *  - snapshots are pruned per kind: the newest 7 automatic ones, the newest 5 of every other kind.
+ *  - snapshots are pruned per kind: the newest 7 automatic ones, the newest 5 of every other kind, and
+ *    the oldest `pre-sync` one is never pruned.
  */
 import type { ISODate, Millis, SnapshotReason } from '@/db/types'
 import { dayOf, diffDays } from './dates'
@@ -92,7 +93,10 @@ export interface SnapshotStub {
   createdAt: Millis
 }
 
-/** The ids to delete so each kind keeps only its newest `keep[kind]` snapshots (newest first; ties by id). */
+/**
+ * The ids to delete so each kind keeps only its newest `keep[kind]` snapshots (newest first; ties by id),
+ * plus, for `pre-sync`, always its oldest one.
+ */
 export function snapshotsToPrune(
   snapshots: readonly SnapshotStub[],
   keep: Readonly<Record<SnapshotReason, number>> = SNAPSHOT_KEEP,
@@ -108,7 +112,10 @@ export function snapshotsToPrune(
     list.sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     // A kind this build does not know (a newer build's) is kept whole: pruning must never delete what it cannot judge.
     const limit = Math.max(0, keep[reason] ?? Infinity)
-    for (const s of list.slice(limit)) doomed.push(s.id)
+    // The oldest `pre-sync` is the data as it was before sync first touched it: later safety snapshots and
+    // re-enables must not push it out.
+    const pinned = reason === 'pre-sync' ? list[list.length - 1] : undefined
+    for (const s of list.slice(limit)) if (s !== pinned) doomed.push(s.id)
   }
   return doomed
 }

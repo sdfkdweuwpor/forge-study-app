@@ -693,26 +693,9 @@ export function advancePull(
   }
 }
 
-/** Tombstones in a page at which the device takes a `pre-sync` snapshot before applying it. */
+/** Rows a cycle's pull deletes here at which the device takes a `pre-sync` snapshot first (an import, a
+ * snapshot restore or a big delete elsewhere). Counted over the whole cycle, not per page. */
 export const SAFETY_SNAPSHOT_DELETIONS = 25
-
-/**
- * Whether to write a safety snapshot before applying `page`: it holds 25 or more tombstones (an import,
- * a snapshot restore or a big delete elsewhere) and none was taken this cycle. Pass only the rows that
- * would delete something here to be exact; passing the whole page is the cautious reading.
- */
-export function needsSafetySnapshot(
-  page: readonly { deleted: boolean }[],
-  alreadyTaken = false,
-): boolean {
-  if (alreadyTaken) return false
-  let deletions = 0
-  for (const row of page) {
-    if (row.deleted) deletions += 1
-    if (deletions >= SAFETY_SNAPSHOT_DELETIONS) return true
-  }
-  return false
-}
 
 /**
  * Rows written at schema version `from` as rows of version `to`, one table at a time, with the backup
@@ -853,7 +836,14 @@ export interface LocalSeedRows {
     createdAt: Millis
     updatedAt: Millis
   }[]
-  blocklist: readonly { id: string; kind: string; domain: string; pattern: string | null }[]
+  blocklist: readonly {
+    id: string
+    kind: string
+    domain: string
+    pattern: string | null
+    createdAt: Millis
+    updatedAt: Millis
+  }[]
 }
 
 /**
@@ -863,13 +853,16 @@ export interface LocalSeedRows {
  *    account has a reward of that title;
  *  - an untouched onboarding starter task (`source: 'onboarding'`, `todo`, `updatedAt === createdAt`)
  *    when the account has an onboarding task of that title;
- *  - a blocklist entry whose `(kind, domain, pattern)` the account already has.
+ *  - an untouched blocklist entry (`updatedAt` fewer than `defaultSiteCount` ms from `createdAt`, the
+ *    rule of `accountWinsOverSeed`) whose `(kind, domain, pattern)` the account already has. One the
+ *    person switched off or edited here is theirs, and stays (a duplicate beats a lost edit).
  * The caller also drops these keys' outbox entries.
  */
 export function seedDuplicates(
   local: LocalSeedRows,
   remote: RemoteSeedIndex,
   starterRewardTitles: ReadonlySet<string>,
+  defaultSiteCount: number,
 ): { tbl: 'rewards' | 'tasks' | 'blocklist'; id: string }[] {
   const otherThan = (ids: ReadonlySet<string> | undefined, id: string): boolean =>
     ids !== undefined && [...ids].some((other) => other !== id)
@@ -894,7 +887,10 @@ export function seedDuplicates(
     }
   }
   for (const b of local.blocklist) {
-    if (otherThan(remote.blocklist.get(blockSignature(b.kind, b.domain, b.pattern)), b.id)) {
+    if (
+      Math.abs(b.updatedAt - b.createdAt) < defaultSiteCount &&
+      otherThan(remote.blocklist.get(blockSignature(b.kind, b.domain, b.pattern)), b.id)
+    ) {
       out.push({ tbl: 'blocklist', id: b.id })
     }
   }

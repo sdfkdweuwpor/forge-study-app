@@ -598,11 +598,11 @@ test.describe('the first sync (1440)', () => {
       .toEqual(mine)
     // The account's settings came along: this device does not greet a returning person with the tour.
     await expect(second.page).not.toHaveURL(/\/welcome/)
-    // An empty device had nothing to protect, so it took no snapshot.
+    // Every first sync saves the device as it was, even a nearly empty one (it is small).
     await second.page.goto('/settings/snapshots')
     await expect(
       second.page.getByRole('region', { name: 'Snapshots', exact: true }),
-    ).not.toContainText('Before sync')
+    ).toContainText('Before sync')
   })
 })
 

@@ -14,7 +14,8 @@ import { expect, gotoApp, test } from './fixtures'
  */
 
 /** 1 on an idle machine, up to 4 when every core has several runnable processes queued. */
-const busyFactor = (): number => Math.min(4, Math.max(1, (loadavg()[0] ?? 0) / Math.max(1, cpus().length)))
+const busyFactor = (): number =>
+  Math.min(4, Math.max(1, (loadavg()[0] ?? 0) / Math.max(1, cpus().length)))
 
 const openRow = (page: Page) =>
   page.locator('main input[type="checkbox"][aria-label^="Done: "]:not(:checked)').first()
@@ -57,9 +58,45 @@ function clickToPaint(page: Page): Promise<number> {
   )
 }
 
+/**
+ * Resolves once a completion is over: its toast offers Undo and no row is still in its motion (struck,
+ * then leaving). Watched from inside the page, so the wait itself adds almost no work to what is being
+ * measured (a role locator polled from the test walks the whole accessibility tree of a year-long list
+ * each time, which was most of the CPU this test used to count).
+ */
+const completionOver = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const over = () =>
+          Array.from(document.querySelectorAll('[aria-label="Notifications"] button')).some(
+            (b) => b.textContent?.trim() === 'Undo',
+          ) && document.querySelector('main [data-phase]') === null
+        if (over()) {
+          resolve()
+          return
+        }
+        const watch = new MutationObserver(() => {
+          if (!over()) return
+          watch.disconnect()
+          resolve()
+        })
+        watch.observe(document.body, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: ['data-phase'],
+        })
+      }),
+  )
+
 const best = (xs: readonly number[]): number => Math.min(...xs)
 const median = (xs: readonly number[]): number =>
   [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0
+
+// Recording a trace snapshots the whole DOM at every step, in the page's own main thread: with a
+// year-long list that is hundreds of milliseconds of CPU these budgets would count as the app's.
+test.use({ trace: 'off' })
 
 test.describe('performance with a year of study on one goal', () => {
   test.describe.configure({ timeout: 240_000 })
@@ -104,8 +141,7 @@ test.describe('performance with a year of study on one goal', () => {
         const c0 = await cpu()
         shown.push(await clickToPaint(page))
         // The write lands and offers Undo, the row is struck through and leaves (about 1.2 s in all).
-        await expect(page.getByRole('button', { name: 'Undo' }).first()).toBeVisible()
-        await page.waitForTimeout(1500)
+        await completionOver(page)
         cycle.push((await cpu()) - c0)
       }
       // Typically 10–25 ms from the click to the painted check (before: 120–140 ms on All tasks), and

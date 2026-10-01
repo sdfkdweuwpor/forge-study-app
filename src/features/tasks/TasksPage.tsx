@@ -85,6 +85,7 @@ import { CalendarSkeleton } from './views/CalendarStates'
 import { CalendarView } from './views/CalendarView'
 import { LayoutSwitch, rememberLayout, useLayoutPrefs } from './views/LayoutSwitch'
 import { useViewShortcuts } from './views/useViewShortcuts'
+import { Settle } from '@/ui/Settle'
 import styles from './TasksPage.module.css'
 
 const DESCRIPTIONS: Record<TaskListId, string> = {
@@ -521,77 +522,86 @@ function TasksBody({ list, saved }: TasksBodyProps) {
         </div>
       </header>
 
-      {!saved && (list === 'inbox' || list === 'upcoming') ? <AutoSlotSuggestions /> : null}
+      {/* Suggestions, filters and rows appear together, so none of them pushes the others down later. */}
+      <Settle
+        className={styles.settle}
+        // The filter bar's course and tag menus change its wrapping, so they count too.
+        loading={
+          tasks === undefined || total === undefined || projects === undefined || tags === undefined
+        }
+      >
+        {!saved && (list === 'inbox' || list === 'upcoming') ? <AutoSlotSuggestions /> : null}
 
-      {total === undefined || total > 0 ? (
-        <FilterBar
-          list={list}
-          view={view}
-          onChange={setView}
-          courses={projects?.courses ?? []}
-          tags={tags ?? []}
-          leading={layoutSwitch}
-          trailing={trailing}
-          showGroup={layout === 'list'}
-          showSort={layout !== 'calendar'}
-        />
-      ) : null}
+        {total === undefined || total > 0 ? (
+          <FilterBar
+            list={list}
+            view={view}
+            onChange={setView}
+            courses={projects?.courses ?? []}
+            tags={tags ?? []}
+            leading={layoutSwitch}
+            trailing={trailing}
+            showGroup={layout === 'list'}
+            showSort={layout !== 'calendar'}
+          />
+        ) : null}
 
-      {tasks === undefined || total === undefined ? (
-        layout === 'board' ? (
-          <BoardSkeleton />
-        ) : layout === 'calendar' ? (
-          <CalendarSkeleton days={dayCount} />
-        ) : (
-          <ListSkeleton />
-        )
-      ) : total === 0 ? (
-        <ListEmpty list={list} />
-      ) : layout === 'board' && board ? (
-        boardHidden ? (
+        {tasks === undefined || total === undefined ? (
+          layout === 'board' ? (
+            <BoardSkeleton />
+          ) : layout === 'calendar' ? (
+            <CalendarSkeleton days={dayCount} />
+          ) : (
+            <ListSkeleton />
+          )
+        ) : total === 0 ? (
+          <ListEmpty list={list} />
+        ) : layout === 'board' && board ? (
+          boardHidden ? (
+            <ListFilteredEmpty onClear={() => setView(clearFilters(view))} />
+          ) : (
+            <BoardView
+              model={board}
+              reorderable={boardReorder}
+              selectedId={selected}
+              revealSelected={byKeyboard}
+              onSelect={select}
+              onMove={moveCard}
+            />
+          )
+        ) : layout === 'calendar' && calendar ? (
+          filtered && calendar.tasks.length === 0 ? (
+            <ListFilteredEmpty onClear={() => setView(clearFilters(view))} />
+          ) : (
+            <CalendarView
+              tasks={calendar.tasks}
+              days={days}
+              today={today}
+              selectedId={selected}
+              revealSelected={byKeyboard}
+              onSelect={select}
+              onReschedule={reschedule}
+              onResize={resize}
+              onShift={(direction) => setQuery({ date: shiftAnchor(anchor, dayCount, direction) })}
+              onToday={() => setQuery({ date: undefined })}
+            />
+          )
+        ) : result === undefined ? null : result.groups.length === 0 ? (
           <ListFilteredEmpty onClear={() => setView(clearFilters(view))} />
         ) : (
-          <BoardView
-            model={board}
-            reorderable={boardReorder}
+          <TaskList
+            key={saved ? `view:${saved.id}` : list}
+            groups={result.groups}
+            reorderable={reorderable}
             selectedId={selected}
-            revealSelected={byKeyboard}
             onSelect={select}
-            onMove={moveCard}
-          />
-        )
-      ) : layout === 'calendar' && calendar ? (
-        filtered && calendar.tasks.length === 0 ? (
-          <ListFilteredEmpty onClear={() => setView(clearFilters(view))} />
-        ) : (
-          <CalendarView
-            tasks={calendar.tasks}
-            days={days}
-            today={today}
-            selectedId={selected}
+            onReorder={reorder}
+            xpByTask={xpByTask}
             revealSelected={byKeyboard}
-            onSelect={select}
-            onReschedule={reschedule}
-            onResize={resize}
-            onShift={(direction) => setQuery({ date: shiftAnchor(anchor, dayCount, direction) })}
-            onToday={() => setQuery({ date: undefined })}
+            showCourse={view.groupBy !== 'project'}
           />
-        )
-      ) : result === undefined ? null : result.groups.length === 0 ? (
-        <ListFilteredEmpty onClear={() => setView(clearFilters(view))} />
-      ) : (
-        <TaskList
-          key={saved ? `view:${saved.id}` : list}
-          groups={result.groups}
-          reorderable={reorderable}
-          selectedId={selected}
-          onSelect={select}
-          onReorder={reorder}
-          xpByTask={xpByTask}
-          revealSelected={byKeyboard}
-          showCourse={view.groupBy !== 'project'}
-        />
-      )}
+        )}
+      </Settle>
 
       {peekId && peekFits ? (
         <TaskPeek key="peek" taskId={peekId} onClose={closePeek} focusTagsNonce={tagsNonce} />

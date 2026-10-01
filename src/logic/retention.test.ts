@@ -150,13 +150,24 @@ describe('snapshotsToPrune', () => {
     expect(doomed.sort()).toEqual(['d0', 'd1', 'd2', 'i0', 'm0', 'm1'])
   })
 
-  it('keeps the 5 newest snapshots taken before a sync, beside the other kinds', () => {
+  it('keeps the 5 newest snapshots taken before a sync and the oldest one, beside the other kinds', () => {
     const rows: SnapshotStub[] = [
       ...Array.from({ length: 7 }, (_, i) => stub(`s${i}`, 'pre-sync', 6000 + i)),
       ...Array.from({ length: 7 }, (_, i) => stub(`d${i}`, 'daily', 100 + i)),
       stub('x0', 'pre-reset', 50),
     ]
-    expect(snapshotsToPrune(rows).sort()).toEqual(['s0', 's1'])
+    expect(snapshotsToPrune(rows).sort()).toEqual(['s1'])
+  })
+
+  it('never prunes the oldest snapshot taken before a sync: the data as it was before sync touched it', () => {
+    // A first sync, then safety snapshots before big pulls and re-enables: the first one stays.
+    const rows = Array.from({ length: 12 }, (_, i) => stub(`s${i}`, 'pre-sync', 6000 + i))
+    const doomed = snapshotsToPrune(rows)
+    expect(doomed).not.toContain('s0')
+    expect(doomed.sort()).toEqual(['s1', 's2', 's3', 's4', 's5', 's6'])
+    // Other kinds keep only their newest.
+    const manual = Array.from({ length: 6 }, (_, i) => stub(`m${i}`, 'manual', i))
+    expect(snapshotsToPrune(manual)).toEqual(['m0'])
   })
 
   it('does not let one kind push another out', () => {

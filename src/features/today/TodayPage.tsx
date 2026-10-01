@@ -18,6 +18,7 @@ import type { ID, Task } from '@/db/types'
 import { groupToday, oneListToday, pickNow } from '@/logic/today'
 import { greeting, carriedFromText } from '@/logic/todayStats'
 import { SegmentedControl } from '@/ui/SegmentedControl'
+import { Settle } from '@/ui/Settle'
 import { useToast } from '@/ui/Toast'
 import {
   AutoSlotSuggestions,
@@ -228,98 +229,107 @@ function TodayScreen() {
   return (
     <>
       <Greeting />
-      {headerCount > 0 ? (
-        <div className={styles.stats}>
-          <Slot id="today.header" />
-        </div>
-      ) : null}
+      {/* The header cards and the lists appear together: a card that arrived late would push the rows
+          down under a finger that is already on its way to one. */}
+      <Settle loading={data === undefined}>
+        {headerCount > 0 ? (
+          <div className={styles.stats}>
+            <Slot id="today.header" />
+          </div>
+        ) : null}
 
-      <div className={styles.layout}>
-        <div className={styles.main}>
-          {data === undefined ? (
-            <TodaySkeleton />
-          ) : (
-            <>
-              <NowCard
-                task={data.now}
-                motion={data.now ? motion.get(data.now.id) : undefined}
-                course={data.now?.milestoneId ? courses?.get(data.now.milestoneId) : undefined}
-                completedToday={completedToday.length}
-              />
-              <AutoSlotSuggestions />
-              {fromGoals.length + yours.length > 0 || data.carriedOver.length > 0 ? (
-                <div className={styles.toolbar}>
-                  <SegmentedControl
-                    label="Today’s layout"
-                    size="sm"
-                    value={layout}
-                    onValueChange={setLayout}
-                    options={[
-                      { value: 'one', label: 'One list' },
-                      { value: 'grouped', label: 'Grouped' },
-                    ]}
-                  />
-                </div>
-              ) : null}
-              {layout === 'one' ? (
-                data.oneList.length > 0 ? (
-                  <TaskGroup
-                    id="today"
-                    label="Today"
-                    items={items(data.oneList)}
-                    showTime
-                    today={today}
-                    {...listProps}
-                  />
-                ) : null
-              ) : (
-                <>
-                  {fromGoals.length > 0 ? (
+        <div className={styles.layout}>
+          <div className={styles.main}>
+            {data === undefined ? (
+              <TodaySkeleton />
+            ) : (
+              <>
+                <NowCard
+                  task={data.now}
+                  motion={data.now ? motion.get(data.now.id) : undefined}
+                  course={data.now?.milestoneId ? courses?.get(data.now.milestoneId) : undefined}
+                  completedToday={completedToday.length}
+                />
+                <AutoSlotSuggestions />
+                {fromGoals.length + yours.length > 0 || data.carriedOver.length > 0 ? (
+                  <div className={styles.toolbar}>
+                    <SegmentedControl
+                      label="Today’s layout"
+                      size="sm"
+                      value={layout}
+                      onValueChange={setLayout}
+                      options={[
+                        { value: 'one', label: 'One list' },
+                        { value: 'grouped', label: 'Grouped' },
+                      ]}
+                    />
+                  </div>
+                ) : null}
+                {layout === 'one' ? (
+                  data.oneList.length > 0 ? (
                     <TaskGroup
-                      id="fromGoals"
-                      label="From your goals"
-                      items={items(fromGoals)}
+                      id="today"
+                      label="Today"
+                      items={items(data.oneList)}
+                      showTime
+                      today={today}
                       {...listProps}
                     />
-                  ) : null}
-                  {yours.length > 0 ? (
-                    <TaskGroup id="yours" label="Your tasks" items={items(yours)} {...listProps} />
-                  ) : null}
-                </>
-              )}
-              {data.carriedOver.length > 0 ? (
-                <CarriedOverGroup
-                  items={data.carriedOver}
-                  open={carriedOpen}
-                  onOpenChange={setCarriedOpen}
-                  onMoveAll={() => void moveAllToToday()}
-                  {...listProps}
-                />
-              ) : null}
-              {completedToday.length > 0 ? (
-                <CompletedGroup
-                  tasks={completedToday}
-                  xpByTask={xpByTask}
-                  open={completedOpen}
-                  onOpenChange={setCompletedOpen}
-                  {...listProps}
-                />
-              ) : null}
-              {mainCount > 0 ? (
-                <div className={styles.extra}>
-                  <Slot id="today.main" />
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
+                  ) : null
+                ) : (
+                  <>
+                    {fromGoals.length > 0 ? (
+                      <TaskGroup
+                        id="fromGoals"
+                        label="From your goals"
+                        items={items(fromGoals)}
+                        {...listProps}
+                      />
+                    ) : null}
+                    {yours.length > 0 ? (
+                      <TaskGroup
+                        id="yours"
+                        label="Your tasks"
+                        items={items(yours)}
+                        {...listProps}
+                      />
+                    ) : null}
+                  </>
+                )}
+                {data.carriedOver.length > 0 ? (
+                  <CarriedOverGroup
+                    items={data.carriedOver}
+                    open={carriedOpen}
+                    onOpenChange={setCarriedOpen}
+                    onMoveAll={() => void moveAllToToday()}
+                    {...listProps}
+                  />
+                ) : null}
+                {completedToday.length > 0 ? (
+                  <CompletedGroup
+                    tasks={completedToday}
+                    xpByTask={xpByTask}
+                    open={completedOpen}
+                    onOpenChange={setCompletedOpen}
+                    {...listProps}
+                  />
+                ) : null}
+                {mainCount > 0 ? (
+                  <div className={styles.extra}>
+                    <Slot id="today.main" />
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
 
-        {asideCount > 0 ? (
-          <aside className={styles.aside} aria-label="Targets and activity">
-            <Slot id="today.aside" />
-          </aside>
-        ) : null}
-      </div>
+          {asideCount > 0 ? (
+            <aside className={styles.aside} aria-label="Targets and activity">
+              <Slot id="today.aside" />
+            </aside>
+          ) : null}
+        </div>
+      </Settle>
     </>
   )
 }

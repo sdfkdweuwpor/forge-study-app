@@ -7,6 +7,7 @@
 import type { Millis, SyncError, SyncErrorKind, Task } from '@/db/types'
 import { decideLevelCelebration } from './xp'
 import { isPlanTask } from './scheduler'
+import { TRASH_DAYS } from './retention'
 import { filesInTrash } from './snapshotJson'
 import type { SyncTableName } from './syncTables'
 
@@ -48,16 +49,41 @@ export function keepLocalTrashBlobs(local: unknown, remote: Obj): Obj {
 }
 
 /**
- * The attached files whose real bytes sit in a trash row that is about to be deleted here, and that a
- * resource still points at (`referenced`: the file ids of this device's resources, the restored one
- * included). The apply writes them back into `files`, so a Restore on another device never costs this one
- * its PDF (the `filesInTrash` rule). A file nothing points at is gone for good, as after "Delete forever".
+ * The attached files whose real bytes sit in a trash row that a pull is about to delete here: the apply
+ * writes them back into `files`. A Restore on another device brings the resource back, but its row can
+ * arrive on a later page or in a later cycle than the tombstone (edited after the restore, or held back
+ * by the server), and this may be the only device with the bytes, so they are kept whether or not a
+ * resource points at them yet. A row past its `expiresAt` is being purged, not restored: nothing is kept,
+ * as when this device purges it. What nobody claims is removed later (`rescuedFilesToDrop`).
  */
-export function trashFilesToRescue(
-  trashRow: unknown,
+export function trashFilesToRescue(trashRow: unknown, now: Millis): Record<string, unknown>[] {
+  if (isObj(trashRow) && typeof trashRow.expiresAt === 'number' && trashRow.expiresAt <= now)
+    return []
+  return filesInTrash([trashRow]).filter((f) => typeof f.id === 'string')
+}
+
+/** How long bytes kept from a deleted trash row wait for a resource to claim them: the Trash's own 30 days. */
+export const RESCUED_FILE_KEEP_MS = TRASH_DAYS * 24 * 60 * 60_000
+
+/**
+ * The files kept by `trashFilesToRescue` that nothing claimed within `RESCUED_FILE_KEEP_MS`: the Trash
+ * entry was deleted for good on another device. A kept file is written with `updatedAt` = when it was
+ * kept (a stored file is never edited, so `updatedAt > createdAt` marks one); `referenced` holds every
+ * file id a resource points at, here or inside a Trash entry.
+ */
+export function rescuedFilesToDrop(
+  files: readonly { id: string; createdAt: Millis; updatedAt: Millis }[],
   referenced: ReadonlySet<string>,
-): Record<string, unknown>[] {
-  return filesInTrash([trashRow]).filter((f) => typeof f.id === 'string' && referenced.has(f.id))
+  now: Millis,
+): string[] {
+  return files
+    .filter(
+      (f) =>
+        f.updatedAt > f.createdAt &&
+        now - f.updatedAt >= RESCUED_FILE_KEEP_MS &&
+        !referenced.has(f.id),
+    )
+    .map((f) => f.id)
 }
 
 // ─── Plan tasks ─────────────────────────────────────────────────────────────
@@ -141,12 +167,24 @@ export function accountWinsOverSeed(
 /**
  * Whether a failed push says "this content is refused" rather than "try later": a 4xx other than
  * sign-in (401), access rules (403), timeout (408), size (413, which halves the batch) and rate limits
- * (429). Such a batch is split to find the record the server will not take, and that record is skipped
- * and reported, so one bad row can never wedge the queue.
+ * (429), that carries a PostgreSQL code of a row breaking a rule: cardinality (21, one key twice), data
+ * (22, a value the column cannot take), integrity (23, a constraint) or a program limit (54). Such a batch
+ * is split to find the record the server will not take, and that record is skipped and reported, so one
+ * bad row can never wedge the queue. A 4xx without such a code (a proxy, a schema-cache reload, a missing
+ * column) says nothing about one row, so it fails the cycle and everything stays queued.
  */
-export function isRowRejection(kind: SyncErrorKind, status: number | null): boolean {
-  if (kind !== 'server' || status === null) return false
-  return status >= 400 && status < 500 && ![401, 403, 408, 413, 429].includes(status)
+export function isRowRejection(
+  kind: SyncErrorKind,
+  status: number | null,
+  code: string | null = null,
+): boolean {
+  if (kind !== 'server' || status === null || code === null) return false
+  return (
+    status >= 400 &&
+    status < 500 &&
+    ![401, 403, 408, 413, 429].includes(status) &&
+    /^(21|22|23|54)[0-9A-Z]{3}$/.test(code)
+  )
 }
 
 // ─── Words ──────────────────────────────────────────────────────────────────

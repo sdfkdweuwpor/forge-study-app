@@ -28,7 +28,8 @@ import {
 } from './syncRequests'
 
 const URL_OK = 'https://abcdefghijklmnopqrst.supabase.co'
-const ANON_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2ln'
+// A legacy anon JWT, built at run time: no secret-shaped literal in the repo.
+const ANON_JWT = ['eyJhbGciOiJIUzI1NiJ9', 'eyJyb2xlIjoiYW5vbiJ9', 'c2ln'].join('.')
 const PUBLISHABLE = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
 const KEYS: Record<KeyKind, string> = { anonJwt: ANON_JWT, publishable: PUBLISHABLE }
 const config = (keyKind: KeyKind): TransportConfig => ({

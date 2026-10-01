@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applySeed } from '@/dev/seed'
 import { db } from '@/db/db'
+import { SCHEMA_VERSION } from '@/db/schema'
 import { defaultSyncState } from '@/db/defaults'
 import { onDomainEvent, resetDomainEvents, settleDomainEvents, type DomainEvent } from '@/db/events'
 import { exportBackup, importBackup, resetAllData } from '@/db/repos/backup'
@@ -648,25 +649,6 @@ describe('the Trash and attached PDFs', () => {
     expect(file?.blob.size).toBe(pdf().size)
     expect(await pendingChangeCount()).toBe(0)
   })
-
-  it('a Trash entry purged on one device is gone from the other, and its PDF with it', async () => {
-    let ids = { resourceId: '', fileId: '' }
-    await twoSyncedDevices(async () => {
-      ids = await withPdf()
-    })
-    const deleted = await deleteResource(ids.resourceId)
-    await syncOk()
-    await devices.switchTo('B')
-    await syncOk()
-    expect(await purgeTrashItem(deleted?.trashId ?? '')).toBe(true)
-    await syncOk()
-    await devices.switchTo('A')
-    await syncOk()
-    expect(await db.trash.count()).toBe(0)
-    expect(await db.resources.get(ids.resourceId)).toBeUndefined()
-    // Nothing points at the file any more: it is gone for good, as after "Delete forever".
-    expect(await db.files.get(ids.fileId)).toBeUndefined()
-  })
 })
 
 // ─── Import, restore, reset ─────────────────────────────────────────────────
@@ -718,10 +700,11 @@ describe('replacing and erasing data', () => {
     await restoreSnapshot(snapshotId, { now: Date.now(), appVersion: 'test' })
     await syncOk()
     await devices.switchTo('B')
+    const before = await db.snapshots.where('reason').equals('pre-sync').count()
     await syncOk()
     expect(await titles()).toEqual(['C779 unit 1'])
     // B took its own safety snapshot before the 30 deletions arrived.
-    expect(await db.snapshots.where('reason').equals('pre-sync').count()).toBe(1)
+    expect(await db.snapshots.where('reason').equals('pre-sync').count()).toBe(before + 1)
   })
 
   it('fewer than 25 deletions take no snapshot', async () => {
@@ -731,9 +714,10 @@ describe('replacing and erasing data', () => {
     await db.tasks.clear()
     await syncOk()
     await devices.switchTo('B')
+    const before = await db.snapshots.where('reason').equals('pre-sync').count()
     await syncOk()
     expect(await db.tasks.count()).toBe(0)
-    expect(await db.snapshots.where('reason').equals('pre-sync').count()).toBe(0)
+    expect(await db.snapshots.where('reason').equals('pre-sync').count()).toBe(before)
   })
 
   it('a reset on one device leaves the other device and the cloud untouched', async () => {
@@ -1768,5 +1752,196 @@ describe('serverError and friends', () => {
     expect(failed).toMatchObject({ error: { kind: 'server' }, httpStatus: 503 })
     expect((await getSyncState())?.lastError?.kind).toBe('server')
     expect(await pendingChangeCount()).toBe(1)
+  })
+})
+
+// ─── Review fixes (2026-10-01) ──────────────────────────────────────────────
+
+describe('review fixes: data safety', () => {
+  const preSync = () => db.snapshots.where('reason').equals('pre-sync').toArray()
+
+  it('a first sync snapshots a device whose data is only rewards and settings', async () => {
+    await ensureSettings()
+    await db.rewards.put({
+      id: 'reward-own',
+      createdAt: 1,
+      updatedAt: 1,
+      title: 'Movie night',
+      icon: '🎬',
+      price: 900,
+      description: '',
+      archived: false,
+      order: 0,
+    })
+    await enable()
+    await syncOk()
+    const snaps = await preSync()
+    expect(snaps).toHaveLength(1)
+    expect(snaps[0]?.counts?.rewards).toBe(1)
+  })
+
+  it('tombstones spread thinly over several pages still take a safety snapshot once they reach 25', async () => {
+    const ids: string[] = []
+    await twoSyncedDevices(async () => {
+      for (let i = 0; i < 30; i++) ids.push((await createTask({ title: `C182 drill ${i + 1}` })).id)
+    })
+    await devices.switchTo('B')
+    expect(await db.tasks.count()).toBe(30)
+    const before = (await preSync()).length
+    // Another device: 20 new tasks around each deletion, so no page of 500 holds 25 tombstones.
+    const template = (await db.tasks.get(ids[0] ?? ''))!
+    const at = Date.now() + 60_000
+    const rows: PushRow[] = []
+    ids.forEach((id, i) => {
+      for (let j = 0; j < 20; j++) {
+        const nid = `import-${i}-${j}`
+        rows.push({
+          tbl: 'tasks',
+          id: nid,
+          updatedAt: at,
+          deviceId: 'device-elsewhere',
+          deleted: false,
+          schemaVersion: SCHEMA_VERSION,
+          data: { ...template, id: nid, title: `Imported ${i}-${j}`, updatedAt: at },
+        })
+      }
+      rows.push({
+        tbl: 'tasks',
+        id,
+        updatedAt: at,
+        deviceId: 'device-elsewhere',
+        deleted: true,
+        schemaVersion: SCHEMA_VERSION,
+        data: null,
+      })
+    })
+    cloud.inject(rows)
+    await syncOk()
+    expect(await db.tasks.get(ids[29] ?? '')).toBeUndefined()
+    const after = await preSync()
+    expect(after.length).toBe(before + 1)
+    // Taken before the page that crossed 25: every one of the 30 old tasks is in it.
+    const newest = after.sort((a, b) => b.createdAt - a.createdAt)[0]
+    expect(newest?.counts?.tasks).toBeGreaterThanOrEqual(30)
+  })
+
+  it('a restarted first sync still takes a safety snapshot before a big deletion', async () => {
+    const ids: string[] = []
+    await ensureSettings()
+    for (let i = 0; i < 30; i++) ids.push((await createTask({ title: `D278 set ${i + 1}` })).id)
+    await enable()
+    await syncOk()
+    // B has data of its own; its first sync pulls A's rows, then the push fails.
+    await devices.switchTo('B')
+    await ensureSettings()
+    await createTask({ title: 'B only' })
+    await enable()
+    cloud.failNext(1, offlineError(), 'push')
+    await syncError()
+    expect(await db.tasks.count()).toBe(31)
+    expect(await preSync()).toHaveLength(1)
+    // Meanwhile A deletes all 30.
+    await devices.switchTo('A')
+    await db.tasks.bulkDelete(ids)
+    await syncOk()
+    await devices.switchTo('B')
+    await syncOk()
+    await steady()
+    expect(await titles()).toEqual(['B only'])
+    // The restart takes no second "before sync" snapshot, but the 30 deletions still take a safety one.
+    expect(await preSync()).toHaveLength(2)
+  })
+
+  it('signing in to another account does not push the first account’s queued changes into it', async () => {
+    await ensureSettings()
+    const doomed = await createTask({ title: 'C182 unit 1' })
+    await enable()
+    await syncOk()
+    // Queued for account A and never pushed: a delete and an edit.
+    await db.tasks.delete(doomed.id)
+    await createTask({ title: 'C182 unit 2' })
+    await markSignedOut(Date.now())
+    const other = cloud.forAccount('another-account-id')
+    // Account B happens to hold a row under the same id.
+    other.inject([
+      {
+        tbl: 'tasks',
+        id: doomed.id,
+        updatedAt: 1,
+        deviceId: 'device-b',
+        deleted: false,
+        schemaVersion: SCHEMA_VERSION,
+        data: { ...doomed, title: 'B account task' },
+      },
+    ])
+    await startSync(session({ userId: 'another-account-id', email: 'ben@example.com' }))
+    expect(await pendingChangeCount()).toBe(0)
+    const result = await cycle({}, other)
+    expect(result.status).toBe('ok')
+    expect(other.row('tasks', doomed.id)?.deleted).toBe(false)
+    // What the device has is still merged into B (the first sync queues it again).
+    expect(other.rows().some((r) => r.tbl === 'tasks' && !r.deleted && r.id !== doomed.id)).toBe(
+      true,
+    )
+  })
+})
+
+describe('review fixes: PDF bytes in the Trash', () => {
+  const pdf = () => new Blob(['%PDF-1.7 C182 study guide'], { type: 'application/pdf' })
+
+  async function trashedOnA(): Promise<{ resourceId: string; fileId: string; trashId: string }> {
+    let ids = { resourceId: '', fileId: '' }
+    await twoSyncedDevices(async () => {
+      await applySeed('wgu')
+      const { resource, file } = await createPdfResource('course-c182', {
+        blob: pdf(),
+        name: 'C182 study guide.pdf',
+      })
+      ids = { resourceId: resource.id, fileId: file.id }
+    })
+    const deleted = await deleteResource(ids.resourceId)
+    await syncOk()
+    return { ...ids, trashId: deleted?.trashId ?? '' }
+  }
+
+  it('a restore elsewhere whose resource arrives after the Trash tombstone keeps the bytes here', async () => {
+    const { resourceId, fileId, trashId } = await trashedOnA()
+    const entry = await db.trash.get(trashId)
+    const resource = (entry?.payload.resources ?? [])[0] as { id: string }
+    const at = Date.now() + 60_000
+    const base = { deviceId: 'device-b', schemaVersion: SCHEMA_VERSION }
+    // The Trash tombstone lands first (the resource was edited after the restore, or held back).
+    cloud.inject([{ ...base, tbl: 'trash', id: trashId, updatedAt: at, deleted: true, data: null }])
+    await syncOk()
+    expect(await db.trash.get(trashId)).toBeUndefined()
+    cloud.inject([
+      {
+        ...base,
+        tbl: 'resources',
+        id: resourceId,
+        updatedAt: at + 1,
+        deleted: false,
+        data: { ...resource, updatedAt: at + 1 },
+      },
+    ])
+    await syncOk()
+    expect(await db.resources.get(resourceId)).toBeDefined()
+    expect((await db.files.get(fileId))?.blob.size).toBe(pdf().size)
+  })
+
+  it('bytes nothing points at are kept for 30 days, then removed', async () => {
+    const { fileId, trashId } = await trashedOnA()
+    await devices.switchTo('B')
+    await syncOk()
+    expect(await purgeTrashItem(trashId)).toBe(true)
+    await syncOk()
+    await devices.switchTo('A')
+    await syncOk()
+    expect(await db.trash.count()).toBe(0)
+    // Kept: nothing here can tell "deleted for good" from "restored, the resource is on its way".
+    expect(await db.files.get(fileId)).toBeDefined()
+    const later = Date.now() + 31 * 24 * 60 * 60_000
+    await syncOk({ now: () => later })
+    expect(await db.files.get(fileId)).toBeUndefined()
   })
 })

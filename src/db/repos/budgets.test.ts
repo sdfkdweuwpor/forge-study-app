@@ -23,16 +23,36 @@ import { cpuNow, medianCpuMs, medianCpuMsAsync } from '@/test/timing'
 const NOW = atTime('2026-09-29', '09:30')
 const TODAY = dayOf(NOW)
 
-const median = (xs: number[]): number => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0
+/**
+ * How much slower this thread runs right now than on a quiet machine, from the CPU time of a fixed
+ * pure-JS workload (1 = quiet). Thread CPU time still stretches when other processes share the core
+ * (hyper-threads, cache, clock): a re-plan measured 97 ms alone and 228 ms during the full run. Budgets that
+ * write rows scale by this, so they measure the code, not the load; a real regression is 5x or more.
+ */
+const QUIET_CALIBRATION_MS = 35
+const calibrationMs = (): number => {
+  const t0 = cpuNow()
+  let x = 1
+  const xs: number[] = []
+  for (let i = 0; i < 100_000; i++) {
+    x = (x * 48271) % 2147483647
+    xs.push(x)
+  }
+  xs.sort((a, b) => a - b)
+  return cpuNow() - t0
+}
+const slowdown = (): number =>
+  Math.max(1, median([calibrationMs(), calibrationMs(), calibrationMs()]) / QUIET_CALIBRATION_MS)
+
+const median = (xs: number[]): number =>
+  [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0
 
 const goalTasks = (): Promise<Task[]> => db.tasks.where('goalId').equals(WGU_GOAL_ID).toArray()
 /** The next open study sessions, soonest first (today's, then working ahead). */
 const nextSessions = async (): Promise<Task[]> =>
   (await goalTasks())
     .filter((t) => t.status !== 'done' && t.kind === 'study' && t.doDate !== null)
-    .sort((a, b) =>
-      `${a.doDate} ${a.doTime ?? ''}`.localeCompare(`${b.doDate} ${b.doTime ?? ''}`),
-    )
+    .sort((a, b) => `${a.doDate} ${a.doTime ?? ''}`.localeCompare(`${b.doDate} ${b.doTime ?? ''}`))
 
 beforeAll(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -98,8 +118,9 @@ describe('a year of study on one goal', { timeout: 120_000 }, () => {
       expect(written).toBeLessThanOrEqual(12)
     }
     // Typically 10–30 ms, and 70–140 ms (each row fake-indexeddb updates costs it 20–30 ms of CPU).
-    expect(Math.max(...complete)).toBeLessThan(100)
-    expect(median(replan)).toBeLessThan(300)
+    const k = slowdown()
+    expect(Math.max(...complete)).toBeLessThan(100 * k)
+    expect(median(replan)).toBeLessThan(300 * k)
   })
 
   it('pulls the whole plan forward after working ahead, planning it in under 100 ms', async () => {

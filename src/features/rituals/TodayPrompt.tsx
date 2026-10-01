@@ -13,6 +13,7 @@ import {
 } from '@/logic/rituals'
 import { PREF_KEYS, readPref, subscribePrefs, writePref } from '@/lib/localPrefs'
 import { Button } from '@/ui/Button'
+import { useSettleHold } from '@/ui/Settle'
 import { useRitual } from './queries'
 import { openRitualDialog } from './store'
 import styles from './TodayPrompt.module.css'
@@ -64,7 +65,9 @@ export function RitualPrompt() {
     [today],
   )
 
-  if (settings === undefined || morning === undefined || evening === undefined) return null
+  const loading = settings === undefined || morning === undefined || evening === undefined
+  useSettleHold(loading)
+  if (loading) return null
   const kind = ritualPrompt({
     minutes: minutesOfDay(now),
     times: promptTimes(settings.rituals),

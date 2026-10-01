@@ -412,8 +412,9 @@ test.describe('Parked thoughts on Today', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await openApp(page, '/')
     const card = page.getByTestId('parked-card')
-    await expect(card).toContainText(/Nothing parked\. Press P during focus to set a thought aside/)
-    await expect(card.locator('kbd').first()).toHaveText('P')
+    // The Kbd adds its spoken name after the keycap, so the text content reads "Press PP".
+    await expect(card).toContainText(/Nothing parked\. Press PP during focus to set a thought aside/)
+    await expect(card.locator('kbd kbd')).toHaveText('P')
     await expect(card).not.toContainText('Focus page')
   })
 
@@ -426,7 +427,7 @@ test.describe('Parked thoughts on Today', () => {
     await expect(card).toContainText(TOUCH_HINT)
     await expect(card.locator('kbd')).toHaveCount(0)
     await page.setViewportSize({ width: 900, height: 800 })
-    await expect(card).toContainText(/Press P during focus/)
+    await expect(card).toContainText(/Press PP during focus/)
     await expect(card).not.toContainText(TOUCH_HINT)
   })
 

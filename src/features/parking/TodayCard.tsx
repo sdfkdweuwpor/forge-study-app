@@ -7,7 +7,7 @@ import { Kbd } from '@/ui/Kbd'
 import { Skeleton } from '@/ui/Skeleton'
 import { ParkedList } from './ParkedList'
 import { useOpenParked } from './queries'
-import { onParkedReview, takeParkedReview } from './store'
+import { onParkedReview, REVIEW_WINDOW_MS, takeParkedReview } from './store'
 import styles from './TodayCard.module.css'
 
 /**
@@ -62,15 +62,29 @@ function ParkedTodayBody() {
   const toggle = useRef<HTMLButtonElement | null>(null)
 
   // "Review parked thoughts": open the card, scroll it into view and put keyboard focus on its heading.
+  // The page can hold the card hidden while it settles (`Settle`), and a hidden control refuses focus:
+  // keep trying each frame until it takes it, for as long as the request is good for.
   useEffect(() => {
+    let frame = 0
     const answer = (): void => {
       if (!takeParkedReview()) return
       setOpen(true)
-      toggle.current?.scrollIntoView({ block: 'center' })
-      toggle.current?.focus({ preventScroll: true })
+      const until = performance.now() + REVIEW_WINDOW_MS
+      const attempt = (): void => {
+        const button = toggle.current
+        if (!button) return
+        button.focus({ preventScroll: true })
+        if (document.activeElement === button) button.scrollIntoView({ block: 'center' })
+        else if (performance.now() < until) frame = requestAnimationFrame(attempt)
+      }
+      attempt()
     }
     answer()
-    return onParkedReview(answer)
+    const off = onParkedReview(answer)
+    return () => {
+      off()
+      cancelAnimationFrame(frame)
+    }
   }, [])
 
   const count = items?.length

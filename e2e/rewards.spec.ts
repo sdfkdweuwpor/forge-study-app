@@ -237,8 +237,11 @@ test.describe('Rewards shop', () => {
 
   test('drag to reorder works from the keyboard, and the order is saved', async ({ page }) => {
     await openShop(page, 1260)
+    // The list is settled (starters seeded and sorted) before the sensor is given anything to hold.
+    await expect(rewardRows(page)).toHaveText([/30 min gaming/, /Coffee out/, /Order takeout/])
     const grip = page.getByRole('button', { name: 'Reorder Order takeout' })
     await grip.focus()
+    await expect(grip).toBeFocused()
     // dnd-kit announces each step; waiting for it keeps the next key from racing its sensor.
     await page.keyboard.press('Space')
     await expect(page.getByText('Order takeout is over Order takeout.')).toBeAttached()
@@ -425,6 +428,14 @@ test.describe('Rewards shop', () => {
     const announcer = page.locator('[data-route-announcer]')
     // Mark the page's own heading: a remount would replace it, and the mark with it.
     await heading.evaluate((el) => el.setAttribute('data-kept', 'yes'))
+    // Everything the announcer ever says, in order.
+    await announcer.evaluate((el) => {
+      const said: string[] = []
+      ;(window as unknown as { __said: string[] }).__said = said
+      new MutationObserver(() => {
+        if (el.textContent) said.push(el.textContent)
+      }).observe(el, { childList: true, characterData: true, subtree: true })
+    })
 
     await tab('History').click()
     await expect(page).toHaveURL(/\/rewards\/history$/)
@@ -435,15 +446,23 @@ test.describe('Rewards shop', () => {
     await expect(tab('Badges')).toHaveAttribute('aria-selected', 'true')
     // The keyboard carries on from where the click left it.
     await page.keyboard.press('ArrowLeft')
+    await expect(tab('History')).toHaveCount(1)
+    await expect(tab('Shop')).toBeFocused()
+    await expect(page).toHaveURL(/\/rewards\/shop$/)
+    await page.keyboard.press('End')
     await expect(tab('History')).toBeFocused()
     await expect(page).toHaveURL(/\/rewards\/history$/)
 
     await expect(heading).toHaveAttribute('data-kept', 'yes')
     await expect(heading).not.toBeFocused()
-    // A screen reader hears the tab change, not the page's name again; the announcer (a short timer after
-    // the route changes) has had time to speak by now.
-    await page.waitForTimeout(250)
-    await expect(announcer).toHaveText('')
+    // A screen reader hears the tab change, not the page's name again. The announcer speaks a short timer
+    // after a route change, so prove it by leaving: the only thing it ever said is the next page's name.
+    await page.keyboard.press('g')
+    await page.keyboard.press('t')
+    await expect(announcer).toHaveText('Today')
+    expect(await page.evaluate(() => (window as unknown as { __said: string[] }).__said)).toEqual([
+      'Today',
+    ])
   })
 
   test('leaving Rewards for another page still moves focus to its heading and announces it', async ({

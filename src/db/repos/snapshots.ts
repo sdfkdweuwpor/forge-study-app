@@ -77,7 +77,7 @@ export async function latestAutomaticDay(): Promise<ISODate | null> {
   )
 }
 
-/** Deletes the snapshots each kind no longer keeps (7 automatic, 5 of every other kind). Returns how many went. */
+/** Deletes the snapshots each kind no longer keeps (7 automatic, 5 of every other kind, and the first `pre-sync`). Returns how many went. */
 export async function pruneSnapshots(): Promise<number> {
   return db.transaction('rw', db.snapshots, async () => {
     const doomed = snapshotsToPrune(await db.snapshots.toArray())

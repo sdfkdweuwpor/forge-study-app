@@ -220,7 +220,8 @@ test.describe('everyday tasks', () => {
     await expect.poll(async () => (await byTitle(page, 'pay phone bill'))?.autoSlot).toBe(true)
 
     // From a page without the card.
-    await page.goto('/goals')
+    await gotoApp(page, '/goals')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await page.keyboard.press('Control+k')
     await page.getByRole('combobox', { name: 'Command palette' }).fill('accept suggested')
     await page.keyboard.press('Enter')

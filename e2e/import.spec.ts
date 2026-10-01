@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, gotoApp, test } from './fixtures'
+import { readTable } from './idb'
 
 /**
  * Phase 5C: importing a plan from Claude (BRIEF §5.4). Copy the prompt, paste the JSON, see errors by
@@ -183,8 +184,10 @@ test.describe('Import plan from Claude: goal page', () => {
     await expect(panel(page)).toContainText('The goal keeps its name and icon.')
     await expect(panel(page)).toContainText('nothing is ever deleted')
 
-    // Previewing wrote nothing. Waiting for the schedule work of a real import would also show it.
-    await page.waitForTimeout(400)
+    // Previewing wrote nothing: read the database itself, not the page, which a late write could still change.
+    expect(
+      (await readTable<{ title: string }>(page, 'milestones')).map((m) => m.title),
+    ).not.toContain('Scripting and Programming Applications')
     await expect(courses(page).getByText('C173')).toHaveCount(0)
     await expect(courses(page).getByText('40 h', { exact: false })).toHaveCount(0)
 

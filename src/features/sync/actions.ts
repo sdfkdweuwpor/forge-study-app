@@ -9,6 +9,7 @@
 import { recordError } from '@/app/reportError'
 import { href } from '@/app/router'
 import {
+  forgetLinkVerifier,
   getSyncSession,
   getSyncState,
   savePendingLogin,
@@ -17,6 +18,7 @@ import {
   stopSync,
 } from '@/db/repos/sync'
 import type { SyncSession } from '@/db/types'
+import { SyncTransportError } from '@/logic/sync'
 import { validateSyncConfig, type ConfigIssue } from '@/logic/syncConfig'
 import {
   GENERIC_TEXT,
@@ -24,6 +26,7 @@ import {
   NEEDS_EMAIL_TEXT,
   OTHER_BROWSER_TEXT,
   cleanEmailCode,
+  linkErrorMessage,
   looksLikeEmail,
 } from '@/logic/syncLink'
 import { browserSend, transportOf } from './client'
@@ -162,6 +165,15 @@ export async function signInWithEmailCode(
   }
 }
 
+/** A 4xx other than a timeout or a rate limit: the server looked at the link and refused it. */
+const refusedForGood = (error: unknown): boolean =>
+  error instanceof SyncTransportError &&
+  error.status !== null &&
+  error.status >= 400 &&
+  error.status < 500 &&
+  error.status !== 408 &&
+  error.status !== 429
+
 /**
  * The link came back as `?code=…` on `/settings/sync`: exchange it with the verifier this device kept.
  * A browser that never asked for a link has no verifier, which is the "different browser" case.
@@ -171,20 +183,28 @@ export async function exchangeLinkCode(
   deps: Partial<ActionDeps> = {},
 ): Promise<Outcome> {
   const d = withDefaults(deps)
+  let verifier = ''
   try {
     const state = await getSyncState()
     const config = transportOf(state)
     const pending = state?.pendingLogin ?? null
     if (config === null || pending === null) return { ok: false, message: OTHER_BROWSER_TEXT }
+    // Its link was refused for good already: the verifier is gone, a new email is needed.
+    if (pending.codeVerifier === '') return { ok: false, message: linkErrorMessage('otp_expired') }
+    verifier = pending.codeVerifier
     const session = await exchangeAuthCode(
       d.send,
       config,
-      { authCode, codeVerifier: pending.codeVerifier },
+      { authCode, codeVerifier: verifier },
       d.now(),
     )
     await finishSignIn(session, d)
     return { ok: true }
   } catch (error) {
+    // Refused (not offline, down or busy): the verifier can never work again, so it is not kept.
+    if (verifier !== '' && refusedForGood(error)) {
+      await forgetLinkVerifier(verifier).catch(() => undefined)
+    }
     return failed(error, 'sync.exchangeLink')
   }
 }

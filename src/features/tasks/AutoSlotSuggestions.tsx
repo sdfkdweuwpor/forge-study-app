@@ -15,6 +15,7 @@ import {
 } from '@/logic/everydaySlots'
 import { Button } from '@/ui/Button'
 import { Kbd } from '@/ui/Kbd'
+import { useSettleHold } from '@/ui/Settle'
 import { useToast } from '@/ui/Toast'
 import { useAutoSlotProposal } from './queries'
 import {
@@ -38,6 +39,7 @@ export function AutoSlotSuggestions({ className }: { className?: string }) {
   const [attempt, setAttempt] = useState(0)
   const [busy, setBusy] = useState(false)
   const state = useAutoSlotProposal(now, attempt)
+  useSettleHold(state.status === 'loading')
 
   const suggestions: readonly SlotSuggestion[] =
     state.status === 'ready' ? state.proposal.suggestions : []

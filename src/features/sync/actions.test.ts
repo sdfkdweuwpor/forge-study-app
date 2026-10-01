@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetAllData } from '@/db/repos/backup'
 import { getSyncSession, getSyncState, pendingChangeCount } from '@/db/repos/sync'
 import { createTask } from '@/db/repos/tasks'
-import { NEEDS_CODE_TEXT, NEEDS_EMAIL_TEXT, OTHER_BROWSER_TEXT } from '@/logic/syncLink'
+import {
+  NEEDS_CODE_TEXT,
+  NEEDS_EMAIL_TEXT,
+  OTHER_BROWSER_TEXT,
+  linkErrorMessage,
+} from '@/logic/syncLink'
 import {
   EMAIL_OFF_TEXT,
   NEEDS_PROJECT_TEXT,
@@ -340,6 +345,44 @@ describe('exchangeLinkCode', () => {
     expect(result).toMatchObject({ ok: false })
     expect((await getSyncState())?.pendingLogin).not.toBeNull()
     expect(await getSyncState()).toMatchObject({ enabled: false })
+  })
+
+  it('a refused exchange forgets the PKCE verifier (the code field stays); the link then asks the server nothing', async () => {
+    const h = harness((call) =>
+      call.url.includes('grant_type=pkce')
+        ? json(400, { error_code: 'flow_state_not_found' })
+        : healthy(call),
+    )
+    await saveProject(h)
+    await sendSignInLink('ana@example.com', h.deps)
+    await exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)
+    const pending = (await getSyncState())?.pendingLogin
+    expect(pending?.email).toBe('ana@example.com')
+    expect(pending?.codeVerifier).toBe('')
+    const before = h.calls.length
+    const again = await exchangeLinkCode('9a1c0e2d-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)
+    expect(again).toEqual({ ok: false, message: linkErrorMessage('otp_expired') })
+    expect(h.calls).toHaveLength(before)
+  })
+
+  it('an exchange that could not reach the server keeps the verifier, so opening the link again works', async () => {
+    let down = true
+    const h = harness((call) =>
+      call.url.includes('grant_type=pkce') && down ? json(503, {}) : healthy(call),
+    )
+    await saveProject(h)
+    await sendSignInLink('ana@example.com', h.deps)
+    const verifier = (await getSyncState())?.pendingLogin?.codeVerifier
+    await expect(
+      exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps),
+    ).resolves.toMatchObject({ ok: false })
+    expect((await getSyncState())?.pendingLogin?.codeVerifier).toBe(verifier)
+    down = false
+    await expect(exchangeLinkCode('3f2b6a9e-51c4-4d6a-9b1e-0c7d2e8a4f10', h.deps)).resolves.toEqual(
+      {
+        ok: true,
+      },
+    )
   })
 })
 

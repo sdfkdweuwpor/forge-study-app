@@ -12,6 +12,8 @@ import {
   planTaskGoalId,
   recordLabel,
   SYNC_TEXT,
+  rescuedFilesToDrop,
+  RESCUED_FILE_KEEP_MS,
   trashFilesToRescue,
 } from './syncApply'
 
@@ -53,22 +55,42 @@ describe('keepLocalTrashBlobs', () => {
 })
 
 describe('trashFilesToRescue', () => {
-  it('returns the files with real bytes that a resource still points at', () => {
+  it('returns every file with real bytes, whether or not a resource points at it yet', () => {
     const keep = { id: 'f1', blob: pdf() }
-    const row = trashRow([keep, { id: 'f2', blob: pdf() }, { id: 'f3', blob: marker }])
-    expect(trashFilesToRescue(row, new Set(['f1', 'f3']))).toEqual([keep])
+    const other = { id: 'f2', blob: pdf() }
+    const row = trashRow([keep, other, { id: 'f3', blob: marker }])
+    expect(trashFilesToRescue(row, 1000)).toEqual([keep, other])
   })
 
-  it('returns nothing when no resource points at the files, or the row has no files', () => {
-    expect(trashFilesToRescue(trashRow([{ id: 'f1', blob: pdf() }]), new Set())).toEqual([])
-    expect(trashFilesToRescue({ id: 't' }, new Set(['f1']))).toEqual([])
-    expect(trashFilesToRescue(undefined, new Set(['f1']))).toEqual([])
+  it('returns nothing for a row past its expiry (a purge), or a row without files', () => {
+    const row = { ...trashRow([{ id: 'f1', blob: pdf() }]), expiresAt: 1000 }
+    expect(trashFilesToRescue(row, 1000)).toEqual([])
+    expect(trashFilesToRescue(row, 999)).toHaveLength(1)
+    expect(trashFilesToRescue({ id: 't' }, 0)).toEqual([])
+    expect(trashFilesToRescue(undefined, 0)).toEqual([])
   })
 
   it('knows a marker when it sees one', () => {
     expect(isBlobMarker(marker)).toBe(true)
     expect(isBlobMarker(pdf())).toBe(false)
     expect(isBlobMarker(null)).toBe(false)
+  })
+})
+
+describe('rescuedFilesToDrop', () => {
+  const day = 24 * 60 * 60_000
+  const file = (id: string, createdAt: number, updatedAt: number) => ({ id, createdAt, updatedAt })
+
+  it('drops kept bytes nothing claimed after 30 days, and nothing else', () => {
+    const now = 100 * day
+    const files = [
+      file('old-kept', 0, now - 30 * day), // kept 30 days ago, unclaimed: gone
+      file('new-kept', 0, now - 29 * day), // still waiting
+      file('claimed', 0, now - 40 * day), // a resource points at it
+      file('uploaded', 0, 0), // an ordinary file (`updatedAt === createdAt`), never touched
+    ]
+    expect(rescuedFilesToDrop(files, new Set(['claimed']), now)).toEqual(['old-kept'])
+    expect(RESCUED_FILE_KEEP_MS).toBe(30 * day)
   })
 })
 
@@ -186,18 +208,26 @@ describe('accountWinsOverSeed', () => {
 })
 
 describe('isRowRejection', () => {
-  it('is a refusal of content for a 4xx that is not sign-in, access, timeout, size or rate', () => {
-    expect(isRowRejection('server', 400)).toBe(true)
-    expect(isRowRejection('server', 409)).toBe(true)
-    expect(isRowRejection('server', 422)).toBe(true)
+  it('is a refusal of content for a 4xx whose PostgreSQL code says the data broke a rule', () => {
+    expect(isRowRejection('server', 400, '23514')).toBe(true) // check constraint
+    expect(isRowRejection('server', 409, '23505')).toBe(true) // unique violation
+    expect(isRowRejection('server', 400, '22P02')).toBe(true) // invalid text representation
+    expect(isRowRejection('server', 400, '21000')).toBe(true) // one key twice in a batch
+    expect(isRowRejection('server', 400, '54000')).toBe(true) // a program limit (a value too big)
+  })
+  it('is not for a 4xx without such a code: a proxy, a schema-cache reload or a bad request is no bad row', () => {
+    for (const status of [400, 404, 409, 422]) expect(isRowRejection('server', status)).toBe(false)
+    expect(isRowRejection('server', 400, null)).toBe(false)
+    expect(isRowRejection('server', 404, 'PGRST204')).toBe(false)
+    expect(isRowRejection('server', 400, 'PGRST100')).toBe(false)
   })
   it('is not for the ones the engine handles another way', () => {
     for (const status of [401, 403, 408, 413, 429])
-      expect(isRowRejection('server', status)).toBe(false)
-    expect(isRowRejection('server', 503)).toBe(false)
-    expect(isRowRejection('server', null)).toBe(false)
-    expect(isRowRejection('forbidden', 400)).toBe(false)
-    expect(isRowRejection('tooLarge', 400)).toBe(false)
+      expect(isRowRejection('server', status, '23514')).toBe(false)
+    expect(isRowRejection('server', 503, '23514')).toBe(false)
+    expect(isRowRejection('server', null, '23514')).toBe(false)
+    expect(isRowRejection('forbidden', 400, '23514')).toBe(false)
+    expect(isRowRejection('tooLarge', 400, '23514')).toBe(false)
   })
 })
 

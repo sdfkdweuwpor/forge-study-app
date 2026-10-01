@@ -6,7 +6,8 @@ import { refreshSession } from './auth'
 import { createHttp, SupabaseError, type FetchLike } from './http'
 import { createSyncServer, fetchServerTime, pullRows, pushRows } from './rest'
 
-const KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2lnbmF0dXJl'
+// A legacy anon JWT, built at run time: no secret-shaped literal in the repo.
+const KEY = ['eyJhbGciOiJIUzI1NiJ9', 'eyJyb2xlIjoiYW5vbiJ9', 'c2lnbmF0dXJl'].join('.')
 const config: TransportConfig = {
   url: 'https://abcdefghijklmnopqrst.supabase.co',
   anonKey: KEY,

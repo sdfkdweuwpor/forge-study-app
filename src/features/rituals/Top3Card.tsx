@@ -6,6 +6,7 @@ import { formatTimeOfDay } from '@/logic/taskDisplay'
 import { planTime } from '@/logic/taskDates'
 import { Checkbox } from '@/ui/Checkbox'
 import { IconButton } from '@/ui/IconButton'
+import { useSettleHold } from '@/ui/Settle'
 import { openTask, useTaskActions } from '@/features/tasks'
 import { useRitual, useTasksByIds } from './queries'
 import { openRitualDialog } from './store'
@@ -24,6 +25,7 @@ export function Top3Card() {
   const actions = useTaskActions()
   const headingId = useId()
 
+  useSettleHold(ritual === undefined || tasks === undefined)
   if (ritual === undefined || ritual === null || tasks === undefined) return null
   const present = tasks.flatMap((t) => (t ? [t] : []))
   if (present.length === 0) return null

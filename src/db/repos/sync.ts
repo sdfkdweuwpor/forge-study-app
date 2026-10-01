@@ -35,7 +35,6 @@ import {
   indexRemoteSeedRow,
   isSettled,
   mergeRemoteSettings,
-  needsSafetySnapshot,
   nextPushEntries,
   noteIdenticalRow,
   planBootstrapQueue,
@@ -68,9 +67,10 @@ import {
   levelToAbsorb,
   planTaskGoalId,
   recordLabel,
+  rescuedFilesToDrop,
   trashFilesToRescue,
 } from '@/logic/syncApply'
-import { filesInTrash, markTrashBlobs } from '@/logic/snapshotJson'
+import { markTrashBlobs } from '@/logic/snapshotJson'
 import { SYNC_TABLES, isSyncTable, type SyncTableName } from '@/logic/syncTables'
 import { levelFromLifetimeXp, lifetimeXp } from '@/logic/xp'
 import { db } from '../db'
@@ -157,16 +157,34 @@ export async function savePendingLogin(pending: SyncStateRow['pendingLogin']): P
 }
 
 /**
+ * Forgets the PKCE verifier of a link the server refused for good (`codeVerifier: ''`), keeping the email
+ * and the time so the code from the same email can still be typed. A newer request is left alone.
+ */
+export async function forgetLinkVerifier(codeVerifier: string): Promise<void> {
+  await writeState((row) =>
+    row.pendingLogin?.codeVerifier === codeVerifier
+      ? { ...row, pendingLogin: { ...row.pendingLogin, codeVerifier: '' } }
+      : row,
+  )
+}
+
+/**
  * The person signed in: sync is on for this device. A sign-in to the account this device already syncs
  * with just stores the session (after "Sign in again"); anything else, turning it on for the first time
- * or signing in to another account, is a first sync with a new device id (`phase: 'bootstrap'`). Tracking
+ * or signing in to another account, is a first sync with a new device id (`phase: 'bootstrap'`) and an
+ * empty outbox (the other account's pending changes are not this account's). Tracking
  * starts in every open tab. The enabling tab should wait about a second before the first cycle, so the
  * other tabs have heard it.
  */
 export async function startSync(session: SyncSession): Promise<SyncStateRow> {
-  const next = await writeState((row) => {
+  const next = await db.transaction('rw', db.syncState, db.syncOutbox, async () => {
+    const row = (await db.syncState.get(SYNC_STATE_ID)) ?? defaultSyncState()
     const continuing = row.enabled && row.deviceId !== null && row.accountUserId === session.userId
-    return {
+    // What was queued for another account must never reach this one (its tombstones would delete
+    // this account's rows); the first sync queues every local row again by its stamp. `maxSeenStamp`
+    // stays: it only keeps new stamps above the ones this device's rows already carry.
+    if (!continuing) await db.syncOutbox.clear()
+    const written: SyncStateRow = {
       ...row,
       enabled: true,
       email: session.email,
@@ -183,6 +201,8 @@ export async function startSync(session: SyncSession): Promise<SyncStateRow> {
             preSyncFor: null,
           }),
     }
+    await db.syncState.put(written)
+    return written
   })
   db.syncTracker.seed({ maxSeenStamp: next.maxSeenStamp })
   db.syncTracker.setEnabled(true, { broadcast: true })
@@ -326,6 +346,8 @@ interface Ctx {
   skew: number | null
   refreshed: boolean
   snapshotTaken: boolean
+  /** Rows this cycle's pull deleted (or is about to) here, for the safety snapshot. */
+  deletions: number
   pushed: number
   pulled: number
   applied: number
@@ -511,7 +533,7 @@ async function sendBatch(
     } catch (error) {
       if (
         error instanceof SyncTransportError &&
-        (error.kind === 'tooLarge' || isRowRejection(error.kind, error.status))
+        (error.kind === 'tooLarge' || isRowRejection(error.kind, error.status, error.code))
       ) {
         const halves = splitBatch(batch)
         if (halves) {
@@ -647,7 +669,7 @@ export async function pendingPushRows(): Promise<PushRow[]> {
 
 // ─── Pull and apply ─────────────────────────────────────────────────────────
 
-/** Tombstones that would delete a row this device has: what `needsSafetySnapshot` really counts. */
+/** Tombstones that would delete a row this device has: what the safety snapshot counts. */
 async function deletionsHere(verdicts: readonly RowVerdict[]): Promise<number> {
   const byTable = new Map<SyncTableName, string[]>()
   for (const v of verdicts) {
@@ -663,13 +685,14 @@ async function deletionsHere(verdicts: readonly RowVerdict[]): Promise<number> {
   return count
 }
 
-/** A page that deletes 25 or more rows here (an import or restore elsewhere) is preceded by a snapshot. */
+/**
+ * Before the page that brings this cycle's deletions here to 25 or more (an import or restore elsewhere,
+ * however thinly its tombstones are spread over the pages), a snapshot.
+ */
 async function safetySnapshot(ctx: Ctx, verdicts: readonly RowVerdict[]): Promise<void> {
-  if (ctx.snapshotTaken) return
-  const tombstones = verdicts.filter((v) => v.kind === 'delete').length
-  if (tombstones < SAFETY_SNAPSHOT_DELETIONS) return
-  const real = await deletionsHere(verdicts)
-  if (!needsSafetySnapshot(Array.from({ length: real }, () => ({ deleted: true })))) return
+  if (ctx.snapshotTaken || !verdicts.some((v) => v.kind === 'delete')) return
+  ctx.deletions += await deletionsHere(verdicts)
+  if (ctx.deletions < SAFETY_SNAPSHOT_DELETIONS) return
   ctx.report('snapshot', 0)
   try {
     await takeSnapshot('pre-sync', { now: ctx.now(), appVersion: ctx.version })
@@ -706,7 +729,6 @@ async function applyPage(
     names.add('settings')
   }
   const hasTrash = names.has('trash')
-  if (hasTrash) names.add('resources')
   const scope = [
     ...[...names].map(rowsOf),
     db.syncOutbox,
@@ -830,7 +852,7 @@ async function applyPage(
 
     for (const [tbl, rows] of puts) await rowsOf(tbl).bulkPut(rows)
     for (const [tbl, ids] of deletes) if (tbl !== 'trash') await rowsOf(tbl).bulkDelete(ids)
-    if (trashGone.length > 0) await removeTrashRows(trashGone)
+    if (trashGone.length > 0) await removeTrashRows(trashGone, ctx.now())
     if (dropPending.length > 0) await db.syncOutbox.bulkDelete(dropPending)
     if (touched.has('xpEvents') || touched.has('settings')) await absorbRemoteLevel()
 
@@ -846,19 +868,39 @@ async function applyPage(
   return { applied }
 }
 
-/** Deletes trash rows a pull removed, first keeping the PDFs a resource still points at (the restore case). */
-async function removeTrashRows(rows: readonly Row[]): Promise<void> {
-  if (filesInTrash(rows).length > 0) {
-    const referenced = new Set<string>(
-      ((await db.resources.toArray()) as Resource[]).flatMap((r) => (r.fileId ? [r.fileId] : [])),
-    )
-    const held = new Set<string>((await db.files.toCollection().primaryKeys()) as string[])
-    const rescued = rows
-      .flatMap((r) => trashFilesToRescue(r, referenced))
-      .filter((f) => typeof f.id === 'string' && !held.has(f.id))
-    if (rescued.length > 0) await db.files.bulkPut(rescued as unknown as StoredFile[])
-  }
+/**
+ * Deletes trash rows a pull removed, first keeping their PDFs' bytes in `files` (`trashFilesToRescue`):
+ * the resource of a Restore elsewhere may still be on its way. A kept file is marked by `updatedAt` = now.
+ */
+async function removeTrashRows(rows: readonly Row[], now: Millis): Promise<void> {
+  const held = new Set<string>((await db.files.toCollection().primaryKeys()) as string[])
+  const rescued = rows
+    .flatMap((r) => trashFilesToRescue(r, now))
+    .filter((f) => typeof f.id === 'string' && !held.has(f.id))
+    .map((f) => ({ ...f, updatedAt: now }))
+  if (rescued.length > 0) await db.files.bulkPut(rescued as unknown as StoredFile[])
   await db.trash.bulkDelete(rows.map((r) => r.id as string))
+}
+
+/**
+ * Removes the bytes `removeTrashRows` kept that no resource claimed within 30 days (`rescuedFilesToDrop`):
+ * the Trash entry was deleted for good elsewhere. Reads only `files` unless one is old enough.
+ */
+async function dropUnclaimedFiles(now: Millis): Promise<void> {
+  const kept = (await db.files.toArray()).filter((f) => f.updatedAt > f.createdAt)
+  if (rescuedFilesToDrop(kept, new Set(), now).length === 0) return
+  await db.transaction('rw', db.files, db.resources, db.trash, async () => {
+    const referenced = new Set<string>()
+    for (const r of (await db.resources.toArray()) as Resource[])
+      if (r.fileId) referenced.add(r.fileId)
+    for (const t of await db.trash.toArray()) {
+      for (const r of (t.payload.resources ?? []) as Resource[])
+        if (r.fileId) referenced.add(r.fileId)
+    }
+    const files = (await db.files.toArray()).filter((f) => f.updatedAt > f.createdAt)
+    const doomed = rescuedFilesToDrop(files, referenced, now)
+    if (doomed.length > 0) await db.files.bulkDelete(doomed)
+  })
 }
 
 /**
@@ -930,7 +972,12 @@ async function removeSeedDuplicates(ctx: Ctx, boot: BootstrapIndex): Promise<voi
         db.tasks.filter((t) => t.source === 'onboarding').toArray(),
         db.blocklist.toArray(),
       ])
-      const candidates = seedDuplicates({ rewards, tasks, blocklist }, boot.seed, starters)
+      const candidates = seedDuplicates(
+        { rewards, tasks, blocklist },
+        boot.seed,
+        starters,
+        DEFAULT_BLOCKED_DOMAINS.length,
+      )
       const idsOf = (tbl: string): string[] =>
         candidates.filter((d) => d.tbl === tbl).map((d) => d.id)
       const used = new Set<string>([
@@ -995,19 +1042,21 @@ async function queueLocalRows(ctx: Ctx, boot: BootstrapIndex): Promise<void> {
 /**
  * A device's first sync (PLAN §4.7.5): a merge, never a wipe. Every step is idempotent, so an
  * interruption anywhere restarts from the pull; the snapshot is taken once per device id (the data is
- * half merged by then, and a second snapshot would push the real "before" out of the five kept).
+ * half merged by then). It is taken whatever the device holds (a device with only rewards or a blocklist
+ * has something to lose too, and an empty snapshot is small). A restarted first sync took none this
+ * cycle, so the safety snapshot before a big deletion stays armed for it.
  */
 async function bootstrap(ctx: Ctx, state: SyncStateRow): Promise<void> {
   if (state.preSyncFor !== ctx.deviceId) {
     ctx.report('snapshot', 0)
     try {
-      await takeSnapshot('pre-sync', { now: ctx.now(), appVersion: ctx.version, skipIfEmpty: true })
+      await takeSnapshot('pre-sync', { now: ctx.now(), appVersion: ctx.version })
     } catch (error) {
       throw snapshotFailure(error)
     }
     await patchState(ctx, { preSyncFor: ctx.deviceId })
+    ctx.snapshotTaken = true
   }
-  ctx.snapshotTaken = true
 
   const boot: BootstrapIndex = { remote: new Map(), seed: emptySeedIndex(), identical: new Set() }
   await patchState(ctx, { pullCursor: 0 })
@@ -1082,6 +1131,7 @@ async function cycle(server: SyncServer, opts: SyncCycleOptions): Promise<SyncCy
     skew: state.clockSkewMs,
     refreshed: false,
     snapshotTaken: false,
+    deletions: 0,
     pushed: 0,
     pulled: 0,
     applied: 0,
@@ -1124,6 +1174,7 @@ async function cycle(server: SyncServer, opts: SyncCycleOptions): Promise<SyncCy
           at: now(),
         }
       : null
+    await dropUnclaimedFiles(now())
     await patchState(ctx, {
       lastSyncAt: now(),
       lastError: refusedError,

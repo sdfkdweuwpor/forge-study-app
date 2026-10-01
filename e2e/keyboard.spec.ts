@@ -564,7 +564,13 @@ async function checkWalk(page: Page, route: RouteCase): Promise<void> {
 
 test.describe('Tab walk (1440)', () => {
   test.use({ viewport: DESKTOP })
-  for (const route of ROUTES) test(route.name, ({ page }) => checkWalk(page, route))
+  for (const route of ROUTES) {
+    test(route.name, ({ page }) => {
+      // /design holds 16k nodes and hundreds of animations: each Tab costs a third of a second.
+      if (route.url === '/design') test.setTimeout(90_000)
+      return checkWalk(page, route)
+    })
+  }
 })
 
 // A phone has a tab bar and a floating + after <main>, and no sidebar; a tablet has the open-sidebar button.
@@ -627,7 +633,7 @@ test.describe('phone: the tab bar and the + button', () => {
 
     // A tablet has neither: the padding goes with them.
     await page.setViewportSize(TABLET)
-    await expect(page.getByRole('navigation', { name: 'Main' }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Quick add task' })).toHaveCount(0)
     await expect.poll(async () => (await reserved(page)).padding).toBe(0)
     // And comes back when the window is a phone again.
     await page.setViewportSize(PHONE)
@@ -1042,6 +1048,8 @@ const OVERLAYS: readonly OverlayCase[] = [
 test.describe('Esc closes an overlay and focus goes back to its opener', () => {
   for (const c of OVERLAYS) {
     test(c.name, async ({ page }) => {
+      // /design holds 16k nodes and hundreds of animations: each key press costs a third of a second.
+      if (c.url === '/design') test.setTimeout(90_000)
       await page.setViewportSize(c.viewport ?? DESKTOP)
       await gotoApp(page, c.url, c.seed ?? 'wgu')
       await settled(page, { demo: c.url === '/design' })
@@ -1677,7 +1685,8 @@ test.describe('mod+z undoes the latest action', () => {
     const field = page.getByRole('textbox', { name: 'Task title' })
     await expect(field).toBeFocused()
     await expect(field).toHaveValue(next)
-    await page.keyboard.type('ZZZ')
+    // One insertion is one step of the field's own undo (typed keys are merged by timing).
+    await page.keyboard.insertText('ZZZ')
     await expect(field).toHaveValue(/ZZZ/)
     await page.keyboard.press('ControlOrMeta+z')
     await expect(field, 'the field undid its own typing').toHaveValue(next)
@@ -1782,6 +1791,7 @@ test.describe('Modal focus', () => {
   test('a form modal: focus starts on its first field, cycles among its own controls, and returns on Esc', async ({
     page,
   }) => {
+    test.setTimeout(90_000) // /design is heavy: each key press costs a third of a second
     await gotoApp(page, '/design', 'wgu')
     await settled(page, { demo: true })
     const opener = lightColumn(page, 'modal').getByRole('button', { name: 'Medium: form' })

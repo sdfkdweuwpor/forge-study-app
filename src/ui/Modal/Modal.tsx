@@ -102,6 +102,10 @@ export function Modal({
   useEffect(() => {
     if (!open || !panel) return undefined
     const frame = requestAnimationFrame(() => {
+      // Someone (a fast typist, a test) already put focus on a control in the dialog: moving it again
+      // would blur a field mid-edit.
+      const held = document.activeElement
+      if (held !== panel && panel.contains(held)) return
       const explicit = panel.querySelector<HTMLElement>('[data-autofocus]')
       const first = getFocusable(panel).find((el) => el !== closeButton.current)
       focusInside(panel, explicit ?? first ?? closeButton.current)

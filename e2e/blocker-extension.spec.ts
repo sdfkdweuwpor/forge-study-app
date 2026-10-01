@@ -117,6 +117,8 @@ async function start(): Promise<Harness> {
     headless: true,
     locale: 'en-US',
     timezoneId: 'America/New_York',
+    // The app's own PWA worker would fetch favicons itself, past the routes below; `block` keeps extension workers.
+    serviceWorkers: 'block',
     args: [`--disable-extensions-except=${extPath}`, `--load-extension=${extPath}`],
   })
   const worker =

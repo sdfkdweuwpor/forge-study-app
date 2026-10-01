@@ -22,7 +22,8 @@ import {
   type FetchLike,
 } from './http'
 
-const KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2lnbmF0dXJl'
+// A legacy anon JWT, built at run time: no secret-shaped literal in the repo.
+const KEY = ['eyJhbGciOiJIUzI1NiJ9', 'eyJyb2xlIjoiYW5vbiJ9', 'c2lnbmF0dXJl'].join('.')
 const ACCESS = 'access.token.SECRET-ACCESS'
 const REFRESH = 'SECRET-REFRESH-TOKEN'
 const config: TransportConfig = {

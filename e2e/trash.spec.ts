@@ -178,6 +178,13 @@ test.describe('the Trash page', () => {
     await expect(dialog).toBeHidden()
     expect(await trash(page)).toHaveLength(1)
 
+    // The stack shows 3 toasts and the rest wait, so "Deleted forever" would queue behind the 7 s Undo
+    // toasts from the two deletes and the restore. Dismiss those first, as a person would, so this checks
+    // the confirmation itself and not how long the older toasts happen to have left.
+    await toasts(page)
+      .getByRole('button', { name: 'Dismiss' })
+      .evaluateAll((buttons) => buttons.forEach((b) => (b as HTMLElement).click()))
+    await expect(toasts(page).getByRole('button', { name: 'Dismiss' })).toHaveCount(0)
     await page.keyboard.press('ControlOrMeta+Backspace')
     await dialog.getByRole('button', { name: 'Delete forever' }).click()
     await expect(toasts(page)).toContainText('forever')
@@ -360,13 +367,13 @@ test.describe('the 30-day purge, with a moving clock', () => {
     const afterItsTime = new Date('2026-10-29T10:00:00-04:00')
     await page.clock.setFixedTime(afterItsTime)
     await page.reload()
-    // The chore notes every start first; a purge would follow within a moment, so wait that long from there.
+    // The chore notes every start first, then decides on the purge in the same breath (its delete, if it
+    // ran, is queued in IndexedDB ahead of the read below), so there is nothing to wait out after this.
     await expect
       .poll(() => page.evaluate(() => window.localStorage.getItem('forge:trash:last-seen')), {
         timeout: 20_000,
       })
       .toBe(String(afterItsTime.getTime()))
-    await page.waitForTimeout(1500)
     expect(await trash(page)).toHaveLength(1)
 
     // ...and the next day it is gone.

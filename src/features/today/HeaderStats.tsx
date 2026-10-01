@@ -8,6 +8,7 @@ import { useToday } from '@/app/hooks/useToday'
 import { useSettings } from '@/db/hooks/useSettings'
 import { useXpSummary } from '@/db/hooks/useXpSummary'
 import { ProgressRing } from '@/ui/ProgressRing'
+import { useSettleHold } from '@/ui/Settle'
 import { Skeleton } from '@/ui/Skeleton'
 import { useStreak, useTodayPomodoros } from './queries'
 import { TodayStat } from './Stat'
@@ -28,6 +29,7 @@ export function DailyGoalStat() {
   const settings = useSettings()
   const pomodoroMin = settings?.timer.pomodoroMin ?? 25
   const done = useTodayPomodoros(today, pomodoroMin)
+  useSettleHold(!settings || done === undefined)
   if (!settings || done === undefined) return <StatSkeleton />
 
   const goal = Math.max(1, settings.dailyGoalPomodoros)
@@ -55,6 +57,7 @@ export function DailyGoalStat() {
 export function StreakStat() {
   const today = useToday()
   const streak = useStreak(today)
+  useSettleHold(streak === undefined)
   if (streak === undefined) return <StatSkeleton />
 
   return (
@@ -78,6 +81,7 @@ export function StreakStat() {
 export function XpTodayStat() {
   const today = useToday()
   const summary = useXpSummary(today)
+  useSettleHold(!summary)
   if (!summary) return <StatSkeleton />
 
   const xp = summary.today

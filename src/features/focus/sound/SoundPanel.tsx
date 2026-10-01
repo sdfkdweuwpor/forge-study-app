@@ -103,7 +103,8 @@ function moveStyle(e: KeyboardEvent<HTMLButtonElement>, index: number): void {
 
 /**
  * The Focus page's Sound card (slot `focus.aside`): Play and the master volume, then collapsible
- * sections. Mixes holds saved mixes (chips; Save names one, up to 12). "Start sound with focus" sits at the bottom. Which sections are
+ * sections. Mixes holds saved mixes (chips; Save names one, up to 12). "Start sound with focus" sits at
+ * the bottom. Which sections are
  * open is remembered on this device.
  */
 export function SoundPanel() {

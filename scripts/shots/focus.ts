@@ -253,6 +253,41 @@ const list: ShotList = {
       },
     },
     {
+      // The Mixes section open with five saved mixes, one with a 40-character name.
+      name: 'sound-mixes-open',
+      widths: [1440, 375],
+      fullPage: true,
+      path: '/focus?seed=wgu',
+      waitFor: TIMER,
+      prepare: async (page) => {
+        const panel = page.getByRole('region', { name: 'Sound' })
+        await panel
+          .getByRole('radio', { name: /Tokyo night/ })
+          .or(panel.locator('summary', { hasText: 'Lofi' }))
+          .first()
+          .click()
+        await panel.getByRole('radio', { name: /Tokyo night/ }).click()
+        await panel.locator('summary', { hasText: 'Mixes' }).click()
+        const names = [
+          'Rainy Tokyo',
+          'Deep work',
+          'Late night reading with rain and a fire',
+          'Café',
+          'Sunday',
+        ]
+        for (const [i, name] of names.entries()) {
+          await panel.getByRole('button', { name: 'Save current mix…' }).click()
+          const dialog = page.getByRole('dialog', { name: 'Save current mix' })
+          await dialog.getByRole('textbox', { name: 'Name' }).fill(name)
+          await dialog.getByRole('button', { name: 'Save' }).click()
+          await panel.getByRole('button', { name, exact: true }).waitFor()
+          await dialog.waitFor({ state: 'detached' })
+          void i
+        }
+        await loaded(page)
+      },
+    },
+    {
       // The mini player, playing, in the sidebar (and above the tab bar on a phone).
       name: 'mini-player',
       widths: [1440, 375],

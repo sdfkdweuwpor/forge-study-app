@@ -25,8 +25,9 @@ Release.
 Spec `docs/superpowers/specs/2026-09-30-sound-design.md`, plan `docs/superpowers/plans/2026-09-30-sound.md` (10 tasks).
 Phase 1 is done and reviewed: the noise mixer (9 generated layers, one gain each), the Sound panel on the Focus
 page (collapsible Lofi / Sounds / Mixes sections), the mini player (sidebar; on phones a pill while sound plays),
-playback from one tab on any page, and the old single ambient control removed. Phases 2 (generated lofi, tasks
-7–9) and 3 (saved mixes, start with focus, task 10) are next. Initial JS is 179.2 KB of 180.
+playback from one tab on any page, and the old single ambient control removed. Phase 2 is done too: 10 generated
+lofi styles (seeded composer, synth instruments, a look-ahead player on a lazy chunk) behind the Lofi section's
+style grid. Phase 3 (saved mixes, start with focus, task 10) is next. Initial JS is 179.2 KB of 180.
 
 ## Done and reviewed
 

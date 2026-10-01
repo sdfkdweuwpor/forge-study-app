@@ -271,11 +271,24 @@ The data on each of your devices is not touched by any of this.
 
 ## Backup & restore
 
-Coming in Phase 10. Export and import your data as JSON.
+Everything lives in your browser, so keep a copy somewhere else:
+
+- **Export:** **Settings → Data → Export all data** saves one JSON file with every goal, task, session, reward and setting (attached PDFs included, up to 50 MB of them). Forge gives a gentle reminder at most once a week when you have not exported in over 7 days (turn it off there).
+- **Import:** **Settings → Data → Import data**, pick the file, and check the summary before you confirm. An import **replaces** what is on this device (and, with sync on, on every synced device). Forge saves a snapshot first, so you can go back.
+- **Snapshots:** **Settings → Snapshots** keeps automatic copies inside the app: one a day for the last 7 days, plus one before each import, restore, reset and first sync. Restore any of them in one click.
+- **Trash:** deleted goals, tasks and resources stay in **Trash** for 30 days before they are gone for good.
+- **Reset:** **Settings → Data → Reset Forge** erases this device's data after you type to confirm (a snapshot is taken first).
 
 ## WGU import prompt
 
-Coming in Phase 5. Paste a Claude-generated plan (course list + milestones) to auto-populate your degree goal.
+Forge turns a degree plan into a goal with courses, milestones and daily study chunks, without any API key: you copy a prompt into Claude yourself.
+
+1. Open **Goals → Import a goal from Claude** (or press **Ctrl+K** and run **Import plan from Claude**; on a goal page the import panel adds to that goal).
+2. Click **Copy prompt**. It already holds the exact JSON format Forge accepts and today's date.
+3. In a Claude chat, paste the prompt, then paste your course outline under it, or attach a photo or PDF of your degree plan.
+4. Copy Claude's reply (only the JSON) back into Forge. It checks every field, points at the line of any problem, and shows a preview before anything is saved.
+
+WGU courses work best with their codes and competency units (for example `C182`, 4 CUs): Forge budgets about 10 to 15 hours per unit when the outline gives no hours.
 
 ## Screenshots
 

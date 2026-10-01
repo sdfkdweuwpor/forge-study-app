@@ -133,7 +133,7 @@ describe('music', () => {
   it('setStyle off stops nothing else and does not start playing', async () => {
     await setStyle('off')
     expect((await music()).style).toBe('off')
-    expect((await getSettings()).sound.device?.playing).not.toBe(true)
+    expect((await getSettings()).sound.device?.playing ?? false).toBe(false)
   })
 
   it('setMusicVolume coalesces into one write, clamped, and shows in the overlay at once', async () => {
@@ -146,6 +146,23 @@ describe('music', () => {
     await vi.advanceTimersByTimeAsync(300)
     await vi.waitFor(() => expect(writes).toBe(1))
     expect((await music()).volume).toBe(1)
+  })
+})
+
+describe('music volume overlay', () => {
+  it('survives a write landing, then yields to the row', async () => {
+    const view = (s: Awaited<ReturnType<typeof getSettings>>) =>
+      withOverlay(effectiveMixer(s.sound), getOverlay(), s.updatedAt).music.volume
+    const old = await getSettings()
+    setMusicVolume(0.3)
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(async () =>
+      expect(effectiveMixer((await getSettings()).sound).music.volume).toBe(0.3),
+    )
+    expect(view(old)).toBe(0.3) // a view still on the old row keeps the value
+    expect(view(await getSettings())).toBe(0.3)
+    setMusicVolume(0.4) // after the write landed
+    expect(view(await getSettings())).toBe(0.4)
   })
 })
 

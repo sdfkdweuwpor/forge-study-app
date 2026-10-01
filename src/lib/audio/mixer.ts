@@ -118,6 +118,7 @@ async function applyMusic(
     const { startMusic } = await import('./music/player')
     if (wantedStyle !== m.style || music?.style === m.style) return
     if (!musicBus) {
+      // e2e/support/fakeAudio.ts spots the music bus by its gain being above 0 here (layer gains start at 0).
       musicBus = gain(ctx, volumeToGain(clamp01(m.volume)))
       musicBus.connect(masterOutput(ctx))
     }

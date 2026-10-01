@@ -41,6 +41,7 @@ export async function recordAudio(page: Page): Promise<void> {
     const connect = AudioNode.prototype.connect as (this: AudioNode, ...a: unknown[]) => unknown
     AudioNode.prototype.connect = function (this: AudioNode, dest: unknown, ...rest: unknown[]) {
       if (masters.has(dest as AudioNode)) {
+        // Coupling: the mixer creates the music bus with its volume gain (> 0), layer gains at 0.
         if (this instanceof GainNode && this.gain.value > 0) musicBuses.add(this)
         else layers.add(this)
       }

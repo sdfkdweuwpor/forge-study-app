@@ -1,4 +1,5 @@
 .root {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -91,13 +92,8 @@
   gap: var(--space-2);
 }
 
-@media (min-width: 640px) {
-  .styles {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
+/* Sized by the card's own width (it sits in a 280px column beside the timer on wide screens): 2x5 until all 5 columns fit every label. */
+@container (min-width: 50rem) {
   .styles {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
@@ -109,7 +105,7 @@
   align-items: flex-start;
   gap: 2px;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: transparent;
@@ -133,12 +129,9 @@
 }
 
 .cardLabel {
-  max-width: 100%;
-  overflow: hidden;
   font-size: var(--fs-14);
   font-weight: var(--fw-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .mood {

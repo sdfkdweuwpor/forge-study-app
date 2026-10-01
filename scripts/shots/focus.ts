@@ -240,6 +240,8 @@ const list: ShotList = {
     {
       // The Lofi section open: Tokyo night chosen, ten styles in a grid, Sounds below.
       name: 'sound-lofi-open',
+      widths: [1440, 768, 375],
+      fullPage: true,
       path: '/focus?seed=wgu',
       waitFor: TIMER,
       prepare: async (page) => {

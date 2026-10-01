@@ -32,6 +32,7 @@ const DRUMS = { kick: playKick, snare: playSnare, hat: playHat, rim: playRim }
 const MELODIC = { keys: playKeys, pad: playPad, bass: playBass, pluck: playPluck, piano: playPiano }
 
 export function startMusic(ctx: AudioContext, out: AudioNode, style: LofiStyle): MusicHandle {
+  // e2e/support/fakeAudio.ts tells the music bus (gain > 0 when wired to master) from layer gains (start at 0); keep this one at 0.
   const bus = gain(ctx, 0)
   bus.connect(out)
   bus.gain.setTargetAtTime(HEADROOM, ctx.currentTime, fadeTimeConstant(FADE_IN_MS))

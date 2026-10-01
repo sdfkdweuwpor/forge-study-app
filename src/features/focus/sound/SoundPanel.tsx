@@ -15,8 +15,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import type { LofiStyle } from '@/db/types'
-import type { NoiseColor } from '@/db/types'
+import type { LofiStyle, NoiseColor } from '@/db/types'
 import {
   describeLayers,
   LAYER_LABELS,
@@ -61,6 +60,7 @@ const STYLE_LOOK: Record<LofiStyle, { icon: LucideIcon; mood: string }> = {
 
 /** Arrow keys (and Home/End) move the choice one card at a time, wrapping, like a native radio group. */
 function moveStyle(e: KeyboardEvent<HTMLButtonElement>, index: number): void {
+  if (e.altKey || e.ctrlKey || e.metaKey) return // Alt+Left is the browser's Back
   const last = LOFI_STYLES.length - 1
   const to =
     e.key === 'ArrowRight' || e.key === 'ArrowDown'

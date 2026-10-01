@@ -87,6 +87,8 @@ export type {
   PaletteGroup,
   PaletteItem,
 } from './CommandPalette'
+export { Disclosure } from './Disclosure'
+export type { DisclosureProps } from './Disclosure'
 export { Breadcrumbs } from './Breadcrumbs'
 export type { BreadcrumbItem, BreadcrumbLinkProps, BreadcrumbsProps } from './Breadcrumbs'
 export {

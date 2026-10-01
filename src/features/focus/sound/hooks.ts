@@ -47,7 +47,7 @@ export function useSoundDevice(): SoundDevice | undefined {
         playing: device?.playing ?? false,
         open: {
           lofi: device?.open?.lofi ?? false,
-          sounds: device?.open?.sounds ?? false,
+          sounds: device?.open?.sounds ?? true,
           mixes: device?.open?.mixes ?? false,
         },
       },
@@ -58,4 +58,10 @@ export function useSoundDevice(): SoundDevice | undefined {
 /** The browser's notification permission, kept current (it can change in site settings at any time). */
 export function useNotifyPermission(): NotifyPermission {
   return useSyncExternalStore(subscribeNotifyPermission, notifyPermission, () => 'unsupported')
+}
+
+/** Whether this browser has Web Audio at all. A direct check, so no audio code loads just to ask. */
+export function audioAvailable(): boolean {
+  const w = window as { AudioContext?: unknown; webkitAudioContext?: unknown }
+  return w.AudioContext !== undefined || w.webkitAudioContext !== undefined
 }

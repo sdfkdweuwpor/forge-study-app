@@ -89,3 +89,9 @@
   color: var(--text-muted);
   font-size: var(--fs-14);
 }
+
+.link {
+  color: var(--accent-text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}

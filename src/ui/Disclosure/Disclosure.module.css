@@ -58,3 +58,32 @@
     min-height: 44px;
   }
 }
+
+.title {
+  flex: none;
+}
+
+/* The one-line state: muted, trimmed to the row. */
+.summaryText {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.details[data-disabled] {
+  opacity: 0.6;
+}
+
+.details[data-disabled] .summary {
+  cursor: default;
+}
+
+/* With a summary the header spans the row so the summary has room. */
+.details[data-wide] > .summary {
+  display: flex;
+  margin-right: calc(-1 * var(--space-2));
+}

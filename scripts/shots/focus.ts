@@ -18,6 +18,13 @@ async function loaded(page: Page): Promise<void> {
 
 const MINUTE = 60_000
 
+/** Moves a Sound-panel slider up by `steps` (5% each) from off, with the keyboard. */
+async function setLayer(page: Page, name: string, steps: number): Promise<void> {
+  const slider = page.getByRole('slider', { name, exact: true })
+  await slider.focus()
+  for (let i = 0; i < steps; i++) await slider.press('ArrowRight')
+}
+
 interface SeedSession {
   id: string
   kind?: 'focus' | 'break'
@@ -216,6 +223,34 @@ const list: ShotList = {
         await seedSessions(page, MORNING)
         await page.goto('/focus')
         await page.getByTestId('session-row').first().waitFor()
+        await loaded(page)
+      },
+    },
+    {
+      // The Sound card: Rain and Campfire mixed, Sounds open, Lofi and Mixes waiting for their tasks.
+      name: 'sound-panel',
+      path: '/focus?seed=wgu',
+      waitFor: TIMER,
+      prepare: async (page) => {
+        await setLayer(page, 'Rain', 8)
+        await setLayer(page, 'Campfire', 5)
+        await loaded(page)
+      },
+    },
+    {
+      // The mini player, playing, in the sidebar (and above the tab bar on a phone).
+      name: 'mini-player',
+      widths: [1440, 375],
+      path: '/?seed=wgu',
+      prepare: async (page) => {
+        await page.goto('/focus')
+        await setLayer(page, 'Rain', 8)
+        await page.getByRole('button', { name: 'Play', exact: true }).click()
+        // Slider moves are written to the database every 250 ms; let the last one land before leaving.
+        await page.waitForTimeout(600)
+        await page.goto('/')
+        await page.getByText('earned today').waitFor()
+        await page.getByRole('group', { name: 'Sound player' }).waitFor()
         await loaded(page)
       },
     },

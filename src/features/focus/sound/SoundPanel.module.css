@@ -1,0 +1,78 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+}
+
+.note {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.master,
+.layer {
+  display: grid;
+  grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.master {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-14);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slider {
+  display: flex;
+  width: 100%;
+}
+
+/* Let the range shrink to the card instead of keeping its 160px. */
+.slider > input {
+  width: auto;
+  min-width: 0;
+}
+
+/* The colour choice sits under the Noise slider, across the row. */
+.color {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.reset {
+  align-self: flex-start;
+}

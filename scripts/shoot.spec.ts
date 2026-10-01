@@ -9,6 +9,7 @@ import type { ShotList } from './shot-types'
 const themes = ['light', 'dark'] as const
 const viewports = [
   { width: 1440, height: 900 },
+  { width: 768, height: 1024 },
   { width: 375, height: 812 },
 ] as const
 

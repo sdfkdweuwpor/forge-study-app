@@ -21,7 +21,7 @@ npm run typecheck        # TypeScript check
 npm run lint             # ESLint
 npm test                 # Vitest (TZ=America/New_York)
 npm run e2e              # Playwright (build + preview required)
-npm run shoot            # Screenshots to screenshots/ (light/dark × 1440/375)
+npm run shoot            # Screenshots to screenshots/ (light/dark × 1440/768/375)
 npm run build:ext        # Build extension (Phase 9)
 npm run zip:ext          # Package forge-extension.zip (Phase 9)
 npm run format           # Prettier

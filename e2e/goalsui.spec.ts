@@ -175,11 +175,20 @@ test.describe('the goal page', () => {
     page,
   }) => {
     await gotoApp(page, GOAL, 'wgu')
+    // The goal's own timeline: the Roadmap lane, without a second title.
+    await expect(page.getByRole('region', { name: /timeline$/ }).getByTestId('lane-bar')).toBeVisible()
     await page.getByRole('button', { name: `Actions for ${C779_NAME}` }).click()
     await page.getByRole('menuitem', { name: 'Mark complete' }).click()
     await expect(toasts(page).getByText(`Marked ${C779_NAME} complete`)).toBeVisible()
     const row = table(page).getByRole('row').filter({ hasText: 'C779' })
     await expect(row.getByRole('button', { name: /^Status of .*Done/ })).toBeVisible()
+    // 250 XP for the course, and the finish line says how far the end moved.
+    const courseXp = async () =>
+      (await readTable<{ key: string; amount: number }>(page, 'xpEvents'))
+        .filter((e) => e.key === 'course:course-c779')
+        .reduce((total, e) => total + e.amount, 0)
+    await expect.poll(courseXp).toBe(250)
+    await expect(page.getByText(/^Now projected .+ \(−\d+ days?\)/)).toBeVisible()
     let tasks = await readTable<StoredTask>(page, 'tasks')
     expect(
       tasks.filter(
@@ -189,6 +198,7 @@ test.describe('the goal page', () => {
 
     await undo(page).click()
     await expect(row.getByRole('button', { name: /^Status of .*In progress/ })).toBeVisible()
+    await expect.poll(courseXp).toBe(0)
     tasks = await readTable<StoredTask>(page, 'tasks')
     expect(
       tasks.filter(

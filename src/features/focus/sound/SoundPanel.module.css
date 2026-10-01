@@ -1,0 +1,185 @@
+.root {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+}
+
+.note {
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+
+.master,
+.layer {
+  display: grid;
+  grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.master {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-14);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slider {
+  display: flex;
+  width: 100%;
+}
+
+/* Let the range shrink to the card instead of keeping its 160px. */
+.slider > input {
+  width: auto;
+  min-width: 0;
+}
+
+/* The colour choice sits under the Noise slider, across the row. */
+.color {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.reset {
+  align-self: flex-start;
+}
+
+.lofiTop {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.styles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+/* Sized by the card's own width (it sits in a 280px column beside the timer on wide screens): 2x5 until all 5 columns fit every label. */
+@container (min-width: 50rem) {
+  .styles {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.card:hover {
+  background: var(--bg-hover);
+}
+
+.card[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cardLabel {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  overflow-wrap: anywhere;
+}
+
+.mood {
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+}
+
+/* Layer names wrap ("Heavy rain & thunder") instead of being cut off; the slider stays centred on the row. */
+.layerLabel {
+  min-width: 0;
+  font-size: var(--fs-14);
+  overflow-wrap: anywhere;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full, 999px);
+  background: var(--bg);
+}
+
+.chipMain {
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-radius: inherit;
+  color: var(--text);
+  font-size: var(--fs-14);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipMain:hover {
+  color: var(--accent);
+}
+
+.withFocus {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}

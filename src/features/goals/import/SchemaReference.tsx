@@ -1,6 +1,6 @@
 import { CROSS_FIELD_RULES, EXAMPLE_JSON, fieldDocs, type FieldDoc } from '@/logic/planImport'
 import { Button } from '@/ui/Button'
-import { Disclosure } from './Disclosure'
+import { Disclosure } from '@/ui'
 import styles from './SchemaReference.module.css'
 
 /** `goal.term.start` → "term": the object a field is required inside. */

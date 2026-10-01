@@ -3,7 +3,7 @@
  * status and course-type labels, and the WGU "CUs completed this term" numbers.
  */
 import { format } from 'date-fns'
-import type { Goal, GoalProjection, ID, ISODate, Milestone, WguTerm } from '@/db/types'
+import type { Goal, GoalProjection, ID, ISODate, Millis, Milestone, WguTerm } from '@/db/types'
 import { dayOf, diffDays, fromISODate } from './dates'
 
 export type CourseStatus = Milestone['status']
@@ -109,9 +109,11 @@ export function summarizeFinish(goal: FinishInput, today: ISODate): FinishSummar
     return { ...base, kind: 'done', tone: 'success', headline: 'Nothing left to schedule' }
   }
   const end = formatDay(p.end, today)
+  const moved = recentMove(p, today)
+  const projected = moved === null ? `Projected ${end}` : `Now projected ${end} (${moved})`
   const slip = p.slipDays
   if (slip === null) {
-    return { ...base, kind: 'projected', tone: 'neutral', headline: `Projected ${end}`, end }
+    return { ...base, kind: 'projected', tone: 'neutral', headline: projected, end }
   }
   const against = goal.targetDate === null ? 'your plan' : 'target'
   if (slip > 0) {
@@ -120,7 +122,7 @@ export function summarizeFinish(goal: FinishInput, today: ISODate): FinishSummar
       ...base,
       kind: 'behind',
       tone: slip > SLIP_NEUTRAL_DAYS ? 'warning' : 'neutral',
-      headline: `Projected ${end} · ${label}`,
+      headline: `${projected} · ${label}`,
       end,
       slip: label,
     }
@@ -139,10 +141,37 @@ export function summarizeFinish(goal: FinishInput, today: ISODate): FinishSummar
     ...base,
     kind: 'ahead',
     tone: 'success',
-    headline: `Projected ${end} · ${label}`,
+    headline: `${projected} · ${label}`,
     end,
     slip: label,
   }
+}
+
+/** How long "Now projected … (+N days)" is shown after the end moved. */
+const MOVE_SHOWN_DAYS = 7
+
+/** "+9 days" / "−3 days" while the end moved in the last week, else null. */
+function recentMove(p: GoalProjection, today: ISODate): string | null {
+  if (p.end === null || !p.previousEnd || p.endMovedAt == null) return null
+  if (diffDays(today, dayOf(p.endMovedAt)) >= MOVE_SHOWN_DAYS) return null
+  const days = diffDays(p.end, p.previousEnd)
+  if (days === 0) return null
+  return `${days > 0 ? '+' : '−'}${plural(Math.abs(days), 'day')}`
+}
+
+/**
+ * `next` with the move remembered: when its end differs from `prev`'s, the old end and `now`; when it
+ * does not, whatever `prev` remembered (another re-plan the same day must not erase the move).
+ */
+export function carryEndMove(
+  prev: GoalProjection | null,
+  next: GoalProjection,
+  now: Millis,
+): GoalProjection {
+  if (prev !== null && prev.end !== null && next.end !== prev.end) {
+    return { ...next, previousEnd: prev.end, endMovedAt: now }
+  }
+  return { ...next, previousEnd: prev?.previousEnd ?? null, endMovedAt: prev?.endMovedAt ?? null }
 }
 
 // ─── WGU term ───────────────────────────────────────────────────────────────

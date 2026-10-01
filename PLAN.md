@@ -1160,7 +1160,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - The schema is documented in the UI, generated from the schema.
   - Done: pure `parsePlan` (fence and prose tolerant, line and column of every syntax and schema error), `planToOps` (create or merge, idempotent, never deletes), `toPlanDraft` for the Goal Breakdown Planner review screen, and the prompt and schema reference generated from the Zod schema. The panel (`goal.panels`, `i`, palette) and `ImportGoalButton` (new goal) preview first and write only on the Import click, with Undo. Tests: 75 pure, 9 fake-indexeddb (`importPlan.test.ts`), 7 manifest, and `e2e/import.spec.ts` (13).
   - Open: `ImportGoalButton` is hosted by the `/design` demo (`PlanImport.demo.tsx`) until the goals list places it, then delete the demo and re-point `openNewGoalImport` in the e2e. Assessments in the JSON are validated and previewed but not stored (no table fits them).
-- [ ] **5D [B] Integration** (after 5A and 5B).
+- [x] **5D [B] Integration** (after 5A and 5B).
+  - Finished 2026-09-30: +250 XP on course complete (`settleCourseXp`, key `course:<id>`, reversed when the course leaves done); the one-click catch-up (`CatchUp` → `addStudyTime`, the add-time proposal's change with Undo); the goal page's timeline is the Roadmap lane (`GoalRoadmap`, `Lane inline`, shared `MonthRow`); "Now projected … (±N days)" for a week after the end moves (`carryEndMove`, `previousEnd`/`endMovedAt`).
   - Audit 2026-09-30: done in the planner (preview timeline and fit, `onAppStart` re-planning, milestone countdown, term CU bar, `n`/`shift+r`/`i`). **Open:** +250 XP on course complete (`XP_COURSE_COMPLETE` is only used by sample data), the one-click catch-up on the goal page (placeholder in `GoalPage.tsx`), the goal page's own timeline (`GoalTimeline.tsx` placeholder; `/roadmap` has the real one), and "Now projected … (+N days)" against the previous projection.
   - Wizard step 4 preview: SVG Gantt timeline, "At this pace you'll finish on X", red impossible warning with h/day.
   - Goal page: "Now projected: Mar 14 (+9 days)" and the one-click catch-up.
@@ -1316,6 +1317,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
 - [x] **13E [B] Carry-overs from 6B, 6D and 8B** (gamification, world, layout; done 2026-09-30): the level where the sidebar is not (ring beside the open button, row in the More sheet, same `useXp()`), Shop rows tightened on `(pointer: coarse)` with 44 px targets kept, and My World Fit that shows the whole city at 375 and 768. Specs: `e2e/gamification-level.spec.ts`, `e2e/rewards.spec.ts`, `e2e/world.spec.ts`, `src/logic/world/camera.test.ts`. Decisions in DECISIONS.md "Phase 13 carry-overs" and "Fit".
 - [x] **13D [H]** README final: screenshots copied to the committed `docs/screenshots/`, PWA install on phone, extension install, backup/restore, WGU import prompt. Tick every box in this file.
   - Done 2026-09-30: nine curated screenshots in `docs/screenshots/` (README "Screenshots"); the PWA, extension, backup and restore, WGU import prompt and sync sections are written; the live Pages URL is at the top. Open boxes left on purpose: 5D extras, 10D, 12C (optional).
+- [x] **Sound** (2026-09-30): generated lofi styles, ambient layers, saved mixes and start-with-focus, with a mini player. Spec `docs/superpowers/specs/2026-09-30-sound-design.md`, plan `docs/superpowers/plans/2026-09-30-sound.md`.
 
 ---
 

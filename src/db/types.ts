@@ -212,6 +212,10 @@ export interface GoalProjection {
   requiredMinutesPerStudyDay: number | null
   issues: string[]
   computedAt: Millis
+  /** The end before it last moved (`carryEndMove`), for "Now projected Mar 23 (+9 days)". Absent on older rows. */
+  previousEnd?: ISODate | null
+  /** When the end last moved. */
+  endMovedAt?: Millis | null
 }
 export interface Goal extends Base {
   title: string
@@ -299,13 +303,7 @@ export interface PlannedAssessment extends Base {
 }
 
 export type PlanProposalKind =
-  | 'rollForward'
-  | 'extendDate'
-  | 'addTime'
-  | 'cutScope'
-  | 'spread'
-  | 'lifeHappened'
-  | 'aiSuggestion'
+  'rollForward' | 'extendDate' | 'addTime' | 'cutScope' | 'spread' | 'lifeHappened' | 'aiSuggestion'
 
 /** A pending plan change: nothing is applied until the user accepts it. */
 export interface PlanProposal extends Base {
@@ -628,6 +626,35 @@ export interface BlockWindow {
 export type ThemePref = 'light' | 'dark' | 'system'
 export type ReducedMotionPref = 'system' | 'on' | 'off'
 export type AmbientSound = 'none' | 'brown' | 'rain' | 'cafe'
+export type LofiStyle =
+  | 'classic'
+  | 'rainy'
+  | 'coffee'
+  | 'tokyo'
+  | 'synthwave'
+  | 'electronic'
+  | 'jazzhop'
+  | 'piano'
+  | 'chillhop'
+  | 'space'
+export type NoiseLayer =
+  'rain' | 'storm' | 'wind' | 'campfire' | 'cafe' | 'waves' | 'birds' | 'creek' | 'noise'
+export type NoiseColor = 'white' | 'pink' | 'brown'
+export interface Mix {
+  music: { style: LofiStyle | 'off'; volume: number }
+  layers: Partial<Record<NoiseLayer, number>>
+  noiseColor: NoiseColor
+  master: number
+}
+export interface MixPreset {
+  id: ID
+  name: string
+  mix: Mix
+}
+export interface SoundMixer extends Mix {
+  withFocus: boolean
+  presets: MixPreset[]
+}
 export type BlockerMode = 'focus' | 'schedule' | 'always' | 'off'
 
 export interface Settings extends Base {
@@ -651,6 +678,17 @@ export interface Settings extends Base {
     chime: boolean
     ambient: AmbientSound
     ambientVolume: number
+    /** Absent on old rows: derived from `ambient` / `ambientVolume`. */
+    mixer?: SoundMixer
+    /**
+     * This device only (never synced). `pausedSession`: the focus session Pause was pressed in while
+     * "start with focus" kept sound on; that session stays quiet (a new one starts sound again).
+     */
+    device?: {
+      playing: boolean
+      open: { lofi: boolean; sounds: boolean; mixes: boolean }
+      pausedSession?: ID | null
+    }
   }
   notifications: { enabled: boolean; promptedAt: Millis | null }
   blocker: {

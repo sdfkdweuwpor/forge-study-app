@@ -1,22 +1,13 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Bell, BellRing, Play, Square } from 'lucide-react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
+import { Bell, BellRing } from 'lucide-react'
+import { Link } from '@/app/router'
 import { updateSettings, type SettingsPatch } from '@/db/repos/settings'
-import type { AmbientSound } from '@/db/types'
-import {
-  armAudioUnlock,
-  isAmbientPlaying,
-  playChime,
-  setAmbientVolume,
-  startAmbient,
-  stopAmbient,
-  unlockAudio,
-} from '@/lib/audio'
+import { armAudioUnlock, playChime, unlockAudio } from '@/lib/audio'
 import { notify, type NotifyPermission } from '@/lib/notify'
-import { Button, SegmentedControl, Skeleton, Toggle } from '@/ui'
+import { Button, Skeleton, Toggle } from '@/ui'
 import { allowNotifications, setSoundsEnabled } from './actions'
-import { useAmbientKind, useNotifyPermission, useSoundSettings } from './hooks'
+import { useNotifyPermission, useSoundSettings } from './hooks'
 import { LoadBoundary } from './LoadBoundary'
-import { AMBIENT_OPTIONS } from './options'
 import { Slider } from './Slider'
 import styles from './sound.module.css'
 
@@ -34,7 +25,7 @@ const PERMISSION_LABEL: Record<NotifyPermission, string> = {
 
 /**
  * Settings section (slot `settings.sections`): sounds on/off, chime volume with a live preview,
- * the default ambient bed with a preview button, and the notification permission.
+ * a link to the Sound panel, and the notification permission.
  */
 export function SoundSection() {
   return (
@@ -47,23 +38,14 @@ export function SoundSection() {
 function SoundSectionBody() {
   const headingId = useId()
   const settings = useSoundSettings()
-  const playing = useAmbientKind()
   const permission = useNotifyPermission()
   const [message, setMessage] = useState<Message | null>(null)
-  /** True when the Preview button, not a focus session, started the ambient bed. */
-  const startedHere = useRef(false)
 
   // The audio context is only ever created for someone who has sounds on.
   const soundOn = settings?.sound.enabled === true
   useEffect(() => {
     if (soundOn) armAudioUnlock()
   }, [soundOn])
-  useEffect(
-    () => () => {
-      if (startedHere.current && isAmbientPlaying()) void stopAmbient(300)
-    },
-    [],
-  )
 
   async function save(patch: SettingsPatch): Promise<void> {
     try {
@@ -97,29 +79,6 @@ function SoundSectionBody() {
 
   const { sound, notifications } = settings
   const off = !sound.enabled
-
-  function previewAmbient() {
-    if (isAmbientPlaying()) {
-      startedHere.current = false
-      void stopAmbient()
-      return
-    }
-    if (sound.ambient === 'none') return
-    startedHere.current = true
-    void startAmbient(sound.ambient, sound.ambientVolume)
-  }
-
-  function chooseDefault(kind: AmbientSound) {
-    saveQuietly({ sound: { ambient: kind } })
-    // If something is already sounding (a preview), follow the choice so it can be heard.
-    if (!isAmbientPlaying()) return
-    if (kind === 'none') {
-      startedHere.current = false
-      void stopAmbient()
-    } else {
-      void startAmbient(kind, sound.ambientVolume)
-    }
-  }
 
   async function sendTest() {
     const shown = await notify('Forge', 'A session ended. This is what the ping looks like.', {
@@ -198,40 +157,13 @@ function SoundSectionBody() {
       </Row>
 
       <Row
-        label="Ambient sound"
-        help="Plays quietly while you focus. Made on your device, nothing to download."
+        label="Background sounds"
+        help="Rain, wind, café chatter and more, mixed to taste. Made on your device, nothing to download."
       >
         {() => (
-          <>
-            <SegmentedControl
-              label="Ambient sound"
-              size="sm"
-              options={AMBIENT_OPTIONS}
-              value={sound.ambient}
-              disabled={off}
-              onValueChange={chooseDefault}
-            />
-            <Button
-              size="sm"
-              iconLeft={playing ? <Square /> : <Play />}
-              disabled={off || (playing === null && sound.ambient === 'none')}
-              onClick={previewAmbient}
-            >
-              {playing ? 'Stop preview' : 'Preview'}
-            </Button>
-          </>
-        )}
-      </Row>
-
-      <Row label="Ambient volume">
-        {() => (
-          <Slider
-            label="Ambient volume"
-            value={sound.ambientVolume}
-            disabled={off}
-            onValueChange={setAmbientVolume}
-            onValueCommit={(v) => save({ sound: { ambientVolume: v } })}
-          />
+          <Link to="focus" className={styles.link}>
+            Open the Sound panel
+          </Link>
         )}
       </Row>
 

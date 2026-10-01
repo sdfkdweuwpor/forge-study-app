@@ -25,6 +25,7 @@ import {
 } from '@/db/repos/goals'
 import type { Goal, ID, Milestone, Unit } from '@/db/types'
 import { courseLabel } from '@/logic/goalDisplay'
+import { formatDuration } from '@/logic/scheduler/feasibility'
 import { useToast } from '@/ui/Toast'
 
 const shorten = (text: string, max = 48): string =>
@@ -46,6 +47,8 @@ export interface GoalActions {
   setUnitDone(unit: Unit, done: boolean): Promise<void>
   reorderUnits(courseId: ID, ids: readonly ID[]): Promise<void>
   deleteUnit(unit: Pick<Unit, 'id' | 'title'>): Promise<void>
+  /** The one-click catch-up: adds `minutes` to each study day and re-plans, with an Undo toast. */
+  catchUp(goalId: ID, minutes: number): Promise<void>
 }
 
 export function useGoalActions(): GoalActions {
@@ -66,6 +69,18 @@ export function useGoalActions(): GoalActions {
     }
 
     return {
+      catchUp: (goalId, minutes) =>
+        attempt(
+          'catchUp',
+          async () => {
+            // Loaded on demand like the daily planning: the proposals repo is not on the goal page's path.
+            const { addStudyTime } = await import('@/db/repos/proposals')
+            const result = await addStudyTime(goalId, minutes)
+            if (result) withUndo(`Added ${formatDuration(minutes)} to each study day`, result.undo)
+          },
+          undefined,
+        ),
+
       updateGoal: (id, patch) =>
         attempt('updateGoal', async () => (await updateGoal(id, patch)) !== null, false),
 

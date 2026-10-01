@@ -18,6 +18,7 @@ import {
 } from '@/db/repos/goals'
 import type { Task } from '@/db/types'
 import { atTime } from '@/logic/dates'
+import { XP_COURSE_COMPLETE } from '@/logic/xp'
 import { draftToRows, emptyCourse, emptyDraft, type DraftGoal } from '@/logic/goalDraft'
 import { wguTemplate } from '@/logic/goalTemplates'
 import { avail, goalRow, milestoneRow, unitRow, week } from '@/logic/scheduler/fixtures'
@@ -69,8 +70,9 @@ const scheduled = async (): Promise<Task[]> =>
     .filter((t) => t.source === 'schedule' && t.kind === 'study')
     .sort(
       (x, y) =>
-        `${x.doDate ?? ''} ${x.doTime ?? ''}`.localeCompare(`${y.doDate ?? ''} ${y.doTime ?? ''}`) ||
-        x.orderInDay - y.orderInDay,
+        `${x.doDate ?? ''} ${x.doTime ?? ''}`.localeCompare(
+          `${y.doDate ?? ''} ${y.doTime ?? ''}`,
+        ) || x.orderInDay - y.orderInDay,
     )
 
 const keys = async (): Promise<string[]> => (await scheduled()).map((t) => t.scheduleKey ?? '')
@@ -404,6 +406,32 @@ describe('setMilestoneStatus', () => {
     expect((await db.milestones.get('a'))?.status).toBe('done')
     expect(types()).toContain('milestone.completed')
     expect(await setMilestoneStatus('nope', 'done')).toBeNull()
+  })
+
+  it('completing a course pays 250 XP once; undo and reopening take it back', async () => {
+    await seedGoal()
+    const net = async (): Promise<number> =>
+      (await db.xpEvents.where('key').equals('course:a').toArray()).reduce(
+        (t, e) => t + e.amount,
+        0,
+      )
+
+    const done = await setMilestoneStatus('a', 'done', { now: MON })
+    expect(await net()).toBe(XP_COURSE_COMPLETE)
+    const [award] = await db.xpEvents.where('key').equals('course:a').toArray()
+    expect(award).toMatchObject({ source: 'course', refId: 'a', day: TODAY })
+
+    await done?.undo()
+    expect(await net()).toBe(0)
+
+    await setMilestoneStatus('a', 'done', { now: MON })
+    await setMilestoneStatus('a', 'done', { now: MON })
+    expect(await net()).toBe(XP_COURSE_COMPLETE)
+
+    const reopened = await setMilestoneStatus('a', 'active', { now: MON })
+    expect(await net()).toBe(0)
+    await reopened?.undo()
+    expect(await net()).toBe(XP_COURSE_COMPLETE)
   })
 })
 

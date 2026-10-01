@@ -18,6 +18,13 @@ async function loaded(page: Page): Promise<void> {
 
 const MINUTE = 60_000
 
+/** Moves a Sound-panel slider up by `steps` (5% each) from off, with the keyboard. */
+async function setLayer(page: Page, name: string, steps: number): Promise<void> {
+  const slider = page.getByRole('slider', { name, exact: true })
+  await slider.focus()
+  for (let i = 0; i < steps; i++) await slider.press('ArrowRight')
+}
+
 interface SeedSession {
   id: string
   kind?: 'focus' | 'break'
@@ -216,6 +223,84 @@ const list: ShotList = {
         await seedSessions(page, MORNING)
         await page.goto('/focus')
         await page.getByTestId('session-row').first().waitFor()
+        await loaded(page)
+      },
+    },
+    {
+      // The Sound card: Rain and Campfire mixed, Sounds open, Mixes waiting for its task.
+      name: 'sound-panel',
+      path: '/focus?seed=wgu',
+      waitFor: TIMER,
+      prepare: async (page) => {
+        await setLayer(page, 'Rain', 8)
+        await setLayer(page, 'Campfire', 5)
+        await loaded(page)
+      },
+    },
+    {
+      // The Lofi section open: Tokyo night chosen, ten styles in a grid, Sounds below.
+      name: 'sound-lofi-open',
+      widths: [1440, 768, 375],
+      fullPage: true,
+      path: '/focus?seed=wgu',
+      waitFor: TIMER,
+      prepare: async (page) => {
+        const panel = page.getByRole('region', { name: 'Sound' })
+        await panel.locator('summary', { hasText: 'Lofi' }).click()
+        await panel.getByRole('radio', { name: /Tokyo night/ }).click()
+        await panel.getByRole('radio', { name: /Tokyo night/ }).waitFor()
+        await loaded(page)
+      },
+    },
+    {
+      // The Mixes section open with five saved mixes, one with a 40-character name.
+      name: 'sound-mixes-open',
+      widths: [1440, 375],
+      fullPage: true,
+      path: '/focus?seed=wgu',
+      waitFor: TIMER,
+      prepare: async (page) => {
+        const panel = page.getByRole('region', { name: 'Sound' })
+        await panel
+          .getByRole('radio', { name: /Tokyo night/ })
+          .or(panel.locator('summary', { hasText: 'Lofi' }))
+          .first()
+          .click()
+        await panel.getByRole('radio', { name: /Tokyo night/ }).click()
+        await panel.locator('summary', { hasText: 'Mixes' }).click()
+        const names = [
+          'Rainy Tokyo',
+          'Deep work',
+          'Late night reading with rain and a fire',
+          'Café',
+          'Sunday',
+        ]
+        for (const [i, name] of names.entries()) {
+          await panel.getByRole('button', { name: 'Save current mix…' }).click()
+          const dialog = page.getByRole('dialog', { name: 'Save current mix' })
+          await dialog.getByRole('textbox', { name: 'Name' }).fill(name)
+          await dialog.getByRole('button', { name: 'Save' }).click()
+          await panel.getByRole('button', { name, exact: true }).waitFor()
+          await dialog.waitFor({ state: 'detached' })
+          void i
+        }
+        await loaded(page)
+      },
+    },
+    {
+      // The mini player, playing, in the sidebar (and above the tab bar on a phone).
+      name: 'mini-player',
+      widths: [1440, 375],
+      path: '/?seed=wgu',
+      prepare: async (page) => {
+        await page.goto('/focus')
+        await setLayer(page, 'Rain', 8)
+        await page.getByRole('button', { name: 'Play', exact: true }).click()
+        // Slider moves are written to the database every 250 ms; let the last one land before leaving.
+        await page.waitForTimeout(600)
+        await page.goto('/')
+        await page.getByText('earned today').waitFor()
+        await page.getByRole('group', { name: 'Sound player' }).waitFor()
         await loaded(page)
       },
     },

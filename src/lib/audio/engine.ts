@@ -1,8 +1,8 @@
 /**
  * The one AudioContext. Created lazily (never on import), resumed on the first user gesture, and
- * routed through a small limiter so a chime on top of a loud ambient bed can never clip.
+ * routed through a small limiter so a chime on top of a loud mixer can never clip.
  *
- *   sources → ambientBus (volume) ─┐
+ *   sources → masterBus (volume) ─┐
  *   chime notes ───────────────────┴→ limiter → destination
  *
  * Browsers only let audio start after a user gesture. `unlockAudio()` is meant for a click or key
@@ -15,32 +15,13 @@ type ContextCtor = typeof AudioContext
 
 let ctx: AudioContext | null = null
 let limiter: DynamicsCompressorNode | null = null
-let ambientBus: GainNode | null = null
-let ambientVolume = 0.4
+let masterBus: GainNode | null = null
+let masterVolume = 0.4
 let unlockArmed = false
-
-const listeners = new Set<() => void>()
-
-/** Calls `listener` whenever the audio state changes (context state, ambient kind). For `useSyncExternalStore`. */
-export function subscribeAudio(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export function emitAudioChange(): void {
-  for (const listener of [...listeners]) listener()
-}
 
 function contextCtor(): ContextCtor | null {
   const g = globalThis as { AudioContext?: ContextCtor; webkitAudioContext?: ContextCtor }
   return g.AudioContext ?? g.webkitAudioContext ?? null
-}
-
-/** Whether this browser can make sound at all. */
-export function audioSupported(): boolean {
-  return contextCtor() !== null
 }
 
 /** The shared context, created on first use, or `null` where Web Audio is unavailable. */
@@ -63,10 +44,9 @@ export function getContext(): AudioContext | null {
   limiter.attack.value = 0.005
   limiter.release.value = 0.25
   limiter.connect(c.destination)
-  ambientBus = c.createGain()
-  ambientBus.gain.value = volumeToGain(ambientVolume)
-  ambientBus.connect(limiter)
-  c.addEventListener('statechange', emitAudioChange)
+  masterBus = c.createGain()
+  masterBus.gain.value = volumeToGain(masterVolume)
+  masterBus.connect(limiter)
   if (c.state !== 'running') armAudioUnlock()
   return c
 }
@@ -76,9 +56,9 @@ export function outputNode(ctxIn: AudioContext): AudioNode {
   return limiter && ctxIn === ctx ? limiter : ctxIn.destination
 }
 
-/** Where ambient graphs connect (carries the ambient volume). */
-export function ambientOutput(ctxIn: AudioContext): AudioNode {
-  return ambientBus && ctxIn === ctx ? ambientBus : outputNode(ctxIn)
+/** Where mixer layers connect (carries the master volume). */
+export function masterOutput(ctxIn: AudioContext): AudioNode {
+  return masterBus && ctxIn === ctx ? masterBus : outputNode(ctxIn)
 }
 
 /**
@@ -134,19 +114,10 @@ export function armAudioUnlock(): void {
   for (const e of events) document.addEventListener(e, handler, { capture: true, passive: true })
 }
 
-export type ContextStatus = 'unsupported' | 'idle' | 'suspended' | 'running'
-
-/** `idle` means no context has been created yet (no sound has been asked for). */
-export function contextStatus(): ContextStatus {
-  if (!audioSupported()) return 'unsupported'
-  if (!ctx || ctx.state === 'closed') return 'idle'
-  return ctx.state === 'running' ? 'running' : 'suspended'
-}
-
-/** Sets the ambient volume (0..1), smoothed so dragging a slider makes no zipper noise. */
+/** Sets the master volume (0..1), smoothed so dragging a slider makes no zipper noise. */
 export function setBusVolume(volume: number): void {
-  ambientVolume = volume
-  if (ctx && ambientBus) {
-    ambientBus.gain.setTargetAtTime(volumeToGain(volume), ctx.currentTime, 0.04)
+  masterVolume = volume
+  if (ctx && masterBus) {
+    masterBus.gain.setTargetAtTime(volumeToGain(volume), ctx.currentTime, 0.04)
   }
 }

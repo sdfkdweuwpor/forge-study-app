@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
 import { Slot } from '@/app/registry'
+import { GoalRoadmap } from '@/features/roadmap'
 import { href, navigate, useParams, usePageTitle } from '@/app/router'
 import { useShortcutHandler, useShortcutScope } from '@/app/shortcuts'
 import { formatHours, percent, plural, summarizeFinish, termProgress } from '@/logic/goalDisplay'
@@ -18,10 +19,10 @@ import { IconButton } from '@/ui/IconButton'
 import { PageHeader, type PageCover } from '@/ui/PageHeader'
 import { ProgressBar } from '@/ui/ProgressBar'
 import { useGoalActions } from './actions'
+import { CatchUp } from './CatchUp'
 import { CourseTable } from './CourseTable'
 import { renderCrumbLink } from './crumbs'
 import { FinishLine } from './FinishLine'
-import { GoalTimeline } from './GoalTimeline'
 import { NotesEditor } from './NotesEditor'
 import { useCoverValue, useGoalData, type GoalData } from './queries'
 import { GoalsError, NotFoundState, PageSkeleton } from './states'
@@ -47,7 +48,6 @@ function GoalBody({ data }: { data: GoalData }) {
   const finish = summarizeFinish(goal, today)
   const term = termProgress(goal.terms, courses, today)
   const cus = courses.reduce((sum, c) => sum + (c.cus ?? 0), 0)
-  const minutesByCourse = new Map(work.courses.map((c) => [c.courseId, c.totalMinutes]))
 
   const menu: MenuEntry[] = [
     {
@@ -126,12 +126,16 @@ function GoalBody({ data }: { data: GoalData }) {
             valueText={`${done}% of hours done`}
           />
           <FinishLine summary={finish} />
-          {/* 5D: the one-click catch-up sits here, under the projection. */}
+          <CatchUp
+            goal={goal}
+            today={today}
+            onCatchUp={(minutes) => void actions.catchUp(goal.id, minutes)}
+          />
         </div>
         {term !== null && term.total > 0 ? <TermProgressBar progress={term} /> : null}
       </section>
 
-      <GoalTimeline courses={courses} hours={minutesByCourse} />
+      <GoalRoadmap goalId={goal.id} />
 
       <section className={styles.section} aria-labelledby="courses-heading">
         <h2 id="courses-heading" className={styles.sectionTitle}>

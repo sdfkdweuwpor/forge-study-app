@@ -1908,6 +1908,8 @@ test.describe('Trash', () => {
     await page.keyboard.press('t')
     await expect.poll(() => pathnameOf(page)).toBe('/trash')
     await expect(pageHeading(page)).toBeFocused()
+    // The list reads the Trash after the heading shows: j before then has no row to select.
+    await expect(page.getByText(title).first()).toBeVisible()
 
     await page.keyboard.press('j')
     await page.keyboard.press('ControlOrMeta+Backspace')

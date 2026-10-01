@@ -4,6 +4,10 @@ Forge helps you stay focused, plan your day, and break big goals (like a WGU bac
 
 **Live app:** https://sdfkdweuwpor.github.io/forge-study-app/
 
+## Sound
+
+The Focus page has a Sound card: ten lofi styles, nine ambient layers (rain, thunder, wind, campfire, café, waves, birds, creek, noise), saved mixes, and an option to start the sound with a focus session. Everything is generated in the browser, so there are no audio files, nothing is streamed, and it works offline. A small player in the sidebar (a pill on phones) keeps it one tap away on every page.
+
 ## Status
 
 Phases 0–13 are built; see [PLAN.md](PLAN.md) for the checklist and [DECISIONS.md](DECISIONS.md) for why things are the way they are. Still open: a few planner extras (5D) and a state-by-state audit (10D).
@@ -304,5 +308,7 @@ Taken with `npm run shoot` on the sample data (`?seed=wgu`); every screen is als
 | **Tasks**: list, board, calendar and saved views | **Progress**: streaks, heatmap, time per goal |
 | ![My World, an isometric town built from finished work](docs/screenshots/world.png) | ![Settings, Sync on](docs/screenshots/sync.png) |
 | **My World**: finished work becomes a town | **Sync (optional)**: your own Supabase project |
+| ![The Sound card with the Lofi styles open](docs/screenshots/sound.png) | |
+| **Sound**: generated lofi, ambient layers and saved mixes | |
 
 <img src="docs/screenshots/today-phone-dark.png" alt="Today on a phone, dark mode" width="280">

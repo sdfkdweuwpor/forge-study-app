@@ -1,0 +1,55 @@
+.player {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0 var(--space-1);
+}
+
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-12);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .label:hover {
+    color: var(--text);
+  }
+}
+
+.volume {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* On a phone the player floats above the tab bar, and above the timer pill when that shows. */
+.player[data-variant='pill'] {
+  display: none;
+}
+
+@media (max-width: 639.98px) {
+  .player[data-variant='pill'] {
+    position: fixed;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+    left: 50%;
+    z-index: var(--z-tabbar);
+    display: flex;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-pop);
+    translate: -50% 0;
+  }
+
+  :global(body):has([data-testid='mini-timer-pill']) .player[data-variant='pill'] {
+    bottom: calc(
+      var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + var(--tap-min) +
+        var(--space-2)
+    );
+  }
+}

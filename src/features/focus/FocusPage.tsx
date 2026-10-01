@@ -1,7 +1,7 @@
 /**
  * `/focus`: the timer (BRIEF §5.2). Calm and centred: a mode switch, a 96px tabular timer inside a
  * progress ring, the round counter, the task link, Start / Pause / Resume with Stop or Skip break, and
- * today's session log below. The `focus.aside` slot (ambient sound, later the parking lot) sits to the
+ * today's session log below. The `focus.aside` slot (the Sound card, later the parking lot) sits to the
  * right on wide screens. Nothing here keeps time: it reads the timer store (`useTimer`) and calls the
  * plain functions in `actions.ts`.
  */

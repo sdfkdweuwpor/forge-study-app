@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { createRng } from './noise'
 import {
+  birdPhrase,
   CHIME_PARTIALS,
   chimeLength,
   chimeSchedule,
   clinkEvent,
+  crackleEvent,
   dropletEvent,
   nextEventTime,
   partialEnvelope,
+  thunderEvent,
+  waveSwell,
 } from './schedule'
 
 describe('chimeSchedule', () => {
@@ -121,6 +125,56 @@ describe('event shapes', () => {
       expect(c.gain).toBeLessThan(0.04)
       expect(c.decay).toBeGreaterThan(0.1)
       expect(c.decay).toBeLessThan(0.4)
+    }
+  })
+})
+
+describe('noise-layer events', () => {
+  const draws = <T>(fn: (r: () => number) => T) => {
+    const r = createRng(11)
+    return Array.from({ length: 1000 }, () => fn(r))
+  }
+  const within = (v: number, lo: number, hi: number) => {
+    expect(v).toBeGreaterThanOrEqual(lo)
+    expect(v).toBeLessThanOrEqual(hi)
+  }
+
+  it('crackleEvent stays in range', () => {
+    for (const c of draws(crackleEvent)) {
+      within(c.gain, 0.05, 0.6)
+      within(c.freq, 800, 4000)
+      within(c.decay, 0.005, 0.06)
+    }
+  })
+
+  it('birdPhrase has 2-6 ascending chirps within 1.5 s at 1.8-5 kHz', () => {
+    for (const p of draws(birdPhrase)) {
+      expect(p.notes.length).toBeGreaterThanOrEqual(2)
+      expect(p.notes.length).toBeLessThanOrEqual(6)
+      p.notes.forEach((n, i) => {
+        within(n.freq, 1800, 5000)
+        within(n.dur, 0.04, 0.25)
+        expect(n.at + n.dur).toBeLessThanOrEqual(1.5)
+        if (i === 0) expect(n.at).toBe(0)
+        else expect(n.at).toBeGreaterThan(p.notes[i - 1]?.at ?? Infinity)
+      })
+    }
+  })
+
+  it('thunderEvent and waveSwell stay in range', () => {
+    for (const t of draws(thunderEvent)) {
+      within(t.gain, 0.3, 1)
+      within(t.rumbleSeconds, 4, 9)
+    }
+    for (const w of draws(waveSwell)) {
+      within(w.period, 6, 11)
+      within(w.peak, 0.4, 1)
+    }
+  })
+
+  it('is deterministic for a seed', () => {
+    for (const fn of [crackleEvent, birdPhrase, thunderEvent, waveSwell]) {
+      expect(fn(createRng(9))).toEqual(fn(createRng(9)))
     }
   })
 })

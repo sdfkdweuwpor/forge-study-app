@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { GoalProjection, Milestone, WguTerm } from '@/db/types'
 import { atTime } from './dates'
 import {
+  carryEndMove,
   courseLabel,
   currentTerm,
   formatDay,
@@ -262,5 +263,44 @@ describe('course helpers', () => {
     )
     expect(courseLabel({ code: null, title: 'Capstone' })).toBe('Capstone')
     expect(courseLabel({ code: '', title: 'Capstone' })).toBe('Capstone')
+  })
+})
+
+describe('the projection moved', () => {
+  const NOW = atTime(TODAY, '09:00')
+
+  it('remembers the old end when the end moves, and keeps it while the end stays', () => {
+    const before = projection({ end: '2027-03-14' })
+    const moved = carryEndMove(before, projection({ end: '2027-03-23' }), NOW)
+    expect(moved).toMatchObject({ previousEnd: '2027-03-14', endMovedAt: NOW })
+    const again = carryEndMove(moved, projection({ end: '2027-03-23' }), NOW + 1000)
+    expect(again).toMatchObject({ previousEnd: '2027-03-14', endMovedAt: NOW })
+    expect(carryEndMove(null, projection(), NOW)).toMatchObject({
+      previousEnd: null,
+      endMovedAt: null,
+    })
+  })
+
+  it('says how far it moved for a week: "Now projected Mar 23 (+9 days)"', () => {
+    const p = projection({
+      end: '2027-03-23',
+      slipDays: null,
+      previousEnd: '2027-03-14',
+      endMovedAt: NOW,
+    })
+    expect(summarizeFinish(goal(p, null), TODAY).headline).toBe(
+      'Now projected Mar 23, 2027 (+9 days)',
+    )
+    const earlier = projection({
+      end: '2027-03-11',
+      slipDays: -17,
+      previousEnd: '2027-03-14',
+      endMovedAt: NOW,
+    })
+    expect(summarizeFinish(goal(earlier), TODAY).headline).toBe(
+      'Now projected Mar 11, 2027 (−3 days) · 17 days before target',
+    )
+    const old = { ...p, endMovedAt: atTime('2026-09-21', '09:00') }
+    expect(summarizeFinish(goal(old, null), TODAY).headline).toBe('Projected Mar 23, 2027')
   })
 })

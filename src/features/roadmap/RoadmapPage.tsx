@@ -6,10 +6,11 @@
 import { useMemo } from 'react'
 import { ErrorBoundary } from '@/app/ErrorBoundary'
 import { useToday } from '@/app/hooks/useToday'
-import { dayX, layoutRoadmap, monthScale, ZOOMS } from '@/logic/roadmap'
+import { layoutRoadmap, monthScale, ZOOMS } from '@/logic/roadmap'
 import { SegmentedControl } from '@/ui/SegmentedControl'
 import { Kbd } from '@/ui/Kbd'
 import { Lane } from './Lane'
+import { MonthRow } from './MonthRow'
 import { useRoadmapGoals } from './queries'
 import { RoadmapEmpty, RoadmapError, RoadmapSkeleton } from './states'
 import { useZoom } from './zoom'
@@ -61,8 +62,6 @@ function RoadmapScreen() {
         : [],
     [goals, scale],
   )
-  const todayX = dayX(scale, today) + 0.5 / scale.days
-
   return (
     <>
       <header className={styles.header}>
@@ -96,18 +95,7 @@ function RoadmapScreen() {
         <RoadmapEmpty />
       ) : (
         <div className={styles.chart}>
-          <div className={styles.monthRow} aria-hidden="true">
-            <div className={styles.months}>
-              {scale.months.map((m) => (
-                <span key={m.key} className={styles.month} style={{ left: `${m.x * 100}%` }}>
-                  {m.label}
-                </span>
-              ))}
-              <span className={styles.todayLabel} style={{ left: `${todayX * 100}%` }}>
-                Today
-              </span>
-            </div>
-          </div>
+          <MonthRow scale={scale} today={today} />
           {goals.map((entry, i) => {
             const layout = lanes[i]
             if (!layout) return null

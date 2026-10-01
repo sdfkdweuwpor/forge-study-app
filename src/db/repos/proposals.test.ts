@@ -8,6 +8,7 @@ import { db } from '@/db/db'
 import { resetDomainEvents, settleDomainEvents } from '@/db/events'
 import { rebalanceGoal } from '@/db/repos/goals'
 import {
+  addStudyTime,
   applyProposal,
   dismissProposal,
   parseProposalApply,
@@ -167,6 +168,25 @@ describe('applyProposal and dismissProposal', () => {
     expect(goal?.availability.minutesByWeekday).toEqual([0, 70, 70, 70, 70, 70, 130])
   })
 
+  it('the one-click catch-up adds time like the proposal, re-plans, and Undo puts the goal back', async () => {
+    await seedPlanned({ targetDate: '2026-10-24' })
+    const goalBefore = await db.goals.get('goal-1')
+    const tasksBefore = await planTasks()
+    const result = await addStudyTime('goal-1', 10, { now: MON + 1000 })
+    expect(result).not.toBeNull()
+    const goal = await db.goals.get('goal-1')
+    expect(goal?.planning.weekly[1]).toEqual([{ start: '09:00', end: '10:10' }])
+    expect(goal?.availability.minutesByWeekday).toEqual([0, 70, 70, 70, 70, 70, 130])
+
+    await result?.undo()
+    expect(await db.goals.get('goal-1')).toEqual(goalBefore)
+    // Same plan; tasks that came back from the Trash carry the time they came back.
+    const content = (ts: Task[]) => ts.map(({ updatedAt: _, ...t }) => t)
+    expect(content(await planTasks())).toEqual(content(tasksBefore))
+    expect(await addStudyTime('goal-1', 0)).toBeNull()
+    expect(await addStudyTime('nope', 10)).toBeNull()
+  })
+
   it('cut scope moves the units to the trash; Undo brings them back', async () => {
     await seedPlanned({ targetDate: '2026-10-24' })
     const now = at('2026-10-14')
@@ -264,9 +284,9 @@ describe('proposeReplanWeek and the far-behind choices', () => {
     const second = await proposeReplanWeek('goal-1', { now: far, capacityFactor: 0.25 })
     expect((await db.planProposals.get(first?.id as string))?.status).toBe('stale')
     expect((await db.planProposals.get(second?.id as string))?.status).toBe('pending')
-    expect((await pendingProposals('goal-1', '2026-10-12')).some((p) => p.kind !== 'lifeHappened')).toBe(
-      true,
-    )
+    expect(
+      (await pendingProposals('goal-1', '2026-10-12')).some((p) => p.kind !== 'lifeHappened'),
+    ).toBe(true)
     const applied = await applyProposal(second?.id as string, { now: far })
     expect(applied.status).toBe('applied')
     expect(await pendingProposals('goal-1', '2026-10-12')).toEqual([])

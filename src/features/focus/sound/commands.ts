@@ -1,12 +1,12 @@
-import { AudioLines, Bell, CloudRain, Coffee, VolumeX, Waves } from 'lucide-react'
+import { Bell, CloudRain, Coffee, ListMusic, VolumeX, Waves, AudioLines } from 'lucide-react'
 import type { CommandDef, ShortcutDef } from '@/app/registry'
-import { getSettings } from '@/db/repos/settings'
-import { unlockAudio } from '@/lib/audio/engine'
-import { runtime } from '../runtime'
+import { updateSettings } from '@/db/repos/settings'
+import type { NoiseLayer } from '@/db/types'
+import { playLayer, togglePlay } from './playToggle'
 
-// What the commands do lives in `./actions` with the ambient beds and the settings code behind them, which
-// load when a sound command first runs (not with the app). `unlockAudio` stays a static import: it has to
-// run before the first `await`, while the key press that chose the command still counts as a gesture.
+// What the commands do that needs more than a settings write lives in `./actions`, which loads when a
+// sound command first runs (not with the app). `playToggle` stays a static import: it unlocks audio
+// before its first `await`, while the key press that chose the command still counts as a gesture.
 const soundActions = () => import('./actions')
 
 /** Shortcut ids. `soundCommands` points at `AMBIENT_SHORTCUT_ID`, so register both lists together. */
@@ -17,34 +17,27 @@ export const soundShortcuts: ShortcutDef[] = [
   {
     id: AMBIENT_SHORTCUT_ID,
     keys: 'a',
-    description: 'Play or pause ambient sound',
+    description: 'Play or pause sound',
     group: 'Focus',
     scope: 'focus',
-    run: () => {
-      void soundActions().then((a) => a.toggleAmbient())
-    },
+    run: () => void togglePlay(),
   },
 ]
 
-/** Runs `pick` for a bed, from the palette (an Enter key press, so sound may start). */
-function ambientCommand(
-  id: string,
+/** "Sound: Rain": that layer at 40%, playing. Runs from the palette (an Enter key press, so sound may start). */
+function layerCommand(
+  layer: NoiseLayer,
   title: string,
-  kind: 'brown' | 'rain' | 'cafe' | 'none',
   icon: CommandDef['icon'],
   keywords: string[],
 ): CommandDef {
   return {
-    id,
-    title,
+    id: `command.sound.${layer}`,
+    title: `Sound: ${title}`,
     group: 'Focus',
     icon,
     keywords: ['ambient', 'sound', 'noise', ...keywords],
-    run: async () => {
-      if (runtime()?.soundEnabled()) void unlockAudio()
-      const { sound } = await getSettings()
-      await (await soundActions()).chooseAmbient(kind, sound.ambientVolume)
-    },
+    run: () => playLayer(layer, 0.4),
   }
 }
 
@@ -52,25 +45,27 @@ function ambientCommand(
 export const soundCommands: CommandDef[] = [
   {
     id: 'command.sound.ambientToggle',
-    title: 'Play or pause ambient sound',
+    title: 'Play/Pause sound',
     group: 'Focus',
     icon: Waves,
-    keywords: ['ambient', 'sound', 'noise', 'music', 'mute'],
+    keywords: ['ambient', 'sound', 'noise', 'music', 'mute', 'play', 'pause'],
     shortcutId: AMBIENT_SHORTCUT_ID,
-    run: async () => (await soundActions()).toggleAmbient(),
+    run: () => togglePlay(),
   },
-  ambientCommand('command.sound.brown', 'Ambient sound: brown noise', 'brown', AudioLines, [
-    'brown',
-    'white',
-    'static',
-  ]),
-  ambientCommand('command.sound.rain', 'Ambient sound: rain', 'rain', CloudRain, ['rain', 'storm']),
-  ambientCommand('command.sound.cafe', 'Ambient sound: café', 'cafe', Coffee, [
-    'cafe',
-    'coffee',
-    'murmur',
-  ]),
-  ambientCommand('command.sound.none', 'Ambient sound: none', 'none', VolumeX, ['off', 'silence']),
+  {
+    id: 'command.sound.panel',
+    title: 'Open sound panel',
+    group: 'Focus',
+    icon: ListMusic,
+    keywords: ['sound', 'mixer', 'ambient', 'lofi', 'rain'],
+    run: async (c) => {
+      c.navigate('focus')
+      await updateSettings({ sound: { device: { open: { sounds: true } } } })
+    },
+  },
+  layerCommand('rain', 'Rain', CloudRain, ['rain', 'storm']),
+  layerCommand('cafe', 'Café chatter', Coffee, ['cafe', 'coffee', 'murmur']),
+  layerCommand('noise', 'Noise', AudioLines, ['brown', 'white', 'pink', 'static']),
   {
     id: 'command.sound.toggle',
     title: 'Turn all sounds on or off',

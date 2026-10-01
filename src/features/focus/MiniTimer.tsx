@@ -4,6 +4,7 @@
  * session runs and while the Focus page itself is open. It is a link, not a live region: the polite
  * announcements in `TimerProvider` do the speaking.
  */
+import { useBottomBarPill, BOTTOM_BAR_ATTR } from '@/app/hooks/useBottomBarPill'
 import { Link, useRoute } from '@/app/router'
 import { formatClock, phaseLabel, spokenClock, variantOf } from '@/logic/timer'
 import { ProgressRing } from '@/ui/ProgressRing'
@@ -16,19 +17,20 @@ function MiniTimerLink({ variant }: { variant: 'sidebar' | 'pill' }) {
   const settings = useSettings()
   const route = useRoute()
   const session = timer.session
+  useBottomBarPill(variant === 'pill' && !!session && route.name !== 'focus')
   if (!session || route.name === 'focus') return null
 
   const paused = timer.status === 'paused'
   const label = phaseLabel(variantOf(session, settings?.timer ?? { longBreakEvery: 4 }))
   // Spoken to the minute: a per-second name would be re-read whenever the link is focused.
   const spoken = spokenClock(Math.ceil(timer.seconds / 60) * 60)
-  const description =
-    session.plannedMinutes === null ? `${spoken} elapsed` : `about ${spoken} left`
+  const description = session.plannedMinutes === null ? `${spoken} elapsed` : `about ${spoken} left`
 
   return (
     <Link
       to="focus"
       className={styles.mini}
+      {...(variant === 'pill' ? { [BOTTOM_BAR_ATTR]: '' } : {})}
       data-variant={variant}
       data-paused={paused || undefined}
       data-testid={variant === 'pill' ? 'mini-timer-pill' : 'mini-timer'}

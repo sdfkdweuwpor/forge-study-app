@@ -12,6 +12,12 @@
   cursor: pointer;
 }
 
+.lane[data-inline] {
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 0;
+  cursor: default;
+}
+
 /* ── Label ───────────────────────────────────────────────────────────────── */
 .label {
   display: flex;

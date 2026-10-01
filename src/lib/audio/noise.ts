@@ -27,6 +27,30 @@ export function whiteNoise(length: number, rng: Rng): Float32Array {
   return out
 }
 
+/** Pink noise (power falls 3 dB per octave) via Paul Kellet's economy filter over white noise. */
+export function pinkNoise(length: number, rng: Rng): Float32Array {
+  let b0 = 0
+  let b1 = 0
+  let b2 = 0
+  let b3 = 0
+  let b4 = 0
+  let b5 = 0
+  let b6 = 0
+  const out = new Float32Array(length)
+  for (let i = 0; i < length; i++) {
+    const w = rng() * 2 - 1
+    b0 = 0.99886 * b0 + w * 0.0555179
+    b1 = 0.99332 * b1 + w * 0.0750759
+    b2 = 0.969 * b2 + w * 0.153852
+    b3 = 0.8665 * b3 + w * 0.3104856
+    b4 = 0.55 * b4 + w * 0.5329522
+    b5 = -0.7616 * b5 - w * 0.016898
+    out[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11
+    b6 = w * 0.115926
+  }
+  return out
+}
+
 /**
  * Brown (red) noise: white noise run through a leaky integrator, so power falls 6 dB per octave.
  * The leak stops the running sum drifting away from zero; `leakHz` is where the spectrum flattens
@@ -90,7 +114,7 @@ export function makeLoopable(raw: Float32Array, crossfade: number): Float32Array
 }
 
 export interface LoopSpec {
-  type: 'white' | 'brown'
+  type: 'white' | 'pink' | 'brown'
   sampleRate: number
   seconds: number
   /** Seam blend length in seconds (default 0.5). */
@@ -100,15 +124,18 @@ export interface LoopSpec {
   leakHz?: number
 }
 
-/** A seamless loop of white or brown noise, `seconds` long, ready to copy into an AudioBuffer. */
+/** A seamless loop of white, pink or brown noise, `seconds` long, ready to copy into an AudioBuffer. */
 export function generateLoop(spec: LoopSpec): Float32Array {
   const rng = createRng(spec.seed)
   const peak = spec.peak ?? 0.9
   const length = Math.max(1, Math.round(spec.seconds * spec.sampleRate))
   const fade = Math.min(length, Math.round((spec.crossfadeSeconds ?? 0.5) * spec.sampleRate))
+  const n = length + fade
   const raw =
     spec.type === 'brown'
-      ? brownNoise(length + fade, rng, spec.sampleRate, { leakHz: spec.leakHz, peak })
-      : whiteNoise(length + fade, rng)
+      ? brownNoise(n, rng, spec.sampleRate, { leakHz: spec.leakHz, peak })
+      : spec.type === 'pink'
+        ? pinkNoise(n, rng)
+        : whiteNoise(n, rng)
   return normalize(makeLoopable(raw, fade), peak)
 }

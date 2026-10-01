@@ -248,3 +248,10 @@
 .shell[data-mode='mobile'] .pageOuter {
   padding: var(--space-8) var(--space-4) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px);
 }
+
+/* Pills stacked above the tab bar (sound, timer) reach higher than the + button: one more pill's worth of room. */
+.shell[data-mode='mobile']:has([data-bottom-bar]) .pageOuter {
+  padding-bottom: calc(
+    var(--tabbar-h) + env(safe-area-inset-bottom) + 96px + var(--tap-min) + var(--space-2)
+  );
+}

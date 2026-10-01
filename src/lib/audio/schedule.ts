@@ -118,3 +118,49 @@ export function clinkEvent(rng: Rng): Clink {
     decay: 0.12 + rng() * 0.22,
   }
 }
+
+// ─── Noise-layer events (campfire, birds, storm, waves) ─────────────────────
+
+export interface Crackle {
+  gain: number
+  freq: number
+  decay: number
+}
+
+/** A campfire pop: a short bright burst of widely varying loudness. */
+export function crackleEvent(rng: Rng): Crackle {
+  return {
+    gain: 0.05 + rng() ** 2 * 0.55,
+    freq: 800 + rng() * 3200,
+    decay: 0.005 + rng() * 0.055,
+  }
+}
+
+export interface BirdNote {
+  freq: number
+  /** Seconds after the phrase begins. */
+  at: number
+  dur: number
+}
+
+/** A birdsong phrase: 2 to 6 chirps, 1.8-5 kHz, finishing within 1.5 s. */
+export function birdPhrase(rng: Rng): { notes: BirdNote[] } {
+  const count = 2 + Math.floor(rng() * 5)
+  const notes: BirdNote[] = []
+  let at = 0
+  for (let i = 0; i < count; i++) {
+    notes.push({ freq: 1800 + rng() * 3200, at, dur: 0.04 + rng() * 0.21 })
+    at += 0.15 + rng() * 0.1 // at most 5 * 0.25 = 1.25, plus dur <= 0.25 stays within 1.5 s
+  }
+  return { notes }
+}
+
+/** A thunder clap: how loud, and how long the rumble lasts. */
+export function thunderEvent(rng: Rng): { gain: number; rumbleSeconds: number } {
+  return { gain: 0.3 + rng() * 0.7, rumbleSeconds: 4 + rng() * 5 }
+}
+
+/** One wave: seconds from swell to swell, and how high it rises. */
+export function waveSwell(rng: Rng): { period: number; peak: number } {
+  return { period: 6 + rng() * 5, peak: 0.4 + rng() * 0.6 }
+}

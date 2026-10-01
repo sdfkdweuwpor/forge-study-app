@@ -1,6 +1,6 @@
 /**
  * Pure envelope and level math for the audio module. Nothing here touches Web Audio, so it is unit
- * tested in Node; `engine.ts`, `chime.ts` and `ambient.ts` are thin wrappers that feed these numbers
+ * tested in Node; `engine.ts`, `chime.ts` and `mixer.ts` are thin wrappers that feed these numbers
  * to AudioParams.
  */
 

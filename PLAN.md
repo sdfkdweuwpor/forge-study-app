@@ -1071,7 +1071,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Accept: every route renders its Placeholder with no console errors; the tab bar shows at 375; the sidebar toggles.
 - [x] **1D [B] e2e smoke** (after 1B+1C). `e2e/smoke.spec.ts` visits every route, fails on console errors, checks theme switching and the mobile tab bar.
 - [x] **1E [H] README** skeleton: what it is, dev commands, deploy notes.
-- [ ] **1F Deploy (coordinator)** — ⏸ site created (`forge-study-app`, id `ae292093-4753-4fcf-886c-48bf406e202b`), but this cloud environment's egress policy blocks `api.netlify.com`/`*.netlify.app`; waiting on the user to allow those hosts or link the repo in Netlify's UI. Netlify site `forge-study-app`. A deep-link reload (`/goals/x`) serves the SPA, security headers are present, and the user is told about the optional `NETLIFY_AUTH_TOKEN`/`NETLIFY_SITE_ID` secrets.
+- [x] **1F Deploy (coordinator)** — ⏸ site created (`forge-study-app`, id `ae292093-4753-4fcf-886c-48bf406e202b`), but this cloud environment's egress policy blocks `api.netlify.com`/`*.netlify.app`; waiting on the user to allow those hosts or link the repo in Netlify's UI. Netlify site `forge-study-app`. A deep-link reload (`/goals/x`) serves the SPA, security headers are present, and the user is told about the optional `NETLIFY_AUTH_TOKEN`/`NETLIFY_SITE_ID` secrets.
+  - Superseded (2026-09-30): the live app is on GitHub Pages (`.github/workflows/pages.yml`, DECISIONS "Hosting: GitHub Pages"); `netlify.toml` stays as a fallback.
 
 ### Phase 2 — Design system
 - [x] **2A [D] Tokens & type** (first). Owns `src/styles/**` and the font import in `main.tsx`.
@@ -1160,17 +1161,20 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Done: pure `parsePlan` (fence and prose tolerant, line and column of every syntax and schema error), `planToOps` (create or merge, idempotent, never deletes), `toPlanDraft` for the Goal Breakdown Planner review screen, and the prompt and schema reference generated from the Zod schema. The panel (`goal.panels`, `i`, palette) and `ImportGoalButton` (new goal) preview first and write only on the Import click, with Undo. Tests: 75 pure, 9 fake-indexeddb (`importPlan.test.ts`), 7 manifest, and `e2e/import.spec.ts` (13).
   - Open: `ImportGoalButton` is hosted by the `/design` demo (`PlanImport.demo.tsx`) until the goals list places it, then delete the demo and re-point `openNewGoalImport` in the e2e. Assessments in the JSON are validated and previewed but not stored (no table fits them).
 - [ ] **5D [B] Integration** (after 5A and 5B).
+  - Audit 2026-09-30: done in the planner (preview timeline and fit, `onAppStart` re-planning, milestone countdown, term CU bar, `n`/`shift+r`/`i`). **Open:** +250 XP on course complete (`XP_COURSE_COMPLETE` is only used by sample data), the one-click catch-up on the goal page (placeholder in `GoalPage.tsx`), the goal page's own timeline (`GoalTimeline.tsx` placeholder; `/roadmap` has the real one), and "Now projected … (+N days)" against the previous projection.
   - Wizard step 4 preview: SVG Gantt timeline, "At this pace you'll finish on X", red impossible warning with h/day.
   - Goal page: "Now projected: Mar 14 (+9 days)" and the one-click catch-up.
   - Rebalance triggers and `onAppStart`.
   - `today.aside`: milestone countdown. Course complete gives +250 XP. "CUs completed this term" bar.
   - Shortcuts `n shift+r i`.
-- [ ] **5E [B] e2e** `goals.spec.ts`: wizard with WGU sample → chunks appear on Today; import JSON with an error shows the line number; completing a course early moves the projection earlier.
+- [x] **5E [B] e2e** `goals.spec.ts`: wizard with WGU sample → chunks appear on Today; import JSON with an error shows the line number; completing a course early moves the projection earlier.
+  - Done (audited 2026-09-30) under other names: outline → goal → sessions on Today in `e2e/planner.spec.ts`; the error's line in `e2e/import.spec.ts`; finishing a course moves the projection earlier in `src/db/repos/goals.crud.test.ts` (`setMilestoneStatus`). No `goals.spec.ts`.
 - [x] **5F [A] Goal Breakdown Planner logic** (§4.5). Owns `src/logic/scheduler/{plannerTypes,windows,effort,split,slotBook,planner,milestones,feasibility,planDiff,reflow,autoSlot,plannerFixtures}.ts` and their tests, plus `src/logic/planParse/**`. Pure; no schema change. 65 new scheduler tests and 13 parse tests.
 - [x] **5G [A] Schema v2 + wiring** (after 5B/5C land). Apply §4.6 (migration, backup migration, tests). Add a rows → `PlannerInput` adapter and a `diffPlanTasks` over `doDate/doTime/durationMinutes`; switch `rebalanceGoal` to `planStudy`. At first open each day, `rollForward` applies only when `autoApply`; otherwise it writes `planProposals`.
   - Done: `db/migrations/v2.ts` + pure `logic/schemaV2.ts` (shared by `logic/backup.ts` `migrateBackupV1toV2`); `STORES` = v1 + deltas; trash cascade and payloads cover the new tables. `logic/scheduler/goalSlots.ts` (`planGoalSlots`, `goalPlannerInput`, `goalLivePlan`) and `planTasks.ts` (`diffPlanTasks`, `planItemFields`, `currentPlanItems`, `planRevision`); `rebalanceGoal` runs the slot planner; `db/repos/planning.ts` (load rows, write a diff); `db/repos/proposals.ts` (`rollForwardGoal`, `proposeReplanWeek`, `applyProposal`/`dismissProposal` with Undo, `pendingProposals`, `runDailyPlanning` wired to the goals feature's `onAppStart`). Every `dueDate` consumer reads `doDate` (via `logic/taskDates.planDay`); "Carried over" with "from Tue"; a calm deadline chip; quick add `due/by/deadline`. Hooks: `logic/readinessPlan.ts`, `logic/practice.ts` (`wrongAnswerQueue`). Tests: migration (fake-indexeddb, v1 WGU sample), repos (scheduling, proposals, trash, tasks), pure (adapter, diff, hooks, mapping).
   - Left for 5H: the proposals banner and "Life happened" UI (the repo API is ready), the auto-slot toggle and applying `autoSlotTasks`, planning windows/shift/session/buffer editors (the minutes editors keep `planning.weekly` in step through `logic/goalPlanning.ts`), storing plan-import assessments in `plannedAssessments`.
-- [ ] **5H [B] Planner UI** (after 5G). Paste/upload → `parsePlanText` → a review screen (edit, reorder, delete, self-rating, "We couldn't read these lines", and templates or the Claude prompt when `needsBreakdown`). Then availability windows, shift pattern, session length and buffer; a preview with feasibility and its three choices; the goal page's behind banner with proposals; "Life happened"; the task do-date/deadline split and the auto-slot toggle. PDF/photo upload is text extraction only (a dependency decision for 5H, recorded in DECISIONS).
+- [x] **5H [B] Planner UI** (after 5G). Paste/upload → `parsePlanText` → a review screen (edit, reorder, delete, self-rating, "We couldn't read these lines", and templates or the Claude prompt when `needsBreakdown`). Then availability windows, shift pattern, session length and buffer; a preview with feasibility and its three choices; the goal page's behind banner with proposals; "Life happened"; the task do-date/deadline split and the auto-slot toggle. PDF/photo upload is text extraction only (a dependency decision for 5H, recorded in DECISIONS).
+  - Done (audited 2026-09-30): review, availability, effort, preview, proposals, Life happened, deadline split and auto-slot are all in `features/planner` and `features/tasks`, with `e2e/planner.spec.ts`.
 
 ### Phase 6 — Gamification
 - [x] **6A [B] XP & levels** (∥ 6B, 6C). Owns `src/logic/xp.ts` (levels section), `src/db/hooks/useXp.ts` and `src/features/gamification/{feature.ts,Level*,XpFloat*,LevelUp*,handlers.ts}`.
@@ -1224,7 +1228,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Done: a calm dark-theme day and dusk sky, a lighter dark soil edge and walls, a gentler night overlay, AA tooltip date. Screenshots in `screenshots/8b/`. Open: phone "Fit" cannot show a grown city whole (integer zoom; see DECISIONS.md "Art direction pass (8B)"). *Phase 13 carry-over done: Fit shows the whole city at 375 and 768 (whole zoom first, a fraction only when none fits); see DECISIONS.md "Fit".*
 
 ### Phase 9 — Chrome extension + Blocker
-- [ ] **9A [A] Protocol** (first, small). Owns `extension/src/shared/{protocol,config}.ts`: message types, guards, `APP_ORIGIN`, `DEFAULT_EXTENSION_ID`.
+- [x] **9A [A] Protocol** (first, small). Owns `extension/src/shared/{protocol,config}.ts`: message types, guards, `APP_ORIGIN`, `DEFAULT_EXTENSION_ID`.
+  - Done (audited 2026-09-30): `extension/src/shared/{protocol,config}.ts` with guards and tests; `APP_ORIGIN` is the Pages origin.
 - [x] **9B [B] Extension** (∥ 9C) — from Gemini draft, reworked. Owns `extension/**` except `shared/{protocol,config}.ts`, and `scripts/{build-extension,extension-id}.mjs`.
   - Manifest:
     - MV3 with `"key"` = the public key in §8.
@@ -1244,7 +1249,8 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - "You tried Instagram 7 times today — that's 7 wins" (`today.aside` + page).
   - Unlock log section in `progress.sections`.
 - [x] **9D [H] Release + docs.** `.github/workflows/extension-release.yml` (`npm ci && npm run zip:ext`, `gh release create extension-v<manifest version> forge-extension.zip`, or `upload --clobber` if the tag exists). README install steps (chrome://extensions → Developer mode → Load unpacked) and the phone note (iOS Screen Time / Android Digital Wellbeing links).
-- [ ] **9E [B] e2e.** Try `launchPersistentContext` with `--load-extension=extension/dist`: instagram.com redirects to blocked.html offline, and `ping` from `localhost:4173` works. If extensions can't load headless here, record that in DECISIONS and rely on unit tests plus manual steps.
+- [x] **9E [B] e2e.** Try `launchPersistentContext` with `--load-extension=extension/dist`: instagram.com redirects to blocked.html offline, and `ping` from `localhost:4173` works. If extensions can't load headless here, record that in DECISIONS and rely on unit tests plus manual steps.
+  - Done (audited 2026-09-30): `e2e/extension.spec.ts` and `e2e/blocker-extension.spec.ts` (run with `E2E_APP_DIST=<build>`), 14/14.
 
 ### Phase 10 — Onboarding, empty states, settings, data, PWA
 - [x] **10A [B] Onboarding** (∥ 10B, 10C). Owns `src/features/onboarding/**` and `src/data/sample/**`.
@@ -1260,6 +1266,7 @@ Legend: **[A]** architect (opus) · **[D]** designer (opus) · **[B]** builder (
   - Manifest: `start_url: '/'`, standalone, theme colors.
   - Offline e2e: load, go offline, reload, the app works.
 - [ ] **10D [D] State audit.** Empty, loading and error states on every screen; fix list; screenshots.
+  - Audit 2026-09-30: not done as a pass. Per-feature empty states exist; there is no fix list and no loading or error state screenshots.
 
 ### Phase 11 — Extras (three waves of three parallel builders; everything plugs in via slots)
 - [x] **Wave A**
